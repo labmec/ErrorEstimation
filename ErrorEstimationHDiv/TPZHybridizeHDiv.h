@@ -17,20 +17,20 @@ class TPZVec;
 class TPZCompMesh;
 class TPZMaterial;
 class TPZCompElSide;
+class TPZInterpolatedElement;
 
-struct TPZHybridizeHDiv
-{
+struct TPZHybridizeHDiv {
     int HDivWrapMatid = 8;
     int LagrangeInterface = 9;
     int InterfaceMatid = 10;
     int NState = 1;
-    
+
     /// split the connects between flux elements and create a dim-1 pressure element
     void HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec);
-    
+
     /// Create interface elements with material id InterfaceMatid
     void CreateInterfaceElements(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
-    
+
     /// create a multiphysics mesh using the materials pointed to in the vector
     void CreateMultiphysicsMesh(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
     
@@ -46,6 +46,8 @@ struct TPZHybridizeHDiv
 private:
     
     std::tuple<int64_t,int> SplitConnects(const TPZCompElSide &left, const TPZCompElSide &right, TPZVec<TPZCompMesh *> &meshvec);
+
+    static TPZCompElSide RightElement(TPZInterpolatedElement *intel, int side);
 
 };
 
