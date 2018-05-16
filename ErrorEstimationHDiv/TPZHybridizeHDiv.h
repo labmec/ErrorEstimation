@@ -23,6 +23,7 @@ struct TPZHybridizeHDiv
     int HDivWrapMatid = 8;
     int LagrangeInterface = 9;
     int InterfaceMatid = 10;
+    int NState = 1;
     
     /// split the connects between flux elements and create a dim-1 pressure element
     void HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec);
@@ -31,14 +32,20 @@ struct TPZHybridizeHDiv
     void CreateInterfaceElements(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
     
     /// create a multiphysics mesh using the materials pointed to in the vector
-    TPZCompMesh *CreateMultiphysicsMesh(const TPZVec<TPZMaterial *> &matvec, TPZVec<TPZCompMesh *> &meshvec);
+    void CreateMultiphysicsMesh(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
     
     /// group and condense the elements
     static void GroupElements(TPZCompMesh *cmesh);
     
+    /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the atomic meshes
+    void InsertPeriferalMaterialObjects(TPZVec<TPZCompMesh *> &meshvec);
+    
+    /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the multiphysics mesh
+    void InsertPeriferalMaterialObjects(TPZCompMesh *cmesh);
+    
 private:
     
-    void SplitConnects(const TPZCompElSide &left, const TPZCompElSide &right, TPZVec<TPZCompMesh *> &meshvec);
+    std::tuple<int64_t,int> SplitConnects(const TPZCompElSide &left, const TPZCompElSide &right, TPZVec<TPZCompMesh *> &meshvec);
 
 };
 
