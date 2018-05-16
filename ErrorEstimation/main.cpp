@@ -19,7 +19,6 @@
 #include "pzadmchunk.h"
 #include "pzcmesh.h"
 #include "pzvec_extras.h"
-#include "pzdebug.h"
 #include "pzcheckgeom.h"
 #include "pzcheckmesh.h"
 
@@ -46,7 +45,7 @@
 #include "pzsbstrmatrix.h"
 #include "pzfstrmatrix.h"
 
-#include "pzmaterial.h"
+#include "TPZMaterial.h"
 #include "pzbndcond.h"
 #include "pzelasmat.h"
 #include "pzplaca.h"
