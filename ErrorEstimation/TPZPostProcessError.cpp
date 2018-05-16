@@ -503,6 +503,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, meshmixed);
 
     TPZManVector<REAL,3> errors(3,0.);
+    {
+        int64_t nels = meshmixed->ElementVec().NElements();
+        meshmixed->ElementSolution().Redim(nels, 3);
+    }
     an.PostProcessError(errors);
     std::cout << "Estimated error " << errors << std::endl;
 }

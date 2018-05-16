@@ -217,7 +217,7 @@ int main(int argc,char *argv[]) {
     return 0;
 }
 
-void ExactSolutionArcTangent(const TPZVec<REAL> &x, TPZVec<STATE> &sol, TPZFMatrix<STATE> &dsol);
+void ExactSolutionArcTangent2(const TPZVec<REAL> &x, TPZVec<STATE> &sol, TPZFMatrix<STATE> &dsol);
 
 bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
 	// Variables
@@ -259,7 +259,7 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
 			
     TPZManVector<STATE> x(3,0.5),sol(1),ddsol(6);
     TPZFNMatrix<9,STATE> dsol(3,1);
-    ExactSolutionArcTangent(x, sol, dsol);
+    ExactSolutionArcTangent2(x, sol, dsol);
     std::cout << "Solution at center "<< sol << std::endl;
     
 	// Printing geometric mesh to validate
@@ -319,7 +319,7 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
     TPZCompMesh *pressuremesh = meshvec[0];
     
     TPZAnalysis an(pressuremesh,true);
-    an.SetExact(ExactSolutionArcTangent);
+    an.SetExact(ExactSolutionArcTangent2);
     {
         std::stringstream sout;
         sout << sim_case.dir_name << "/" << "Poisson" << ModelDimension << "D_E" << typeel << "Thr" << nthread << "H" << std::setprecision(2) << nref << "P" << pinit << ".vtk";
@@ -380,10 +380,38 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
     
     TPZVec<STATE> estimatedelementerror, exactelementerror;
     error.ComputeElementErrors(estimatedelementerror);
-    an.PostProcessError(exactelementerror);
+    {
+        int64_t nels = pressuremesh->ElementVec().NElements();
+        pressuremesh->ElementSolution().Redim(nels, 6);
+    }
+    bool store_errors = true;
+    an.PostProcessError(exactelementerror, store_errors);
     std::cout << "Exact error " << exactelementerror << std::endl;
-//    error.ComputeExactH1SemiNormErrors(*exact, exactelementerror);
+    {
+        TPZFMatrix<STATE> true_elerror(pressuremesh->ElementSolution());
+        TPZFMatrix<STATE> estimate_elerror(meshvec[1]->ElementSolution());
+        int64_t nel = true_elerror.Rows();
+        for (int64_t el=0; el<nel; el++) {
+            true_elerror(el,0) = estimate_elerror(el,2);
+            true_elerror(el,1) = true_elerror(el,2);
+            if (true_elerror(el,1) > 1.e-8) {
+                true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
+            }
+        }
+        pressuremesh->ElementSolution() = true_elerror;
+    }
     
+    
+//    error.ComputeExactH1SemiNormErrors(*exact, exactelementerror);
+    {
+        TPZStack<std::string> scalnames,vecnames;
+        scalnames.Push("State");
+        scalnames.Push("Error");
+        scalnames.Push("TrueError");
+        scalnames.Push("EffectivityIndex");
+        an.DefineGraphMesh(pressuremesh->Dimension(), scalnames, vecnames, "Errors.vtk");
+        an.PostProcess(1);
+    }
     if(gDebug) {
         std::ofstream out(MeshFileName.c_str());
         pressuremesh->LoadReferences();

@@ -34,7 +34,7 @@ REAL PolinomicValue(int var,int dim,const TPZVec<REAL> &x,TPZVec<REAL> &x0) {
 void ExactSolutionArcTangent(const TPZVec<REAL> &x, TPZVec<STATE> &sol, TPZFMatrix<STATE> &dsol, TPZVec<STATE> &ddsol) {
     TPZManVector<REAL,3> xloc(x);
     for(int i=0; i<3; i++ ) xloc[i] /= GlobScale;
-	ExactSolutionArcTangent(x,sol,dsol);
+	ExactSolutionArcTangent2(x,sol,dsol);
 	REAL B = 5.;
 	if(ModelDimension==1)
 		B *= 0.25;
@@ -88,7 +88,7 @@ void ExactSolutionArcTangent(const TPZVec<REAL> &x, TPZVec<STATE> &sol, TPZFMatr
     }
 
 }
-void ExactSolutionArcTangent(const TPZVec<REAL> &x, TPZVec<STATE> &sol, TPZFMatrix<STATE> &dsol) {
+void ExactSolutionArcTangent2(const TPZVec<REAL> &x, TPZVec<STATE> &sol, TPZFMatrix<STATE> &dsol) {
     TPZManVector<REAL,3> xloc(x);
     for (int i=0; i<3; i++) {
         xloc[i] /= GlobScale;
