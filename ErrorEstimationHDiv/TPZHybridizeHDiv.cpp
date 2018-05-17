@@ -50,11 +50,12 @@ std::tuple<int64_t, int> TPZHybridizeHDiv::SplitConnects(const TPZCompElSide &le
     if (cleft.HasDependency()) {
         cleft.RemoveDepend();
     }
-    int64_t index = fluxmesh->ConnectVec().AllocateNewElement();
-    fluxmesh->ConnectVec()[index] = cleft;
+    int64_t index = fluxmesh->AllocateNewConnect(cleft);
+    TPZConnect &newcon = fluxmesh->ConnectVec()[index];
     cleft.DecrementElConnected();
-    fluxmesh->ConnectVec()[index].ResetElConnected();
-    fluxmesh->ConnectVec()[index].IncrementElConnected();
+    newcon.ResetElConnected();
+    newcon.IncrementElConnected();
+    newcon.SetSequenceNumber(fluxmesh->NConnects()-1);
 
     int rightlocindex = intelright->SideConnectLocId(0, right.Side());
     intelright->SetConnectIndex(rightlocindex, index);
@@ -171,7 +172,7 @@ void TPZHybridizeHDiv::HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec) {
             }
         }
     }
-    fluxmesh->ExpandSolution();
+    fluxmesh->InitializeBlock();
     fluxmesh->ComputeNodElCon();
     TPZCompMesh *pressuremesh = meshvec[1];
     gmesh->ResetReference();
@@ -190,7 +191,7 @@ void TPZHybridizeHDiv::HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec) {
         }
         gel->ResetReference();
     }
-    pressuremesh->ExpandSolution();
+    pressuremesh->InitializeBlock();
 }
 
 void TPZHybridizeHDiv::CreateInterfaceElements(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec) {
