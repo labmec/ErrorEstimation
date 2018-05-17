@@ -218,7 +218,7 @@ std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCo
     TPZManVector<TPZCompMesh *, 2> meshvec(2, 0);
     CloneMeshVec(meshvec_orig, meshvec);
     //   IncreaseSideOrders(meshvec[0]);
-    TPZHybridizeHDiv hybridizer;
+    TPZHybridizeHDiv hybridizer(meshvec);
     /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid
     hybridizer.InsertPeriferalMaterialObjects(meshvec);
 

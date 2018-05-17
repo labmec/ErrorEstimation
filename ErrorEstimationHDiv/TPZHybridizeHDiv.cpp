@@ -19,15 +19,29 @@
 #include "pzbuildmultiphysicsmesh.h"
 #include "TPZLagrangeMultiplier.h"
 
+TPZHybridizeHDiv::TPZHybridizeHDiv(TPZVec<TPZCompMesh*>& meshvec) {
+    int minMatId = std::numeric_limits<int>::max();
+    for (auto &mesh : meshvec) {
+        for (auto &mat : mesh->MaterialVec()) {
+            minMatId = std::min(minMatId, mat.first);
+        }
+    }
+    if (minMatId == std::numeric_limits<int>::max()) {
+        minMatId = 0;
+    }
+    HDivWrapMatid = minMatId - 1;
+    LagrangeInterface = minMatId - 2;
+    InterfaceMatid = minMatId - 3;
+}
 
 /// split the connect between two neighbouring elements
 
 std::tuple<int64_t, int> TPZHybridizeHDiv::SplitConnects(const TPZCompElSide &left, const TPZCompElSide &right, TPZVec<TPZCompMesh *> &meshvec) {
     TPZCompMesh *fluxmesh = meshvec[0];
-    TPZCompMesh *pressuremesh = meshvec[1];
-    TPZGeoMesh *gmesh = fluxmesh->Reference();
+    //TPZCompMesh *pressuremesh = meshvec[1];
+    //TPZGeoMesh *gmesh = fluxmesh->Reference();
     TPZGeoElSide gleft(left.Reference());
-    TPZGeoElSide gright(right.Reference());
+    //TPZGeoElSide gright(right.Reference());
     TPZInterpolatedElement *intelleft = dynamic_cast<TPZInterpolatedElement *> (left.Element());
     TPZInterpolatedElement *intelright = dynamic_cast<TPZInterpolatedElement *> (right.Element());
     intelleft->SetSideOrient(left.Side(), 1);
@@ -73,8 +87,8 @@ std::tuple<int64_t, int> TPZHybridizeHDiv::SplitConnects(const TPZCompElSide &le
     }
     wrap1->LoadElementReference();
     wrap2->LoadElementReference();
-    int64_t pressureindex = -1;
-    int pressureorder = -1;
+    int64_t pressureindex;
+    int pressureorder;
     {
         TPZGeoElBC gbc(gleft, LagrangeInterface);
         pressureindex = gbc.CreatedElement()->Index();
@@ -211,7 +225,6 @@ void TPZHybridizeHDiv::CreateInterfaceElements(TPZCompMesh *cmesh, TPZVec<TPZCom
 }
 
 void TPZHybridizeHDiv::CreateMultiphysicsMesh(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvector) {
-
     InsertPeriferalMaterialObjects(cmesh);
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
     cmesh->AutoBuild();
@@ -228,8 +241,7 @@ void TPZHybridizeHDiv::GroupElements(TPZCompMesh *cmesh) {
     int64_t nconnects = cmesh->NConnects();
     TPZVec<TPZElementGroup *> groupindex(nconnects, 0);
     int dim = cmesh->Dimension();
-    for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = cmesh->Element(el);
+    for (TPZCompEl *cel : cmesh->ElementVec()) {
         if (!cel || !cel->Reference() || cel->Reference()->Dimension() != dim) {
             continue;
         }
@@ -247,8 +259,7 @@ void TPZHybridizeHDiv::GroupElements(TPZCompMesh *cmesh) {
         }
         elgr->AddElement(cel);
     }
-    for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = cmesh->Element(el);
+    for (TPZCompEl *cel : cmesh->ElementVec()) {
         if (!cel || !cel->Reference()) {
             continue;
         }
@@ -263,8 +274,8 @@ void TPZHybridizeHDiv::GroupElements(TPZCompMesh *cmesh) {
     }
     cmesh->ComputeNodElCon();
     nel = cmesh->NElements();
-    for (int64_t el = 0; el < nel; el++) {
-        TPZElementGroup *elgr = dynamic_cast<TPZElementGroup *> (cmesh->Element(el));
+    for (TPZCompEl *cel : cmesh->ElementVec()) {
+        TPZElementGroup *elgr = dynamic_cast<TPZElementGroup *> (cel);
         if (elgr) {
             TPZCondensedCompEl *cond = new TPZCondensedCompEl(elgr);
             cond->SetKeepMatrix(false);
@@ -275,7 +286,6 @@ void TPZHybridizeHDiv::GroupElements(TPZCompMesh *cmesh) {
 /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the atomic meshes
 
 void TPZHybridizeHDiv::InsertPeriferalMaterialObjects(TPZVec<TPZCompMesh *> &meshvec) {
-
     TPZFNMatrix<1, STATE> xk(NState, NState, 0.), xb(NState, NState, 0.), xc(NState, NState, 0.), xf(NState, 1, 0.);
     TPZFNMatrix<4, STATE> val1(NState, NState, 0.), val2Flux(NState, 1, 0.);
     TPZCompMesh *pressuremesh = meshvec[1];
@@ -292,17 +302,12 @@ void TPZHybridizeHDiv::InsertPeriferalMaterialObjects(TPZVec<TPZCompMesh *> &mes
         matPerif->SetMaterial(xk, xc, xb, xf);
         fluxmesh->InsertMaterialObject(matPerif);
     }
-
-
-
-
 }
 
 /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the multiphysics mesh
 
 void TPZHybridizeHDiv::InsertPeriferalMaterialObjects(TPZCompMesh *cmesh) {
     TPZFNMatrix<1, STATE> xk(NState, NState, 0.), xb(NState, NState, 0.), xc(NState, NState, 0.), xf(NState, 1, 0.);
-    TPZFNMatrix<4, STATE> val1(NState, NState, 0.), val2Flux(NState, 1, 0.);
     TPZMat1dLin *matPerif = NULL;
     int dim = cmesh->Dimension();
 
@@ -321,6 +326,5 @@ void TPZHybridizeHDiv::InsertPeriferalMaterialObjects(TPZCompMesh *cmesh) {
         TPZLagrangeMultiplier *matleft = new TPZLagrangeMultiplier(InterfaceMatid, dim - 1, NState);
         cmesh->InsertMaterialObject(matleft);
     }
-
 }
 
