@@ -39,13 +39,13 @@ struct TPZHybridizeHDiv {
     /// Create interface elements with material id InterfaceMatid
     void CreateInterfaceElements(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
 
-    /// create a multiphysics mesh using the materials pointed to in the vector
-    void CreateMultiphysicsMesh(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
+    /// create a multiphysics mesh for the hybrid formulation using the materials of another mesh and the given atomic meshes
+    TPZCompMesh * CreateMultiphysicsMesh(TPZCompMesh *cmesh_orig, TPZVec<TPZCompMesh *> &meshvec);
     
     /// group and condense the elements
     static void GroupElements(TPZCompMesh *cmesh);
     
-    /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the atomic meshes
+    /// insert the material objects for HDivWrap and LagrangeInterface in the atomic meshes
     void InsertPeriferalMaterialObjects(TPZVec<TPZCompMesh *> &meshvec);
     
     /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the multiphysics mesh

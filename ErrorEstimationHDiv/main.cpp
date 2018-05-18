@@ -324,19 +324,15 @@ void IncreaseSideOrders(TPZCompMesh *fluxmesh) {
 }
 
 std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_orig, TPZVec<TPZCompMesh *> &meshvec_orig, TPZHybridizeHDiv &hybridizer) {
-    TPZGeoMesh *gmesh = cmesh_orig->Reference();
     TPZManVector<TPZCompMesh *, 2> meshvec(2, 0);
     CloneMeshVec(meshvec_orig, meshvec);
     //   IncreaseSideOrders(meshvec[0]);
     hybridizer.ComputePeriferalMaterialIds(meshvec);
-    /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid
+    hybridizer.ComputeNState(meshvec);
+    /// insert the material objects for HDivWrap and LagrangeInterface
     hybridizer.InsertPeriferalMaterialObjects(meshvec);
-
-
     hybridizer.HybridizeInternalSides(meshvec);
-    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
-    cmesh_orig->CopyMaterials(*cmesh);
-    hybridizer.CreateMultiphysicsMesh(cmesh, meshvec);
+    TPZCompMesh *cmesh = hybridizer.CreateMultiphysicsMesh(cmesh_orig, meshvec);
     hybridizer.CreateInterfaceElements(cmesh, meshvec);
 //    hybridizer.GroupElements(cmesh);
     return std::make_tuple(cmesh, meshvec);
