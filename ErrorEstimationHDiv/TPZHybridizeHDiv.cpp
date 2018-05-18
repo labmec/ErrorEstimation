@@ -20,7 +20,7 @@
 #include "TPZLagrangeMultiplier.h"
 
 TPZHybridizeHDiv::TPZHybridizeHDiv(TPZVec<TPZCompMesh*>& meshvec) {
-    ComputeMatIds(meshvec);
+    ComputePeriferalMaterialIds(meshvec);
     ComputeNState(meshvec);
 }
 
@@ -30,7 +30,7 @@ void TPZHybridizeHDiv::ComputeNState(TPZVec<TPZCompMesh*>& meshvec){
     }
 }
 
-void TPZHybridizeHDiv::ComputeMatIds(TPZVec<TPZCompMesh*>& meshvec){
+void TPZHybridizeHDiv::ComputePeriferalMaterialIds(TPZVec<TPZCompMesh*>& meshvec){
     int maxMatId = std::numeric_limits<int>::min();
     for (auto &mesh : meshvec) {
         for (auto &mat : mesh->MaterialVec()) {
