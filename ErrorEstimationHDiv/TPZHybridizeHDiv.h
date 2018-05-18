@@ -25,7 +25,14 @@ struct TPZHybridizeHDiv {
     int InterfaceMatid = 0;
     int NState = 1;
     
+    TPZHybridizeHDiv() = default;
+    
     TPZHybridizeHDiv(TPZVec<TPZCompMesh *> &meshvec);
+    
+    void ComputeMatIds(TPZVec<TPZCompMesh*>& meshvec);
+
+    void ComputeNState(TPZVec<TPZCompMesh*>& meshvec);
+
 
     /// split the connects between flux elements and create a dim-1 pressure element
     void HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec);

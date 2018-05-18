@@ -20,18 +20,29 @@
 #include "TPZLagrangeMultiplier.h"
 
 TPZHybridizeHDiv::TPZHybridizeHDiv(TPZVec<TPZCompMesh*>& meshvec) {
-    int minMatId = std::numeric_limits<int>::max();
+    ComputeMatIds(meshvec);
+    ComputeNState(meshvec);
+}
+
+void TPZHybridizeHDiv::ComputeNState(TPZVec<TPZCompMesh*>& meshvec){
+    if (meshvec.size() > 1 && meshvec[1]->NMaterials() > 0) {
+        NState = meshvec[1]->MaterialVec().begin()->second->NStateVariables();
+    }
+}
+
+void TPZHybridizeHDiv::ComputeMatIds(TPZVec<TPZCompMesh*>& meshvec){
+    int maxMatId = std::numeric_limits<int>::min();
     for (auto &mesh : meshvec) {
         for (auto &mat : mesh->MaterialVec()) {
-            minMatId = std::min(minMatId, mat.first);
+            maxMatId = std::max(maxMatId, mat.first);
         }
     }
-    if (minMatId == std::numeric_limits<int>::max()) {
-        minMatId = 0;
+    if (maxMatId == std::numeric_limits<int>::min()) {
+        maxMatId = 0;
     }
-    HDivWrapMatid = minMatId - 1;
-    LagrangeInterface = minMatId - 2;
-    InterfaceMatid = minMatId - 3;
+    HDivWrapMatid = maxMatId + 1;
+    LagrangeInterface = maxMatId + 2;
+    InterfaceMatid = maxMatId + 3;
 }
 
 /// split the connect between two neighbouring elements
@@ -55,7 +66,7 @@ std::tuple<int64_t, int> TPZHybridizeHDiv::SplitConnects(const TPZCompElSide &le
     cleft.DecrementElConnected();
     newcon.ResetElConnected();
     newcon.IncrementElConnected();
-    newcon.SetSequenceNumber(fluxmesh->NConnects()-1);
+    newcon.SetSequenceNumber(fluxmesh->NConnects() - 1);
 
     int rightlocindex = intelright->SideConnectLocId(0, right.Side());
     intelright->SetConnectIndex(rightlocindex, index);
