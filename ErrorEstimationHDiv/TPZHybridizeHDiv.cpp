@@ -20,6 +20,11 @@
 #include "TPZLagrangeMultiplier.h"
 
 TPZHybridizeHDiv::TPZHybridizeHDiv(TPZVec<TPZCompMesh*>& meshvec) {
+    ComputePeriferalMaterialIds(meshvec);
+}
+
+void TPZHybridizeHDiv::ComputePeriferalMaterialIds(TPZVec<TPZCompMesh*>& meshvec)
+{
     int minMatId = std::numeric_limits<int>::max();
     for (auto &mesh : meshvec) {
         for (auto &mat : mesh->MaterialVec()) {

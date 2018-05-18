@@ -20,13 +20,17 @@ class TPZCompElSide;
 class TPZInterpolatedElement;
 
 struct TPZHybridizeHDiv {
-    int HDivWrapMatid = 0;
-    int LagrangeInterface = 0;
-    int InterfaceMatid = 0;
+    int HDivWrapMatid = -10;
+    int LagrangeInterface = -9;
+    int InterfaceMatid = -8;
     int NState = 1;
     
+    TPZHybridizeHDiv(){}
+
     TPZHybridizeHDiv(TPZVec<TPZCompMesh *> &meshvec);
 
+    /// compute material ids for the periferal material objects
+    void ComputePeriferalMaterialIds(TPZVec<TPZCompMesh *> &meshvec);
     /// split the connects between flux elements and create a dim-1 pressure element
     void HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec);
 
