@@ -25,6 +25,7 @@
 #include "pzskylstrmatrix.h"
 
 #include <tuple>
+#include <memory>
 
 TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
 TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
@@ -158,7 +159,6 @@ int main(int argc, char *argv[]) {
         //        meshvec[1]->Solution().Print("Press");
         // Post processing
         an.PostProcess(1,2);
-        an.PostProcess(1,1);
         
     }
     {
@@ -169,17 +169,8 @@ int main(int argc, char *argv[]) {
         int dim = 1;
         an.PostProcess(2,dim);
     }
-    {
-        std::ofstream out("PressureNoAverage.txt");
-        meshvec[1]->Print(out);
-    }
-
     ComputeAveragePressure(meshvec_orig[1], meshvec[1], hybridizer.LagrangeInterface);
     
-    {
-        std::ofstream out("PressureAverage.txt");
-        meshvec[1]->Print(out);
-    }
     {
         TPZAnalysis an(meshvec[1],false);
         TPZStack<std::string> scalnames, vecnames;
@@ -408,7 +399,7 @@ void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, 
             tr[1] = tmp.Multiply(tr[1]);
         }
 
-        TPZIntPoints *intp = gel->CreateSideIntegrationRule(gel->NSides()-1, 2*order);
+        std::unique_ptr<TPZIntPoints> intp( gel->CreateSideIntegrationRule(gel->NSides()-1, 2*order));
         int nshape = intel->NShapeF();
         TPZFNMatrix<20,REAL> L2Mat(nshape,nshape,0.), L2Rhs(nshape,1,0.);
         TPZFNMatrix<220,REAL> phi(nshape,1,0.), dshape(dim,nshape);
@@ -442,5 +433,6 @@ void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, 
                 pressureHybrid->Solution()(pos+idf,0) = L2Rhs(count++);
             }
         }
+
     }
 }
