@@ -36,7 +36,7 @@ void IncreaseSideOrders(TPZCompMesh *fluxmesh);
 /// Set the interface pressure to the average pressure
 void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, int InterfaceMatid);
 
-std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_orig, TPZVec<TPZCompMesh *> &meshvec, TPZHybridizeHDiv &hybridize);
+std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -69,37 +69,34 @@ int main(int argc, char *argv[]) {
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
         }
     }
-    TPZManVector<TPZCompMesh*, 2> meshvec_orig(2, 0), meshvec(2, 0);
-    TPZCompMesh *cmesh_orig = CreateHDivMesh(config, meshvec_orig);
-    cmesh_orig->InitializeBlock();
+    TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
+    TPZCompMesh *cmesh_HDiv = CreateHDivMesh(config, meshvec_HDiv);
+    cmesh_HDiv->InitializeBlock();
 //    {
-//        std::ofstream out("meshvec_orig_flux.txt");
-//        meshvec_orig[0]->Print(out);
+//        std::ofstream out("meshvec_HDiv_flux.txt");
+//        meshvec_HDiv[0]->Print(out);
 //    }
 //    {
-//        std::ofstream out("meshvec_orig_pres.txt");
-//        meshvec_orig[1]->Print(out);
+//        std::ofstream out("meshvec_HDiv_pres.txt");
+//        meshvec_HDiv[1]->Print(out);
 //    }
 
-    TPZCompMesh *cmesh;
-    TPZHybridizeHDiv hybridizer;
-    tie(cmesh, meshvec) = CreatePostProcessingMesh(cmesh_orig, meshvec_orig,hybridizer);
     {
-        cmesh_orig->InitializeBlock();
+        cmesh_HDiv->InitializeBlock();
         {
-            std::ofstream out("cmesh_orig.txt");
-            cmesh_orig->Print(out);
+            std::ofstream out("cmesh_HDiv.txt");
+            cmesh_HDiv->Print(out);
         }
-        TPZAnalysis an(cmesh_orig);
+        TPZAnalysis an(cmesh_HDiv);
 #ifdef USING_MKL2
-        TPZSymetricSpStructMatrix strmat(cmesh_orig);
+        TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
         strmat.SetNumThreads(0);
         strmat.SetDecomposeType(ELDLt);
         an.SetStructuralMatrix(strmat);
 #else
-        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_orig);
+        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
         strmat.SetNumThreads(0);
-        //        TPZSkylineStructMatrix strmat3(cmesh);
+        //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
         //        strmat3.SetNumThreads(8);
 #endif
         
@@ -114,22 +111,26 @@ int main(int argc, char *argv[]) {
         scalnames.Push("Pressure");
         vecnames.Push("Flux");
         an.DefineGraphMesh(2, scalnames, vecnames, "Original.vtk");
-        //        meshvec[1]->Solution().Print("Press");
+        //        meshvec_Hybrid[1]->Solution().Print("Press");
         // Post processing
         an.PostProcess(1,2);
 
     }
+    TPZHybridizeHDiv hybridizer;
+    TPZCompMesh *cmesh_Hybrid;
+    TPZManVector<TPZCompMesh*, 2> meshvec_Hybrid(2, 0);
+    tie(cmesh_Hybrid, meshvec_Hybrid) = CreatePostProcessingMesh(cmesh_HDiv, meshvec_HDiv,hybridizer);
     {
-        cmesh->InitializeBlock();
-        TPZAnalysis an(cmesh);
+        cmesh_Hybrid->InitializeBlock();
+        TPZAnalysis an(cmesh_Hybrid);
 #ifdef USING_MKL2
-        TPZSymetricSpStructMatrix strmat(cmesh);
+        TPZSymetricSpStructMatrix strmat(cmesh_Hybrid);
         strmat.SetNumThreads(0);
         an.SetStructuralMatrix(strmat);
 #else
-//        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh);
+//        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_Hybrid);
 //        strmat.SetNumThreads(0);
-        TPZSkylineStructMatrix strmat(cmesh);
+        TPZSkylineStructMatrix strmat(cmesh_Hybrid);
         strmat.SetNumThreads(0);
 //        strmat.SetDecomposeType(ELDLt);
 #endif
@@ -140,13 +141,13 @@ int main(int argc, char *argv[]) {
         delete direct;
         direct = 0;
         an.Assemble();
-        meshvec[0]->InitializeBlock();
+        meshvec_Hybrid[0]->InitializeBlock();
         an.Solve();
         {
             std::ofstream out("cmesh.txt");
-            cmesh->Print(out);
+            cmesh_Hybrid->Print(out);
             std::ofstream out2("cmeshflux.txt");
-            meshvec[0]->Print(out2);
+            meshvec_Hybrid[0]->Print(out2);
         }
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
@@ -156,23 +157,23 @@ int main(int argc, char *argv[]) {
         vecnames.resize(0);
         an.DefineGraphMesh(1, scalnames, vecnames, "Hybrid1D.vtk");
 
-        //        meshvec[1]->Solution().Print("Press");
+        //        meshvec_Hybrid[1]->Solution().Print("Press");
         // Post processing
         an.PostProcess(1,2);
         
     }
     {
-        TPZAnalysis an(meshvec[1],false);
+        TPZAnalysis an(meshvec_Hybrid[1],false);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
         an.DefineGraphMesh(1, scalnames, vecnames, "Hybrid1D.vtk");
         int dim = 1;
         an.PostProcess(2,dim);
     }
-    ComputeAveragePressure(meshvec_orig[1], meshvec[1], hybridizer.LagrangeInterface);
+    ComputeAveragePressure(meshvec_HDiv[1], meshvec_Hybrid[1], hybridizer.LagrangeInterface);
     
     {
-        TPZAnalysis an(meshvec[1],false);
+        TPZAnalysis an(meshvec_Hybrid[1],false);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
         an.DefineGraphMesh(1, scalnames, vecnames, "Average1D.vtk");
@@ -181,15 +182,15 @@ int main(int argc, char *argv[]) {
     }
 
 //    {
-//        std::ofstream out("cmesh.txt");
+//        std::ofstream out("cmesh_Hybrid.txt");
 //        cmesh->Print(out);
 //    }
 //    {
-//        std::ofstream out("meshvec_flux.txt");
+//        std::ofstream out("meshvec_Hybrid_flux.txt");
 //        meshvec[0]->Print(out);
 //    }
 //    {
-//        std::ofstream out("meshvec_pres.txt");
+//        std::ofstream out("meshvec_Hybrid_pres.txt");
 //        meshvec[1]->Print(out);
 //    }
     return 0;
@@ -323,19 +324,18 @@ void IncreaseSideOrders(TPZCompMesh *fluxmesh) {
     fluxmesh->InitializeBlock();
 }
 
-std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_orig, TPZVec<TPZCompMesh *> &meshvec_orig, TPZHybridizeHDiv &hybridizer) {
-    TPZManVector<TPZCompMesh *, 2> meshvec(2, 0);
-    CloneMeshVec(meshvec_orig, meshvec);
-    //   IncreaseSideOrders(meshvec[0]);
-    hybridizer.ComputePeriferalMaterialIds(meshvec);
-    hybridizer.ComputeNState(meshvec);
+std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridizer) {
+    TPZManVector<TPZCompMesh *, 2> meshvec_Hybrid(2, 0);
+    CloneMeshVec(meshvec_HDiv, meshvec_Hybrid);
+    hybridizer.ComputePeriferalMaterialIds(meshvec_Hybrid);
+    hybridizer.ComputeNState(meshvec_Hybrid);
     /// insert the material objects for HDivWrap and LagrangeInterface
-    hybridizer.InsertPeriferalMaterialObjects(meshvec);
-    hybridizer.HybridizeInternalSides(meshvec);
-    TPZCompMesh *cmesh = hybridizer.CreateMultiphysicsMesh(cmesh_orig, meshvec);
-    hybridizer.CreateInterfaceElements(cmesh, meshvec);
+    hybridizer.InsertPeriferalMaterialObjects(meshvec_Hybrid);
+    hybridizer.HybridizeInternalSides(meshvec_Hybrid);
+    TPZCompMesh *cmesh_Hybrid = hybridizer.CreateMultiphysicsMesh(cmesh_HDiv, meshvec_Hybrid);
+    hybridizer.CreateInterfaceElements(cmesh_Hybrid, meshvec_Hybrid);
 //    hybridizer.GroupElements(cmesh);
-    return std::make_tuple(cmesh, meshvec);
+    return std::make_tuple(cmesh_Hybrid, meshvec_Hybrid);
 }
 
 /// Set the interface pressure to the average pressure
