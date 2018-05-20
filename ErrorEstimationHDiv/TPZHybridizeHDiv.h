@@ -25,33 +25,38 @@ struct TPZHybridizeHDiv {
     int InterfaceMatid = -8;
     int NState = 1;
     
-    TPZHybridizeHDiv(){}
-
-    TPZHybridizeHDiv(TPZVec<TPZCompMesh *> &meshvec);
+    TPZHybridizeHDiv() = default;
+    
+    TPZHybridizeHDiv(TPZVec<TPZCompMesh *> &meshvec_Hybrid);
+    
+    void ComputeNState(TPZVec<TPZCompMesh*>& meshvec_Hybrid);
 
     /// compute material ids for the periferal material objects
-    void ComputePeriferalMaterialIds(TPZVec<TPZCompMesh *> &meshvec);
+    void ComputePeriferalMaterialIds(TPZVec<TPZCompMesh *> &meshvec_Hybrid);
     /// split the connects between flux elements and create a dim-1 pressure element
-    void HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec);
+    void HybridizeInternalSides(TPZVec<TPZCompMesh *> &meshvec_Hybrid);
 
     /// Create interface elements with material id InterfaceMatid
-    void CreateInterfaceElements(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
+    void CreateInterfaceElements(TPZCompMesh *cmesh_Hybrid, TPZVec<TPZCompMesh *> &meshvec_Hybrid);
 
-    /// create a multiphysics mesh using the materials pointed to in the vector
-    void CreateMultiphysicsMesh(TPZCompMesh *cmesh, TPZVec<TPZCompMesh *> &meshvec);
+    /// create a multiphysics mesh for the hybrid formulation using the materials of another mesh and the given atomic meshes
+    TPZCompMesh * CreateMultiphysicsMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_Hybrid);
     
     /// group and condense the elements
-    static void GroupElements(TPZCompMesh *cmesh);
+    static void GroupElements(TPZCompMesh *cmesh_Hybrid);
     
-    /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the atomic meshes
-    void InsertPeriferalMaterialObjects(TPZVec<TPZCompMesh *> &meshvec);
+    /// insert the material objects for HDivWrap and LagrangeInterface in the atomic meshes
+    void InsertPeriferalMaterialObjects(TPZVec<TPZCompMesh *> &meshvec_Hybrid);
     
     /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid in the multiphysics mesh
-    void InsertPeriferalMaterialObjects(TPZCompMesh *cmesh);
+    void InsertPeriferalMaterialObjects(TPZCompMesh *cmesh_Hybrid);
+    
+    /// clones the atomic meshes in meshvec_HDiv and creates a multiphysics hybrid mesh
+    std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > Hybridize(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, bool group_elements=true);
     
 private:
     
-    std::tuple<int64_t,int> SplitConnects(const TPZCompElSide &left, const TPZCompElSide &right, TPZVec<TPZCompMesh *> &meshvec);
+    std::tuple<int64_t,int> SplitConnects(const TPZCompElSide &left, const TPZCompElSide &right, TPZVec<TPZCompMesh *> &meshvec_Hybrid);
 
     static TPZCompElSide RightElement(TPZInterpolatedElement *intel, int side);
 
