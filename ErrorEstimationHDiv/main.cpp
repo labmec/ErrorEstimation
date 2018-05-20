@@ -85,6 +85,10 @@ int main(int argc, char *argv[]) {
     TPZHybridizeHDiv hybridizer;
     tie(cmesh, meshvec) = CreatePostProcessingMesh(cmesh_orig, meshvec_orig,hybridizer);
     {
+        std::ofstream out("cmesh.txt");
+        cmesh->Print(out);
+    }
+    {
         cmesh_orig->InitializeBlock();
         {
             std::ofstream out("cmesh_orig.txt");
@@ -141,13 +145,13 @@ int main(int argc, char *argv[]) {
         direct = 0;
         an.Assemble();
         meshvec[0]->InitializeBlock();
-        an.Solve();
         {
             std::ofstream out("cmesh.txt");
             cmesh->Print(out);
             std::ofstream out2("cmeshflux.txt");
             meshvec[0]->Print(out2);
         }
+        an.Solve();
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         vecnames.Push("Flux");
@@ -245,6 +249,7 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
                 int side = gel->NSides() - 1;
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
                 intel->SetSideOrder(side, problem.porder + 1);
+                intel->SetPreferredOrder(problem.porder+1);
             }
         }
     }
@@ -292,7 +297,6 @@ void CloneMeshVec(TPZVec<TPZCompMesh *> &meshvec, TPZVec<TPZCompMesh *> &meshvec
     for (int i = 0; i < meshvec.size(); i++) {
         meshvec_clone[i] = meshvec[i]->Clone();
     }
-    IncreaseSideOrders(meshvec_clone[0]);
 }
 
 /// Increase the approximation orders of the sides of the flux elements
@@ -314,11 +318,13 @@ void IncreaseSideOrders(TPZCompMesh *fluxmesh) {
         int order = cel->Connect(nc - 1).Order();
         int nsides = gel->NSides();
         int ncorner = gel->NCornerNodes();
+        intel->SetPreferredOrder(order);
         for (int side = ncorner; side < nsides - 1; side++) {
             if (intel->NSideConnects(side)) {
                 intel->SetSideOrder(side, order);
             }
         }
+//        intel->Print();
     }
     fluxmesh->InitializeBlock();
 }
@@ -327,7 +333,7 @@ std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCo
     TPZGeoMesh *gmesh = cmesh_orig->Reference();
     TPZManVector<TPZCompMesh *, 2> meshvec(2, 0);
     CloneMeshVec(meshvec_orig, meshvec);
-    //   IncreaseSideOrders(meshvec[0]);
+    IncreaseSideOrders(meshvec[0]);
     hybridizer.ComputePeriferalMaterialIds(meshvec);
     /// insert the material objects for HDivWrap, LagrangeInterface and InterfaceMatid
     hybridizer.InsertPeriferalMaterialObjects(meshvec);

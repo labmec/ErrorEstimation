@@ -65,6 +65,7 @@ std::tuple<int64_t, int> TPZHybridizeHDiv::SplitConnects(const TPZCompElSide &le
     int rightlocindex = intelright->SideConnectLocId(0, right.Side());
     intelright->SetConnectIndex(rightlocindex, index);
     int sideorder = cleft.Order();
+    fluxmesh->SetDefaultOrder(sideorder);
     // create HDivBound on the sides of the elements
     TPZCompEl *wrap1, *wrap2;
     {
@@ -75,7 +76,7 @@ std::tuple<int64_t, int> TPZHybridizeHDiv::SplitConnects(const TPZCompElSide &le
         wrap1 = fluxmesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *fluxmesh, index);
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (wrap1);
         int wrapside = gbc.CreatedElement()->NSides() - 1;
-        intel->SetSideOrient(wrapside, 1);
+        intel->SetSideOrient(wrapside, sideorder);
         intelleft->Reference()->ResetReference();
         wrap1->Reference()->ResetReference();
     }
@@ -87,7 +88,7 @@ std::tuple<int64_t, int> TPZHybridizeHDiv::SplitConnects(const TPZCompElSide &le
         wrap2 = fluxmesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *fluxmesh, index);
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (wrap2);
         int wrapside = gbc.CreatedElement()->NSides() - 1;
-        intel->SetSideOrient(wrapside, 1);
+        intel->SetSideOrient(wrapside, sideorder);
         intelright->Reference()->ResetReference();
         wrap2->Reference()->ResetReference();
     }
