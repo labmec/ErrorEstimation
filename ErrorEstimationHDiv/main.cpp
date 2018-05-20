@@ -171,7 +171,19 @@ int main(int argc, char *argv[]) {
         an.PostProcess(2,dim);
     }
     ComputeAveragePressure(meshvec_HDiv[1], meshvec_Hybrid[1], hybridizer.LagrangeInterface);
+    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec_Hybrid, cmesh_Hybrid);
+    cmesh_Hybrid->LoadSolution(cmesh_Hybrid->Solution());
+    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec_Hybrid, cmesh_Hybrid);
     
+    {
+        TPZAnalysis an(cmesh_Hybrid,false);
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("Pressure");
+        vecnames.Push("Flux");
+        int dim = 2;
+        an.DefineGraphMesh(dim, scalnames, vecnames, "HybridPostProcessed.vtk");
+        an.PostProcess(2,dim);
+    }
     {
         TPZAnalysis an(meshvec_Hybrid[1],false);
         TPZStack<std::string> scalnames, vecnames;
@@ -285,7 +297,7 @@ TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> 
     TPZBuildMultiphysicsMesh::AddConnects(meshvector, cmesh);
     cmesh->LoadReferences();
     bool keepmatrix = false;
-    //TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
+    TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
 
     return cmesh;
 }
@@ -337,7 +349,7 @@ std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCo
     hybridizer.HybridizeInternalSides(meshvec_Hybrid);
     TPZCompMesh *cmesh_Hybrid = hybridizer.CreateMultiphysicsMesh(cmesh_HDiv, meshvec_Hybrid);
     hybridizer.CreateInterfaceElements(cmesh_Hybrid, meshvec_Hybrid);
-//    hybridizer.GroupElements(cmesh);
+    hybridizer.GroupElements(cmesh_Hybrid);
     return std::make_tuple(cmesh_Hybrid, meshvec_Hybrid);
 }
 
@@ -412,7 +424,7 @@ void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, 
             tr[1].Apply(pt, pt2);
             celstack[0].Element()->Solution(pt1, 0, sol1);
             celstack[1].Element()->Solution(pt2, 0, sol2);
-            std::cout << "Values " << sol1 << " " << sol2 << std::endl;
+//            std::cout << "Values " << sol1 << " " << sol2 << std::endl;
             for (int ishape=0; ishape<nshape; ishape++) {
                 L2Rhs(ishape,0) += weight*phi(ishape,0)*(sol1[0]+sol2[0])/2.;
                 for (int jshape = 0; jshape<nshape; jshape++) {
@@ -421,7 +433,7 @@ void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, 
             }
         }
         L2Mat.SolveDirect(L2Rhs, ECholesky);
-        L2Rhs.Print("Average pressure");
+//        L2Rhs.Print("Average pressure");
         int count = 0;
         for (int ic=0; ic<nc; ic++) {
             TPZConnect &c = cel->Connect(ic);

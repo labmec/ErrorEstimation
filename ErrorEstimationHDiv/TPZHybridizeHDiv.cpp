@@ -266,7 +266,9 @@ void TPZHybridizeHDiv::GroupElements(TPZCompMesh *cmesh) {
     int64_t nconnects = cmesh->NConnects();
     TPZVec<TPZElementGroup *> groupindex(nconnects, 0);
     int dim = cmesh->Dimension();
-    for (TPZCompEl *cel : cmesh->ElementVec()) {
+    for (int64_t el = 0; el<cmesh->NElements(); el++)
+    {
+        TPZCompEl *cel = cmesh->Element(el);
         if (!cel || !cel->Reference() || cel->Reference()->Dimension() != dim) {
             continue;
         }
@@ -284,18 +286,22 @@ void TPZHybridizeHDiv::GroupElements(TPZCompMesh *cmesh) {
         }
         elgr->AddElement(cel);
     }
+//    std::cout << "Groups of connects " << groupindex << std::endl;
     for (TPZCompEl *cel : cmesh->ElementVec()) {
         if (!cel || !cel->Reference()) {
             continue;
         }
         TPZStack<int64_t> connectlist;
         cel->BuildConnectList(connectlist);
+//        std::cout << "Analysing element " << cel->Index();
         for (auto cindex : connectlist) {
             if (groupindex[cindex] != 0) {
+//                std::cout << " added ";
                 groupindex[cindex]->AddElement(cel);
                 break;
             }
         }
+//        std::cout << std::endl;
     }
     cmesh->ComputeNodElCon();
     nel = cmesh->NElements();
