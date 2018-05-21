@@ -350,7 +350,7 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
     strmat.SetNumThreads(8);
     an.SetStructuralMatrix(strmat);
 #else
-    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh);
+    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(pressuremesh);
     strmat.SetNumThreads(8);
     strmat.SetDecomposeType(ELDLt);
 //		TPZSkylineStructMatrix strmat3(cmesh);
