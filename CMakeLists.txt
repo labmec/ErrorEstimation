@@ -4,24 +4,18 @@ cmake_minimum_required (VERSION 2.8.0)
 
 project (ErrorEstimation)
 
-IF (WIN32)
-	# Prevents timespec redefinition problem with Visual Studio 2015
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_STRUCT_TIMESPEC")
-ELSE (WIN32)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-narrowing")#this flag is for preventing errors when casting from double to float
-ENDIF()
-
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 IF (WIN32)
-	find_package( PZ PATHS "C:/Arquivos de Programas/PZ" REQUIRED NO_DEFAULT_PATH)
-ELSE()
-	find_package( PZ REQUIRED )
-ENDIF (WIN32)
-
+    # Prevents timespec redefinition problem with Visual Studio 2015
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_STRUCT_TIMESPEC")
+    find_package( PZ PATHS "C:/Arquivos de Programas/PZ" REQUIRED NO_DEFAULT_PATH)
+ELSE ()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-narrowing")#this flag is for preventing errors when casting from double to float
+    find_package( PZ REQUIRED )
+ENDIF()
 
 include_directories(${PZ_INCLUDE_DIRS})
 
@@ -49,8 +43,6 @@ if(PTHREAD_LIB-NOTFOUND)
 	set(PTHREAD_LIBexit "" CACHE PATH "Directory where the pthread library can be found")
 endif()
 include_directories(${PTHREAD_INCLUDE})
-
-
 
 if(WIN32)
 	#add a define saying it is a VC compiler
