@@ -29,7 +29,7 @@ TPZMixedErrorEstimate<MixedMat>::~TPZMixedErrorEstimate()
 }
 
 template<class MixedMat>
-TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate(const TPZMixedErrorEstimate &cp) : MixedMat(cp)
+TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate(const TPZMixedErrorEstimate &cp) : MixedMat(cp), fSignConvention(cp.fSignConvention)
 {
     
 }
@@ -38,6 +38,7 @@ template<class MixedMat>
 TPZMixedErrorEstimate<MixedMat> &TPZMixedErrorEstimate<MixedMat>::operator=(const TPZMixedErrorEstimate &copy)
 {
     MixedMat::operator=(copy);
+    fSignConvention = copy.fSignConvention;
     return *this;
 }
 
@@ -77,7 +78,7 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(TPZVec<TPZMaterialData> &datave
     if(MixedMat::fForcingFunction) {
         TPZManVector<STATE> res(1);
         MixedMat::fForcingFunction->Execute(datavec[1].x,res);
-        force = res[0];
+        force = fSignConvention*res[0];
     }
     TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvK;

@@ -24,6 +24,9 @@ template<class MixedMat>
 class TPZMixedErrorEstimate : public MixedMat
 {
     
+    /// sign convention adopted by MixedMat
+    int fSignConvention = 1;
+    
 public:
     
     TPZMixedErrorEstimate();
@@ -40,6 +43,15 @@ public:
         return new TPZMixedErrorEstimate(*this);
     }
     
+    int SignConvention() const
+    {
+        return fSignConvention;
+    }
+    
+    void SetSignConvention(int sign)
+    {
+        fSignConvention = sign;
+    }
     void FillDataRequirements(TPZVec<TPZMaterialData > &datavec);
 
     /**

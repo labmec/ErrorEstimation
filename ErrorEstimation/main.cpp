@@ -80,6 +80,8 @@
 #include "pzbuildmultiphysicsmesh.h"
 #include "pzcondensedcompel.h"
 
+#include "TPZAnalyticSolution.h"
+
 using namespace std;
 using namespace pzshape;
 using namespace pzgeom;
@@ -227,7 +229,6 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
     
 	// Generic data for problems to solve
 	int NRefs = 50;
-	int ninitialrefs = 3;
 
 	// auxiliar string
 	char saida[512];
@@ -279,8 +280,20 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
 	// Adjusting parameters
     NRefs = 0;
 
-    UniformRefinement(ninitialrefs,gmesh,ModelDimension);
-            
+    int ninitialrefs = 3;
+    {
+        int dimtorefine = 0;
+        UniformRefinement(ninitialrefs,gmesh,dimtorefine);
+    }
+    for (auto gel:gmesh->ElementVec()) {
+        if(gel && gel->Dimension() == gmesh->Dimension() && gel->NSubElements()==0)
+        {
+            TPZStack<TPZGeoEl *> subels;
+            gel->Divide(subels);
+            break;
+        }
+    }
+
 	// Creating computational mesh (approximation space and materials)
 	int p = 1, pinit;
 	MaxPUsed = pinit = p;
@@ -295,10 +308,9 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
 	}
     
     
-    TPZManVector<TPZCompMesh *,5> meshvec(5,0);
+//    TPZManVector<TPZCompMesh *,5> meshvec(5,0);
 
-    int hdivplusplus = sim_case.n_acc_terms;
-    CreateAllMeshes(gmesh, meshvec, p, ModelDimension,hdivplusplus);
+    
 	// To storing number of equations and errors obtained for all iterations
 	ErrorVec.Resize(NRefs);
 	ErrorVec.Fill(0.0L);
@@ -313,12 +325,57 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
 //    check.CheckConstraintDimension();
 //    exit(0);
     
-	int countermesh=0;
+    TPZManVector<TPZCompMesh *> meshvec(0);
+    TPZCompMesh *pressuremesh = 0;
 	// loop solving iteratively
-    TPZCompMesh *pressuremesh = meshvec[0];
+    if(1)
+    {
+        bool disconnected = false;
+        bool referred = false;
+        pressuremesh = CMeshPressure(gmesh, p, ModelDimension, disconnected, referred);
+        
+        pressuremesh->AdjustBoundaryElements();
+    }
+    else
+    {
+        meshvec.Resize(5, 0);
+        int hdivplus = 0;
+        CreateAllMeshes(gmesh, meshvec, p, ModelDimension, hdivplus);
+        pressuremesh = meshvec[0];
+    }
+    
+    {
+        std::ofstream out("CompMesh.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(pressuremesh, out);
+        std::ofstream out2("CompMesh.txt");
+        pressuremesh->Print(out2);
+
+    }
+    
+    TLaplaceExample1 example;
+    example.fExact = TLaplaceExample1::ESinSin;
+    example.fSignConvention = -1;
+//    example.fCenter[0] = 0.5;
+//    example.fCenter[1] = 0.5;
+    {
+        for (auto it:pressuremesh->MaterialVec())
+        {
+            TPZMaterial *mat = it.second;
+            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            if(!bc)
+            {
+                mat->SetForcingFunction(example.ForcingFunction());
+            }
+            else
+            {
+                bc->SetForcingFunction(0, example.Exact());
+            }
+        }
+    }
+    
     
     TPZAnalysis an(pressuremesh,true);
-    an.SetExact(ExactSolutionArcTangent2);
+    an.SetExact(example.ExactSolution());
     {
         std::stringstream sout;
         sout << sim_case.dir_name << "/" << "Poisson" << ModelDimension << "D_E" << typeel << "Thr" << nthread << "H" << std::setprecision(2) << nref << "P" << pinit << ".vtk";
@@ -347,18 +404,18 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
         
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(pressuremesh);
-    strmat.SetNumThreads(8);
+    strmat.SetNumThreads(0);
     an.SetStructuralMatrix(strmat);
 #else
     TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(pressuremesh);
-    strmat.SetNumThreads(8);
-    strmat.SetDecomposeType(ELDLt);
+    strmat.SetNumThreads(0);
+    strmat.SetDecomposeType(ECholesky);
 //		TPZSkylineStructMatrix strmat3(cmesh);
 //        strmat3.SetNumThreads(8);
 #endif
 		
     TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
-    direct->SetDirect(ELDLt);
+    direct->SetDirect(ECholesky);
     an.SetSolver(*direct);
     delete direct;
     direct = 0;
@@ -375,7 +432,7 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
     // Post processing
     an.PostProcess(1,ModelDimension);
     
-    TPZPostProcessError error(meshvec);
+    TPZPostProcessError error(pressuremesh);
     
     TPZVec<STATE> estimatedelementerror, exactelementerror;
     error.ComputeElementErrors(estimatedelementerror);
@@ -386,12 +443,19 @@ bool SolvePoissonProblem(int itypeel, struct SimulationCase sim_case) {
     bool store_errors = true;
     an.PostProcessError(exactelementerror, store_errors);
     std::cout << "Exact error " << exactelementerror << std::endl;
+    gmesh->ResetReference();
+    error.MultiPhysicsMesh()->LoadReferences();
     {
         TPZFMatrix<STATE> true_elerror(pressuremesh->ElementSolution());
-        TPZFMatrix<STATE> estimate_elerror(meshvec[1]->ElementSolution());
+        TPZFMatrix<STATE> estimate_elerror(error.MultiPhysicsMesh()->ElementSolution());
         int64_t nel = true_elerror.Rows();
         for (int64_t el=0; el<nel; el++) {
-            true_elerror(el,0) = estimate_elerror(el,2);
+            TPZCompEl *cel = pressuremesh->Element(el);
+            if(!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            TPZCompEl *mphys = gel->Reference();
+            int64_t elindex2 = mphys->Index();
+            true_elerror(el,0) = estimate_elerror(elindex2,2);
             true_elerror(el,1) = true_elerror(el,2);
             if (true_elerror(el,1) > 1.e-8) {
                 true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);

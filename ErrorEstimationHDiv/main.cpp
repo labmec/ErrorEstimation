@@ -24,6 +24,8 @@
 #include "TPZParFrontStructMatrix.h"
 #include "pzskylstrmatrix.h"
 
+#include "TPZHybridHDivErrorEstimator.h"
+
 #include <tuple>
 #include <memory>
 
@@ -48,6 +50,8 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     ProblemConfig config;
+    config.porder = 2;
+    config.exact.fExact = TLaplaceExample1::EArcTan;
     {
         TPZGmshReader gmsh;
         gmsh.fPZMaterialId[1]["dirichlet"] = -1;
@@ -88,10 +92,10 @@ int main(int argc, char *argv[]) {
             cmesh_HDiv->Print(out);
         }
         TPZAnalysis an(cmesh_HDiv);
-#ifdef USING_MKL2
+#ifdef USING_MKL
         TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
         strmat.SetNumThreads(0);
-        strmat.SetDecomposeType(ELDLt);
+//        strmat.SetDecomposeType(ELDLt);
         an.SetStructuralMatrix(strmat);
 #else
         TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
@@ -116,95 +120,16 @@ int main(int argc, char *argv[]) {
         an.PostProcess(1,2);
 
     }
-    TPZHybridizeHDiv hybridizer;
-    TPZCompMesh *cmesh_Hybrid;
-    TPZManVector<TPZCompMesh*, 2> meshvec_Hybrid(2, 0);
-    tie(cmesh_Hybrid, meshvec_Hybrid) = CreatePostProcessingMesh(cmesh_HDiv, meshvec_HDiv,hybridizer);
     {
-        cmesh_Hybrid->InitializeBlock();
-        TPZAnalysis an(cmesh_Hybrid);
-#ifdef USING_MKL2
-        TPZSymetricSpStructMatrix strmat(cmesh_Hybrid);
-        strmat.SetNumThreads(0);
-        an.SetStructuralMatrix(strmat);
-#else
-//        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_Hybrid);
-//        strmat.SetNumThreads(0);
-        TPZSkylineStructMatrix strmat(cmesh_Hybrid);
-        strmat.SetNumThreads(0);
-//        strmat.SetDecomposeType(ELDLt);
-#endif
-        
-        TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
-        direct->SetDirect(ELDLt);
-        an.SetSolver(*direct);
-        delete direct;
-        direct = 0;
-        an.Assemble();
-        meshvec_Hybrid[0]->InitializeBlock();
-        an.Solve();
-        {
-            std::ofstream out("cmeshHybrid.txt");
-            cmesh_Hybrid->Print(out);
-            std::ofstream out2("cmeshfluxHybrid.txt");
-            meshvec_Hybrid[0]->Print(out2);
-        }
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("Pressure");
-        vecnames.Push("Flux");
-        an.DefineGraphMesh(2, scalnames, vecnames, "Hybrid.vtk");
-        scalnames[0] = "State";
-        vecnames.resize(0);
-        an.DefineGraphMesh(1, scalnames, vecnames, "Hybrid1D.vtk");
-
-        //        meshvec_Hybrid[1]->Solution().Print("Press");
-        // Post processing
-        an.PostProcess(1,2);
-        
+        TPZManVector<TPZCompMesh *> MeshesHDiv(3);
+        MeshesHDiv[0] = cmesh_HDiv;
+        MeshesHDiv[1] = meshvec_HDiv[0];
+        MeshesHDiv[2] = meshvec_HDiv[1];
+        TPZHybridHDivErrorEstimator HDivEstimate(MeshesHDiv);
+        HDivEstimate.SetAnalyticSolution(&config.exact);
+        TPZManVector<REAL> elementerrors;
+        HDivEstimate.ComputeErrors(elementerrors);
     }
-    {
-        TPZAnalysis an(meshvec_Hybrid[1],false);
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("State");
-        an.DefineGraphMesh(1, scalnames, vecnames, "Hybrid1D.vtk");
-        int dim = 1;
-        an.PostProcess(2,dim);
-    }
-    ComputeAveragePressure(meshvec_HDiv[1], meshvec_Hybrid[1], hybridizer.LagrangeInterface);
-    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec_Hybrid, cmesh_Hybrid);
-    cmesh_Hybrid->LoadSolution(cmesh_Hybrid->Solution());
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec_Hybrid, cmesh_Hybrid);
-    
-    {
-        TPZAnalysis an(cmesh_Hybrid,false);
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("Pressure");
-        vecnames.Push("Flux");
-        int dim = 2;
-        an.DefineGraphMesh(dim, scalnames, vecnames, "HybridPostProcessed.vtk");
-        an.PostProcess(2,dim);
-    }
-    {
-        TPZAnalysis an(meshvec_Hybrid[1],false);
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("State");
-        an.DefineGraphMesh(1, scalnames, vecnames, "Average1D.vtk");
-        int dim = 1;
-        an.PostProcess(2,dim);
-    }
-
-//    {
-//        std::ofstream out("cmesh_Hybrid.txt");
-//        cmesh->Print(out);
-//    }
-//    {
-//        std::ofstream out("meshvec_Hybrid_flux.txt");
-//        meshvec[0]->Print(out);
-//    }
-//    {
-//        std::ofstream out("meshvec_Hybrid_pres.txt");
-//        meshvec[1]->Print(out);
-//    }
     return 0;
 }
 
@@ -272,20 +197,20 @@ TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> 
     TPZMaterial *mat = NULL;
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        mix->SetForcingFunctionExact(problem.exact.ForcingFunction());
+        mix->SetForcingFunction(problem.exact.ForcingFunction());
         mix->SetInternalFlux(1);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
         if (matid == -2) {
-            bctype = 1;
+            bctype = 0;
             val2.Zero();
         }
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunctionExact(problem.exact.Exact());
+        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -416,7 +341,7 @@ void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, 
         TPZFNMatrix<220,REAL> phi(nshape,1,0.), dshape(dim,nshape);
         int64_t npoints = intp->NPoints();
         for (int64_t ip=0; ip<npoints; ip++) {
-            TPZManVector<REAL,3> pt(dim-1,0.),pt1(dim-1,0.), pt2(dim-1,0.),sol1(1),sol2(1);
+            TPZManVector<REAL,3> pt(dim-1,0.),pt1(dim,0.), pt2(dim,0.),sol1(1),sol2(1);
             REAL weight;
             intp->Point(ip, pt, weight);
             intel->Shape(pt, phi, dshape);
@@ -444,6 +369,5 @@ void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, 
                 pressureHybrid->Solution()(pos+idf,0) = L2Rhs(count++);
             }
         }
-
     }
 }

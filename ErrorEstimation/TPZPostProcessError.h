@@ -22,6 +22,8 @@ struct TPZPatch
 {
     // connect index of the partition of unity mesh
     int64_t fPartitionConnectIndex;
+    // location of the partition connect
+    TPZManVector<REAL,3> fCo;
     // vector of element indices of HDiv elements
     TPZManVector<int64_t,20> fElIndices;
     // vector of open set of connect indices that will be used for flux and pressure computations
@@ -36,12 +38,12 @@ struct TPZPatch
         std::copy(&(fConnectIndices[0]),(&(fConnectIndices[0])+fConnectIndices.size()),std::inserter(closed,closed.begin()));
     }
     
-    TPZPatch() : fPartitionConnectIndex(-1)
+    TPZPatch() : fPartitionConnectIndex(-1), fCo(3,-1.)
     {
         
     }
     
-    TPZPatch(const TPZPatch &copy) : fPartitionConnectIndex(copy.fPartitionConnectIndex), fElIndices(copy.fElIndices),
+    TPZPatch(const TPZPatch &copy) : fPartitionConnectIndex(copy.fPartitionConnectIndex), fCo(copy.fCo), fElIndices(copy.fElIndices),
     fConnectIndices(copy.fConnectIndices), fBoundaryConnectIndices(copy.fBoundaryConnectIndices)
     {
         
@@ -49,6 +51,7 @@ struct TPZPatch
     TPZPatch &operator=(const TPZPatch &copy)
     {
         fPartitionConnectIndex = copy.fPartitionConnectIndex;
+        fCo = copy.fCo;
         fElIndices = copy.fElIndices;
         fConnectIndices = copy.fConnectIndices;
         fBoundaryConnectIndices = copy.fBoundaryConnectIndices;
@@ -58,6 +61,7 @@ struct TPZPatch
     void Print(std::ostream &out)
     {
         out << "The generating partitionindex = " << fPartitionConnectIndex << std::endl;
+        out << "Coordinate of the partition node " << fCo << std::endl;
         out << "Element indices " << fElIndices << std::endl;
         out << "Open set connect indices " << fConnectIndices << std::endl;
         out << "Boundary set connect indices " << fBoundaryConnectIndices << std::endl;
@@ -72,9 +76,13 @@ struct TPZPatch
 class TPZPostProcessError
 {
 public:
+    
+    TPZPostProcessError(TPZCompMesh * origin);
+    
     TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec);
     
 private:
+    
     // mesh vector
     TPZManVector<TPZCompMesh *,6> fMeshVector;
     
@@ -118,6 +126,22 @@ private:
     // check whether the connectsizes have changed
     void CheckConnectSizes();
     
+    // create the meshes that allow us to compute the error estimate
+    void CreateAuxiliaryMeshes();
+
+    /// create a fluxmesh based on the original H1 mesh
+    // the flux mesh will be put in the second position of the mesh vector
+    void CreateFluxMesh();
+    
+    /// create the lagrange mesh corresponding to the flux mesh
+    void CreatePressureMesh();
+
+    /// create the multiphysics mesh that will compute the projection matrix
+    void CreateMixedMesh();
+
+    /// create the partition of unity mesh
+    void CreatePartitionofUnityMesh();
+    
 public:
     
     // print partition diagnostics
@@ -137,6 +161,11 @@ public:
     void ComputeExactH1SemiNormErrors(TPZFunction<STATE> &exact, TPZVec<STATE> &exacterror)
     {
         DebugStop();
+    }
+    
+    TPZCompMesh *MultiPhysicsMesh()
+    {
+        return fMeshVector[1];
     }
     
 };
