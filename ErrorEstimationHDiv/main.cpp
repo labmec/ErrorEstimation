@@ -50,8 +50,8 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     ProblemConfig config;
-    config.porder = 2;
-    config.exact.fExact = TLaplaceExample1::EArcTan;
+    config.porder = 3;
+    config.exact.fExact = TLaplaceExample1::ECosCos;
     {
         TPZGmshReader gmsh;
         gmsh.fPZMaterialId[1]["dirichlet"] = -1;
@@ -72,6 +72,42 @@ int main(int argc, char *argv[]) {
             std::ofstream out("gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
         }
+    }
+    {
+        int numelrefine = 20;
+        int64_t nel = config.gmesh->NElements();
+        if (numelrefine > nel/2) {
+            numelrefine = 1;
+        }
+        int count = 0;
+        while(count < numelrefine) {
+            int64_t elindex = random()%nel;
+            TPZGeoEl *gel = config.gmesh->Element(elindex);
+            if(gel && gel->Dimension() == config.gmesh->Dimension() && !gel->Father())
+            {
+                TPZStack<TPZGeoEl *> subels;
+                gel->Divide(subels);
+                count++;
+            }
+        }
+        nel = config.gmesh->NElements();
+        for (int64_t el=0; el<nel; el++) {
+            TPZGeoEl *gel = config.gmesh->Element(el);
+            if(gel && gel->Dimension() < config.gmesh->Dimension())
+            {
+                TPZGeoElSide gelside(gel,gel->NSides()-1);
+                TPZGeoElSide neighbour = gelside.Neighbour();
+                while (neighbour != gelside) {
+                    if (neighbour.Element()->NSubElements() != 0) {
+                        TPZStack<TPZGeoEl *> subels;
+                        gel->Divide(subels);
+                        break;
+                    }
+                    neighbour = neighbour.Neighbour();
+                }
+            }
+        }
+
     }
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
     TPZCompMesh *cmesh_HDiv = CreateHDivMesh(config, meshvec_HDiv);

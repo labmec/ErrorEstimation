@@ -17,6 +17,7 @@
 #include "tpzcompmeshreferred.h"
 #include "pzanalysis.h"
 
+#include "TPZVTKGeoMesh.h"
 
 TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator()
 {
@@ -87,11 +88,26 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     int nmeshes = fPostProcMesh.size();
     TPZManVector<TPZCompMesh *, 4> meshvec_Hybrid(nmeshes-1, 0);
     CloneMeshVec();
+#ifdef PZDEBUG
+    {
+        std::ofstream out("CloneFluxMesh.txt");
+        fPostProcMesh[1]->Print(out);
+        std::ofstream outp("ClonePressureMesh.txt");
+        fPostProcMesh[2]->Print(outp);
+    }
+#endif
     IncreaseSideOrders(fPostProcMesh[1]);
     for(int i=1; i<nmeshes; i++)
     {
         meshvec_Hybrid[i-1] = fPostProcMesh[i];
     }
+#ifdef PZDEBUG
+    {
+        std::ofstream out("CloneFluxMeshBefore.txt");
+        fPostProcMesh[1]->Print(out);
+    }
+#endif
+
     fHybridizer.ComputePeriferalMaterialIds(meshvec_Hybrid);
     fHybridizer.ComputeNState(meshvec_Hybrid);
     /// insert the material objects for HDivWrap and LagrangeInterface
@@ -99,6 +115,12 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     fHybridizer.HybridizeInternalSides(meshvec_Hybrid);
     TPZCompMeshReferred *RefFluxMesh = dynamic_cast<TPZCompMeshReferred *>(fPostProcMesh[1]);
     RefFluxMesh->LoadReferred(fOriginal[1]);
+#ifdef PZDEBUG
+    {
+        std::ofstream out("CloneFluxMesh.txt");
+        RefFluxMesh->Print(out);
+    }
+#endif
     TPZCompMeshReferred *RefPressureMesh = dynamic_cast<TPZCompMeshReferred *>(fPostProcMesh[2]);
     RefPressureMesh->LoadReferred(fOriginal[2]);
     CreateMultiphysicsMesh();
@@ -110,6 +132,10 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     {
         std::ofstream out("multiphysicsgrouped.txt");
         cmesh_Hybrid->Print(out);
+        std::ofstream outvtk("multiphysics.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(cmesh_Hybrid,outvtk);
+        std::ofstream outgvtk("postprocessgmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(cmesh_Hybrid->Reference(),outgvtk);
     }
 #endif
 
@@ -200,7 +226,7 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures()
             }
             celstack.Push(lowlevel);
             tr[1] = TPZTransform<REAL>(gelside.Dimension());
-            gel->BuildTransform2(gelside.Side(), lowlevel.Reference().Element(), tr[1]);
+            gelside.SideTransform3(lowlevel.Reference(), tr[1]);
         }
         else if(celstack.size() == 2)
         {
@@ -262,9 +288,9 @@ void TPZHybridHDivErrorEstimator::CloneMeshVec()
 {
     CreateFluxMesh();
     CreatePressureMesh();
-    for (int i = 3; i < fOriginal.size(); i++) {
-        fPostProcMesh[i] = fOriginal[i]->Clone();
-    }
+//    for (int i = 3; i < fOriginal.size(); i++) {
+//        fPostProcMesh[i] = fOriginal[i]->Clone();
+//    }
 
 }
 
@@ -325,6 +351,9 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
             int matid = matorig->Id();
             TPZMaterial *matmixed = mphysics->FindMaterial(matid);
             TPZBndCond *bc = matmixed->CreateBC(matmixed, bnd->Id(), bnd->Type(), bnd->Val1(), bnd->Val2());
+            if (bnd->ForcingFunction()) {
+                bc->TPZDiscontinuousGalerkin::SetForcingFunction(bnd->ForcingFunction());
+            }
             mphysics->InsertMaterialObject(bc);
         }
     }
@@ -364,14 +393,32 @@ void TPZHybridHDivErrorEstimator::CreateFluxMesh()
     TPZCompMesh *origflux = fOriginal[1];
     origflux->CopyMaterials(*fluxmesh);
     gmesh->ResetReference();
+    int meshdim = gmesh->Dimension();
     fluxmesh->ApproxSpace().SetAllCreateFunctionsHDivReferred(gmesh->Dimension());
     for (auto celorig:origflux->ElementVec()) {
         if(!celorig) continue;
         TPZGeoEl *gel = celorig->Reference();
         int64_t index;
+        int geldim = gel->Dimension();
         fluxmesh->ApproxSpace().CreateCompEl(gel, *fluxmesh, index);
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(fluxmesh->Element(index));
+        for(int side=0; side<gel->NSides(); side++)
+        {
+            
+            if(gel->SideDimension(side) < meshdim-1) continue;
+            int conindex = intel->SideConnectLocId(0,side);
+            TPZConnect &corig = celorig->Connect(conindex);
+            TPZConnect &newcon = intel->Connect(conindex);
+            if (newcon.Order() != corig.Order()) {
+                intel->SetSideOrder(side, corig.Order());
+            }
+            if (side == gel->NSides()-1) {
+                intel->SetPreferredOrder(newcon.Order());
+            }
+        }
     }
     fluxmesh->LoadReferred(origflux);
+    fluxmesh->InitializeBlock();
     fPostProcMesh[1] = fluxmesh;
 }
 
@@ -388,11 +435,16 @@ void TPZHybridHDivErrorEstimator::CreatePressureMesh()
     for (auto celorig:origpressure->ElementVec()) {
         if(!celorig) continue;
         TPZGeoEl *gel = celorig->Reference();
+        TPZInterpolatedElement *intelorig = dynamic_cast<TPZInterpolatedElement *>(celorig);
+        int order = intelorig->GetPreferredOrder();
         int64_t index;
         TPZCompEl *cel = pressuremesh->ApproxSpace().CreateCompEl(gel, *pressuremesh, index);
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        intel->PRefine(order);
         cel->Reference()->ResetReference();
     }
     pressuremesh->LoadReferred(origpressure);
+    pressuremesh->InitializeBlock();
     fPostProcMesh[2] = pressuremesh;
 }
 
