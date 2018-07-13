@@ -43,12 +43,16 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     meshvec[0] = fPostProcMesh[1];
     meshvec[1] = fPostProcMesh[2];
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, fPostProcMesh[0]);
+#ifdef PZDEBUG
     {
         std::ofstream out("postprocmesh.txt");
         fPostProcMesh[0]->Print(out);
+        std::ofstream out1("fluxmesh.txt");
+        fPostProcMesh[1]->Print(out1);
         std::ofstream out2("pressuremesh.txt");
         fPostProcMesh[2]->Print(out2);
     }
+#endif
     {
         TPZAnalysis an(fPostProcMesh[0],false);
         if (fExact) {
@@ -74,10 +78,31 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         vecnames.Push("FluxReconstructed");
         vecnames.Push("FluxExact");
         int dim = 2;
-        an.DefineGraphMesh(dim, scalnames, vecnames, "HybridPostProcessed.vtk");
+        std::string plotname;
+        {
+            std::stringstream out;
+            out << "HybridPostProcessed_P" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname <<
+            "_NEL" << nelem <<".vtk";
+            plotname = out.str();
+        }
+        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(2,dim);
     }
-    
+    {
+        TPZAnalysis an(fPostProcMesh[2],false);
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("State");
+        int dim = this->fOriginal[0]->Reference()->Dimension()-1;
+        std::string plotname;
+        {
+            std::stringstream out;
+            out << "HybridPostProcessed_P" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname << ".vtk";
+            plotname = out.str();
+        }
+        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+        an.PostProcess(2,dim);
+    }
+
 }
 
 
@@ -417,6 +442,24 @@ void TPZHybridHDivErrorEstimator::CreateFluxMesh()
             }
         }
     }
+    if(fUpliftPostProcessMesh)
+    {
+        int64_t nel = fluxmesh->NElements();
+        for (int64_t el = 0; el < nel; el++) {
+            TPZCompEl *cel = fluxmesh->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            if (gel->Dimension() == meshdim) {
+                int side = gel->NSides() - 1;
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+                int conindex = intel->SideConnectLocId(0, side);
+                TPZConnect &c = intel->Connect(conindex);
+                int porder = c.Order();
+                intel->SetSideOrder(side, porder + 1);
+                intel->SetPreferredOrder(porder+1);
+            }
+        }
+
+    }
     fluxmesh->LoadReferred(origflux);
     fluxmesh->InitializeBlock();
     fPostProcMesh[1] = fluxmesh;
@@ -430,6 +473,7 @@ void TPZHybridHDivErrorEstimator::CreatePressureMesh()
     TPZCompMesh *origpressure = fOriginal[2];
     origpressure->CopyMaterials(*pressuremesh);
     gmesh->ResetReference();
+    int meshdim = gmesh->Dimension();
     pressuremesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
     pressuremesh->ApproxSpace().CreateDisconnectedElements(true);
     for (auto celorig:origpressure->ElementVec()) {
@@ -443,6 +487,24 @@ void TPZHybridHDivErrorEstimator::CreatePressureMesh()
         intel->PRefine(order);
         cel->Reference()->ResetReference();
     }
+    if(fUpliftPostProcessMesh)
+    {
+        int64_t nel = pressuremesh->NElements();
+        for (int64_t el = 0; el < nel; el++) {
+            TPZCompEl *cel = pressuremesh->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            if (gel->Dimension() == meshdim) {
+                int side = gel->NSides() - 1;
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+                int conindex = intel->NConnects()-1;
+                TPZConnect &c = intel->Connect(conindex);
+                int porder = c.Order();
+                intel->PRefine(porder+1);
+                intel->SetPreferredOrder(porder+1);
+            }
+        }
+    }
+
     pressuremesh->LoadReferred(origpressure);
     pressuremesh->InitializeBlock();
     fPostProcMesh[2] = pressuremesh;

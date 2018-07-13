@@ -12,6 +12,7 @@
 #include "pzmanvector.h"
 #include "TPZHybridizeHDiv.h"
 #include "TPZAnalyticSolution.h"
+#include "ProblemConfig.h"
 
 
 class TPZCompMesh;
@@ -25,11 +26,15 @@ struct TPZHybridHDivErrorEstimator
     
     bool fOriginalIsHybridized = true;
     
+    bool fUpliftPostProcessMesh = false;
+    
     TPZManVector<TPZCompMesh *,3> fPostProcMesh;
     
     TPZHybridizeHDiv fHybridizer;
     
     TPZAnalyticSolution *fExact = 0;
+    
+    ProblemConfig fProblemConfig;
     
     TPZHybridHDivErrorEstimator(TPZVec<TPZCompMesh *> &InputMesh, bool InputisHybridized = true) : fOriginal(InputMesh),
     fOriginalIsHybridized(InputisHybridized), fPostProcMesh(3,0)
@@ -38,7 +43,8 @@ struct TPZHybridHDivErrorEstimator
     }
     
     TPZHybridHDivErrorEstimator(const TPZHybridHDivErrorEstimator &copy) : fOriginal(copy.fOriginal),
-        fOriginalIsHybridized(copy.fOriginalIsHybridized), fPostProcMesh(copy.fPostProcMesh)
+        fOriginalIsHybridized(copy.fOriginalIsHybridized),fUpliftPostProcessMesh(copy.fUpliftPostProcessMesh),
+        fPostProcMesh(copy.fPostProcMesh), fProblemConfig(copy.fProblemConfig)
     {
         
     }
@@ -47,7 +53,9 @@ struct TPZHybridHDivErrorEstimator
     {
         fOriginal = cp.fOriginal;
         fOriginalIsHybridized = cp.fOriginalIsHybridized;
+        fUpliftPostProcessMesh = cp.fUpliftPostProcessMesh;
         fPostProcMesh = cp.fPostProcMesh;
+        fProblemConfig = cp.fProblemConfig;
         return *this;
     }
     

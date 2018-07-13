@@ -5,8 +5,8 @@
 //  Created by Philippe Devloo on 20/04/18.
 //
 
-#ifndef TPZMixedHdivErrorEstimate_hpp
-#define TPZMixedHDivErrorEstimate_hpp
+#ifndef TPZMixedErrorEstimate_hpp
+#define TPZMixedErrorEstimate_hpp
 
 #include <stdio.h>
 #include "pzreal.h"

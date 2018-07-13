@@ -16,12 +16,14 @@ struct ProblemConfig
     TPZGeoMesh *gmesh = 0;
     int porder = 1;
     bool hdivmais = true;
+    std::string problemname;
     std::set<int> materialids;
     std::set<int> bcmaterialids;
     TLaplaceExample1 exact;
     
     ProblemConfig(){};
     ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
+    problemname(cp.problemname),
     materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact)
     {
     }
@@ -31,6 +33,7 @@ struct ProblemConfig
         gmesh = cp.gmesh;
         porder = cp.porder;
         hdivmais = cp.hdivmais;
+        problemname = cp.problemname;
         materialids = cp.materialids;
         bcmaterialids = cp.bcmaterialids;
         exact = cp.exact;

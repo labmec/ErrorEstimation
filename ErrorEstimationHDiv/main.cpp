@@ -50,8 +50,9 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     ProblemConfig config;
-    config.porder = 3;
-    config.exact.fExact = TLaplaceExample1::ECosCos;
+    config.porder = 2;
+    config.exact.fExact = TLaplaceExample1::ESinSin;
+    config.problemname = "SinSin_4x4";
     {
         TPZGmshReader gmsh;
         gmsh.fPZMaterialId[1]["dirichlet"] = -1;
@@ -74,7 +75,7 @@ int main(int argc, char *argv[]) {
         }
     }
     {
-        int numelrefine = 20;
+        int numelrefine = 0;
         int64_t nel = config.gmesh->NElements();
         if (numelrefine > nel/2) {
             numelrefine = 1;
@@ -162,6 +163,8 @@ int main(int argc, char *argv[]) {
         MeshesHDiv[1] = meshvec_HDiv[0];
         MeshesHDiv[2] = meshvec_HDiv[1];
         TPZHybridHDivErrorEstimator HDivEstimate(MeshesHDiv);
+        HDivEstimate.fProblemConfig = config;
+        HDivEstimate.fUpliftPostProcessMesh = true;
         HDivEstimate.SetAnalyticSolution(&config.exact);
         TPZManVector<REAL> elementerrors;
         HDivEstimate.ComputeErrors(elementerrors);

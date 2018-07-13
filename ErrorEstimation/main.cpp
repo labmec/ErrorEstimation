@@ -102,7 +102,6 @@ int MaxPUsed = 0;
 // Poisson problem
 STATE ValueK = 1;
 STATE F = sqrt(ValueK);
-int ModelDimension = -1;
 // Circunference with high gradient - data
 TPZManVector<REAL,3> CCircle(3,0.5);
 REAL RCircle = 0.25;
