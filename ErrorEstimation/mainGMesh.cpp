@@ -1,291 +1,273 @@
  /**
- * @file Poisson 3D in hexahedra with shock problem
+ * @file This file implements an error estimator in space H1.
  */
 
-
 #include "pzlog.h"
-#include "TPZRefPatternDataBase.h"
-//#include "pzvec.h"
-//#include "pzadmchunk.h"
-//#include "pzcmesh.h"
-//#include "pzvec_extras.h"
-//#include "pzcheckgeom.h"
-//#include "pzcheckmesh.h"
-//
-//#include "pzgeoel.h"
-//#include "pzgnode.h"
-//#include "pzgeoelside.h"
-//#include "pzgeoelbc.h"
-//
-//#include "pzintel.h"
-//#include "pzcompel.h"
-//
-//#include "pzmatrix.h"
-
 #include "pzanalysis.h"
-//#include "pzfstrmatrix.h"
-//#include "pzskylstrmatrix.h"
-#include "TPZSSpStructMatrix.h"
-//#include "pzbstrmatrix.h"
 #include "pzstepsolver.h"
-//#include "TPZFrontStructMatrix.h"
-//#include "TPZParFrontStructMatrix.h"
-
-//#include "TPZParSkylineStructMatrix.h"
-//#include "pzsbstrmatrix.h"
-//#include "pzfstrmatrix.h"
-//
-//#include "TPZMaterial.h"
 #include "pzbndcond.h"
-//#include "pzelasmat.h"
-//#include "pzplaca.h"
 #include "pzpoisson3d.h"
-//#include "pzmathyperelastic.h"
-//#include "pzmattest3d.h"
-//#include "pzmatplaca2.h"
-//
-//#include "pzfunction.h"
-//
-//#include "pzgengrid.h"
-//#include "TPZExtendGridDimension.h"
-//#include "TPZReadGIDGrid.h"
+#include "pzgeoelbc.h"
+#include "TPZSSpStructMatrix.h"
+#include "TPZRefPatternDataBase.h"
 #include "TPZVTKGeoMesh.h"
-
-//#include "pzshapelinear.h"
-//
-//#include "TPZRefPatternTools.h"
-
-#include "TPZPostProcessError.h"
-
-#include <time.h>
-#include <stdio.h>
-#include <math.h>
+#include "TPZGmshReader.h"
+#include "TPZAnalyticSolution.h"
+#include "TPZFrontSym.h"
 
 #include <fstream>
+#include <ctime>
+#include <cstdio>
 #include <cmath>
 
+#include "ProblemConfig.h"
+#include "TPZPostProcessError.h"
 
-//#include "problem.h"
-//#include "TPZCreateMesh.h"
-//#include "pzbuildmultiphysicsmesh.h"
-//#include "pzcondensedcompel.h"
+// Global variables
+const int problemDimension = 2;
+const bool readGMeshFromFile = true;
 
-#include "TPZAnalyticSolution.h"
+const int matID = 1;
+const int dirichletMatID = -1;
+const int neumannMatID = -2;
+const int dirichlet = 0;
+const int neumann = 1;
 
-#include "TPZGmshReader.h"
-
-
-using namespace std;
-//using namespace pzshape;
-//using namespace pzgeom;
-
-
-/**  Global variables  */
-// Crea malla computacional sem forcingfunction quando hasforcingfunction = 0, ou toma diferentes forcingfuncition para diferentes
-// valores de hasforcingfunction
-TPZCompMesh *CreateComputationalMesh(TPZGeoMesh *gmesh,int dim,int hasforcingfunction);
-
+// Functions declarations
+TPZGeoMesh *CreateGeoMesh();
 TPZCompMesh *CMeshPressure(TPZGeoMesh *gmesh, int pOrder);
-
-
-/** Fucntions to apply refinement. */
-void UniformRefinement(const int nDiv, TPZGeoMesh *gmesh);
-
-
-/** PROBLEMS */
+void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 bool SolvePoissonProblem(struct SimulationCase &sim_case);
+bool PostProcessProblem(TPZAnalysis &an, TPZGeoMesh * gmesh, TPZCompMesh * pressuremesh);
 
 #ifdef LOG4CXX
-static LoggerPtr  logger(Logger::getLogger("pz.refine"));
+static LoggerPtr logger(Logger::getLogger("pz.refine"));
 #endif
 
-// Simulation Case
-struct SimulationCase {
-    int   nthreads = 0;
-    int numinitialrefine = 0;
-    int porder = 1;
-    std::string  dir_name;
-    std::string  file_name;
-    
-    SimulationCase()
-    {
-        dir_name = "dump";
-    }
-    SimulationCase(const SimulationCase &cp) : nthreads(cp.nthreads), numinitialrefine(cp.numinitialrefine), porder(cp.porder),
-        dir_name(cp.dir_name), file_name(cp.file_name)
-    {
-    }
-};
+// Laplace equation on square 1D 2D 3D - Volker John article 2000
+int main(int argc, char *argv[]) {
 
-// MAIN FUNCTION TO NUMERICAL SOLVE WITH AUTO ADAPTIVE HP REFINEMENTS
-/** Laplace equation on square 1D 2D 3D - Volker John article 2000 */
-int main(int argc,char *argv[]) {
 #ifdef LOG4CXX
 	InitializePZLOG();
 #endif
-	
-	// Initializing uniform refinements for reference elements
-	gRefDBase.InitializeAllUniformRefPatterns();
-//    gRefDBase.InitializeRefPatterns();
 
-    
-    struct SimulationCase Case_1;
-    Case_1.nthreads = 12;
-    Case_1.numinitialrefine = 0;
-    Case_1.dir_name = "Quad_Case_1";
-    Case_1.file_name = "Quad.msh";
-        
-    struct SimulationCase Case_2;
-    Case_2.nthreads = 12;
-    Case_2.dir_name = "Cube_Case_1";
-    Case_2.file_name = "Cube.msh";
-        
-    
-    if(!SolvePoissonProblem(Case_2)){
+    // Initializing uniform refinements patterns.
+    gRefDBase.InitializeAllUniformRefPatterns();
+
+    TPZGeoMesh *gmesh = nullptr;
+
+	if (readGMeshFromFile) {
+        TPZGmshReader gmsh;
+
+        // Assigns IDs of 1D and 2D elements defining boundary conditions.
+        gmsh.fPZMaterialId[1]["dirichlet"] = -1;
+        gmsh.fPZMaterialId[1]["neumann"] = -2;
+        gmsh.fPZMaterialId[2]["dirichlet"] = -1;
+        gmsh.fPZMaterialId[2]["neumann"] = -2;
+
+        // Assigns IDs of 2D and 3D elements defining the problem domain.
+        gmsh.fPZMaterialId[2]["domain"] = 1;
+        gmsh.fPZMaterialId[3]["domain"] = 1;
+
+#ifdef MACOSX
+        gmesh = gmsh.GeometricGmshMesh("../Quad.msh");
+#else
+        gmesh = gmsh.GeometricGmshMesh("Quad.msh");
+#endif
+	}
+	else {
+        gmesh = CreateGeoMesh();
+	}
+
+    struct SimulationCase Case1;
+    Case1.nthreads = 12;
+    Case1.numinitialrefine = 0;
+    Case1.dir_name = "QuadSimCase1";
+    Case1.gmesh = gmesh;
+
+    if(!SolvePoissonProblem(Case1)) {
         return 1;
     }
-        
-    
 
-    
     return 0;
 }
 
+ TPZGeoMesh *CreateGeoMesh() {
 
+     TPZGeoMesh* gmesh = new TPZGeoMesh();
+
+     if (problemDimension == 2) {
+
+         gmesh->SetDimension(2);
+
+         // Creates matrix with quadrilateral node coordinates.
+         const int quadNodeNumber = 4;
+         REAL coordinates[quadNodeNumber][3] = {
+             {0., 0., 0.},
+             {1., 0., 0.},
+             {1., 1., 0.},
+             {0., 1., 0.}
+         };
+
+         // Inserts coordinates in the TPZGeoMesh object.
+         for(int i = 0; i < quadNodeNumber; i++) {
+             int64_t nodeID = gmesh->NodeVec().AllocateNewElement();
+
+             TPZVec<REAL> nodeCoord(3);
+             nodeCoord[0] = coordinates[i][0];
+             nodeCoord[1] = coordinates[i][1];
+             nodeCoord[2] = coordinates[i][2];
+
+             gmesh->NodeVec()[nodeID] = TPZGeoNode(i, nodeCoord, *gmesh);
+         }
+
+         // Creates quadrilateral element.
+         int64_t index;
+         TPZManVector<int64_t> nodeIDs(quadNodeNumber);
+
+         for(int n = 0; n < quadNodeNumber; n++) {
+            nodeIDs[n] = n;
+         }
+         gmesh->CreateGeoElement(EQuadrilateral, nodeIDs, matID, index);
+
+         // Creates line elements where boundary conditions will be inserted.
+         nodeIDs.Resize(2);
+         for (int i = 0; i < 4; i++) {
+
+             nodeIDs[0] = i % 4;
+             nodeIDs[1] = (i + 1) % 4;
+
+             gmesh->CreateGeoElement(EOned, nodeIDs, -1, index);
+         }
+
+         gmesh->BuildConnectivity();
+         return gmesh;
+     }
+     else if (problemDimension == 3) {
+         // Creates hexahedra element.
+         gmesh->SetDimension(3);
+         const int hexahedraNodes = 8;
+         REAL coordinates[hexahedraNodes][3] = {
+             {0., 0., 0.},
+             {1., 0., 0.},
+             {1., 1., 0.},
+             {0., 1., 0.},
+             {0., 0., 1.},
+             {1., 0., 1.},
+             {1., 1., 1.},
+             {0., 1., 1.},
+         };
+
+         for(int n = 0; n < hexahedraNodes; n++) {
+             int64_t nodeID = gmesh->NodeVec().AllocateNewElement();
+             TPZVec<REAL> coord(3);
+             coord[0] = coordinates[n][0];
+             coord[1] = coordinates[n][1];
+             coord[2] = coordinates[n][2];
+             gmesh->NodeVec()[nodeID] = TPZGeoNode(n, coord, *gmesh);
+         }
+
+         TPZVec<int64_t> nodeID(hexahedraNodes);
+         for(int n = 0; n < hexahedraNodes; n++) {
+             nodeID[n] = n;
+         }
+
+         // Inserts Dirichlet BC
+// CODE dsahdajshdkaj
+         gmesh->BuildConnectivity();
+         return gmesh;
+     }
+     else {
+         DebugStop();
+     }
+ }
+    
 bool SolvePoissonProblem(struct SimulationCase &sim_case) {
-	// Variables
-
-    TPZGeoMesh *gmesh = 0;
-    {
-        TPZGmshReader gmsh;
-        gmsh.fPZMaterialId[1]["dirichlet"] = -1;
-        gmsh.fPZMaterialId[1]["neuman"] = -2;
-        gmsh.fPZMaterialId[2]["domain"] = 1;
-        gmsh.fPZMaterialId[2]["dirichlet"] = -1;
-        gmsh.fPZMaterialId[2]["neuman"] = -2;
-        gmsh.fPZMaterialId[3]["domain"] = 1;
-#ifdef MACOSX
-        gmesh = gmsh.GeometricGmshMesh("../"+ sim_case.file_name);
-#else
-        gmesh = gmsh.GeometricGmshMesh(sim_case.file_name);
-#endif
-    }
 
     // Creating the directory
     std::string command = "mkdir " + sim_case.dir_name;
     system(command.c_str());
-    
-	
-	// Output files
+
+    // Output files
     std::string file_name = sim_case.dir_name + "/" + "ErrorsHP_Poisson.txt";
-	std::ofstream fileerrors(file_name,ios::app);   // To store all errors calculated by TPZAnalysis (PosProcess)
-	// Initial message to print computed errors
-	
+    std::ofstream fileerrors(file_name, ios::app);   // To store all errors calculated by TPZAnalysis (PosProcess)
 
-	// Initializing the auto adaptive process
-	TPZVec<REAL> ervec, ErrorVec(100,0.0);
-	TPZVec<int64_t> NEquations(100,0L);
-	TPZVec<REAL> ervecbyel;
-	TPZVec<REAL> gradervecbyel;
+    // Initializing the auto adaptive process
+    TPZVec<REAL> ervec, ErrorVec(100, 0.0);
+    TPZVec<int64_t> NEquations(100, 0L);
+    TPZVec<REAL> ervecbyel;
+    TPZVec<REAL> gradervecbyel;
 
-
-
-	/** Variable names for post processing */
-	TPZStack<std::string> scalnames, vecnames;
-	scalnames.Push("POrder");
-	scalnames.Push("Pressure");
+    /** Variable names for post processing */
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("POrder");
+    scalnames.Push("Pressure");
     vecnames.Push("Derivative");
 
-	fileerrors.flush();
-    
-    {
-        UniformRefinement(sim_case.numinitialrefine,gmesh);
-    }
-    // refinar um elemento
+    fileerrors.flush();
 
-    if(0)
+    TPZGeoMesh *gmesh = sim_case.gmesh;
     {
-        for (auto gel:gmesh->ElementVec()) {
-            if(gel && gel->Dimension() == gmesh->Dimension() && gel->NSubElements()==0)
-            {
-                TPZStack<TPZGeoEl *> subels;
-                gel->Divide(subels);
-                break;
-            }
-        }
+        // Refines an element
+        UniformRefinement(sim_case.numinitialrefine, gmesh);
     }
-	// Creating computational mesh (approximation space and materials)
-	TPZCompEl::SetgOrder(sim_case.porder);
-	gmesh->SetName("Malha Geometrica original");
-    
-    
-//    TPZManVector<TPZCompMesh *,5> meshvec(5,0);
 
-    
-    
+    // Creates computational mesh (approximation space and materials)
+    TPZCompEl::SetgOrder(sim_case.porder);
+    gmesh->SetName("Original GeoMesh");
+
     TPZManVector<TPZCompMesh *> meshvec(0);
-    TPZCompMesh *pressuremesh = 0;
-	// loop solving iteratively
-    if(1)
-    {
-        pressuremesh = CMeshPressure(gmesh, sim_case.porder);
-        
-        pressuremesh->AdjustBoundaryElements();
-    }
-    
+
+    TPZCompMesh *pressuremesh = CMeshPressure(gmesh, sim_case.porder);
+    pressuremesh->AdjustBoundaryElements();
+
     {
         std::ofstream out("CompMesh.vtk");
         TPZVTKGeoMesh::PrintCMeshVTK(pressuremesh, out);
         std::ofstream out2("CompMesh.txt");
         pressuremesh->Print(out2);
-
     }
-    
+
     TLaplaceExample1 example;
     example.fExact = TLaplaceExample1::ECosCos;
     example.fDimension = gmesh->Dimension();
     example.fSignConvention = -1;
-//    example.fCenter[0] = 0.5;
-//    example.fCenter[1] = 0.5;
+
     {
-        for (auto it:pressuremesh->MaterialVec())
-        {
+        for (auto it:pressuremesh->MaterialVec()) {
             TPZMaterial *mat = it.second;
             TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-            if(!bc)
-            {
+            if (!bc) {
                 mat->SetForcingFunction(example.ForcingFunction());
             }
-            else
-            {
+            else {
                 bc->SetForcingFunction(0, example.Exact());
             }
         }
     }
-    
-    
-    TPZAnalysis an(pressuremesh,true);
+
+    TPZAnalysis an(pressuremesh, true);
     an.SetExact(example.ExactSolution());
+
     {
         std::stringstream sout;
-        sout << sim_case.dir_name << "/" << "Poisson" << gmesh->Dimension() << "numref" << sim_case.numinitialrefine  << "Porder" << sim_case.porder << ".vtk";
-        an.DefineGraphMesh(gmesh->Dimension(),scalnames,vecnames,sout.str());
+        sout << sim_case.dir_name << "/" << "Poisson" << gmesh->Dimension() << "numref" << sim_case.numinitialrefine
+             << "Porder" << sim_case.porder << ".vtk";
+        an.DefineGraphMesh(gmesh->Dimension(), scalnames, vecnames, sout.str());
     }
-    
-    
-    pressuremesh->SetName("Malha computacional adaptada");
+
+    pressuremesh->SetName("Adapted CompMesh");
+
     // Printing geometric and computational mesh
 #ifdef PZDEBUG
-    if(1)
     {
         std::ofstream out("../PressureGeoMesh.txt");
         pressuremesh->Reference()->Print(out);
-//        pressuremesh->Print(out);
     }
 #endif
-    // Solve using symmetric matrix then using Cholesky (direct method)
-        
+
 #ifdef USING_MKL
+    // Solves using a symmetric matrix then using Cholesky decomposition (direct method)
     TPZSymetricSpStructMatrix strmat(pressuremesh);
     strmat.SetNumThreads(sim_case.nthreads);
     an.SetStructuralMatrix(strmat);
@@ -293,39 +275,40 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(pressuremesh);
     strmat.SetNumThreads(0);
     strmat.SetDecomposeType(ECholesky);
-//		TPZSkylineStructMatrix strmat3(cmesh);
-//        strmat3.SetNumThreads(8);
 #endif
-		
+
     TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
     direct->SetDirect(ECholesky);
     an.SetSolver(*direct);
     delete direct;
-    direct = 0;
-            
+
     an.Assemble();
-    
-    
-
     an.Solve();
-    
 
+    PostProcessProblem(an, gmesh, pressuremesh);
+
+    return true;
+}
+
+bool PostProcessProblem(TPZAnalysis &an, TPZGeoMesh * gmesh, TPZCompMesh * pressuremesh) {
     // Post processing
-    an.PostProcess(1,gmesh->Dimension());
-    
+    an.PostProcess(1, gmesh->Dimension());
     TPZPostProcessError error(pressuremesh);
     
     TPZVec<STATE> estimatedelementerror, exactelementerror;
     error.ComputeElementErrors(estimatedelementerror);
+
     {
         int64_t nels = pressuremesh->ElementVec().NElements();
         pressuremesh->ElementSolution().Redim(nels, 6);
     }
+
     bool store_errors = true;
     an.PostProcessError(exactelementerror, store_errors);
     std::cout << "Exact error " << exactelementerror << std::endl;
     gmesh->ResetReference();
     error.MultiPhysicsMesh()->LoadReferences();
+
     {
         TPZFMatrix<STATE> true_elerror(pressuremesh->ElementSolution());
         TPZFMatrix<STATE> estimate_elerror(error.MultiPhysicsMesh()->ElementSolution());
@@ -345,10 +328,8 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
         pressuremesh->ElementSolution() = true_elerror;
     }
     
-    
-//    error.ComputeExactH1SemiNormErrors(*exact, exactelementerror);
     {
-        TPZStack<std::string> scalnames,vecnames;
+        TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
         scalnames.Push("Error");
         scalnames.Push("TrueError");
@@ -357,72 +338,58 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
         an.PostProcess(1);
     }
     
-				
-	if(gmesh)
-		delete gmesh;
-	gmesh = NULL;
-	return true;
+    if(gmesh) delete gmesh;
+
+    return true;
 }
 
+void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
 
+	TPZManVector<TPZGeoEl*> children;
+    for(int division = 0; division < nDiv; division++) {
 
-void UniformRefinement(const int nDiv, TPZGeoMesh *gmesh) {
-	TPZManVector<TPZGeoEl*> filhos;
-    for(int D=0; D<nDiv; D++)
-    {
         int64_t nels = gmesh->NElements();
-        for(int64_t elem = 0; elem < nels; elem++)
-        {    
+
+        for(int64_t elem = 0; elem < nels; elem++) {
+
             TPZGeoEl * gel = gmesh->ElementVec()[elem];
-			if(!gel || gel->HasSubElement())
-				continue;
+
+			if(!gel || gel->HasSubElement()) continue;
 			if(gel->Dimension() == 0) continue;
-            gel->Divide(filhos);
+            gel->Divide(children);
         }
     }
 }
 
-TPZCompMesh *CMeshPressure(TPZGeoMesh *gmesh, int pOrder)
-{
+TPZCompMesh *CMeshPressure(TPZGeoMesh *gmesh, int pOrder) {
+
     int dim = gmesh->Dimension();
-    int matid = 1;
+    int matID = 1;
     int dirichlet = 0;
     int neumann = 1;
-    /// criar materiais
-    //TPZMatPoisson3d *material = new TPZMatPoisson3d(matId,dim);
-    TPZMatPoisson3d *material = new TPZMatPoisson3d(matid,dim);
-    material->NStateVariables();
-    
-    
-    TPZCompMesh * cmesh;
-    cmesh = new TPZCompMesh(gmesh);
-    
+
+    // Creates Poisson material
+    TPZMatPoisson3d *material = new TPZMatPoisson3d(matID, dim);
+
+    TPZCompMesh * cmesh = new TPZCompMesh(gmesh);
     cmesh->SetDimModel(dim);
-    TPZMaterial * mat(material);
-    cmesh->InsertMaterialObject(mat);
+    cmesh->InsertMaterialObject(material);
+
+//    TPZMaterial * mat(material);
+//    cmesh->InsertMaterialObject(mat);
     
-    ///Inserir condicao de contorno
-    TPZFMatrix<STATE> val1(2,2,0.), val2(2,1,0.);
-    TPZMaterial * BCond0 = material->CreateBC(mat, -1,dirichlet, val1, val2);
-    TPZMaterial * BCond1 = material->CreateBC(mat, -2,neumann, val1, val2);
+    // Inserts boundary conditions
+    TPZFMatrix<STATE> val1(2, 2, 0.), val2(2, 1, 0.);
+    TPZMaterial * BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
+    TPZMaterial * BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
     cmesh->InsertMaterialObject(BCond0);
     cmesh->InsertMaterialObject(BCond1);
+
     cmesh->SetDefaultOrder(pOrder);
-    //cmesh->SetDimModel(dim);
-    
     cmesh->SetAllCreateFunctionsContinuous();
-    
-    
-    //Ajuste da estrutura de dados computacional
+
+    // Adjusts computational data structure
     cmesh->AutoBuild();
-    
-    
     return cmesh;
-    
 }
-
-
-
-
-

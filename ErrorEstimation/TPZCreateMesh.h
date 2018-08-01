@@ -32,14 +32,5 @@ void UnwrapMesh(TPZCompMesh *cmesh);
 
 void UnitPressure(TPZCompMesh *PressMesh);
 
-const int matId = 1;
-const int bc0 = -1;
-const int bc1 = -2;
-const int bc2 = -3;
-const int bc3 = -4;
-const int bc4 = -5;
-const int bc5 = -6;
-const int dirichlet = 0;
-const int neumann = 1;
 
 #endif /* TPZCreateHDivMesh_hpp */

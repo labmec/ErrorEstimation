@@ -86,10 +86,20 @@ using namespace std;
 using namespace pzshape;
 using namespace pzgeom;
 
+ const int matId = 1;
+ const int bc0 = -1;
+ const int bc1 = -2;
+ const int bc2 = -3;
+ const int bc3 = -4;
+ const int bc4 = -5;
+ const int bc5 = -6;
+ const int dirichlet = 0;
+ const int neumann = 1;
 
 /**  Global variables  */
 int gDebug = 1;
 bool usethreads = false;
+int ModelDimension;
 // Maximum number of equations allowed
 int64_t MaxEquations = 1500000;
 // Input - output
