@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
 	}
 
     struct SimulationCase Case1;
-    Case1.nthreads = 12;
+    Case1.nthreads = 0;
     Case1.numinitialrefine = 0;
     Case1.dir_name = "QuadSimCase1";
     Case1.gmesh = gmesh;
@@ -229,7 +229,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     }
 
     TLaplaceExample1 example;
-    example.fExact = TLaplaceExample1::ECosCos;
+    example.fExact = TLaplaceExample1::ESinSin;
     example.fDimension = gmesh->Dimension();
     example.fSignConvention = -1;
 
@@ -282,7 +282,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     an.SetSolver(*direct);
     delete direct;
 
-    an.Solve();
+    an.Run();
 
     PostProcessProblem(an, gmesh, pressuremesh);
 
