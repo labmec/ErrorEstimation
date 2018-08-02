@@ -273,7 +273,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     an.SetStructuralMatrix(strmat);
 #else
     TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(pressuremesh);
-    strmat.SetNumThreads(0);
+    strmat.SetNumThreads(sim_case.nthreads);
     strmat.SetDecomposeType(ECholesky);
 #endif
 
@@ -282,7 +282,6 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     an.SetSolver(*direct);
     delete direct;
 
-    an.Assemble();
     an.Solve();
 
     PostProcessProblem(an, gmesh, pressuremesh);
