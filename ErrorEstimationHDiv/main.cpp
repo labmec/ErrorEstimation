@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     ProblemConfig config;
     config.porder = 2;
+    config.hdivmais = 2;
     config.exact.fExact = TLaplaceExample1::ESinSin;
     config.problemname = "SinSin_4x4";
     {
@@ -180,10 +181,7 @@ TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem) {
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
-    cmesh->SetDefaultOrder(problem.porder);
-    if (problem.hdivmais) {
-        cmesh->SetDefaultOrder(problem.porder + 1);
-    }
+    cmesh->SetDefaultOrder(problem.porder+problem.hdivmais);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     cmesh->ApproxSpace().CreateDisconnectedElements(true);
     cmesh->AutoBuild();
@@ -221,8 +219,8 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
             if (gel->Dimension() == dim) {
                 int side = gel->NSides() - 1;
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
-                intel->SetSideOrder(side, problem.porder + 1);
-                intel->SetPreferredOrder(problem.porder+1);
+                intel->SetSideOrder(side, problem.porder + problem.hdivmais);
+                intel->SetPreferredOrder(problem.porder+problem.hdivmais);
             }
         }
     }

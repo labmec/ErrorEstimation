@@ -15,7 +15,7 @@ struct ProblemConfig
 {
     TPZGeoMesh *gmesh = 0;
     int porder = 1;
-    bool hdivmais = true;
+    int hdivmais = 1;
     std::string problemname;
     std::set<int> materialids;
     std::set<int> bcmaterialids;

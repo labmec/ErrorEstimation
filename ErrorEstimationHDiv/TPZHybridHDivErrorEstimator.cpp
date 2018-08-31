@@ -38,6 +38,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     CreatePostProcessingMesh();
     ComputeElementStiffnesses();
     ComputeAveragePressures();
+    ComputeNodalAverages();
     fPostProcMesh[0]->LoadSolution(fPostProcMesh[0]->Solution());
     TPZManVector<TPZCompMesh *,2> meshvec(2);
     meshvec[0] = fPostProcMesh[1];
@@ -151,6 +152,12 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     CreateMultiphysicsMesh();
     TPZCompMesh *cmesh_Hybrid = fPostProcMesh[0];
     fHybridizer.CreateInterfaceElements(cmesh_Hybrid, meshvec_Hybrid);
+#ifdef PZDEBUG
+    {
+        std::ofstream out("multiphysics.txt");
+        cmesh_Hybrid->Print(out);
+    }
+#endif
     fHybridizer.GroupElements(cmesh_Hybrid);
     cmesh_Hybrid->CleanUpUnconnectedNodes();
 #ifdef PZDEBUG
@@ -307,6 +314,82 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures()
     meshvec[1] = fPostProcMesh[2];
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, fPostProcMesh[0]);
 }
+
+/// set the cornernode values equal to the averages
+void TPZHybridHDivErrorEstimator::ComputeNodalAverages()
+{
+    TPZCompMesh *pressureHybrid = fPostProcMesh[2];
+    int InterfaceMatid = fHybridizer.LagrangeInterface;
+    TPZGeoMesh *gmesh = pressureHybrid->Reference();
+    gmesh->ResetReference();
+    int dim = gmesh->Dimension();
+    pressureHybrid->LoadReferences();
+    int lagrangematid = fHybridizer.LagrangeInterface;
+    TPZMaterial *mat = pressureHybrid->FindMaterial(lagrangematid);
+    if(!mat) DebugStop();
+    int nstate = mat->NStateVariables();
+    if(dim != 2)
+    {
+        DebugStop();
+    }
+    int64_t nel = pressureHybrid->NElements();
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = pressureHybrid->Element(el);
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) {
+            continue;
+        }
+        TPZGeoEl *gel = intel->Reference();
+        if(gel->Dimension() != 1 || gel->MaterialId() != InterfaceMatid)
+        {
+            continue;
+        }
+        for (int side=0; side<2; side++) {
+            TPZGeoElSide gelside(gel,side);
+            TPZStack<TPZCompElSide> celstack;
+            gelside.ConnectedCompElementList(celstack, 1, 0);
+            celstack.Push(gelside.Reference());
+            TPZManVector<STATE,3> averageval(nstate,0.);
+            std::set<int64_t> connects;
+            for (int elc=0; elc<celstack.size(); elc++) {
+                TPZCompElSide celside = celstack[elc];
+                TPZGeoElSide gelside0 = celside.Reference();
+                if (gelside0.Element()->Dimension() != 1) {
+                    continue;
+                }
+                TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
+                if(!intel1 || intel1->NConnects() != 3) DebugStop();
+                int64_t conindex = intel1->ConnectIndex(celside.Side());
+                connects.insert(conindex);
+                TPZConnect &c = intel1->Connect(celside.Side());
+                int64_t seqnum = c.SequenceNumber();
+                if(c.NState() != nstate || c.NShape() != 1) DebugStop();
+                for (int istate = 0; istate<nstate; istate++) {
+                    averageval[istate] += pressureHybrid->Block().Get(seqnum, 0, istate, 0);
+                }
+            }
+            auto ncontr = connects.size();
+            for (int istate = 0; istate<nstate; istate++) {
+                averageval[istate] /= ncontr;
+            }
+            for(auto conindex : connects)
+            {
+                TPZConnect &c = pressureHybrid->ConnectVec()[conindex];
+                int64_t seqnum = c.SequenceNumber();
+                if(c.NState() != nstate || c.NShape() != 1) DebugStop();
+                for (int istate = 0; istate<nstate; istate++) {
+                    averageval[istate] += pressureHybrid->Block().Get(seqnum, 0, istate, 0);
+                }
+            }
+        }
+    }
+    TPZManVector<TPZCompMesh *,2> meshvec(2);
+    meshvec[0] = fPostProcMesh[1];
+    meshvec[1] = fPostProcMesh[2];
+    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, fPostProcMesh[0]);
+}
+
+
 
 /// clone the meshes into the post processing mesh
 void TPZHybridHDivErrorEstimator::CloneMeshVec()

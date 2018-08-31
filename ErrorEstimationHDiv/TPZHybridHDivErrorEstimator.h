@@ -85,6 +85,9 @@ private:
     /// compute the average pressures of the hybridized form of the H(div) mesh
     void ComputeAveragePressures();
     
+    /// set the cornernode values equal to the averages
+    void ComputeNodalAverages();
+    
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();
     

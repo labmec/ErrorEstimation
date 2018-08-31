@@ -228,7 +228,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     }
 
     TLaplaceExample1 example;
-    example.fExact = TLaplaceExample1::ESinSin;
+    example.fExact = TLaplaceExample1::ECosCos;
     example.fDimension = gmesh->Dimension();
     example.fSignConvention = -1;
 
