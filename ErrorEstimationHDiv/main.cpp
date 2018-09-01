@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
         MeshesHDiv[2] = meshvec_HDiv[1];
         TPZHybridHDivErrorEstimator HDivEstimate(MeshesHDiv);
         HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = true;
+        HDivEstimate.fUpliftPostProcessMesh = false;
         HDivEstimate.SetAnalyticSolution(&config.exact);
         TPZManVector<REAL> elementerrors;
         HDivEstimate.ComputeErrors(elementerrors);

@@ -39,8 +39,11 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     ComputeElementStiffnesses();
     ComputeAveragePressures();
     ComputeNodalAverages();
+    // fPostProcMesh[0] is the multiphysics mesh
     fPostProcMesh[0]->LoadSolution(fPostProcMesh[0]->Solution());
     TPZManVector<TPZCompMesh *,2> meshvec(2);
+    // fPostProcMesh[1] is the flux mesh
+    // fPostProcMesh[2] is the pressure mesh
     meshvec[0] = fPostProcMesh[1];
     meshvec[1] = fPostProcMesh[2];
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, fPostProcMesh[0]);
