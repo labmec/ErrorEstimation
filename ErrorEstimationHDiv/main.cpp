@@ -40,6 +40,26 @@ void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, 
 
 std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);
 
+void Print(const FADREAL &a, std::ostream &out)
+{
+    out << " val " << a.val() << std::endl;
+    for (int i=0; i< a.dx().size(); i++) {
+        out << a.d(i) << " ";
+    }
+    out << std::endl;
+}
+void Print(const FADFADREAL &a, std::ostream &out)
+{
+    out << "Value ";
+    Print(a.val(),out);
+    out << "Derivatives\n";
+    for (int i=0; i< a.dx().size(); i++) {
+        Print(a.d(i),out);
+    }
+    out << "End\n";
+
+}
+
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
@@ -49,11 +69,59 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EOned);
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
+    
+    std::string meshfilename = "../BasicMesh.msh";
     ProblemConfig config;
-    config.porder = 2;
+    config.porder = 1;
     config.hdivmais = 2;
+    config.makepressurecontinuous = true;
     config.exact.fExact = TLaplaceExample1::ESinSin;
-    config.problemname = "SinSin_4x4";
+    config.problemname = "SinSin_9x9_HDiv1";
+    bool random_refine = false;
+    // printing the solution value and its derivatives at a certain points
+    if(0)
+    {
+        TPZManVector<REAL,3> x(3,0.25);
+        
+        TPZManVector<Fad<REAL>,3> xfad(x.size()), graduxy(x.size());
+        TPZManVector<FADFADREAL,3> xfadfad(x.size()), uxyfadfad(1);
+        for(int i=0; i<3; i++)
+        {
+            xfad[i] = Fad<REAL>(3,i,x[i]);
+            xfadfad[i] = FADFADREAL(3,i,xfad[i]);
+            for(int j=0; j<3; j++)
+            {
+                xfadfad[i].fastAccessDx(j) = Fad<REAL>(3,xfadfad[i].val().dx(j));
+            }
+        }
+        std::cout << "xfadfad = \n";
+        for(int i=0; i<3; i++)
+        {
+            Print(xfadfad[i],std::cout);
+        }
+        std::cout << std::endl;
+        config.exact.graduxy(xfad, graduxy);
+        config.exact.uxy(xfadfad, uxyfadfad);
+        for(int i=0; i<3; i++)
+        {
+            std::cout << "xfad = ";
+            Print(xfad[i],std::cout);
+            std::cout << std::endl;
+        }
+        std::cout << "graduxy = \n";
+        for(int i=0; i<3; i++)
+        {
+            Print(graduxy[i],std::cout);
+        }
+        std::cout << std::endl;
+        std::cout << "uxyfadfad = \n";
+        for(int i=0; i<uxyfadfad.size(); i++)
+        {
+            Print(uxyfadfad[i],std::cout);
+        }
+        REAL laplace = uxyfadfad[0].dx(0).dx(0)+uxyfadfad[0].dx(1).dx(1)+uxyfadfad[0].dx(2).dx(2);
+        std::cout << "Laplacian " << laplace << std::endl;
+    }
     {
         TPZGmshReader gmsh;
         gmsh.fPZMaterialId[1]["dirichlet"] = -1;
@@ -64,7 +132,8 @@ int main(int argc, char *argv[]) {
         config.bcmaterialids.insert(-2);
         TPZGeoMesh *gmesh = 0;
 #ifdef MACOSX
-        gmesh = gmsh.GeometricGmshMesh("../BasicMesh.msh");
+        gmesh = gmsh.GeometricGmshMesh(meshfilename);
+//        gmesh = gmsh.GeometricGmshMesh("../BasicMesh.msh");
 #else
         gmesh = gmsh.GeometricGmshMesh("BasicMesh.msh");
 #endif
@@ -75,8 +144,9 @@ int main(int argc, char *argv[]) {
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
         }
     }
+    if(random_refine)
     {
-        int numelrefine = 0;
+        int numelrefine = 10;
         int64_t nel = config.gmesh->NElements();
         if (numelrefine > nel/2) {
             numelrefine = 1;
@@ -165,7 +235,7 @@ int main(int argc, char *argv[]) {
         MeshesHDiv[2] = meshvec_HDiv[1];
         TPZHybridHDivErrorEstimator HDivEstimate(MeshesHDiv);
         HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = false;
+        HDivEstimate.fUpliftPostProcessMesh = 0;
         HDivEstimate.SetAnalyticSolution(&config.exact);
         TPZManVector<REAL> elementerrors;
         HDivEstimate.ComputeErrors(elementerrors);
@@ -223,7 +293,17 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
                 intel->SetPreferredOrder(problem.porder+problem.hdivmais);
             }
         }
-    }
+        for (int64_t el = 0; el < nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            if (gel->Dimension() == dim-1) {
+                int side = gel->NSides() - 1;
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+                intel->SetSideOrder(side, problem.porder + problem.hdivmais);
+                intel->SetPreferredOrder(problem.porder+problem.hdivmais);
+            }
+        }
+   }
     cmesh->InitializeBlock();
     return cmesh;
 

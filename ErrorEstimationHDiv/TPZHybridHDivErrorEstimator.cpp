@@ -19,6 +19,10 @@
 
 #include "TPZVTKGeoMesh.h"
 
+#ifdef LOG4CXX
+static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+#endif
+
 TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator()
 {
     delete fPostProcMesh[1];
@@ -37,7 +41,10 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     }
     CreatePostProcessingMesh();
     ComputeElementStiffnesses();
-    ComputeAveragePressures();
+    if(fProblemConfig.makepressurecontinuous)
+    {
+        ComputeAveragePressures();
+    }
     ComputeNodalAverages();
     // fPostProcMesh[0] is the multiphysics mesh
     fPostProcMesh[0]->LoadSolution(fPostProcMesh[0]->Solution());
@@ -90,6 +97,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
             plotname = out.str();
         }
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+        an.PostProcess(0,dim);
+        an.SetStep(1);
         an.PostProcess(2,dim);
     }
     {
@@ -381,8 +390,59 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages()
                 int64_t seqnum = c.SequenceNumber();
                 if(c.NState() != nstate || c.NShape() != 1) DebugStop();
                 for (int istate = 0; istate<nstate; istate++) {
-                    averageval[istate] += pressureHybrid->Block().Get(seqnum, 0, istate, 0);
+#ifdef LOG4CXX
+                    if (logger->isDebugEnabled())
+                    {
+                        std::stringstream sout;
+                        sout << "value before " << pressureHybrid->Block()(seqnum, 0, istate, 0) <<
+                        " value after " << averageval[istate] << " diff " << pressureHybrid->Block()(seqnum, 0, istate, 0)-averageval[istate] << " ncontr " << ncontr;
+                            //            res2.Print("Residual",sout);
+                        LOGPZ_DEBUG(logger,sout.str())
+                    }
+#endif
+
+                    pressureHybrid->Block()(seqnum, 0, istate, 0) = averageval[istate];
                 }
+            }
+        }
+    }
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = pressureHybrid->Element(el);
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) {
+            continue;
+        }
+        TPZGeoEl *gel = intel->Reference();
+        if(gel->Dimension() != 1 || gel->MaterialId() != InterfaceMatid)
+        {
+            continue;
+        }
+        for (int side=0; side<2; side++) {
+            TPZGeoElSide gelside(gel,side);
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            while (gelside != neighbour) {
+                if(IsDirichletCondition(neighbour))
+                {
+                    TPZConnect &c = intel->Connect(side);
+                    int nstate = c.NState();
+                    TPZManVector<STATE,3> vals(nstate,0.);
+                    GetDirichletValue(neighbour, vals);
+                    int64_t seqnum = c.SequenceNumber();
+                    for (int ist = 0; ist<nstate; ist++) {
+#ifdef LOG4CXX
+                        if (logger->isDebugEnabled())
+                        {
+                            std::stringstream sout;
+                            sout << "value before " << pressureHybrid->Block()(seqnum, 0, ist, 0) <<
+                            " value after " << vals[ist];
+                            //            res2.Print("Residual",sout);
+                            LOGPZ_DEBUG(logger,sout.str())
+                        }
+#endif
+                        pressureHybrid->Block()(seqnum,0,ist,0) = vals[ist];
+                    }
+                }
+                neighbour = neighbour.Neighbour();
             }
         }
     }
@@ -540,8 +600,8 @@ void TPZHybridHDivErrorEstimator::CreateFluxMesh()
                 int conindex = intel->SideConnectLocId(0, side);
                 TPZConnect &c = intel->Connect(conindex);
                 int porder = c.Order();
-                intel->SetSideOrder(side, porder + 1);
-                intel->SetPreferredOrder(porder+1);
+                intel->SetSideOrder(side, porder + fUpliftPostProcessMesh);
+                intel->SetPreferredOrder(porder+fUpliftPostProcessMesh);
             }
         }
 
@@ -580,13 +640,13 @@ void TPZHybridHDivErrorEstimator::CreatePressureMesh()
             TPZCompEl *cel = pressuremesh->Element(el);
             TPZGeoEl *gel = cel->Reference();
             if (gel->Dimension() == meshdim) {
-                int side = gel->NSides() - 1;
+//                int side = gel->NSides() - 1;
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
                 int conindex = intel->NConnects()-1;
                 TPZConnect &c = intel->Connect(conindex);
                 int porder = c.Order();
-                intel->PRefine(porder+1);
-                intel->SetPreferredOrder(porder+1);
+                intel->PRefine(porder+fUpliftPostProcessMesh);
+                intel->SetPreferredOrder(porder+fUpliftPostProcessMesh);
             }
         }
     }
@@ -616,6 +676,44 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices()
             {
                 cmesh->ElementSolution()(el,4+i/2) = 1.;
             }
+        }
+    }
+}
+
+/// returns true if the material associated with the element is a boundary condition
+/// and if the boundary condition is dirichlet type
+bool TPZHybridHDivErrorEstimator::IsDirichletCondition(TPZGeoElSide gelside)
+{
+    TPZGeoEl *gel = gelside.Element();
+    int matid = gel->MaterialId();
+    TPZMaterial *mat = fPostProcMesh[0]->FindMaterial(matid);
+    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+    if(!bc) return false;
+    int typ = bc->Type();
+    if(typ == 0) return true;
+    return false;
+}
+
+/// return the value of the Dirichlet condition
+void TPZHybridHDivErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec<STATE> &vals)
+{
+    TPZGeoEl *gel = gelside.Element();
+    int matid = gel->MaterialId();
+    TPZMaterial *mat = fPostProcMesh[0]->FindMaterial(matid);
+    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+    if(!bc) DebugStop();
+    int typ = bc->Type();
+    if(typ != 0) DebugStop();
+    TPZManVector<REAL,3> xco(3,0.);
+    if (bc->HasForcingFunction()) {
+        gel->NodePtr(gelside.Side())->GetCoordinates(xco);
+        bc->ForcingFunction()->Execute(xco, vals);
+    }
+    else
+    {
+        int nv = vals.size();
+        for (int iv=0; iv<nv; iv++) {
+            vals[iv] = bc->Val2()(iv,0);
         }
     }
 }

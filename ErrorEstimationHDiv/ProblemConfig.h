@@ -16,6 +16,7 @@ struct ProblemConfig
     TPZGeoMesh *gmesh = 0;
     int porder = 1;
     int hdivmais = 1;
+    bool makepressurecontinuous = 0;
     std::string problemname;
     std::set<int> materialids;
     std::set<int> bcmaterialids;
@@ -23,6 +24,7 @@ struct ProblemConfig
     
     ProblemConfig(){};
     ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
+    makepressurecontinuous(cp.makepressurecontinuous),
     problemname(cp.problemname),
     materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact)
     {
@@ -33,6 +35,7 @@ struct ProblemConfig
         gmesh = cp.gmesh;
         porder = cp.porder;
         hdivmais = cp.hdivmais;
+        makepressurecontinuous = cp.makepressurecontinuous;
         problemname = cp.problemname;
         materialids = cp.materialids;
         bcmaterialids = cp.bcmaterialids;

@@ -26,7 +26,7 @@ struct TPZHybridHDivErrorEstimator
     
     bool fOriginalIsHybridized = true;
     
-    bool fUpliftPostProcessMesh = false;
+    int fUpliftPostProcessMesh = 0;
     
     TPZManVector<TPZCompMesh *,3> fPostProcMesh;
     
@@ -102,6 +102,13 @@ private:
     
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices();
+    
+    /// returns true if the material associated with the element is a boundary condition
+    /// and if the boundary condition is dirichlet type
+    bool IsDirichletCondition(TPZGeoElSide gelside);
+    
+    /// return the value of the Dirichlet condition
+    void GetDirichletValue(TPZGeoElSide gelside, TPZVec<STATE> &vals);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
