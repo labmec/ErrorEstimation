@@ -124,9 +124,9 @@ int main(int argc, char *argv[]) {
     }
     {
         TPZGmshReader gmsh;
-        gmsh.fPZMaterialId[1]["dirichlet"] = -1;
-        gmsh.fPZMaterialId[1]["neuman"] = -2;
-        gmsh.fPZMaterialId[2]["domain"] = 1;
+        gmsh.GetDimNamePhysical()[1]["dirichlet"] = -1;
+        gmsh.GetDimNamePhysical()[1]["neuman"] = -2;
+        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         config.bcmaterialids.insert(-2);

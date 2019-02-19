@@ -9,6 +9,7 @@
 #include "pzpoisson3d.h"
 #include "pzgeoelbc.h"
 #include "TPZSSpStructMatrix.h"
+#include "pzskylstrmatrix.h"
 #include "TPZRefPatternDataBase.h"
 #include "TPZVTKGeoMesh.h"
 #include "TPZGmshReader.h"
@@ -60,20 +61,22 @@ int main(int argc, char *argv[]) {
         TPZGmshReader gmsh;
 
         // Assigns IDs of 1D and 2D elements defining boundary conditions.
-        gmsh.fPZMaterialId[1]["dirichlet"] = -1;
-        gmsh.fPZMaterialId[1]["neumann"] = -2;
-        gmsh.fPZMaterialId[2]["dirichlet"] = -1;
-        gmsh.fPZMaterialId[2]["neumann"] = -2;
+        gmsh.GetDimNamePhysical()[1]["dirichlet"] = -1;
+        gmsh.GetDimNamePhysical()[1]["neumann"] = -2;
+        gmsh.GetDimNamePhysical()[2]["dirichlet"] = -1;
+        gmsh.GetDimNamePhysical()[2]["neumann"] = -2;
 
         // Assigns IDs of 2D and 3D elements defining the problem domain.
-        gmsh.fPZMaterialId[2]["domain"] = 1;
-        gmsh.fPZMaterialId[3]["domain"] = 1;
-
+        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+        gmsh.GetDimNamePhysical()[3]["domain"] = 1;
+        
+        gmsh.SetFormatVersion("3.0"); // read format version 3.0
 #ifdef MACOSX
         gmesh = gmsh.GeometricGmshMesh("../Quad.msh");
 #else
         gmesh = gmsh.GeometricGmshMesh("Quad.msh");
 #endif
+
 	}
 	else {
         gmesh = CreateGeoMesh();
@@ -267,7 +270,8 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
 
 #ifdef USING_MKL
     // Solves using a symmetric matrix then using Cholesky decomposition (direct method)
-    TPZSymetricSpStructMatrix strmat(pressuremesh);
+//    TPZSymetricSpStructMatrix strmat(pressuremesh);
+    TPZSkylineStructMatrix strmat(pressuremesh);
     strmat.SetNumThreads(sim_case.nthreads);
     an.SetStructuralMatrix(strmat);
 #else
