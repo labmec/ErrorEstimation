@@ -79,3 +79,4 @@ endif()
 
 add_subdirectory(ErrorEstimation)
 add_subdirectory(ErrorEstimationHDiv)
+add_subdirectory(PropostaMark)

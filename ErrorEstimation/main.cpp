@@ -26,7 +26,7 @@
 
 // Global variables
 const int problemDimension = 2;
-const bool readGMeshFromFile = true;
+const bool readGMeshFromFile = false;
 
 const int matID = 1;
 const int dirichletMatID = -1;
@@ -61,14 +61,18 @@ int main(int argc, char *argv[]) {
         TPZGmshReader gmsh;
 
         // Assigns IDs of 1D and 2D elements defining boundary conditions.
+//        gmsh.GetDimNamePhysical()[1]["dirichlet"] = -1;
+//        gmsh.GetDimNamePhysical()[1]["neumann"] = -2;
+//        gmsh.GetDimNamePhysical()[2]["dirichlet"] = -1;
+//        gmsh.GetDimNamePhysical()[2]["neumann"] = -2;
+//
+//        // Assigns IDs of 2D and 3D elements defining the problem domain.
+//        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+//        gmsh.GetDimNamePhysical()[3]["domain"] = 1;
+        
         gmsh.GetDimNamePhysical()[1]["dirichlet"] = -1;
-        gmsh.GetDimNamePhysical()[1]["neumann"] = -2;
-        gmsh.GetDimNamePhysical()[2]["dirichlet"] = -1;
-        gmsh.GetDimNamePhysical()[2]["neumann"] = -2;
-
-        // Assigns IDs of 2D and 3D elements defining the problem domain.
+        gmsh.GetDimNamePhysical()[1]["neuman"] = -2;
         gmsh.GetDimNamePhysical()[2]["domain"] = 1;
-        gmsh.GetDimNamePhysical()[3]["domain"] = 1;
         
         gmsh.SetFormatVersion("3.0"); // read format version 3.0
 #ifdef MACOSX
@@ -80,13 +84,25 @@ int main(int argc, char *argv[]) {
 	}
 	else {
         gmesh = CreateGeoMesh();
+        
 	}
 
+//    {
+//        std::ofstream out("gmesh.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+//    }
+    
     struct SimulationCase Case1;
     Case1.nthreads = 0;
-    Case1.numinitialrefine = 0;
+    Case1.numinitialrefine = 3;
     Case1.dir_name = "QuadCase1";
     Case1.gmesh = gmesh;
+    Case1.materialids.insert(1);
+    Case1.bcmaterialids.insert(-1);
+    Case1.bcmaterialids.insert(-2);
+    Case1.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;
+    
+
 
     if(!SolvePoissonProblem(Case1)) {
         return 1;
@@ -202,36 +218,45 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
 
     /** Variable names for post processing */
     TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("POrder");
+    //scalnames.Push("POrder");
     scalnames.Push("Pressure");
     vecnames.Push("Derivative");
 
     fileerrors.flush();
-
+//le a malha geometrica
     TPZGeoMesh *gmesh = sim_case.gmesh;
+    
+    //refina a malha geometrica uniformemente
     {
         // Refines an element
         UniformRefinement(sim_case.numinitialrefine, gmesh);
+            std::ofstream out("Gmesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+
     }
+    
 
     // Creates computational mesh (approximation space and materials)
     TPZCompEl::SetgOrder(sim_case.porder);
     gmesh->SetName("Original GeoMesh");
 
     TPZManVector<TPZCompMesh *> meshvec(0);
+    
+    
 
     TPZCompMesh *pressuremesh = CMeshPressure(gmesh, sim_case.porder);
     pressuremesh->AdjustBoundaryElements();
 
-    {
-        std::ofstream out("CompMesh.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(pressuremesh, out);
-        std::ofstream out2("CompMesh.txt");
-        pressuremesh->Print(out2);
-    }
+//    {
+//        std::ofstream out("CompMesh.vtk");
+//        TPZVTKGeoMesh::PrintCMeshVTK(pressuremesh, out);
+//        std::ofstream out2("CompMesh.txt");
+//        pressuremesh->Print(out2);
+//    }
 
+    //define the model problem to be solve
     TLaplaceExample1 example;
-    example.fExact = TLaplaceExample1::ECosCos;
+    example.fExact = TLaplaceExample1::ESinSinDirNonHom;//ECosCos;
     example.fDimension = gmesh->Dimension();
     example.fSignConvention = -1;
 
@@ -253,20 +278,21 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
 
     {
         std::stringstream sout;
-        sout << sim_case.dir_name << "/" << "Poisson" << gmesh->Dimension() << "numref" << sim_case.numinitialrefine
-             << "Porder" << sim_case.porder << ".vtk";
+      sout << sim_case.dir_name << "/" <<  "Poisson" << gmesh->Dimension() << "Porder" << sim_case.porder << ".vtk";
+//        sout << sim_case.dir_name << "/" << "Poisson" << gmesh->Dimension() << "numref" << sim_case.numinitialrefine
+//             << "Porder" << sim_case.porder << ".vtk";
         an.DefineGraphMesh(gmesh->Dimension(), scalnames, vecnames, sout.str());
     }
 
     pressuremesh->SetName("Adapted CompMesh");
 
     // Printing geometric and computational mesh
-#ifdef PZDEBUG
-    {
-        std::ofstream out("../PressureGeoMesh.txt");
-        pressuremesh->Reference()->Print(out);
-    }
-#endif
+//#ifdef PZDEBUG
+//    {
+//        std::ofstream out("../PressureGeoMesh.txt");
+//        pressuremesh->Reference()->Print(out);
+//    }
+//#endif
 
 #ifdef USING_MKL
     // Solves using a symmetric matrix then using Cholesky decomposition (direct method)
@@ -286,7 +312,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     delete direct;
 
     an.Run();
-
+//reconstruction of flux and erros estimation
     PostProcessProblem(an, gmesh, pressuremesh);
 
     return true;
@@ -387,6 +413,22 @@ TPZCompMesh *CMeshPressure(TPZGeoMesh *gmesh, int pOrder) {
 
     cmesh->InsertMaterialObject(BCond0);
     cmesh->InsertMaterialObject(BCond1);
+    
+    
+    ////
+    
+//    for (auto matid : problem.bcmaterialids) {
+//        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+//        int bctype = 0;
+//        if (matid == -2) {
+//            bctype = 0;
+//            val2.Zero();
+//        }
+//        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+//        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+//        cmesh->InsertMaterialObject(bc);
+//    }
+    
 
     cmesh->SetDefaultOrder(pOrder);
     cmesh->SetAllCreateFunctionsContinuous();

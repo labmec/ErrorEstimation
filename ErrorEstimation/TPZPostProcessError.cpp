@@ -320,19 +320,19 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {
     
     TPZCompMesh *meshmixed = fMeshVector[1];
-    {
-        std::ofstream out5("../CMeshH1.txt");
-        fMeshVector[0]->Print(out5);
-        std::ofstream out("../CMeshError.txt");
-        meshmixed->Print(out);
-        std::ofstream out2("../PressureCMesh.txt");
-        fMeshVector[3]->Print(out2);
-        std::ofstream out3("../FluxCMesh.txt");
-        fMeshVector[2]->Print(out3);
-        std::ofstream out4("../PartitionCMesh.txt");
-        fMeshVector[4]->Print(out4);
-        
-    }
+//    {
+//        std::ofstream out5("../CMeshH1.txt");
+//        fMeshVector[0]->Print(out5);
+//        std::ofstream out("../CMeshError.txt");
+//        meshmixed->Print(out);
+//        std::ofstream out2("../PressureCMesh.txt");
+//        fMeshVector[3]->Print(out2);
+//        std::ofstream out3("../FluxCMesh.txt");
+//        fMeshVector[2]->Print(out3);
+//        std::ofstream out4("../PartitionCMesh.txt");
+//        fMeshVector[4]->Print(out4);
+//
+//    }
     TPZCompMesh *meshweight = fMeshVector[4];
     TPZVec<TPZCompEl *> elpointers(meshmixed->NElements());
     int64_t nelem = meshmixed->NElements();

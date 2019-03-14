@@ -16,6 +16,10 @@ struct SimulationCase {
     int porder = 1;
     std::string dir_name;
     TPZGeoMesh * gmesh = nullptr;
+    
+    std::set<int> materialids;
+    std::set<int> bcmaterialids;
+    TLaplaceExample1 exact;
 
     SimulationCase() {
         dir_name = "dump";
@@ -26,9 +30,11 @@ struct SimulationCase {
               numinitialrefine(cp.numinitialrefine),
               porder(cp.porder),
               dir_name(cp.dir_name),
-              gmesh(cp.gmesh)
+              gmesh(cp.gmesh),
+    materialids(cp.materialids),
+    bcmaterialids (cp.bcmaterialids),
+    exact(cp.exact)
     {
     }
 };
-
 #endif // PROBLEMCONFIG_H
