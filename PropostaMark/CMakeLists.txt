@@ -8,4 +8,4 @@ add_executable(PropostaMark ${ErrorEstimateSRC})
 
 target_link_libraries(PropostaMark pz)
 
-configure_file(BasicMesh.msh BasicMesh.msh COPYONLY)
+configure_file(LMesh.msh LMesh.msh COPYONLY)
