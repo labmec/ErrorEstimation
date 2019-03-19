@@ -166,10 +166,8 @@ int main(int argc, char *argv[]) {
     an.DefineGraphMesh(2, scalnames, vecnames, "Original.vtk");
     //        meshvec_Hybrid[1]->Solution().Print("Press");
 
-
     // Post processing
     an.PostProcess(0, 2);
-
 
     //Solve a local Neumann Problem
     int degreepK = config.porder;
@@ -481,11 +479,7 @@ void LocalNeumannProblem(TPZAnalysis &an, TPZCompMesh *mesh, int degreepK, int d
         if (gel->Dimension() != 2) continue;
 
         compEl->CalcStiff(ek, ef);
-
-
     }
-
-
 }
 
 

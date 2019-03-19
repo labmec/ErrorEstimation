@@ -161,7 +161,8 @@ void TPZMarkErrorEstimation::SolveMixedProblem() {
     an.PostProcess(0, 2);
 }
 
-void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &disp) {
+void TPZMarkErrorEstimation::Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &disp) {
     disp[0] = 1.;
     return;
 }
+

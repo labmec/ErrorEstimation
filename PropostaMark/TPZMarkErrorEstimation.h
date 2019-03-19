@@ -11,6 +11,7 @@
 #include "TPZVecL2.h"
 #include "pzbuildmultiphysicsmesh.h"
 
+#include "pzbndcond.h"
 #include "TPZCompMeshTools.h"
 #include "pzintel.h"
 
@@ -27,7 +28,7 @@ private:
 
     TPZManVector<TPZCompMesh *,6> fMeshVector;
 
-    void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &disp);
+    static void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &disp);
 
 public:
     TPZMarkErrorEstimation(ProblemConfig problem);
