@@ -72,12 +72,13 @@ struct TPZHybridHDivErrorEstimator
     void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);
     //reconstruction of potential using hybrid solution on enrichement space
     void PotentialReconstruction();
+    void PostProcessingHybridMesh();
 
     
 private:
     
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
-    void CreatePostProcessingMesh();
+    void CreatePostProcessingMesh(bool isOriginalMeshHybrid);
     
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();

@@ -16,6 +16,8 @@
 #include "pzbuildmultiphysicsmesh.h"
 #include "tpzcompmeshreferred.h"
 #include "pzanalysis.h"
+#include "pzmat1dlin.h"
+
 
 #include "TPZVTKGeoMesh.h"
 
@@ -41,7 +43,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     }
 
     //Cria todas as malhas dos espacos que serao usando bem como os elementos de interface o espaco de multiplicador de lagrange
-    CreatePostProcessingMesh();
+    CreatePostProcessingMesh(true);
 
     //Medtodo hibrido em cada elemento
     ComputeElementStiffnesses();
@@ -148,11 +150,100 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 
 }
 
+void TPZHybridHDivErrorEstimator::PostProcessingHybridMesh(){
+    
+    int nmeshes = fPostProcMesh.size();
+    TPZManVector<TPZCompMesh *, 4> meshvec_Hybrid(nmeshes-1, 0);
+    
+    CloneMeshVec();//copia as malhas de fluxo e pressao
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("OriginalFlux.txt");
+        fOriginal[1]->Print(out);
+        std::ofstream out2("OriginalPotential.txt");
+        fOriginal[2]->Print(out2);
+        std::ofstream out3("OriginalMeshHybrid.txt");
+        fOriginal[0]->Print(out3);
+    }
+#endif
+    //fPostProcMesh[0] ainda esta vazio
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("CloneFluxMesh.txt");
+        fPostProcMesh[1]->Print(out);
+        std::ofstream outp("ClonePressureMesh.txt");
+        fPostProcMesh[2]->Print(outp);
+    }
+#endif
+    
+    //aumenta a ordem do fluxo de borda
+    IncreaseSideOrders(fPostProcMesh[1]);//malha do fluxo
 
+    
+    for(int i=1; i<nmeshes; i++)
+    {
+        meshvec_Hybrid[i-1] = fPostProcMesh[i];
+    }
+#ifdef PZDEBUG
+    {
+        std::ofstream out("EnrichedFluxBorder.txt");
+        fPostProcMesh[1]->Print(out);
+    }
+#endif
+    
+    
+
+    
+    CreateMultiphysicsMesh();
+    
+    TPZCompMesh *cmesh_Hybrid = fPostProcMesh[0];
+#ifdef PZDEBUG
+    {
+        std::ofstream out("multiphysicsgrouped.txt");
+        cmesh_Hybrid->Print(out);
+        std::ofstream outvtk("multiphysics.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(cmesh_Hybrid,outvtk);
+        std::ofstream outgvtk("postprocessgmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(cmesh_Hybrid->Reference(),outgvtk);
+    }
+#endif
+    
+//    TPZCompMesh *cmesh_Hybrid = fPostProcMesh[0];
+//    fHybridizer.CreateInterfaceElements(cmesh_Hybrid, meshvec_Hybrid);
+//#ifdef PZDEBUG
+//    {
+//        std::ofstream out("multiphysics.txt");
+//        cmesh_Hybrid->Print(out);
+//    }
+//#endif
+////    fHybridizer.GroupElements(cmesh_Hybrid);
+////    cmesh_Hybrid->CleanUpUnconnectedNodes();
+//#ifdef PZDEBUG
+//    {
+//        std::ofstream out("multiphysicsgrouped.txt");
+//        cmesh_Hybrid->Print(out);
+//        std::ofstream outvtk("multiphysics.vtk");
+//        TPZVTKGeoMesh::PrintCMeshVTK(cmesh_Hybrid,outvtk);
+//        std::ofstream outgvtk("postprocessgmesh.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(cmesh_Hybrid->Reference(),outgvtk);
+//    }
+//#endif
+    
+
+    
+}
 
 /// create the post processed multiphysics mesh (which is necessarily hybridized)
-void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
+void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh(bool isOriginalMeshHybrid)
 {
+    if (isOriginalMeshHybrid){
+        
+     PostProcessingHybridMesh();
+        return;
+    }
+    
     int nmeshes = fPostProcMesh.size();
     TPZManVector<TPZCompMesh *, 4> meshvec_Hybrid(nmeshes-1, 0);
     
@@ -577,9 +668,10 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
             TPZMaterial *material = 0;
             if (nstate == 1  ) {
                 TPZMixedPoisson *mix = dynamic_cast<TPZMixedPoisson *>(mat);
-                if(!mix)
-                {
+                if(!mix){
+                    //TPZMat1dLin *mix2=dynamic_cast<TPZMat1dLin *>(mat);
                     DebugStop();
+                    
                 }
                 TPZMixedHDivErrorEstimate<TPZMixedPoisson> *locmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(matId,dim);
                 material = locmat;
@@ -817,7 +909,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
     
     //Cria todas as malhas dos espacos que serao usando bem como os elementos de interface o espaco de multiplicador de lagrange
     
-    CreatePostProcessingMesh();
+    CreatePostProcessingMesh(true);
     
     //Medtodo hibrido em cada elemento
     ComputeElementStiffnesses();

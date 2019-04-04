@@ -40,7 +40,7 @@ void PlotLagrangreMultiplier(TPZCompMesh *cmesh);
 void SolveHybridProblem(TPZCompMesh *Hybridmesh);
 
 
-int main3(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
