@@ -77,5 +77,6 @@ if(WIN32)
 endif()
 
 add_subdirectory(AinsworthProposal)
+add_subdirectory(PropostaMark)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
