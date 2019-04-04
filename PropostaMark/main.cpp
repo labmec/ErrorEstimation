@@ -32,6 +32,7 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
 TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
 
 TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> &meshvec);
+<<<<<<< Updated upstream
 
 void CloneMeshVec(TPZVec<TPZCompMesh *> &meshvec, TPZVec<TPZCompMesh *> &meshvec_clone);
 
@@ -41,6 +42,8 @@ void IncreaseSideOrders(TPZCompMesh *fluxmesh);
 /// Set the interface pressure to the average pressure
 void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, int InterfaceMatid);
 
+=======
+>>>>>>> Stashed changes
 void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 
 TPZGeoMesh *LMesh();
@@ -50,8 +53,15 @@ void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &disp);
 void LocalNeumannProblem(TPZAnalysis &an, TPZCompMesh *mesh, int degreepK, int degreeqK);
 
 void CalcStiff(TPZElementMatrix ek, TPZElementMatrix ef);
+<<<<<<< Updated upstream
 
 TPZCompMesh *EnrichedMesh(const ProblemConfig &problem, int degreeqk);
+=======
+TPZCompMesh *EnrichedMesh(const ProblemConfig &problem,int degreeqk);
+void InterElementSmoothing(TPZCompMesh *pressure, int InterfaceMatid);
+void LocalDirichletProblem(TPZCompMesh *enrmesh);
+
+>>>>>>> Stashed changes
 
 std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *>>
 CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);
@@ -77,12 +87,21 @@ int main(int argc, char *argv[]) {
     // config.forcingCte;
     config.exact.fExact = TLaplaceExample1::EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
     config.problemname = "EArcTanSingular";//"ArcTang";//"SinSin";//"SinSinNonHom";//
+<<<<<<< Updated upstream
 
     //TPZMarkErrorEstimation estimation(config);
 
     if (gmshreader) {
         std::string meshfilename = "../ToroDavid.msh";
 
+=======
+    
+    if(gmeshreader){
+    std::string meshfilename = "../LMesh.msh";
+    
+    
+    
+>>>>>>> Stashed changes
         TPZGmshReader gmsh;
         gmsh.GetDimNamePhysical()[1]["dirichlet"] = -1;
         gmsh.GetDimNamePhysical()[1]["neuman"] = -2;
@@ -170,6 +189,7 @@ int main(int argc, char *argv[]) {
     an.PostProcess(0, 2);
 
     //Solve a local Neumann Problem
+<<<<<<< Updated upstream
     int degreepK = config.porder;
     int degreeqK = config.porder + 1;
     TPZCompMesh *enrmesh = EnrichedMesh(config, degreeqK);
@@ -245,6 +265,24 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
     return cmesh;
 
 }
+=======
+    
+        int degreepK=config.porder;
+        int degreeqK=config.porder+1;
+    TPZCompMesh *enrmesh=EnrichedMesh(config, degreeqK);
+    
+    LocalNeumannProblem(an,enrmesh,degreepK,degreeqK);
+    int InterfaceMatid=0;
+    InterElementSmoothing(meshvec_HDiv[1], InterfaceMatid);
+    LocalDirichletProblem(enrmesh);
+    
+        
+        
+    return 0;
+}
+
+
+>>>>>>> Stashed changes
 
 TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> &meshvector) {
 
@@ -485,14 +523,127 @@ void LocalNeumannProblem(TPZAnalysis &an, TPZCompMesh *mesh, int degreepK, int d
 
 TPZCompMesh *EnrichedMesh(const ProblemConfig &problem, int degreeqk) {
     TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial *mat = NULL;
 
+<<<<<<< Updated upstream
     TPZMatPoisson3d *mix = new TPZMixedPoisson(1, 2);
     mix->SetNeumannProblem();
     cmesh->InsertMaterialObject(mix);
     cmesh->SetDefaultOrder(degreeqk);
     cmesh->SetAllCreateFunctionsContinuous();
+=======
+
+    TPZMatPoisson3d *material = new TPZMixedPoisson(1, degreeqk);
+    material->SetNeumannProblem();
+    TPZMaterial * mat(material);
+    cmesh->InsertMaterialObject(mat);
+
+    cmesh-> SetDefaultOrder(degreeqk);
+    cmesh-> SetAllCreateFunctionsContinuous();
+>>>>>>> Stashed changes
     cmesh->AutoBuild();
 
     return cmesh;
+}
+
+void InterElementSmoothing(TPZCompMesh *pressure, int InterfaceMatid){
+    //tomar a media da pressao calcula no NeumannProblem
+    
+    TPZGeoMesh *gmesh = pressure->Reference();
+    gmesh->ResetReference();
+    int dim = gmesh->Dimension();
+    pressure->LoadReferences();
+    int64_t nel = pressure->NElements();
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = pressure->Element(el);
+        if(!cel || !cel->Reference() || cel->Reference()->Dimension() != dim-1)
+        {
+            continue;
+        }
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        TPZGeoEl *gel = cel->Reference();
+        if (gel->MaterialId() != InterfaceMatid) {
+            continue;
+        }
+        if (!intel || gel->Dimension() != dim-1) {
+            DebugStop();
+        }
+        int nc = cel->NConnects();
+        int order = cel->Connect(nc-1).Order();
+    }
+
+    
+    
+    
+}
+void LocalDirichletProblem(TPZCompMesh *enrmesh){
+    //REsolver um problema de Dirichlet em que a condicao de contorno é a solucao suavizada
+    
+    
+    
+    
+}
+TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem) {
+    TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
+    TPZMaterial *mat = 0;
+    for (auto matid : problem.materialids) {
+        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+        if (!mat) mat = mix;
+        cmesh->InsertMaterialObject(mix);
+    }
+    cmesh->SetDefaultOrder(problem.porder+problem.hdivmais);//ordem + hdivmais
+    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    cmesh->ApproxSpace().CreateDisconnectedElements(true);
+    cmesh->AutoBuild();
+    int64_t n_connects = cmesh->NConnects();
+    for (int64_t i = 0; i < n_connects; ++i) {
+        cmesh->ConnectVec()[i].SetLagrangeMultiplier(1);
+    }
+    return cmesh;
+}
+
+TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
+    int dim = problem.gmesh->Dimension();
+    TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
+    TPZMaterial *mat = NULL;
+    problem.gmesh->ResetReference();
+    for (auto matid : problem.materialids) {
+        TPZVecL2 *mix = new TPZVecL2(matid);
+        mix->SetDimension(dim);
+        if (!mat) mat = mix;
+        cmesh->InsertMaterialObject(mix);
+    }
+    for (auto matid : problem.bcmaterialids) {
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
+        TPZBndCond *bc = mat->CreateBC(mat, matid, 0, val1, val2);
+        cmesh->InsertMaterialObject(bc);
+    }
+    cmesh->SetDefaultOrder(problem.porder);
+    cmesh->ApproxSpace().SetAllCreateFunctionsHDiv(dim);
+    cmesh->AutoBuild();
+    if (problem.hdivmais) {
+        int64_t nel = cmesh->NElements();
+        for (int64_t el = 0; el < nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            if (gel->Dimension() == dim) {
+                int side = gel->NSides() - 1;
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+                intel->SetSideOrder(side, problem.porder + problem.hdivmais);//seta ordem +hdivmais
+                intel->SetPreferredOrder(problem.porder+problem.hdivmais);
+            }
+        }
+        for (int64_t el = 0; el < nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            if (gel->Dimension() == dim-1) {
+                int side = gel->NSides() - 1;
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+                intel->SetSideOrder(side, problem.porder + problem.hdivmais);
+                intel->SetPreferredOrder(problem.porder+problem.hdivmais);
+            }
+        }
+    }
+    cmesh->InitializeBlock();
+    return cmesh;
+    
 }

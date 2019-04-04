@@ -39,14 +39,41 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     if (fPostProcMesh[0]) {
         DebugStop();
     }
+
+    //Cria todas as malhas dos espacos que serao usando bem como os elementos de interface o espaco de multiplicador de lagrange
     CreatePostProcessingMesh();
+
+    //Medtodo hibrido em cada elemento
     ComputeElementStiffnesses();
+    //Plotar aqui o grafico da funcao hibridizada antes de suavizar
+
+    {
+        {
+            TPZAnalysis an(fPostProcMesh[2],false);
+            TPZStack<std::string> scalnames, vecnames;
+            scalnames.Push("State");
+
+            int dim = this->fOriginal[0]->Reference()->Dimension()-1;
+            std::string plotname;
+            {
+                std::stringstream out;
+                out << "LagrangeMultiplier" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname << ".vtk";
+                plotname = out.str();
+            }
+            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+            an.PostProcess(2,dim);
+
+        }
+    }
+
+
     if(fProblemConfig.makepressurecontinuous)
     {
         ComputeAveragePressures();
     }
-    ComputeNodalAverages();// projecao L2 da media das pressoes?????
+    ComputeNodalAverages();// projecao L2 da media das pressoes
     // fPostProcMesh[0] is the multiphysics mesh
+    
     fPostProcMesh[0]->LoadSolution(fPostProcMesh[0]->Solution());
     TPZManVector<TPZCompMesh *,2> meshvec(2);
     // fPostProcMesh[1] is the flux mesh
@@ -69,14 +96,16 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         if (fExact) {
             an.SetExact(fExact->ExactSolution());
         }
+ 
         TPZManVector<REAL> errorvec(6,0.);
         int64_t nelem = fPostProcMesh[0]->NElements();
         fPostProcMesh[0]->ElementSolution().Redim(nelem, 4);
         an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
-       
         
         ComputeEffectivityIndices();
+        
         std::cout << "Computed errors " << errorvec << std::endl;
+        
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("PressureFem");
         scalnames.Push("PressureReconstructed");
@@ -100,22 +129,22 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(0,dim);
         an.SetStep(1);
+        an.PostProcess(0,dim);
+    }
+    {
+        TPZAnalysis an(fPostProcMesh[2],false);
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("State");
+        int dim = this->fOriginal[0]->Reference()->Dimension()-1;
+        std::string plotname;
+        {
+            std::stringstream out;
+            out << "Hybrid_P" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname << ".vtk";
+            plotname = out.str();
+        }
+        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(2,dim);
     }
-//    {
-//        TPZAnalysis an(fPostProcMesh[2],false);
-//        TPZStack<std::string> scalnames, vecnames;
-//        scalnames.Push("State");
-//        int dim = this->fOriginal[0]->Reference()->Dimension()-1;
-//        std::string plotname;
-//        {
-//            std::stringstream out;
-//            out << "HybridPostProcessed_P" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname << ".vtk";
-//            plotname = out.str();
-//        }
-//        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-//        an.PostProcess(2,dim);
-//    }
 
 }
 
@@ -126,43 +155,87 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
 {
     int nmeshes = fPostProcMesh.size();
     TPZManVector<TPZCompMesh *, 4> meshvec_Hybrid(nmeshes-1, 0);
-    CloneMeshVec();
-//#ifdef PZDEBUG
-//    {
-//        std::ofstream out("CloneFluxMesh.txt");
-//        fPostProcMesh[1]->Print(out);
-//        std::ofstream outp("ClonePressureMesh.txt");
-//        fPostProcMesh[2]->Print(outp);
-//    }
-//#endif
-    IncreaseSideOrders(fPostProcMesh[1]);
+    
+    CloneMeshVec();//copia as malhas de fluxo e pressao
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("OriginalFlux.txt");
+        fOriginal[1]->Print(out);
+        std::ofstream out2("OriginalPotential.txt");
+        fOriginal[2]->Print(out2);
+        std::ofstream out3("OriginalMeshHybrid.txt");
+        fOriginal[0]->Print(out3);
+    }
+#endif
+    //fPostProcMesh[0] esta vazio
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("CloneFluxMesh.txt");
+        fPostProcMesh[1]->Print(out);
+        std::ofstream outp("ClonePressureMesh.txt");
+        fPostProcMesh[2]->Print(outp);
+    }
+#endif
+    
+    //aumenta a ordem do fluxo de borda
+    IncreaseSideOrders(fPostProcMesh[1]);//malha do fluxo
+   // IncreaseSideOrders(fPostProcMesh[2]);//malha da pressao
+    
     for(int i=1; i<nmeshes; i++)
     {
         meshvec_Hybrid[i-1] = fPostProcMesh[i];
     }
-//#ifdef PZDEBUG
-//    {
-//        std::ofstream out("CloneFluxMeshBefore.txt");
-//        fPostProcMesh[1]->Print(out);
-//    }
-//#endif
+#ifdef PZDEBUG
+    {
+        std::ofstream out("EnrichedFluxBorder.txt");
+        fPostProcMesh[1]->Print(out);
+    }
+#endif
+    
+    
+    
+    
+    //Hybridiza a malha
 
     fHybridizer.ComputePeriferalMaterialIds(meshvec_Hybrid);
     fHybridizer.ComputeNState(meshvec_Hybrid);
     /// insert the material objects for HDivWrap and LagrangeInterface
     fHybridizer.InsertPeriferalMaterialObjects(meshvec_Hybrid);
     fHybridizer.HybridizeInternalSides(meshvec_Hybrid);
+    
     TPZCompMeshReferred *RefFluxMesh = dynamic_cast<TPZCompMeshReferred *>(fPostProcMesh[1]);
     RefFluxMesh->LoadReferred(fOriginal[1]);
 #ifdef PZDEBUG
     {
-        std::ofstream out("CloneFluxMesh.txt");
+        std::ofstream out("CloneFluxMesh2.txt");
         RefFluxMesh->Print(out);
     }
 #endif
+
     TPZCompMeshReferred *RefPressureMesh = dynamic_cast<TPZCompMeshReferred *>(fPostProcMesh[2]);
     RefPressureMesh->LoadReferred(fOriginal[2]);
+    
+    
+//    TPZCompMesh *cmesh_Hybrid = fHybridizer.CreateMultiphysicsMesh(fPostProcMesh[1], meshvec_Hybrid);
+//    cmesh_Hybrid->CleanUpUnconnectedNodes();
+//    fPostProcMesh[0] = cmesh_Hybrid;
+
+//#ifdef PZDEBUG
+//    {
+//        std::ofstream out("multiphysicsgrouped.txt");
+//        cmesh_Hybrid->Print(out);
+//        std::ofstream outvtk("multiphysics.vtk");
+//        TPZVTKGeoMesh::PrintCMeshVTK(cmesh_Hybrid,outvtk);
+//        std::ofstream outgvtk("postprocessgmesh.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(cmesh_Hybrid->Reference(),outgvtk);
+//    }
+//#endif
+    
+    
     CreateMultiphysicsMesh();
+    
     TPZCompMesh *cmesh_Hybrid = fPostProcMesh[0];
     fHybridizer.CreateInterfaceElements(cmesh_Hybrid, meshvec_Hybrid);
 #ifdef PZDEBUG
@@ -183,6 +256,8 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
         TPZVTKGeoMesh::PrintGMeshVTK(cmesh_Hybrid->Reference(),outgvtk);
     }
 #endif
+    
+
 
 }
 
@@ -302,7 +377,7 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures()
             celstack[0].Element()->Solution(pt1, 0, sol1);//solucao a esquerda
             celstack[1].Element()->Solution(pt2, 0, sol2);//solucao a direita
             //            std::cout << "Values " << sol1 << " " << sol2 << std::endl;
-            //projecao L2 da media das soluceos no espaco Qh?
+            //projecao L2 da media das soluceos no espaco Lh, do esqueleto da malha
             for (int ishape=0; ishape<nshape; ishape++) {
                 L2Rhs(ishape,0) += weight*phi(ishape,0)*(sol1[0]+sol2[0])/2.;
                 for (int jshape = 0; jshape<nshape; jshape++) {
@@ -311,6 +386,7 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures()
             }
         }
         L2Mat.SolveDirect(L2Rhs, ECholesky);
+        //apos este passo temos uma pressao que é continua ao longo das interfaces dos elementos, nos esqueletos. Falta suavizar nos vértices
         //        L2Rhs.Print("Average pressure");
         int count = 0;
         for (int ic=0; ic<nc; ic++) {
@@ -358,6 +434,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages()
         {
             continue;
         }
+        //percorre cada no do elemento de inteface
         for (int side=0; side<2; side++) {
             TPZGeoElSide gelside(gel,side);
             TPZStack<TPZCompElSide> celstack;
@@ -365,6 +442,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages()
             celstack.Push(gelside.Reference());
             TPZManVector<STATE,3> averageval(nstate,0.);
             std::set<int64_t> connects;
+            //para cada elemento que tem este no procede como segue
             for (int elc=0; elc<celstack.size(); elc++) {
                 TPZCompElSide celside = celstack[elc];
                 TPZGeoElSide gelside0 = celside.Reference();
@@ -374,18 +452,21 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages()
                 TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
                 if(!intel1 || intel1->NConnects() != 3) DebugStop();
                 int64_t conindex = intel1->ConnectIndex(celside.Side());
-                connects.insert(conindex);
+                connects.insert(conindex);//insere os conects associado a este no
                 TPZConnect &c = intel1->Connect(celside.Side());
                 int64_t seqnum = c.SequenceNumber();
                 if(c.NState() != nstate || c.NShape() != 1) DebugStop();
+                //soma a soluçao dos elementos que possuem este no
                 for (int istate = 0; istate<nstate; istate++) {
                     averageval[istate] += pressureHybrid->Block().Get(seqnum, 0, istate, 0);
                 }//somou todas as medias de pressao nas interfaces??
             }
+            
+            //por fim divide pelo numero de conects
             auto ncontr = connects.size();
             for (int istate = 0; istate<nstate; istate++) {
                 averageval[istate] /= ncontr;
-            }//constroi o operador averaging??
+            }//constroi o operador averaging
             for(auto conindex : connects)
             {
                 TPZConnect &c = pressureHybrid->ConnectVec()[conindex];
@@ -471,11 +552,14 @@ void TPZHybridHDivErrorEstimator::CloneMeshVec()
 void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
 {
     // the pressure mesh is the rootmesh
-    TPZCompMesh *cmeshroot = fOriginal[0];
+    TPZCompMesh *cmeshroot = fOriginal[2];//fOriginal[0];
     TPZGeoMesh *gmesh = cmeshroot->Reference();
     //Creating computational mesh for multiphysic elements
     gmesh->ResetReference();
+
+
     TPZCompMesh *mphysics = new TPZCompMesh(gmesh);
+    
     fHybridizer.InsertPeriferalMaterialObjects(mphysics);
 
     //criando material
@@ -491,7 +575,7 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
             }
             int nstate = mat->NStateVariables();
             TPZMaterial *material = 0;
-            if (nstate == 1) {
+            if (nstate == 1  ) {
                 TPZMixedPoisson *mix = dynamic_cast<TPZMixedPoisson *>(mat);
                 if(!mix)
                 {
@@ -514,7 +598,7 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
             }
             mphysics->InsertMaterialObject(material);
         }
-    }
+   }
     for (auto it:cmeshroot->MaterialVec()) {
         TPZMaterial *mat = it.second;
         TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
@@ -553,6 +637,7 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
         mphysics->Print(out);
     }
 #endif
+    
     //------- Create and add group elements -------
     fPostProcMesh[0] = mphysics;
 
@@ -672,7 +757,9 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices()
         {
             if(!IsZero(cmesh->ElementSolution()(el,i)))
             {
-                cmesh->ElementSolution()(el,4+i/2) = cmesh->ElementSolution()(el,i+1)/cmesh->ElementSolution()(el,i);
+//                REAL ErrorEstimate=cmesh->ElementSolution()(el,i+1);
+//                REAL ErrorExact=cmesh->ElementSolution()(el,i);
+                cmesh->ElementSolution()(el,4+i/2) =cmesh->ElementSolution()(el,i+1)/cmesh->ElementSolution()(el,i);
             }
             else
             {
@@ -718,4 +805,58 @@ void TPZHybridHDivErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec
             vals[iv] = bc->Val2()(iv,0);
         }
     }
+}
+
+
+void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
+    /// I havent tested to compute post processing more than a single time
+    // Please test me!
+    if (fPostProcMesh[0]) {
+        DebugStop();
+    }
+    
+    //Cria todas as malhas dos espacos que serao usando bem como os elementos de interface o espaco de multiplicador de lagrange
+    
+    CreatePostProcessingMesh();
+    
+    //Medtodo hibrido em cada elemento
+    ComputeElementStiffnesses();
+    //Plotar aqui o grafico da funcao hibridizada antes de suavizar
+    
+    {
+        {
+            TPZAnalysis an(fPostProcMesh[2],false);
+            TPZStack<std::string> scalnames, vecnames;
+            scalnames.Push("State");
+            
+            int dim = this->fOriginal[0]->Reference()->Dimension()-1;
+            std::string plotname;
+            {
+                std::stringstream out;
+                out << "LagrangeMultiplier" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname << ".vtk";
+                plotname = out.str();
+            }
+            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+            an.PostProcess(2,dim);
+            
+        }
+    }
+    
+    
+    if(fProblemConfig.makepressurecontinuous)
+    {
+        ComputeAveragePressures();
+    }
+    
+    ComputeNodalAverages();// projecao L2 da media das pressoes
+    // fPostProcMesh[0] is the multiphysics mesh
+    
+//    fPostProcMesh[0]->LoadSolution(fPostProcMesh[0]->Solution());
+//    TPZManVector<TPZCompMesh *,2> meshvec(2);
+//    // fPostProcMesh[1] is the flux mesh
+//    // fPostProcMesh[2] is the pressure mesh
+//    meshvec[0] = fPostProcMesh[1];
+//    meshvec[1] = fPostProcMesh[2];
+//    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, fPostProcMesh[0]);
+    
 }

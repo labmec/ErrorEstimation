@@ -62,7 +62,6 @@ if(WIN32)
 	    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /wd4251")
 	endif()
 	#define use of pthread static lib.
-	add_definitions(-DPTW32_STATIC_LIB)
     #enabling /bigobj
     add_definitions("/bigobj")
 
@@ -78,6 +77,5 @@ if(WIN32)
 endif()
 
 add_subdirectory(AinsworthProposal)
-add_subdirectory(ErrorEstimation)
+add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
-add_subdirectory(PropostaMark)

@@ -70,6 +70,9 @@ struct TPZHybridHDivErrorEstimator
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
     void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);
+    //reconstruction of potential using hybrid solution on enrichement space
+    void PotentialReconstruction();
+
     
 private:
     
@@ -109,6 +112,7 @@ private:
     
     /// return the value of the Dirichlet condition
     void GetDirichletValue(TPZGeoElSide gelside, TPZVec<STATE> &vals);
+
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
