@@ -9,7 +9,7 @@ Physical Surface("domain") = {1};
 //+
 Physical Line("dirichlet") = {4};
 //+
-Physical Line("neuman") = {3, 2, 1};
+Physical Line("neumann") = {3, 2, 1};
 //+
 //+
 Transfinite Surface {1} = {1, 2, 3, 4} Alternated;
