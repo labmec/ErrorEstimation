@@ -106,19 +106,30 @@ TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> 
     TPZBuildMultiphysicsMesh::AddConnects(meshvector, cmesh);
     cmesh->LoadReferences();
     bool keepmatrix = false;
+//    {
+//
+//
+//        std::ofstream out2("FluxMesh_NoCondens.txt");
+//        meshvector[0]->Print(out2);
+//
+//        std::ofstream out3("PotentialMesh_NoCondens.txt");
+//        meshvector[1]->Print(out3);
+//
+//
+//    }
     TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
     
-    {
-
-        
-        std::ofstream out2("FluxMesh_0.txt");
-        meshvector[0]->Print(out2);
-        
-        std::ofstream out3("PotentialMesh_0.txt");
-        meshvector[1]->Print(out3);
-        
-        
-    }
+//    {
+//
+//        
+//        std::ofstream out2("FluxMesh_Condens.txt");
+//        meshvector[0]->Print(out2);
+//
+//        std::ofstream out3("PotentialMesh_Condens.txt");
+//        meshvector[1]->Print(out3);
+//
+//
+//    }
     
     return cmesh;
 }

@@ -26,6 +26,7 @@ class TPZMixedHDivErrorEstimate : public MixedMat
     
     /// sign convention adopted by MixedMat
     int fSignConvention = 1;
+    int fDim;
     
 public:
     
@@ -51,6 +52,10 @@ public:
     void SetSignConvention(int sign)
     {
         fSignConvention = sign;
+    }
+    void SetDimension(int dim)
+    {
+        fDim = dim;
     }
     void FillDataRequirements(TPZVec<TPZMaterialData > &datavec);
     

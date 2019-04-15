@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     config.hdivmais = 1;
     config.makepressurecontinuous = true;
     config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
-    config.problemname = "ESinSin";//"ArcTang";//"SinSin";//"SinSinNonHom";//
+    config.problemname = "SinSinNonHom";//"ESinSin";//"ArcTang";//
     
     TPZGeoMesh *gmesh = CreateGeoMesh();
         config.materialids.insert(1);
@@ -66,17 +66,17 @@ int main(int argc, char *argv[]) {
         config.gmesh = gmesh;
     
     
-    int nDiv=1;
+    int nDiv=2;
     
     UniformRefinement( nDiv,gmesh);
 
-    {
-        std::ofstream out("gmesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        std::ofstream out2("gmesh.txt");
-        gmesh->Print(out2);
-        
-    }
+//    {
+////        std::ofstream out("gmesh.vtk");
+////        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+//        std::ofstream out2("gmeshInitial.txt");
+//        gmesh->Print(out2);
+//
+//    }
     
     
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
@@ -84,34 +84,47 @@ int main(int argc, char *argv[]) {
     cmesh_HDiv->InitializeBlock();
 
     //cria malha hibrida
+  
         TPZHybridizeHDiv hybrid;
         auto HybridMesh = hybrid.Hybridize(cmesh_HDiv, meshvec_HDiv);
         std::get<0>(HybridMesh)->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
+        std::get<0>(HybridMesh)->AdjustBoundaryElements();
         delete cmesh_HDiv;
         delete meshvec_HDiv[0];
         delete meshvec_HDiv[1];
+    
+    int n=hybrid.fLagrangeInterface;
+    int n1=hybrid.fHDivWrapMatid;
+    int n2=hybrid.fInterfaceMatid;
+    
+    std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
+    std::cout <<" LagrangeInterface = "<<n<<std::endl;
+    std::cout <<" HDivWrapMatid = "<<n1<<std::endl;
+    std::cout <<" InterfaceMatid = "<<n2<<std::endl;
+    
     
         cmesh_HDiv=std::get<0>(HybridMesh);//malha hribrida
         meshvec_HDiv[0] = std::get<1>(HybridMesh)[0];//malha Hdiv
         meshvec_HDiv[1] = std::get<1>(HybridMesh)[1];//malha L2
     
-        {
-            std::ofstream out("HybridMesh.txt");
-            std::get<0>(HybridMesh)->Print(out);
-            
-            std::ofstream out2("FluxMesh.txt");
-           meshvec_HDiv[0]->Print(out2);
-            
-            std::ofstream out3("PotentialMesh.txt");
-            meshvec_HDiv[1]->Print(out3);
-            
-           
-        }
-
-    
-    
     SolveHybridProblem(cmesh_HDiv);
     
+//    {
+//
+//        std::ofstream outgeo("HrybridGeometria.txt");
+//        std::get<0>(HybridMesh)->Reference()->Print(outgeo);
+//        std::ofstream out("OriginalHybridMesh.txt");
+//        std::get<0>(HybridMesh)->Print(out);
+//
+//        std::ofstream out2("OriginalFluxMesh.txt");
+//        meshvec_HDiv[0]->Print(out2);
+//
+//        std::ofstream out3("OriginalPotentialMesh.txt");
+//        meshvec_HDiv[1]->Print(out3);
+//
+//
+//    }
+
     PlotLagrangreMultiplier(meshvec_HDiv[1]);
     
  
@@ -140,19 +153,30 @@ int main(int argc, char *argv[]) {
     
 
 void SolveHybridProblem(TPZCompMesh *Hybridmesh){
+   
     TPZAnalysis an(Hybridmesh);
-    
+
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(Hybridmesh);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
-    an.SetStructuralMatrix(strmat);
 #else
     TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
-    strmat.SetNumThreads(0);
+    strmat.SetNumThreads(2);
     //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
     //        strmat3.SetNumThreads(8);
 #endif
+
+    
+    std::set<int> matIds;
+    matIds.insert(1);
+    matIds.insert(-1);
+    matIds.insert(-2);
+    matIds.insert(4);
+    strmat.SetMaterialIds(matIds);
+    
+    an.SetStructuralMatrix(strmat);
+
     
     TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
     direct->SetDirect(ELDLt);
@@ -164,7 +188,7 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh){
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("Pressure");
     vecnames.Push("Flux");
-    an.DefineGraphMesh(2, scalnames, vecnames, "Original.vtk");
+    an.DefineGraphMesh(2, scalnames, vecnames, "OriginalHybrid_Problem.vtk");
     //        meshvec_Hybrid[1]->Solution().Print("Press");
     // Post processing
     an.PostProcess(2,2);
@@ -187,7 +211,7 @@ void PlotLagrangreMultiplier(TPZCompMesh *cmesh){
     std::string plotname;
     {
         std::stringstream out;
-        out << "LagrangeMultiplier" << ".vtk";
+        out << "OriginalLagrangeMultiplier" << ".vtk";
         plotname = out.str();
     }
     an.DefineGraphMesh(dim, scalnames, vecnames, plotname);

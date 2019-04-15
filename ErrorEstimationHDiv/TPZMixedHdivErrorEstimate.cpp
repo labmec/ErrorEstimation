@@ -49,6 +49,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMateria
     {
         int i = 1;
         datavec[i].SetAllRequirements(false);
+        //datavec[0].fNeedsSol = true;
         datavec[i].fNeedsSol = true;
     }
     
@@ -108,9 +109,16 @@ int TPZMixedHDivErrorEstimate<MixedMat>::NSolutionVariables(int var)
 template<class MixedMat>
 void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
 {
+    /**
+     datavec[0]= Hdiv Resconstructed
+     datavec[1]= Pressure Resconstructed
+     datavec[2]= Hdiv FEM
+     datavec[3]= Pressure FEM
+     **/
     TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvK;
-    //int rtens = 2*fDim;
+
+    
     if(MixedMat::fPermeabilityFunction){
         PermTensor.Redim(3,3);
         InvPermTensor.Redim(3,3);
@@ -136,21 +144,24 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     }
     PermTensor.Multiply(gradu, fluxinv);
     pressureexact = pressvec[0];
+    int dim=this->fDim;
     switch (var)
     {
-        case 40:
-            for(int i=0; i<3; i++) Solout[i] = datavec[0].sol[0][i+3];
+        case 40://FluxFem
+            //for(int i=0; i<dim; i++) Solout[i] = datavec[0].sol[0][i+dim];
+            for(int i=0; i<dim; i++) Solout[i] = datavec[2].sol[0][i];
             break;
-        case 41:
-            for (int i=0; i<3; i++) Solout[i] = datavec[0].sol[0][i];
+        case 41://FluxReconstructed
+            for (int i=0; i<dim; i++) Solout[i] = datavec[0].sol[0][i];
             break;
         case 42:
-            for(int i=0; i<3; i++) Solout[i] = -fluxinv(i);
+            for(int i=0; i<dim; i++) Solout[i] = -fluxinv(i);
             break;
-        case 43:
-            Solout[0] = datavec[1].sol[0][1];
+        case 43://PressureFem
+            //Solout[0] = datavec[1].sol[0][1];
+            Solout[0] = datavec[3].sol[0][0];
             break;
-        case 44:
+        case 44://PressureReconstructed
             Solout[0] = datavec[1].sol[0][0];
             break;
         case 45:
@@ -168,29 +179,34 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
 {
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
-
-    TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
     
-    for (int i=0; i<3; i++) {
+    int dim=fDim;
+  
+    TPZManVector<STATE,3> fluxfem(fDim), fluxreconstructed(fDim), pressurefem(1), pressurereconstructed(1);
+
+    for (int i=0; i<dim; i++) {
         fluxreconstructed[i] = data[0].sol[0][i];
-        fluxfem[i] = data[0].sol[0][i+3];
+        //fluxfem[i] = data[0].sol[0][i+dim];
+        fluxfem[i] = data[2].sol[0][i];
     }
+    
     pressurereconstructed[0] = data[1].sol[0][0];
-    pressurefem[0] = data[1].sol[0][1];
+    //pressurefem[0] = data[1].sol[0][1];
+    pressurefem[0] = data[3].sol[0][0];
     
     TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvK;
     //int rtens = 2*fDim;
     if(MixedMat::fPermeabilityFunction){
-        PermTensor.Redim(3,3);
-        InvPermTensor.Redim(3,3);
+        PermTensor.Redim(dim,dim);
+        InvPermTensor.Redim(dim,dim);
         TPZFNMatrix<3,STATE> resultMat;
         TPZManVector<STATE> res;
         MixedMat::fPermeabilityFunction->Execute(data[1].x,res,resultMat);
-        for(int id=0; id<3; id++){
-            for(int jd=0; jd<3; jd++){
+        for(int id=0; id<dim; id++){
+            for(int jd=0; jd<dim; jd++){
                 PermTensor(id,jd) = resultMat(id,jd);
-                InvPermTensor(id,jd) = resultMat(id+3,jd);
+                InvPermTensor(id,jd) = resultMat(id+dim,jd);
             }
         }
     }
@@ -200,23 +216,23 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     
     {
         TPZFNMatrix<9,REAL> gradpressure(3,1);
-        for (int i=0; i<3; i++) {
+        for (int i=0; i<dim; i++) {
             gradpressure(i,0) = du_exact[i];
         }
         PermTensor.Multiply(gradpressure,fluxexactneg);
     }
     REAL innerexact = 0.;
     REAL innerestimate = 0.;
-    for (int i=0; i<3; i++) {
-        for (int j=0; j<3; j++) {
+    for (int i=0; i<dim; i++) {
+        for (int j=0; j<dim; j++) {
             innerexact += (fluxfem[i]+fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]+fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
             innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
         }
     }
-    errors[0] = (pressurefem[0]-u_exact[0])*(pressurefem[0]-u_exact[0]);
-    errors[1] = (pressurefem[0]-pressurereconstructed[0])*(pressurefem[0]-pressurereconstructed[0]);
-    errors[2] += innerexact;
-    errors[3] += innerestimate;
+    errors[0] = (pressurefem[0]-u_exact[0])*(pressurefem[0]-u_exact[0]);//exact error pressure
+    errors[1] = (pressurefem[0]-pressurereconstructed[0])*(pressurefem[0]-pressurereconstructed[0]);//error pressure reconstructed
+    errors[2] += innerexact;//error flux exact
+    errors[3] += innerestimate;//error flux reconstructed
 }
 
 

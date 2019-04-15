@@ -13,6 +13,7 @@
 #include "TPZHybridizeHDiv.h"
 #include "TPZAnalyticSolution.h"
 #include "ProblemConfig.h"
+#include "pzanalysis.h"
 
 
 class TPZCompMesh;
@@ -73,6 +74,8 @@ struct TPZHybridHDivErrorEstimator
     //reconstruction of potential using hybrid solution on enrichement space
     void PotentialReconstruction();
     void PostProcessingHybridMesh();
+    void CreateMultiphysicsHybridMesh();
+    void PostProcessing(TPZAnalysis &an);
 
     
 private:
@@ -85,6 +88,8 @@ private:
     
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
+    
+    void IncreasePressureSideOrders(TPZCompMesh *mesh);
     
     /// compute the average pressures of the hybridized form of the H(div) mesh
     void ComputeAveragePressures();
