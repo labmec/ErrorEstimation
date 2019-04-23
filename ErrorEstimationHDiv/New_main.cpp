@@ -56,8 +56,8 @@ int main(int argc, char *argv[]) {
     config.porder = 1;
     config.hdivmais = 1;
     config.makepressurecontinuous = true;
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
-    config.problemname = "SinSinNonHom";//"ESinSin";//"ArcTang";//
+    config.exact.fExact = TLaplaceExample1::EX;//ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
+    config.problemname = "Const";//"ESinSin";//"ArcTang";//
     
     TPZGeoMesh *gmesh = CreateGeoMesh();
         config.materialids.insert(1);
@@ -109,21 +109,21 @@ int main(int argc, char *argv[]) {
     
     SolveHybridProblem(cmesh_HDiv);
     
-//    {
+    {
 //
 //        std::ofstream outgeo("HrybridGeometria.txt");
 //        std::get<0>(HybridMesh)->Reference()->Print(outgeo);
 //        std::ofstream out("OriginalHybridMesh.txt");
 //        std::get<0>(HybridMesh)->Print(out);
 //
-//        std::ofstream out2("OriginalFluxMesh.txt");
-//        meshvec_HDiv[0]->Print(out2);
-//
-//        std::ofstream out3("OriginalPotentialMesh.txt");
-//        meshvec_HDiv[1]->Print(out3);
-//
-//
-//    }
+        std::ofstream out2("OriginalFluxMesh.txt");
+        meshvec_HDiv[0]->Print(out2);
+
+        std::ofstream out3("OriginalPotentialMesh.txt");
+        meshvec_HDiv[1]->Print(out3);
+
+
+    }
 
     PlotLagrangreMultiplier(meshvec_HDiv[1]);
     

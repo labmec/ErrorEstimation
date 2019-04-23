@@ -29,7 +29,7 @@ struct TPZHybridHDivErrorEstimator
     
     int fUpliftPostProcessMesh = 0;
     
-    TPZManVector<TPZCompMesh *,3> fPostProcMesh;
+    TPZManVector<TPZCompMesh *,7> fPostProcMesh;
     
     TPZHybridizeHDiv fHybridizer;
     
@@ -77,7 +77,7 @@ struct TPZHybridHDivErrorEstimator
     void CreateMultiphysicsHybridMesh();
     void PostProcessing(TPZAnalysis &an);
 
-    
+    void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 private:
     
     /// create the post processed multiphysics mesh (which is necessarily hybridized)

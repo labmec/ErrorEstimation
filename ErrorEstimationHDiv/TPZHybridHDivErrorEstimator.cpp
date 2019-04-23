@@ -809,7 +809,7 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
         
         fOriginal[0]->CopyMaterials(*mphysics);
         
-        TPZManVector<TPZCompMesh *,3> mp_meshes_vec(4);
+        TPZManVector<TPZCompMesh *,6> mp_meshes_vec(4);
         //flux and pressure reconstructed
         mp_meshes_vec[0] = fPostProcMesh[1];
         mp_meshes_vec[1] = fPostProcMesh[2];
@@ -821,8 +821,8 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
         
         //the active space will be the flux an pressure reconstructed
         TPZManVector<int,5>  active_approx_spaces(4,0);
-        active_approx_spaces[0]=1.;
-        active_approx_spaces[1]=1.;
+        active_approx_spaces[0]=1;
+        active_approx_spaces[1]=1;
         
         //definir quais materias deverao estar no contibute...melhorar isso
  
@@ -1151,13 +1151,17 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
     
     ComputeNodalAverages();
     
-//#ifdef PZDEBUG
-//    {
-//        std::ofstream out("MeshWhithSmoothigPressure.txt");
-//        fPostProcMesh[0]->Print(out);
-//
-//    }
-//#endif
+    PlotLagrangeMultiplier("AfterNodalAverage");
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshWhithSmoothPressure.txt");
+        fPostProcMesh[0]->Print(out);
+        std::ofstream out2("PressureMeshSmooth.txt");
+        fPostProcMesh[2]->Print(out2);
+        std::ofstream out3("FluxMeshSmooth.txt");
+        fPostProcMesh[1]->Print(out3);
+    }
+#endif
     
 
     //Resolver problema local com potencial continuo como condicao de Dirichlet
@@ -1166,13 +1170,13 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
     
     fPostProcMesh[0]->LoadSolution(fPostProcMesh[0]->Solution());
     
-//#ifdef PZDEBUG
-//    {
-//        std::ofstream out("MeshAposLoadSol.txt");
-//        fPostProcMesh[0]->Print(out);
-//
-//    }
-//#endif
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshAposLoadSol.txt");
+        fPostProcMesh[0]->Print(out);
+
+    }
+#endif
  
     
     TPZManVector<TPZCompMesh *,2> meshvec(2);
@@ -1181,5 +1185,38 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
     meshvec[0] = fPostProcMesh[1];
     meshvec[1] = fPostProcMesh[2];
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, fPostProcMesh[0]);
+#ifdef PZDEBUG
+    {
+        std::ofstream out("PressureAposLoadSol.txt");
+        fPostProcMesh[2]->Print(out);
+        std::ofstream out2("FluxAposLoadSol.txt");
+        fPostProcMesh[1]->Print(out2);
+
+    }
+#endif
     
+
+}
+
+void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed)
+{
+    TPZCompMesh *pressure = fPostProcMesh[2];
+    
+    if(reconstructed == false) pressure = fOriginal[2];
+    
+    TPZAnalysis an(pressure,false);
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("State");
+    
+    int dim = pressure->Reference()->Dimension()-1;
+    std::string plotname;
+    {
+        std::stringstream out;
+        out << filename << ".vtk";
+        plotname = out.str();
+    }
+    an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+    an.PostProcess(2,dim);
+    
+
 }
