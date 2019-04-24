@@ -98,7 +98,10 @@ TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> 
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
-    cmesh->AutoBuild();
+    std::set<int> matid;
+    matid.insert(1);
+    matid.insert(-1);
+    cmesh->AutoBuild(matid);
     
     meshvector[0] = CreateFluxHDivMesh(problem);
     meshvector[1] = CreatePressureMesh(problem);

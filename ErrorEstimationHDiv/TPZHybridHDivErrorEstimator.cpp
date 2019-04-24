@@ -119,16 +119,24 @@ void TPZHybridHDivErrorEstimator::PostProcessingHybridMesh(){
     
     CloneMeshVec();//copia as malhas de fluxo e pressao
     
+    
+//    fPostProcMesh[1]=fOriginal[3];
+//    fPostProcMesh[2]=fOriginal[4];
+    
+    
     //fPostProcMesh[0] ainda esta vazio
     
-//#ifdef PZDEBUG
-//    {
-//        std::ofstream out("CloneFluxMesh.txt");
-//        fPostProcMesh[1]->Print(out);
-//        std::ofstream outp("ClonePressureMesh.txt");
-//        fPostProcMesh[2]->Print(outp);
-//    }
-//#endif
+#ifdef PZDEBUG
+    {
+        std::ofstream out("NewFluxMesh.txt");
+        fPostProcMesh[1]->Print(out);
+        std::ofstream outp("NewPressureMesh.txt");
+        fPostProcMesh[2]->Print(outp);
+    }
+#endif
+    
+    
+    
     
     
 //#ifdef PZDEBUG
@@ -141,8 +149,8 @@ void TPZHybridHDivErrorEstimator::PostProcessingHybridMesh(){
 //#endif
     
     //aumenta a ordem do fluxo de borda e pressao de borda
-    IncreaseSideOrders(fPostProcMesh[1]);
-    IncreasePressureSideOrders(fPostProcMesh[2]);
+    //IncreaseSideOrders(fPostProcMesh[1]);
+   // IncreasePressureSideOrders(fPostProcMesh[2]);
 
     
     for(int i=1; i<nmeshes; i++)
@@ -184,6 +192,17 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh(bool isOriginalMeshHy
     if (isOriginalMeshHybrid){
         
      PostProcessingHybridMesh();
+        
+//        #ifdef PZDEBUG
+//            {
+//                std::ofstream out("OriginalFlux.txt");
+//                fOriginal[3]->Print(out);
+//                std::ofstream out2("OriginalPotential.txt");
+//                fOriginal[4]->Print(out2);
+//                std::ofstream out3("OriginalMeshHybrid.txt");
+//                fOriginal[0]->Print(out3);
+//            }
+//        #endif
         
         TPZCompMesh *cmesh_Hybrid = fPostProcMesh[0];
         TPZManVector<TPZCompMesh *, 4> meshvec_Hybrid(2, 0);
@@ -282,8 +301,10 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh(bool isOriginalMeshHy
 //        cmesh_Hybrid->Print(out);
 //    }
 //#endif
+    
     fHybridizer.GroupElements(cmesh_Hybrid);
     cmesh_Hybrid->CleanUpUnconnectedNodes();
+    
 //#ifdef PZDEBUG
 //    {
 //        std::ofstream out("multiphysicsgrouped.txt");
@@ -640,9 +661,14 @@ void TPZHybridHDivErrorEstimator::CloneMeshVec()
 {
 //    CreateFluxMesh();
 //    CreatePressureMesh();
+    
+    
+    
     for (int i = 1; i < fOriginal.size(); i++) {
         fPostProcMesh[i] = fOriginal[i]->Clone();
     }
+    
+    
 
 }
 void TPZHybridHDivErrorEstimator::CreateMultiphysicsHybridMesh(){
@@ -959,6 +985,46 @@ void TPZHybridHDivErrorEstimator::CreateMultiphysicsMesh()
 
 }
 
+void TPZHybridHDivErrorEstimator::NewCreateFluxMesh(){
+    //malha original do fluxo
+    TPZGeoMesh *gmesh = fOriginal[1]->Reference();
+    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
+    int dim = gmesh->Dimension();
+    TPZCompMesh *fluxoriginal=fOriginal[1];
+    
+    for (auto it : fOriginal[0]->MaterialVec()) {
+        TPZMaterial *mat = it.second;
+        int matid = mat->Id();
+        TPZBndCond *bc=dynamic_cast<TPZBndCond *>(mat);
+            if(bc){
+                TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
+                TPZBndCond *bc2 = mat->CreateBC(mat, matid, 0, val1, val2);
+                cmesh->InsertMaterialObject(bc2);
+            }
+        
+            else{
+                TPZVecL2 *mix=dynamic_cast<TPZVecL2 *>(mat);
+                if(mix){
+                    TPZVecL2 *mix2 = new TPZVecL2(matid);
+                    mix2->SetDimension(dim);
+                    cmesh->InsertMaterialObject(mix2);
+                }
+              
+            }
+
+    }
+ 
+   fluxoriginal->CopyMaterials(*cmesh);
+    cmesh->SetDefaultOrder(cmesh->GetDefaultOrder());
+    cmesh->ApproxSpace().SetAllCreateFunctionsHDiv(dim);
+    cmesh->AutoBuild();
+    cmesh->InitializeBlock();
+    
+    
+    fPostProcMesh[1] = cmesh;
+    
+}
+
 /// clone the fluxmesh but using TPZCompElReferred objects
 void TPZHybridHDivErrorEstimator::CreateFluxMesh()
 {
@@ -1011,12 +1077,45 @@ void TPZHybridHDivErrorEstimator::CreateFluxMesh()
     }
     fluxmesh->LoadReferred(origflux);
     fluxmesh->InitializeBlock();
-    fPostProcMesh[1] = fluxmesh;
+    
+    fPostProcMesh[1]=fluxmesh;
+    
+    
 }
 
+
+void TPZHybridHDivErrorEstimator::NewCreatePressureMesh(){
+    TPZGeoMesh *gmesh = fOriginal[2]->Reference();
+    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
+    TPZCompMesh *orinalpressure=fOriginal[2];
+    for (auto it : fOriginal[2]->MaterialVec()) {
+        TPZMaterial *mat=it.second;
+        int maId = mat->Id();
+        TPZMixedPoisson *mix = new TPZMixedPoisson(maId, cmesh->Dimension());
+        if (!mat) mat = mix;
+        cmesh->InsertMaterialObject(mix);
+    }
+    int porder=cmesh->GetDefaultOrder();
+    cmesh->SetDefaultOrder(porder);
+    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    cmesh->ApproxSpace().CreateDisconnectedElements(true);
+    cmesh->AutoBuild();
+    int64_t n_connects = cmesh->NConnects();
+    for (int64_t i = 0; i < n_connects; ++i) {
+        cmesh->ConnectVec()[i].SetLagrangeMultiplier(1);
+    }
+    
+  //  orinalpressure->CopyMaterials(*cmesh);
+    cmesh->InitializeBlock();
+    fPostProcMesh[2] = cmesh;
+    
+    
+    
+}
 /// clone the pressure mesh using TPZCompElReferred objects
 void TPZHybridHDivErrorEstimator::CreatePressureMesh()
 {
+    
     TPZGeoMesh *gmesh = fOriginal[0]->Reference();
     TPZCompMeshReferred *pressuremesh = new TPZCompMeshReferred(gmesh);
     TPZCompMesh *origpressure = fOriginal[2];
@@ -1056,7 +1155,9 @@ void TPZHybridHDivErrorEstimator::CreatePressureMesh()
 
     pressuremesh->LoadReferred(origpressure);
     pressuremesh->InitializeBlock();
-    fPostProcMesh[2] = pressuremesh;
+    fPostProcMesh[2] =pressuremesh;
+   
+ 
 }
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution

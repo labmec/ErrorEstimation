@@ -76,7 +76,10 @@ struct TPZHybridHDivErrorEstimator
     void PostProcessingHybridMesh();
     void CreateMultiphysicsHybridMesh();
     void PostProcessing(TPZAnalysis &an);
-
+    void NewCreatePressureMesh();
+    void NewCreateFluxMesh();
+    
+    
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 private:
     
