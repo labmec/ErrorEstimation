@@ -85,7 +85,8 @@ int main3(int argc, char *argv[]) {
     }
     
     else{
-        gmesh=CreateGeoMesh();
+        int nel = 1;
+        gmesh=CreateGeoMesh(nel);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         config.bcmaterialids.insert(-2);
