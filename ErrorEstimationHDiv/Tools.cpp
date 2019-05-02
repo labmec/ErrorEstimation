@@ -77,8 +77,8 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
     
 }
 
-TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> &meshvector) {
-    TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
+TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
+    TPZMultiphysicsCompMesh *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
     TPZMaterial *mat = NULL;
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
@@ -102,12 +102,12 @@ TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> 
     std::set<int> matid;
     matid.insert(1);
     matid.insert(-1);
-    cmesh->AutoBuild(matid);
+    TPZManVector<int> active(2,1);
+    TPZManVector<TPZCompMesh *> meshvector(2,0);
     
     meshvector[0] = CreateFluxHDivMesh(problem);
     meshvector[1] = CreatePressureMesh(problem);
-    TPZBuildMultiphysicsMesh::AddElements(meshvector, cmesh);
-    TPZBuildMultiphysicsMesh::AddConnects(meshvector, cmesh);
+    cmesh->BuildMultiphysicsSpace(active, meshvector);
     cmesh->LoadReferences();
     bool keepmatrix = false;
 //    {
@@ -329,8 +329,8 @@ TPZGeoMesh *CreateGeoMesh(int nel) {
 void MultiPhysicsCompel(const ProblemConfig &config){
     
     TPZManVector<TPZCompMesh *,2> MeshesHDiv(2);
-    TPZCompMesh * mixed_cmesh = CreateHDivMesh(config,MeshesHDiv);
-    
+    TPZMultiphysicsCompMesh * mixed_cmesh = CreateHDivMesh(config);
+    MeshesHDiv = mixed_cmesh->MeshVector();
     
     TPZMultiphysicsCompMesh *mphysicCompMesh = new TPZMultiphysicsCompMesh(config.gmesh);
     std::ofstream outgeo("geometria.txt");
@@ -370,20 +370,21 @@ void MultiPhysicsHybrid(const ProblemConfig &config){
     
     
     TPZManVector<TPZCompMesh*, 2> MeshesHDiv(2, 0);
-    TPZCompMesh *mixed_cmesh = CreateHDivMesh(config, MeshesHDiv);//Hdiv x L2
+    TPZMultiphysicsCompMesh *mixed_cmesh = CreateHDivMesh(config);//Hdiv x L2
+    MeshesHDiv = mixed_cmesh->MeshVector();
     mixed_cmesh->InitializeBlock();
     
     //cria malha hibrida
     TPZHybridizeHDiv hybrid;
-    auto HybridMesh = hybrid.Hybridize(mixed_cmesh, MeshesHDiv);
-    std::get<0>(HybridMesh)->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
+    auto HybridMesh = hybrid.Hybridize(mixed_cmesh);
+    (HybridMesh)->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
     delete mixed_cmesh;
     delete MeshesHDiv[0];
     delete MeshesHDiv[1];
     
-    mixed_cmesh=std::get<0>(HybridMesh);//malha hribrida
-    MeshesHDiv[0] = std::get<1>(HybridMesh)[0];//malha Hdiv
-    MeshesHDiv[1] = std::get<1>(HybridMesh)[1];//malha L2
+    mixed_cmesh = (HybridMesh);//malha hribrida
+    MeshesHDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
+    MeshesHDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
     
     //////
 

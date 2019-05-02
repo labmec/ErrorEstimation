@@ -122,8 +122,9 @@ int main3(int argc, char *argv[]) {
     
     
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-    TPZCompMesh *cmesh_HDiv = CreateHDivMesh(config, meshvec_HDiv);//Hdiv x L2
+    TPZMultiphysicsCompMesh *cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
+    meshvec_HDiv = cmesh_HDiv->MeshVector();
     /// clones the atomic meshes in meshvec_HDiv and creates a multiphysics hybrid mesh
 //    std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > Hybridize(TPZCompMesh *cmesh_Multiphysics, TPZVec<TPZCompMesh *> &meshvec_HDiv, bool group_elements=true, double Lagrange_term_multiplier = 1.);
 
@@ -209,17 +210,13 @@ int main3(int argc, char *argv[]) {
     
     //reconstroi potencial e calcula o erro
     {
-        TPZManVector<TPZCompMesh *> MeshesHDiv(3);
-        MeshesHDiv[0] = cmesh_HDiv;//Hdiv x L2
-        MeshesHDiv[1] = meshvec_HDiv[0];//Hdiv
-        MeshesHDiv[2] = meshvec_HDiv[1];//L2
-        TPZHybridHDivErrorEstimator HDivEstimate(MeshesHDiv);
+        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
 
 
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = 0;
-        HDivEstimate.SetAnalyticSolution(&config.exact);
+        HDivEstimate.SetAnalyticSolution(config.exact);
         TPZManVector<REAL> elementerrors;
         HDivEstimate.ComputeErrors(elementerrors);
     }

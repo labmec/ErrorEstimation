@@ -80,15 +80,16 @@ int main(int argc, char *argv[]) {
     
     
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-    TPZCompMesh *cmesh_HDiv = CreateHDivMesh(config, meshvec_HDiv);//Hdiv x L2
+    TPZMultiphysicsCompMesh *cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
+    meshvec_HDiv = cmesh_HDiv->MeshVector();
     
     //cria malha hibrida
     
     TPZHybridizeHDiv hybrid;
-    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv, meshvec_HDiv);
-    std::get<0>(HybridMesh)->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
-    std::get<0>(HybridMesh)->AdjustBoundaryElements();
+    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
+    HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
+    HybridMesh->AdjustBoundaryElements();
     delete cmesh_HDiv;
     delete meshvec_HDiv[0];
     delete meshvec_HDiv[1];
@@ -103,9 +104,9 @@ int main(int argc, char *argv[]) {
     std::cout <<" InterfaceMatid = "<<n2<<std::endl;
     
     
-    cmesh_HDiv=std::get<0>(HybridMesh);//malha hribrida
-    meshvec_HDiv[0] = std::get<1>(HybridMesh)[0];//malha Hdiv
-    meshvec_HDiv[1] = std::get<1>(HybridMesh)[1];//malha L2
+    cmesh_HDiv=(HybridMesh);//malha hribrida
+    meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
+    meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
     
     SolveHybridProblem(cmesh_HDiv);
     
@@ -150,15 +151,11 @@ int main(int argc, char *argv[]) {
     
     //reconstroi potencial e calcula o erro
     {
-        TPZManVector<TPZCompMesh *> MeshesHDiv(3);
-        MeshesHDiv[0] = cmesh_HDiv;//malha hibrida
-        MeshesHDiv[1] = meshvec_HDiv[0];//Hdiv
-        MeshesHDiv[2] = meshvec_HDiv[1];//L2
-        TPZHybridHDivErrorEstimator HDivEstimate(MeshesHDiv);
+        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = 0;
-        HDivEstimate.SetAnalyticSolution(&config.exact);
+        HDivEstimate.SetAnalyticSolution(config.exact);
         
         HDivEstimate.PotentialReconstruction();
         

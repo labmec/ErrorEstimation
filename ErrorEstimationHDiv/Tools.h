@@ -34,6 +34,8 @@
 
 #include "TPZHybridHDivErrorEstimator.h"
 
+class TPZMultiphysicsCompMesh;
+
 #include <tuple>
 #include <memory>
 
@@ -42,7 +44,7 @@
 #endif /* Tools_hpp */
 TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
 TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
-TPZCompMesh *CreateHDivMesh(const ProblemConfig &problem, TPZVec<TPZCompMesh *> &meshvec);
+TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem);
 void CloneMeshVec(TPZVec<TPZCompMesh *> &meshvec, TPZVec<TPZCompMesh *> &meshvec_clone);
 /// Increase the approximation orders of the sides of the flux elements
 void IncreaseSideOrders(TPZCompMesh *fluxmesh);

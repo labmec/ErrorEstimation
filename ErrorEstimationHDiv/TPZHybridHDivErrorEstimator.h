@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "pzmanvector.h"
 #include "TPZHybridizeHDiv.h"
+#include "TPZMultiphysicsCompMesh.h"
 #include "TPZAnalyticSolution.h"
 #include "ProblemConfig.h"
 #include "pzanalysis.h"
@@ -21,24 +22,33 @@ class TPZCompMesh;
 /// this class will compute the estimated value of the energy error of the input mesh
 // it is expected that the estimated value of the error is improved if the input mesh is of H(div)++ type
 // the class should work for any H(div) mesh
+// first create the post processing mesh
+// then compute the errors
 struct TPZHybridHDivErrorEstimator
 {
-    TPZManVector<TPZCompMesh *,3> fOriginal;
+    
+    /// The H(Div) approximation mesh for which we will compute the error
+    TPZMultiphysicsCompMesh *fOriginal;
+//    TPZManVector<TPZCompMesh *,3> fOriginal;
     
     bool fOriginalIsHybridized = true;
     
+    /// order increase of the boundary flux (depending on the original mesh)
     int fUpliftPostProcessMesh = 0;
     
-    TPZManVector<TPZCompMesh *,7> fPostProcMesh;
+    /// Locally created computational mesh to compute the error
+    TPZMultiphysicsCompMesh fPostProcMesh;
+//    TPZManVector<TPZCompMesh *,7> fPostProcMesh;
     
+    // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
     
-    TPZAnalyticSolution *fExact = 0;
+    TPZAnalyticSolution *fExact;
     
     ProblemConfig fProblemConfig;
     
-    TPZHybridHDivErrorEstimator(TPZVec<TPZCompMesh *> &InputMesh, bool InputisHybridized = true) : fOriginal(InputMesh),
-    fOriginalIsHybridized(InputisHybridized), fPostProcMesh(3,0)
+    TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, bool InputisHybridized = true) : fOriginal(&InputMesh),
+    fOriginalIsHybridized(InputisHybridized), fPostProcMesh(0)
     {
         
     }
@@ -63,16 +73,19 @@ struct TPZHybridHDivErrorEstimator
     ~TPZHybridHDivErrorEstimator();
     
     /// Set the analytic solution object
-    void SetAnalyticSolution(TPZAnalyticSolution *exact)
+    void SetAnalyticSolution(TPZAnalyticSolution &exact)
     {
-        fExact = exact;
+        fExact = &exact;
     }
     
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
     void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);
+    
     //reconstruction of potential using hybrid solution on enrichement space
     void PotentialReconstruction();
+    
+    
     void PostProcessingHybridMesh();
     void CreateMultiphysicsHybridMesh();
     void PostProcessing(TPZAnalysis &an);
@@ -84,7 +97,7 @@ struct TPZHybridHDivErrorEstimator
 private:
     
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
-    void CreatePostProcessingMesh(bool isOriginalMeshHybrid);
+    void CreatePostProcessingMesh();
     
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
@@ -92,7 +105,8 @@ private:
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
     
-    void IncreasePressureSideOrders(TPZCompMesh *mesh);
+    /// increase the order of the lower dimensional pressure elements
+    void IncreasePressureSideOrders();
     
     /// compute the average pressures of the hybridized form of the H(div) mesh
     void ComputeAveragePressures();
@@ -122,6 +136,8 @@ private:
     /// return the value of the Dirichlet condition
     void GetDirichletValue(TPZGeoElSide gelside, TPZVec<STATE> &vals);
 
+    /// identify the peripheral material objects and store the information in fHybridizer
+    void IdentifyPeripheralMaterialIds();
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
