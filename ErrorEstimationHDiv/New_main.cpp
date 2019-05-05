@@ -55,11 +55,11 @@ int main(int argc, char *argv[]) {
     
     ProblemConfig config;
     config.porder = 1;
-    config.hdivmais = 1;
+    config.hdivmais = 2;
     config.makepressurecontinuous = true;
-    config.exact.fExact = TLaplaceExample1::EX;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
-    config.problemname = "Linear";//"ESinSin";//"ArcTang";//
-    int nDiv=3;
+    config.exact.fExact = TLaplaceExample1::ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
+    config.problemname = "SinSin";//"ESinSin";//"ArcTang";//
+    int nDiv=4;
     int nelem = 1<<nDiv;
     TPZGeoMesh *gmesh = CreateGeoMesh(nelem);
     config.materialids.insert(1);
@@ -110,25 +110,6 @@ int main(int argc, char *argv[]) {
     
     SolveHybridProblem(cmesh_HDiv);
     
-    TPZManVector<TPZFMatrix<STATE>> K01Vec;
-    
-    {
-        TPZBFileStream input;
-        try {
-            input.OpenRead("K01.bin");
-            if(!input.AmIOpenForRead())
-            {
-                DebugStop();
-            }
-            K01Vec.Resize(9);
-            for (int i=0; i<9; i++) {
-                K01Vec[i].Read(input, 0);
-            }
-        } catch (...) {
-            std::cout << "File not K01.bin found\n";
-        }
-    }
-    
     
     {
         //
@@ -154,7 +135,7 @@ int main(int argc, char *argv[]) {
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = 0;
+        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
         
         HDivEstimate.PotentialReconstruction();

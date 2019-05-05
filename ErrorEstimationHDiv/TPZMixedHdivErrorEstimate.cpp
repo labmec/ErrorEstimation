@@ -23,13 +23,19 @@ TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(int matid, int di
 }
 
 template<class MixedMat>
+TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(const MixedMat &copy) : MixedMat(copy)
+{
+    
+}
+
+template<class MixedMat>
 TPZMixedHDivErrorEstimate<MixedMat>::~TPZMixedHDivErrorEstimate()
 {
     
 }
 
 template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp) : MixedMat(cp), fSignConvention(cp.fSignConvention)
+TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp) : MixedMat(cp)
 {
     
 }
@@ -38,7 +44,6 @@ template<class MixedMat>
 TPZMixedHDivErrorEstimate<MixedMat> &TPZMixedHDivErrorEstimate<MixedMat>::operator=(const TPZMixedHDivErrorEstimate &copy)
 {
     MixedMat::operator=(copy);
-    fSignConvention = copy.fSignConvention;
     return *this;
 }
 
@@ -180,9 +185,9 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
     
-    int dim=fDim;
+    int dim=MixedMat::fDim;
   
-    TPZManVector<STATE,3> fluxfem(fDim), fluxreconstructed(fDim), pressurefem(1), pressurereconstructed(1);
+    TPZManVector<STATE,3> fluxfem(dim), fluxreconstructed(dim), pressurefem(1), pressurereconstructed(1);
 
     for (int i=0; i<dim; i++) {
         fluxreconstructed[i] = data[0].sol[0][i];

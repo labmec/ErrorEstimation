@@ -106,13 +106,16 @@ private:
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
     
     /// increase the order of the lower dimensional pressure elements
-    void IncreasePressureSideOrders();
+    void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);
     
     /// compute the average pressures of the hybridized form of the H(div) mesh
     void ComputeAveragePressures();
     
     /// set the cornernode values equal to the averages
     void ComputeNodalAverages();
+    
+    /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
+    void SwitchMaterialObjects();
     
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();

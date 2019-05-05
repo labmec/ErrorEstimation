@@ -24,9 +24,6 @@ template<class MixedMat>
 class TPZMixedHDivErrorEstimate : public MixedMat
 {
     
-    /// sign convention adopted by MixedMat
-    int fSignConvention = 1;
-    int fDim;
     
 public:
     
@@ -36,40 +33,30 @@ public:
     
     virtual ~TPZMixedHDivErrorEstimate();
     
+    TPZMixedHDivErrorEstimate(const MixedMat &cp);
+    
     TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp);
     
     TPZMixedHDivErrorEstimate &operator=(const TPZMixedHDivErrorEstimate &copy);
     
-    virtual TPZMaterial * NewMaterial(){
+    virtual TPZMaterial * NewMaterial() override {
         return new TPZMixedHDivErrorEstimate(*this);
     }
     
-    int SignConvention() const
-    {
-        return fSignConvention;
-    }
     
-    void SetSignConvention(int sign)
-    {
-        fSignConvention = sign;
-    }
-    void SetDimension(int dim)
-    {
-        fDim = dim;
-    }
-    void FillDataRequirements(TPZVec<TPZMaterialData > &datavec);
+    void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
     
     /// make a contribution to the error computation
-    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors);
+    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
     
-    virtual int NEvalErrors() {
+    virtual int NEvalErrors() override {
         return 4;
         
     }
     
-    virtual int VariableIndex(const std::string &name);
+    virtual int VariableIndex(const std::string &name) override;
     
-    virtual int NSolutionVariables(int var);
+    virtual int NSolutionVariables(int var) override;
     
     /**
      * @brief It return a solution to multiphysics simulation.
@@ -77,7 +64,7 @@ public:
      * @param var [in] number of solution variables. See  NSolutionVariables() method
      * @param Solout [out] is the solution vector
      */
-    virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout);
+    virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
     
 
 };

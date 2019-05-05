@@ -38,9 +38,8 @@ static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
 TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator()
 {
     TPZVec<TPZCompMesh *> meshvec = fPostProcMesh.MeshVector();
-    for(auto mesh:meshvec)
-    {
-        delete mesh;
+    for (int i = 0; i<2; i++) {
+        delete meshvec[i];
     }
 }
 
@@ -195,6 +194,9 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     fOriginal->CopyMaterials(fPostProcMesh);
+    // switch the material from mixed to TPZMixedHdivErrorEstimate...
+    SwitchMaterialObjects();
+
     TPZManVector<TPZCompMesh *,4> mesh_vectors(4,0);
     mesh_vectors[2] = fOriginal->MeshVector()[0];
     mesh_vectors[3] = fOriginal->MeshVector()[1];
@@ -222,9 +224,13 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     {
         IdentifyPeripheralMaterialIds();
     }
-    IncreaseSideOrders(fPostProcMesh.MeshVector()[0]);//malha do fluxo
-    IncreasePressureSideOrders();//malha da pressao
+    IncreaseSideOrders(mesh_vectors[0]);//malha do fluxo
+    IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao
     
+    TPZManVector<int> active(4,0);
+    active[0] = 1;
+    active[1] = 1;
+    fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     // construction of the multiphysics mesh
         //cria elementos de interface
     fHybridizer.CreateInterfaceElements(&fPostProcMesh);
@@ -296,7 +302,11 @@ void TPZHybridHDivErrorEstimator::IncreaseSideOrders(TPZCompMesh *mesh)
         intel->SetPreferredOrder(order);
         for (int side = ncorner; side < nsides - 1; side++) {
             if (intel->NSideConnects(side)) {
-                intel->SetSideOrder(side, order);
+                TPZConnect &c = intel->SideConnect(0, side);
+                if(c.Order() != order)
+                {
+                    intel->SetSideOrder(side, order);
+                }
             }
         }
         //        intel->Print();
@@ -305,9 +315,8 @@ void TPZHybridHDivErrorEstimator::IncreaseSideOrders(TPZCompMesh *mesh)
 
 }
 
-void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders()
+void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *mesh)
 {
-    TPZCompMesh *mesh = fPostProcMesh.MeshVector()[1];
     /// esta ordem eh mal calculado!!!
     int OringOrder = mesh->GetDefaultOrder();
     
@@ -1288,3 +1297,31 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds()
         }
     }
 }
+
+/// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
+void TPZHybridHDivErrorEstimator::SwitchMaterialObjects()
+{
+    for(auto matid : fPostProcMesh.MaterialVec())
+    {
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+        if(mixpoisson)
+        {
+            TPZMixedHDivErrorEstimate<TPZMixedPoisson> *newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
+            
+            if(fExact)
+            {
+                newmat->SetForcingFunctionExact(fExact->Exact());
+            }
+
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(newmat);
+                }
+            }
+            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            delete mixpoisson;
+        }
+    }
+}
+
