@@ -224,8 +224,12 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     {
         IdentifyPeripheralMaterialIds();
     }
-    IncreaseSideOrders(mesh_vectors[0]);//malha do fluxo
+
+   
     IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao
+    IncreaseSideOrders(fPostProcMesh.MeshVector()[0]);//malha do fluxo
+
+
     
     TPZManVector<int> active(4,0);
     active[0] = 1;
@@ -331,16 +335,33 @@ void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *mesh)
         if (gel->Dimension()== dim){
             continue;
         }
+        
+        TPZGeoElSide gelside(gel,gel->NSides()-1);
+        
+        TPZStack<TPZCompElSide> celstack;
+        gelside.EqualLevelCompElementList(celstack, 1, 0);
+        int nhighside=celstack.NElements();
+        //TPZStack<STATE> vecOrder;
+        int maxOrder=0;
+        for (int side=0;side<nhighside;side++){
+        TPZInterpolatedElement *intelS = dynamic_cast<TPZInterpolatedElement*>(celstack[side].Element());
+            int orderEl=intelS->GetPreferredOrder();
+            
+            maxOrder = orderEl < maxOrder ? maxOrder : orderEl;
+           // vecOrder.Push(orderEl);
+        }
+
+        
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
 //        int nc = cel->NConnects();
 //        int order = cel->Connect(nc-1).Order()+1;
-        int order=OringOrder;
+        int order=maxOrder;//OringOrder;
         int nsides = gel->NSides();
         int ncorner = gel->NCornerNodes();
         intel->SetPreferredOrder(order);
         for (int side = ncorner; side < nsides; side++) {
             if (intel->NSideConnects(side)) {
-                intel->SetSideOrder(side, order);
+                intel->SetSideOrder(side, maxOrder/*order*/);
             }
         }
         //        intel->Print();
