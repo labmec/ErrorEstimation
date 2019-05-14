@@ -227,7 +227,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
 
    
     IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao
-    IncreaseSideOrders(fPostProcMesh.MeshVector()[0]);//malha do fluxo
+    IncreaseSideOrders(mesh_vectors[0]);//malha do fluxo
 
 
     
@@ -358,10 +358,10 @@ void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *mesh)
         int order=maxOrder;//OringOrder;
         int nsides = gel->NSides();
         int ncorner = gel->NCornerNodes();
-        intel->SetPreferredOrder(order);
+        intel->SetPreferredOrder(OringOrder);
         for (int side = ncorner; side < nsides; side++) {
             if (intel->NSideConnects(side)) {
-                intel->SetSideOrder(side, maxOrder/*order*/);
+                intel->SetSideOrder(side, OringOrder/*order*/);
             }
         }
         //        intel->Print();
