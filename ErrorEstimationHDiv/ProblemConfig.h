@@ -17,6 +17,9 @@ struct ProblemConfig
     int porder = 1;
     int hdivmais = 1;
     bool makepressurecontinuous = 0;
+    
+    int ndivisions=1;
+    bool prefine=false;
     std::string problemname;
     std::set<int> materialids;
     std::set<int> bcmaterialids;
@@ -26,7 +29,7 @@ struct ProblemConfig
     ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
     makepressurecontinuous(cp.makepressurecontinuous),
     problemname(cp.problemname),
-    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact)
+    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine)
     {
     }
     
@@ -40,6 +43,8 @@ struct ProblemConfig
         materialids = cp.materialids;
         bcmaterialids = cp.bcmaterialids;
         exact = cp.exact;
+        ndivisions=cp.ndivisions;
+        prefine=cp.prefine;
         return *this;
     }
 };

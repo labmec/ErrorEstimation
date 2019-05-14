@@ -60,3 +60,4 @@ std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCo
 void PrintSolAndDerivate(const ProblemConfig config);
 void FunctionTest();
 void MultiPhysicsHybrid(const ProblemConfig &config);
+void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder);

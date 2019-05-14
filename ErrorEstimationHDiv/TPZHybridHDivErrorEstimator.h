@@ -89,8 +89,6 @@ struct TPZHybridHDivErrorEstimator
     void PostProcessingHybridMesh();
     void CreateMultiphysicsHybridMesh();
     void PostProcessing(TPZAnalysis &an);
-    void NewCreatePressureMesh();
-    void NewCreateFluxMesh();
     
     
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
@@ -104,6 +102,7 @@ private:
     
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
+    
     
     /// increase the order of the lower dimensional pressure elements
     void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);

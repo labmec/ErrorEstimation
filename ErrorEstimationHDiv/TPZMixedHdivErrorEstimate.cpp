@@ -75,6 +75,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name)
     if(name == "EnergyErrorEstimate") return 103;
     if(name == "PressureEffectivityIndex") return 104;
     if(name == "EnergyEffectivityIndex") return 105;
+    if(name == "POrder") return 46;
     return -1;
 }
 
@@ -90,6 +91,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::NSolutionVariables(int var)
         case 43:
         case 44:
         case 45:
+        case 46:
         case 100:
         case 101:
         case 102:
@@ -153,7 +155,6 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     switch (var)
     {
         case 40://FluxFem
-            //for(int i=0; i<dim; i++) Solout[i] = datavec[0].sol[0][i+dim];
             for(int i=0; i<dim; i++) Solout[i] = datavec[2].sol[0][i];
             break;
         case 41://FluxReconstructed
@@ -163,7 +164,6 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
             for(int i=0; i<dim; i++) Solout[i] = -fluxinv(i);
             break;
         case 43://PressureFem
-            //Solout[0] = datavec[1].sol[0][1];
             Solout[0] = datavec[3].sol[0][0];
             break;
         case 44://PressureReconstructed
@@ -171,6 +171,9 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
             break;
         case 45:
             Solout[0] = pressureexact;
+            break;
+        case 46:
+            Solout[0] = datavec[1].p;
             break;
         default:
             DebugStop();

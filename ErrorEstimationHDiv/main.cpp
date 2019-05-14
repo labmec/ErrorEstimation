@@ -183,7 +183,7 @@ int main3(int argc, char *argv[]) {
         an.DefineGraphMesh(2, scalnames, vecnames, "Original.vtk");
         //        meshvec_Hybrid[1]->Solution().Print("Press");
         // Post processing
-        an.PostProcess(2,2);
+        an.PostProcess(0,2);
 
 //        {
 //            {

@@ -24,6 +24,12 @@ TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem) {
     for (int64_t i = 0; i < n_connects; ++i) {
         cmesh->ConnectVec()[i].SetLagrangeMultiplier(1);
     }
+    
+    if(problem.prefine){
+        Prefinamento(cmesh, problem.ndivisions, problem.porder);
+    }
+    
+    
     return cmesh;
 }
 
@@ -41,6 +47,7 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
         TPZBndCond *bc = mat->CreateBC(mat, matid, 0, val1, val2);
+        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->SetDefaultOrder(problem.porder);
@@ -58,19 +65,11 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
                 intel->SetPreferredOrder(problem.porder+problem.hdivmais);
             }
         }
-        if(0)
-        {
-        for (int64_t el = 0; el < nel; el++) {
-            TPZCompEl *cel = cmesh->Element(el);
-            TPZGeoEl *gel = cel->Reference();
-            if (gel->Dimension() == dim-1) {
-                int side = gel->NSides() - 1;
-                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
-                intel->SetSideOrder(side, problem.porder + problem.hdivmais);
-                intel->SetPreferredOrder(problem.porder+problem.hdivmais);
-            }
+        
+        if(problem.prefine){
+            Prefinamento(cmesh, problem.ndivisions, problem.porder);
         }
-        }
+        
     }
     cmesh->InitializeBlock();
     return cmesh;
@@ -83,6 +82,9 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
         mix->SetForcingFunction(problem.exact.ForcingFunction());
+        
+        mix->SetForcingFunctionExact(problem.exact.Exact());
+        
         mix->SetInternalFlux(1);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
@@ -96,6 +98,7 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
         }
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -110,30 +113,7 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     cmesh->BuildMultiphysicsSpace(active, meshvector);
     cmesh->LoadReferences();
     bool keepmatrix = false;
-//    {
-//
-//
-//        std::ofstream out2("FluxMesh_NoCondens.txt");
-//        meshvector[0]->Print(out2);
-//
-//        std::ofstream out3("PotentialMesh_NoCondens.txt");
-//        meshvector[1]->Print(out3);
-//
-//
-//    }
     TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
-    
-//    {
-//
-//        
-//        std::ofstream out2("FluxMesh_Condens.txt");
-//        meshvector[0]->Print(out2);
-//
-//        std::ofstream out3("PotentialMesh_Condens.txt");
-//        meshvector[1]->Print(out3);
-//
-//
-//    }
     
     return cmesh;
 }
@@ -532,16 +512,22 @@ void PrintSolAndDerivate(const ProblemConfig config){
 
 void FunctionTest(){
         TLaplaceExample1 Denise;
-        Denise.fExact = TLaplaceExample1::ESinSinDirNonHom;
+    Denise.fExact = TLaplaceExample1::ESinMark;//ESinSinDirNonHom;
         TPZVec<FADFADREAL> x(3);
-        FADFADREAL x0 = (FADFADREAL) 0.5;
+        FADFADREAL x0 = (FADFADREAL) 0.001;
         FADFADREAL x1 = (FADFADREAL) 0.5;
-        FADFADREAL x2 = (FADFADREAL) 0.5;
+        FADFADREAL x2 = (FADFADREAL) 0;
         x[0]= x0;
         x[1]= x1;
         x[2]= x2;
         TPZVec<FADFADREAL> disp(1);
         Denise.uxy(x, disp);
+    std::cout<< "Pto x[0] "<<x[0]<<std::endl;
+    std::cout<< "Pto x[1] "<<x[1]<<std::endl;
+    std::cout<< "Pto x[2] "<<x[2]<<std::endl;
+    
+    std::cout<<"valor de ur0 "<<disp[0]<<std::endl;
+    
         TPZVec<REAL> x_r(3);
         x_r[0] = x[0].val().val();
         x_r[1] = x[1].val().val();
@@ -552,4 +538,33 @@ void FunctionTest(){
         REAL force;
         Denise.DivSigma(x_r, force);
     
+}
+
+
+void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
+    if(ndiv<1) return;
+    int nel = cmesh->NElements();
+    for(int iel = 0; iel < nel; iel++){
+        TPZCompEl *cel = cmesh->ElementVec()[iel];
+        if(!cel) continue;
+        
+        TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
+        if(!sp) continue;
+        int level = sp->Reference()->Level();
+        TPZGeoEl * gel = sp->Reference();
+        if((gel->Dimension()==2) && (iel % 2==0)){
+            int ordem= 0;
+            ordem=porder + (ndiv-1 ) + (level);
+            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
+            sp->PRefine(ordem);
+        }
+    }
+    cmesh->AdjustBoundaryElements();
+    cmesh->CleanUpUnconnectedNodes();
+    cmesh->ExpandSolution();
+    
+        std::stringstream sout;
+        sout<<"malha computacional apos pRefinamento\n";
+        cmesh->Print(sout);
+
 }
