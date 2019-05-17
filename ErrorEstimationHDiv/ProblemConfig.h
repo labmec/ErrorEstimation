@@ -20,6 +20,9 @@ struct ProblemConfig
     
     int ndivisions=1;
     bool prefine=false;
+    STATE alpha=1;
+    
+    
     std::string problemname;
     std::set<int> materialids;
     std::set<int> bcmaterialids;
@@ -29,7 +32,7 @@ struct ProblemConfig
     ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
     makepressurecontinuous(cp.makepressurecontinuous),
     problemname(cp.problemname),
-    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine)
+    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine),alpha(cp.alpha)
     {
     }
     
@@ -43,8 +46,10 @@ struct ProblemConfig
         materialids = cp.materialids;
         bcmaterialids = cp.bcmaterialids;
         exact = cp.exact;
+        
         ndivisions=cp.ndivisions;
         prefine=cp.prefine;
+        alpha=cp.alpha;
         return *this;
     }
 };
