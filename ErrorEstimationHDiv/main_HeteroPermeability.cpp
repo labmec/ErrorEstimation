@@ -124,9 +124,10 @@ int main(int argc, char *argv[]) {
     
     TPZMultiphysicsCompMesh *cmesh_HDiv=CreateNeumannHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
-        
+    
+    if(0)
     {
-    TPZAnalysis an(cmesh_HDiv);
+        TPZAnalysis an(cmesh_HDiv);
         
 #ifdef USING_MKL
         TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
@@ -216,7 +217,7 @@ int main(int argc, char *argv[]) {
         (HybridMesh)->Print(out);
     }
 
-        return 0;
+    return 0;
     PlotLagrangreMultiplier(meshvec_HDiv[1]);
     
     

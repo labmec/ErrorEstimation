@@ -514,7 +514,7 @@ void PrintSolAndDerivate(const ProblemConfig config){
 
 void FunctionTest(){
         TLaplaceExample1 Denise;
-    Denise.fExact = TLaplaceExample1::ESinMark;//ESinSinDirNonHom;
+    Denise.fExact = TLaplaceExample1::ESinSinDirNonHom;//TLaplaceExample1::ESinMark;//
         TPZVec<FADFADREAL> x(3);
         FADFADREAL x0 = (FADFADREAL) 0.001;
         FADFADREAL x1 = (FADFADREAL) 0.5;
@@ -571,6 +571,12 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
 
 }
 
+void Exata(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
+    solp[0] = pt[0]*pt[1];
+    flux(0,0) = pt[1];
+    flux(1,0) = pt[0];
+    flux(2,0) = 0.;
+}
 
 void ExataOmega1(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
     
@@ -583,10 +589,11 @@ void ExataOmega1(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     y = pt[1];
     z = pt[2];
     solp[0] = x*x-y*y;
-    flux(0,0) = 2.*x;
-    flux(1,0) = -2*y;
+    flux(0,0) = -2.*x;
+    flux(1,0) = 2*y;
     flux(2,0) = 0.;
-std::cout<<"funcao em omega1 "<<solp[0]<<std::endl;
+    //Exata(pt,solp,flux);
+    std::cout<<"funcao em omega1 pt = " << pt << " sol " << solp[0] << std::endl;
 }
 
 void ExataOmega2(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
@@ -603,18 +610,23 @@ void ExataOmega2(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     z = pt[2];
     solp[0] = (x*x-y*y)/(alpha*alpha) ;//+ (4./3.);
     
-    flux(0,0) = (2.)*x/(alpha*alpha);
-    flux(1,0) = (-2.)*y/(alpha*alpha);
+    flux(0,0) = -(2.)*x/(alpha*alpha);
+    flux(1,0) = -(-2.)*y/(alpha*alpha);
     flux(2,0) = 0.;
-    
-    std::cout<<"funcao em omega2 "<<solp[0]<<std::endl;
+//    Exata(pt,solp,flux);
+
+    std::cout<<"funcao em omega2 pt " << pt << " sol " << solp[0] << std::endl;
     
 }
 
 void ExataOmega3(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
-    
+    solp.resize(1);
+    flux.Resize(3, 1);
+
     ExataOmega1(pt, solp, flux);
-    std::cout<<"funcao em omega3 "<<solp[0]<<std::endl;
+//    Exata(pt,solp,flux);
+
+    std::cout<<"funcao em omega3 pt = " << pt << " sol " << solp[0] << std::endl;
 
     
 }
@@ -635,10 +647,12 @@ void ExataOmega4(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     
     solp[0] = (x*x-y*y)/(alpha4);
     
-    flux(0,0) = 2.*x/(alpha4);
-    flux(1,0) = (-2.)*y/(alpha4);
+    flux(0,0) = -2.*x/(alpha4);
+    flux(1,0) = -(-2.)*y/(alpha4);
     flux(2,0) = 0.;
-    std::cout<<"funcao em omega4 "<<solp[0]<<std::endl;
+//    Exata(pt,solp,flux);
+
+    std::cout<<"funcao em omega4 pt " << pt << " sol " << solp[0] << " flux " << flux << std::endl;
     
 }
 
@@ -660,7 +674,7 @@ void Neumann1(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     normal(0,0)=1.;
     
     ff[0]= flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-    std::cout<<"derivada normal em omega1 "<<ff[0]<<std::endl;
+    std::cout<<"derivada normal em omega1 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
 
@@ -677,7 +691,7 @@ void Neumann2(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     normal(1,0) = 1.;
     
     ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-    std::cout<<"derivada normal em omega2 "<<ff[0]<<std::endl;
+    std::cout<<"derivada normal em omega2 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
 
@@ -695,7 +709,7 @@ void Neumann3(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     normal(0,0) = (-1.);
     
     ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-    std::cout<<"derivada normal em omega3 "<<ff[0]<<std::endl;
+    std::cout<<"derivada normal em omega3 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
 
@@ -705,15 +719,15 @@ void Neumann4(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     TPZFMatrix<STATE> flux;
     
     ExataOmega4(pt, ff, flux);
-     ff[0]=0.;
+    ff[0]=0.;
     
     TPZFMatrix<STATE> normal(3,1);
     normal.Zero();
     
     normal(1,0) = (-1.);
     
-    ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-    std::cout<<"derivada normal em omega4 "<<ff[0]<<std::endl;
+    ff[0] = (flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0));
+    std::cout<<"derivada normal em omega4 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
 
@@ -798,8 +812,8 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
             cmesh->InsertMaterialObject(bc);
         }
         if(matid==7){
-            bcfunction=new TPZDummyFunction<STATE>(ExataOmega3,5);
-            int  bctype=0;
+            bcfunction=new TPZDummyFunction<STATE>(Neumann3,5);
+            int  bctype=1;
 //            val2(0,0) = 0.;
 //            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
              bc->SetType(bctype);
@@ -886,7 +900,7 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     
     TPZAnalysis an(Hybridmesh);
     
-#ifdef USING_MKL2
+#ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(Hybridmesh);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);

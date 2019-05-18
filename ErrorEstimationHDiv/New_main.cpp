@@ -69,7 +69,7 @@ int main5(int argc, char *argv[]) {
     config.makepressurecontinuous = true;
     
     if(!neumann){
-    config.exact.fExact = TLaplaceExample1::ESinMark;//ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//ESinMark;//EArcTan;//
+    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//ESinMark;//EArcTan;//
     config.problemname = "ESinMark";//"ESinSinDirNonHom";//"ESinSin";////"EArcTanSingular_PRef";//""ArcTang";//
     }
     
