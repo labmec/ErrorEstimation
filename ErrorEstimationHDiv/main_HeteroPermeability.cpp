@@ -216,7 +216,7 @@ int main(int argc, char *argv[]) {
         (HybridMesh)->Print(out);
     }
 
-        return 0;
+       
     PlotLagrangreMultiplier(meshvec_HDiv[1]);
     
     

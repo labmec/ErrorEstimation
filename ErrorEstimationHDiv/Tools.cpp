@@ -583,8 +583,8 @@ void ExataOmega1(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     y = pt[1];
     z = pt[2];
     solp[0] = x*x-y*y;
-    flux(0,0) = 2.*x;
-    flux(1,0) = -2*y;
+    flux(0,0) = -2.*x;
+    flux(1,0) = 2*y;
     flux(2,0) = 0.;
 std::cout<<"funcao em omega1 "<<solp[0]<<std::endl;
 }
@@ -603,8 +603,8 @@ void ExataOmega2(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     z = pt[2];
     solp[0] = (x*x-y*y)/(alpha*alpha) ;//+ (4./3.);
     
-    flux(0,0) = (2.)*x/(alpha*alpha);
-    flux(1,0) = (-2.)*y/(alpha*alpha);
+    flux(0,0) = -(2.)*x/(alpha*alpha);
+    flux(1,0) = (2.)*y/(alpha*alpha);
     flux(2,0) = 0.;
     
     std::cout<<"funcao em omega2 "<<solp[0]<<std::endl;
@@ -635,8 +635,8 @@ void ExataOmega4(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     
     solp[0] = (x*x-y*y)/(alpha4);
     
-    flux(0,0) = 2.*x/(alpha4);
-    flux(1,0) = (-2.)*y/(alpha4);
+    flux(0,0) = (-2.)*x/(alpha4);
+    flux(1,0) = (2.)*y/(alpha4);
     flux(2,0) = 0.;
     std::cout<<"funcao em omega4 "<<solp[0]<<std::endl;
     
@@ -733,14 +733,14 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
     
         if(matid==1){
             solexata = new TPZDummyFunction<STATE>(ExataOmega1,10);
-         //   mix->SetForcingFunctionExact(solexata);
+            mix->SetForcingFunctionExact(solexata);
              mix->SetPermeability(1.);
         
         }
         
         if(matid==2){
             solexata = new TPZDummyFunction<STATE>(ExataOmega2,10);
-      //      mix->SetForcingFunctionExact(solexata);
+            mix->SetForcingFunctionExact(solexata);
             STATE alpha2=(problem.alpha)*(problem.alpha);
             
             mix->SetPermeability(alpha2);
@@ -751,13 +751,13 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
         
         if(matid==3){
             solexata = new TPZDummyFunction<STATE>(ExataOmega3,10);
-   //         mix->SetForcingFunctionExact(solexata);
+            mix->SetForcingFunctionExact(solexata);
             mix->SetPermeability(1.);
             
         }
         if(matid==4){
             solexata = new TPZDummyFunction<STATE>(ExataOmega4,10);
-    //        mix->SetForcingFunctionExact(solexata);
+            mix->SetForcingFunctionExact(solexata);
             STATE alpha4=pow(problem.alpha, 4);
             mix->SetPermeability(alpha4);
             
