@@ -11,9 +11,13 @@
 #include <set>
 #include "TPZAnalyticSolution.h"
 
+/// class to guide the error estimator
 struct ProblemConfig
 {
+    
+    /// geometric mesh on which the computational meshes are based
     TPZGeoMesh *gmesh = 0;
+    /// polynomial order of the original mesh
     int porder = 1;
     int hdivmais = 1;
     bool makepressurecontinuous = 0;
