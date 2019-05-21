@@ -143,12 +143,15 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     STATE pressureexact = 0.;
     TPZManVector<STATE,2> pressvec(1,0.);
     TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
+    
     if(MixedMat::fForcingFunctionExact)
     {
+
         MixedMat::fForcingFunctionExact->Execute(datavec[0].x, pressvec,gradu);
         gradu.Resize(3, 1);
         gradu(2,0) = 0.;
     }
+    
     PermTensor.Multiply(gradu, fluxinv);
     pressureexact = pressvec[0];
     int dim=this->fDim;
@@ -196,6 +199,11 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
         fluxreconstructed[i] = data[0].sol[0][i];
         //fluxfem[i] = data[0].sol[0][i+dim];
         fluxfem[i] = data[2].sol[0][i];
+    }
+    
+    if(this->fForcingFunctionExact){
+        
+        this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
     }
     
     pressurereconstructed[0] = data[1].sol[0][0];

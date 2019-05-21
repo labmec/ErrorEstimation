@@ -37,7 +37,7 @@ bool testeSolandDerivate=false;
 
 
 bool gmeshreader=false;
-int main3(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif

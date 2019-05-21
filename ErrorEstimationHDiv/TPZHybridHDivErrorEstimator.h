@@ -48,14 +48,14 @@ struct TPZHybridHDivErrorEstimator
     ProblemConfig fProblemConfig;
     
     TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, bool InputisHybridized = true) : fOriginal(&InputMesh),
-    fOriginalIsHybridized(InputisHybridized), fPostProcMesh(0)
+    fOriginalIsHybridized(InputisHybridized), fPostProcMesh(0),fExact(NULL)
     {
         
     }
     
     TPZHybridHDivErrorEstimator(const TPZHybridHDivErrorEstimator &copy) : fOriginal(copy.fOriginal),
         fOriginalIsHybridized(copy.fOriginalIsHybridized),fUpliftPostProcessMesh(copy.fUpliftPostProcessMesh),
-        fPostProcMesh(copy.fPostProcMesh), fProblemConfig(copy.fProblemConfig)
+        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig)
     {
         
     }
@@ -66,6 +66,7 @@ struct TPZHybridHDivErrorEstimator
         fOriginalIsHybridized = cp.fOriginalIsHybridized;
         fUpliftPostProcessMesh = cp.fUpliftPostProcessMesh;
         fPostProcMesh = cp.fPostProcMesh;
+        fExact = cp.fExact;
         fProblemConfig = cp.fProblemConfig;
         return *this;
     }
