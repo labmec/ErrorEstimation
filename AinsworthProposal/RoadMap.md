@@ -15,7 +15,7 @@ As stated in the article, the estimation consists of reconstructing the potentia
 
 The solution obtained at the end of the process is compared to the pressure given by the Mixed-FEM. The bigger the deviation, the worse is the approximation at that element, suggesting it should be refined to achieve a better solution.
 
-## Notes on the Implementation
+## Implementation Notes
 I'm using this file as a sort of notebook to guide the work.
 
 For now I can think of the following things I need to do:

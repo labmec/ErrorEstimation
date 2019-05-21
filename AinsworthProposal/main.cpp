@@ -2,7 +2,6 @@
 // M. Ainsworth, X. Ma, Non-uniform order mixed FEM approximation: Implementation, post-processing,
 // computable error bound and adaptivity. J. Comput. Physc. 231(2) (2012) 436-453.
 
-
 #include <iostream>
 
 
@@ -22,7 +21,7 @@ int main() {
     std::cout << "blob";
 }
 
-TPZGeoMesh* createGeoMesh() {
+TPZGeoMesh* createGeoMesh(std::string meshfilename) {
 
     TPZGeoMesh *gmesh = nullptr;
 
