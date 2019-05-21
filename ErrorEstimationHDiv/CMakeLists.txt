@@ -1,13 +1,29 @@
 # Project to apply hp-adaptive process to Poisson3D material on hexahedra with a shock problem
+set(
+common_SRC
+ProblemConfig.h
+Tools.h
+Tools.cpp
+TPZHybridHDivErrorEstimator.h
+TPZHybridHDivErrorEstimator.cpp
+TPZMixedHdivErrorEstimate.h
+TPZMixedHdivErrorEstimate.cpp
+)
 
-file(GLOB header *.h)
-file(GLOB source *.cpp)
+add_executable(HeteroPermeability ${common_SRC} main_HeteroPermeability.cpp)
 
-set(ErrorEstimateSRC ${header} ${source})
+target_link_libraries(HeteroPermeability pz)
 
-add_executable(ErrorEstimateHDiv ${ErrorEstimateSRC})
 
-target_link_libraries(ErrorEstimateHDiv pz)
+add_executable(HybridMain ${common_SRC} New_main.cpp)
+
+target_link_libraries(HybridMain pz)
+
+
+add_executable(NoHybridMain ${common_SRC} main.cpp)
+
+target_link_libraries(NoHybridMain pz)
+
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)

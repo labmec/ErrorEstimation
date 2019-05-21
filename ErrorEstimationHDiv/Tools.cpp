@@ -87,7 +87,7 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
         
         mix->SetForcingFunctionExact(problem.exact.Exact());
         
-        mix->SetInternalFlux(1);
+     //   mix->SetInternalFlux(1);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
@@ -292,7 +292,6 @@ TPZGeoMesh *CreateGeoMesh(int nel) {
     TPZManVector<REAL> x0(3,0.),x1(3,1.);
     x1[2] = 0.;
     TPZGenGrid gen(nx,x0,x1);
-    int matID=1;
 
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
@@ -571,334 +570,9 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
 
 }
 
-void Exata(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
-    solp[0] = pt[0]*pt[1];
-    flux(0,0) = pt[1];
-    flux(1,0) = pt[0];
-    flux(2,0) = 0.;
-}
-
-void ExataOmega1(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
-    
-    solp.resize(1);
-    flux.Resize(3, 1);
-    
-    REAL x,y,z;
-    
-    x = pt[0];
-    y = pt[1];
-    z = pt[2];
-    solp[0] = x*x-y*y;
-    flux(0,0) = -2.*x;
-    flux(1,0) = 2*y;
-    flux(2,0) = 0.;
-    //Exata(pt,solp,flux);
-    std::cout<<"funcao em omega1 pt = " << pt << " sol " << solp[0] << std::endl;
-}
-
-void ExataOmega2(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
-    
-    solp.resize(1);
-    flux.Resize(3, 1);
-    
-    REAL x,y,z,alpha;
-    
-    alpha=1.;
-    
-    x = pt[0];
-    y = pt[1];
-    z = pt[2];
-    solp[0] = (x*x-y*y)/(alpha*alpha) ;//+ (4./3.);
-    
-    flux(0,0) = -(2.)*x/(alpha*alpha);
-    flux(1,0) = -(-2.)*y/(alpha*alpha);
-    flux(2,0) = 0.;
-//    Exata(pt,solp,flux);
-
-    std::cout<<"funcao em omega2 pt " << pt << " sol " << solp[0] << std::endl;
-    
-}
-
-void ExataOmega3(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
-    solp.resize(1);
-    flux.Resize(3, 1);
-
-    ExataOmega1(pt, solp, flux);
-//    Exata(pt,solp,flux);
-
-    std::cout<<"funcao em omega3 pt = " << pt << " sol " << solp[0] << std::endl;
-
-    
-}
-
-void ExataOmega4(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux){
-    
-    solp.resize(1);
-    flux.Resize(3, 1);
-    
-    REAL x,y,z,alpha;
-    
-    alpha=1.;
-    
-    x = pt[0];
-    y = pt[1];
-    z = pt[2];
-    REAL alpha4 = pow(alpha, 4);
-    
-    solp[0] = (x*x-y*y)/(alpha4);
-    
-
-    flux(0,0) = -2.*x/(alpha4);
-    flux(1,0) = -(-2.)*y/(alpha4);
-    flux(2,0) = 0.;
-//    Exata(pt,solp,flux);
-
-    std::cout<<"funcao em omega4 pt " << pt << " sol " << solp[0] << " flux " << flux << std::endl;
-    
-}
-
-void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
-{
-    ff[0]=0.;
-}
-
-void Neumann1(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
-{
-   
-    TPZFMatrix<STATE> flux;
-    ExataOmega1(pt, ff, flux);
-     ff[0]=0.;
-    
-    TPZFMatrix<STATE> normal(3,1);
-    normal.Zero();
-    
-    normal(0,0)=1.;
-    
-    ff[0]= flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-    std::cout<<"derivada normal em omega1 pt " << pt << " normal " << ff[0] << std::endl;
-    
-}
-
-void Neumann2(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
-{
-    
-    TPZFMatrix<STATE> flux;
-    ExataOmega2(pt, ff, flux);
-    ff[0]=0.;
-    
-    TPZFMatrix<STATE> normal(3,1);
-    normal.Zero();
-    
-    normal(1,0) = 1.;
-    
-    ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-    std::cout<<"derivada normal em omega2 pt " << pt << " normal " << ff[0] << std::endl;
-    
-}
-
-void Neumann3(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
-{
-    
-    TPZFMatrix<STATE> flux;
-    
-    ExataOmega3(pt, ff, flux);
-    ff[0]=0.;
-    
-    TPZFMatrix<STATE> normal(3,1);
-    normal.Zero();
-    
-    normal(0,0) = (-1.);
-    
-    ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-    std::cout<<"derivada normal em omega3 pt " << pt << " normal " << ff[0] << std::endl;
-    
-}
-
-void Neumann4(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
-{
-   
-    TPZFMatrix<STATE> flux;
-    
-    ExataOmega4(pt, ff, flux);
-    ff[0]=0.;
-    
-    TPZFMatrix<STATE> normal(3,1);
-    normal.Zero();
-    
-    normal(1,0) = (-1.);
-    
-    ff[0] = (flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0));
-    std::cout<<"derivada normal em omega4 pt " << pt << " normal " << ff[0] << std::endl;
-    
-}
-
-
-
-
-TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
-    
-    TPZMultiphysicsCompMesh *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
-    TPZMaterial *mat = NULL;
-    for (auto matid : problem.materialids) {
-        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        
-        TPZAutoPointer<TPZFunction<STATE> > solexata;
-   //o termo do lado direito ff=0
-        mix->SetInternalFlux(0);
-    
-        if(matid==1){
-            solexata = new TPZDummyFunction<STATE>(ExataOmega1,10);
-            mix->SetForcingFunctionExact(solexata);
-             mix->SetPermeability(1.);
-        
-        }
-        
-        if(matid==2){
-            solexata = new TPZDummyFunction<STATE>(ExataOmega2,10);
-            mix->SetForcingFunctionExact(solexata);
-            STATE alpha2=(problem.alpha)*(problem.alpha);
-            
-            mix->SetPermeability(alpha2);
-            
-            
-            
-        }
-        
-        if(matid==3){
-            solexata = new TPZDummyFunction<STATE>(ExataOmega3,10);
-            mix->SetForcingFunctionExact(solexata);
-            mix->SetPermeability(1.);
-            
-        }
-        if(matid==4){
-            solexata = new TPZDummyFunction<STATE>(ExataOmega4,10);
-            mix->SetForcingFunctionExact(solexata);
-            STATE alpha4=pow(problem.alpha, 4);
-            mix->SetPermeability(alpha4);
-            
-        }
- 
-
-        if (!mat) mat = mix;
-        cmesh->InsertMaterialObject(mix);
-    }
-    
- 
-    for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
-        int bctype = 1;
-        TPZAutoPointer<TPZFunction<STATE> > bcfunction;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        
-        if(matid==5){
-            bcfunction=new TPZDummyFunction<STATE>(ExataOmega1,5);
-            int bctype=0;
-//            val2(0,0) = 0.;
-//            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            bc->SetType(bctype);
-            TPZAutoPointer<TPZFunction<STATE>> func(bcfunction);
-            bc->TPZMaterial::SetForcingFunction(func);
-            cmesh->InsertMaterialObject(bc);
-        }
-        
-        if(matid==6){
-            bcfunction=new TPZDummyFunction<STATE>(Neumann2,5);
-            int bctype = 1;
-//            val2(0,0) = 0.;
-//            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            bc->SetType(bctype);
-         
-            TPZAutoPointer<TPZFunction<STATE>> func(bcfunction);
-            bc->TPZMaterial::SetForcingFunction(func);
-            cmesh->InsertMaterialObject(bc);
-        }
-        if(matid==7){
-            bcfunction=new TPZDummyFunction<STATE>(Neumann3,5);
-            int  bctype=1;
-//            val2(0,0) = 0.;
-//            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-             bc->SetType(bctype);
-            TPZAutoPointer<TPZFunction<STATE>> func(bcfunction);
-            bc->TPZMaterial::SetForcingFunction(func);
-            cmesh->InsertMaterialObject(bc);
-        }
-        
-        if(matid==8){
-            bcfunction=new TPZDummyFunction<STATE>(Neumann4,5);
-            int bctype = 1;
-//            val2(0,0)=0;
-//            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            bc->SetType(bctype);
-            TPZAutoPointer<TPZFunction<STATE>> func(bcfunction);
-            bc->TPZMaterial::SetForcingFunction(func);
-            cmesh->InsertMaterialObject(bc);
-        }
-        
-        
-    }
-    cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
-    
-    TPZManVector<int> active(2,1);
-    TPZManVector<TPZCompMesh *> meshvector(2,0);
-    
-    meshvector[0] = CreateNeumannFluxHDivMesh(problem);
-    meshvector[1] = CreatePressureMesh(problem);
-    cmesh->BuildMultiphysicsSpace(active, meshvector);
-    cmesh->LoadReferences();
-    bool keepmatrix = false;
-    TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
-    
-    return cmesh;
-}
-
-TPZCompMesh *CreateNeumannFluxHDivMesh(const ProblemConfig &problem) {
-    int dim = problem.gmesh->Dimension();
-    TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial *mat = NULL;
-    problem.gmesh->ResetReference();
-    for (auto matid : problem.materialids) {
-        TPZVecL2 *mix = new TPZVecL2(matid);
-        mix->SetDimension(dim);
-        if (!mat) mat = mix;
-        cmesh->InsertMaterialObject(mix);
-    }
-    
-    for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
-        int bctype = 1;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        cmesh->InsertMaterialObject(bc);
-        
-    }
-    
-    cmesh->SetDefaultOrder(problem.porder);
-    cmesh->ApproxSpace().SetAllCreateFunctionsHDiv(dim);
-    cmesh->AutoBuild();
-    if (problem.hdivmais) {
-        int64_t nel = cmesh->NElements();
-        for (int64_t el = 0; el < nel; el++) {
-            TPZCompEl *cel = cmesh->Element(el);
-            TPZGeoEl *gel = cel->Reference();
-            if (gel->Dimension() == dim) {
-                int side = gel->NSides() - 1;
-                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
-                intel->SetSideOrder(side, problem.porder + problem.hdivmais);//seta ordem +hdivmais
-                intel->SetPreferredOrder(problem.porder+problem.hdivmais);
-            }
-        }
-        
-        if(problem.prefine){
-            Prefinamento(cmesh, problem.ndivisions, problem.porder);
-        }
-        
-    }
-    cmesh->InitializeBlock();
-    return cmesh;
-    
-}
-
 void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem){
     
+
     TPZAnalysis an(Hybridmesh);
     
 #ifdef USING_MKL
@@ -949,17 +623,18 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     an.Solve();
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("Pressure");
-    //   scalnames.Push("ExactPressure");
     vecnames.Push("Flux");
-    //  vecnames.Push("ExactFlux");
-    // scalnames.Push("Divergence");
-    an.DefineGraphMesh(2, scalnames, vecnames, "OriginalHybrid_Problem.vtk");
-    //        meshvec_Hybrid[1]->Solution().Print("Press");
-    // Post processing
+    
+    std::stringstream sout;
+    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
+    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+    
+    
+   // an.DefineGraphMesh(2, scalnames, vecnames, "OriginalHybrid_Problem.vtk");
     an.PostProcess(2,2);
     
 }
-void PlotLagrangreMultiplier(TPZCompMesh *cmesh){
+void PlotLagrangreMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
     
     TPZAnalysis an(cmesh,false);
     TPZStack<std::string> scalnames, vecnames;
@@ -969,7 +644,7 @@ void PlotLagrangreMultiplier(TPZCompMesh *cmesh){
     std::string plotname;
     {
         std::stringstream out;
-        out << "OriginalLagrangeMultiplier" << ".vtk";
+        out << problem.dir_name << "/" << "OriginalLagrangeMultiplier" << ".vtk";
         plotname = out.str();
     }
     an.DefineGraphMesh(dim, scalnames, vecnames, plotname);

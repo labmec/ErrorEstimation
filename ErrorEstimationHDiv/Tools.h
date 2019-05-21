@@ -62,19 +62,10 @@ void FunctionTest();
 void MultiPhysicsHybrid(const ProblemConfig &config);
 void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder);
 
-TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem);
-TPZCompMesh *CreateNeumannFluxHDivMesh(const ProblemConfig &problem);
-void Neumann1(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
-void Neumann2(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
-void Neumann3(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
-void Neumann4(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
-void ExataOmega1(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux);
-void ExataOmega2(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux);
-void ExataOmega3(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux);
-void ExataOmega4(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> &flux);
-void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
+
 
 void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem);
-void PlotLagrangreMultiplier(TPZCompMesh *cmesh);
+void PlotLagrangreMultiplier(TPZCompMesh *cmesh, const ProblemConfig &problem);
+
 
 

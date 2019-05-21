@@ -48,7 +48,7 @@ bool IsgmeshReader=true;
 bool neumann=true;
 
 
-int main5(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
@@ -64,14 +64,18 @@ int main5(int argc, char *argv[]) {
     config.porder = 2;
     config.hdivmais = 0;
     
-    config.ndivisions=1;
+    config.ndivisions=0;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    if(!neumann){
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//ESinMark;//EArcTan;//
+    config.exact.fExact = TLaplaceExample1::ESinMark;//ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//
     config.problemname = "ESinMark";//"ESinSinDirNonHom";//"ESinSin";////"EArcTanSingular_PRef";//""ArcTang";//
-    }
+    
+    config.dir_name= "LcircleMark";
+    
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
     
  //   FunctionTest();
     
@@ -85,6 +89,8 @@ int main5(int argc, char *argv[]) {
         
             std::string meshfilename = "../LCircle.msh";
             TPZGmshReader gmsh;
+            gmsh.GetDimNamePhysical().resize(4);
+            gmsh.GetDimPhysicalTagName().resize(4);
             gmsh.GetDimNamePhysical()[1]["dirichlet"] =2;
             gmsh.GetDimNamePhysical()[2]["domain"] = 1;
             
@@ -178,8 +184,7 @@ int main5(int argc, char *argv[]) {
         (HybridMesh)->Print(out);
     }
 
-        return 0;
-    PlotLagrangreMultiplier(meshvec_HDiv[1]);
+    PlotLagrangreMultiplier(meshvec_HDiv[1],config);
     
     
     //reconstroi potencial e calcula o erro
