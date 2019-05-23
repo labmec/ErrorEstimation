@@ -65,7 +65,7 @@ void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
 
 bool mixedsolution = true;
 
-REAL  alpha=.8;
+REAL  alpha=1;//sqrt(0.1);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     
     
     ProblemConfig config;
-    config.porder = 2;
+    config.porder = 1;
     config.hdivmais = 0;
     
     config.ndivisions=3;
@@ -100,10 +100,7 @@ int main(int argc, char *argv[]) {
             
     
             std::string meshfilename = "../MeshHetero.msh";
-            TPZGmshReader gmsh;
-//            gmsh.GetDimNamePhysical().resize(8);
-//            gmsh.GetDimPhysicalTagName().resize(8);
-    
+            TPZGmshReader gmsh;  
             
             gmsh.GetDimNamePhysical()[2]["Omega1"] = 1;
             gmsh.GetDimNamePhysical()[2]["Omega2"] = 2;
@@ -326,9 +323,13 @@ void ExataOmega2(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     
     solp[0] = (x*x-y*y)/alpha2 ;
     
-    flux(0,0) = -(2.)*x/alpha2;
-    flux(1,0) = (2.)*y/alpha2;
+    flux(0,0) = -(2.)*x;
+    flux(1,0) = (2.)*y;
     flux(2,0) = 0.;
+    
+//    flux(0,0) = -(2.)*x/alpha2;
+//    flux(1,0) = (2.)*y/alpha2;
+//    flux(2,0) = 0.;
     //    Exata(pt,solp,flux);
     
     //  std::cout<<"funcao em omega2 pt " << pt << " sol " << solp[0] << std::endl;
@@ -362,10 +363,14 @@ void ExataOmega4(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
     
     solp[0] = (x*x-y*y)/(alpha4);
     
-    
-    flux(0,0) = -2.*x/(alpha4);
-    flux(1,0) = (2.)*y/(alpha4);
+    flux(0,0) = -2.*x;
+    flux(1,0) = (2.)*y;
     flux(2,0) = 0.;
+    
+    
+//    flux(0,0) = -2.*x/(alpha4);
+//    flux(1,0) = (2.)*y/(alpha4);
+//    flux(2,0) = 0.;
     //    Exata(pt,solp,flux);
     
     // std::cout<<"funcao em omega4 pt " << pt << " sol " << solp[0] << " flux " << flux << std::endl;
@@ -380,72 +385,101 @@ void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
 void Neumann1(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
 {
     
-    TPZFMatrix<STATE> flux;
-    ExataOmega1(pt, ff, flux);
-    ff[0]=0.;
+//    TPZFMatrix<STATE> flux;
+//    ExataOmega1(pt, ff, flux);
+//    ff[0]=0.;
+    
+   
     
     TPZFMatrix<STATE> normal(3,1);
     normal.Zero();
     
     normal(0,0)=1.;
-    
-    ff[0]= flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-      std::cout<<"derivada normal em omega1 pt " << pt << " normal " << ff[0] << std::endl;
+    REAL x,y,z;
+    x = pt[0];
+    y = pt[1];
+    z = pt[2];
+    //-K grad u. eta
+    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);//flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
+   //   std::cout<<"derivada normal em omega1 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
 
 void Neumann2(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
 {
     
-    TPZFMatrix<STATE> flux;
-    ExataOmega2(pt, ff, flux);
-    ff[0]=0.;
+//    TPZFMatrix<STATE> flux;
+//    ExataOmega2(pt, ff, flux);
+//    ff[0]=0.;
+ //    REAL alpha2 = pow(alpha, 2);
     
     TPZFMatrix<STATE> normal(3,1);
     normal.Zero();
     
     normal(1,0) = 1.;
-    REAL alpha2 = pow(alpha, 2);
+   
     
-    ff[0] = (flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0))* alpha2;
-       std::cout<<"derivada normal em omega2 pt " << pt << " normal " << ff[0] << std::endl;
+    REAL x,y,z;
+    x = pt[0];
+    y = pt[1];
+    z = pt[2];
+    
+    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);
+    
+    //ff[0] = (flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0))* alpha2;
+   //    std::cout<<"derivada normal em omega2 pt " << pt << " normal " << ff[0] << std::endl;//
     
 }
 
 void Neumann3(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
 {
     
-    TPZFMatrix<STATE> flux;
-    
-    ExataOmega3(pt, ff, flux);
-    ff[0]=0.;
+//    TPZFMatrix<STATE> flux;
+//
+//    ExataOmega3(pt, ff, flux);
+//    ff[0]=0.;
     
     TPZFMatrix<STATE> normal(3,1);
     normal.Zero();
     
     normal(0,0) = (-1.);
     
-    ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
-      std::cout<<"derivada normal em omega3 pt " << pt << " normal " << ff[0] << std::endl;
+    REAL x,y,z;
+    x = pt[0];
+    y = pt[1];
+    z = pt[2];
+    
+    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);
+    
+    //ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
+  //    std::cout<<"derivada normal em omega3 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
 
 void Neumann4(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
 {
     
-    TPZFMatrix<STATE> flux;
-    
-    ExataOmega4(pt, ff, flux);
-    ff[0]=0.;
+//    TPZFMatrix<STATE> flux;
+//
+//    ExataOmega4(pt, ff, flux);
+//    ff[0]=0.;
+//    REAL alpha4 = pow(alpha, 4);
     
     TPZFMatrix<STATE> normal(3,1);
     normal.Zero();
     
     normal(1,0) = (-1.);
-    REAL alpha4 = pow(alpha, 4);
     
-    ff[0] = ((flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0)))*alpha4;
-      std::cout<<"derivada normal em omega4 pt " << pt << " normal " << ff[0] << std::endl;
+    REAL x,y,z;
+    x = pt[0];
+    y = pt[1];
+    z = pt[2];
+    
+    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);
+    
+    
+  //  ff[0] = ((flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0)))*alpha4;
+  //    std::cout<<"derivada normal em omega4 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
 
@@ -458,7 +492,7 @@ void Dirichlet1(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     ExataOmega1(pt, sol, flux);
     ff[0]=sol[0];
     
-     std::cout<<"Dirichlet em omega1 pt " << pt << " normal " << ff[0] << std::endl;
+   //  std::cout<<"Dirichlet em omega1 pt " << pt << " normal " << ff[0] << std::endl;//
     
 }
 
@@ -641,7 +675,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
             cmesh->InsertMaterialObject(bc);
         }
         if(matid==7){
-           // bcfunction=new TPZDummyFunction<STATE>(Neumann3,5);
+          //  bcfunction=new TPZDummyFunction<STATE>(Neumann3,5);
             bcfunction=new TPZDummyFunction<STATE>(Dirichlet3,5);
             int  bctype=0;
             bc->SetType(bctype);

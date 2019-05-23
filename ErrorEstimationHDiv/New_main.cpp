@@ -44,7 +44,7 @@
 #include <memory>
 
 
-bool IsgmeshReader=true;
+bool IsgmeshReader=false;
 bool neumann=true;
 
 
@@ -61,17 +61,17 @@ int main(int argc, char *argv[]) {
     
     
     ProblemConfig config;
-    config.porder = 2;
-    config.hdivmais = 0;
+    config.porder = 1;
+    config.hdivmais = 1;
     
-    config.ndivisions=0;
+    config.ndivisions=4;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::ESinMark;//ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//
-    config.problemname = "ESinMark";//"ESinSinDirNonHom";//"ESinSin";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinMark;//ESinSin;//EArcTanSingular;//EArcTan;//
+    config.problemname = "ESinSinDirNonHom";//"ESinMark";//"ESinSin";////"EArcTanSingular_PRef";//""ArcTang";//
     
-    config.dir_name= "LcircleMark";
+    config.dir_name= "ESinSinDirNonHom";//LcircleMark";
     
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());

@@ -93,7 +93,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an){
     std::string plotname;
     {
         std::stringstream out;
-        out << fProblemConfig.dir_name << "/" <<  "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname << "Ndiv_ "<<fProblemConfig.ndivisions<<".vtk";
+        out << fProblemConfig.dir_name << "/" <<  "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim << "D_" << fProblemConfig.problemname << "Ndiv_ "<<fProblemConfig.ndivisions<<"HdivMais"<<fProblemConfig.hdivmais<<".vtk";
         plotname = out.str();
     }
     an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
@@ -987,11 +987,11 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices()
     for (int64_t el=0; el<nrows; el++) {
         for(int i=0; i<3; i+=2)
         {
-            REAL tol=10^(-10);
+            REAL tol=1.e-10;
             REAL ErrorEstimate=cmesh->ElementSolution()(el,i+1);
             REAL ErrorExact=cmesh->ElementSolution()(el,i);
             
-            if((abs(ErrorEstimate)<tol)|| (abs(ErrorExact)<tol))
+            if((abs(ErrorEstimate)<tol)/*|| (abs(ErrorExact)<tol)*/)
             {
                 cmesh->ElementSolution()(el,4+i/2) = 1.;
                 
