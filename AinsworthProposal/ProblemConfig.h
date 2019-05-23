@@ -22,8 +22,8 @@ struct ProblemConfig {
     bool makePressureContinuous = false;
 
     // Refinement-related variables
-    int ndivisions = 1;
-    bool prefine = false;
+    int nDivisions = 1;
+    bool pRefine = false;
 
     // Permeability tensor alpha parameter
     STATE alpha = 1;
@@ -33,8 +33,8 @@ struct ProblemConfig {
     std::string problemName;
 
     // Material handling
-    std::set<int> materialIDs;
-    std::set<int> bcMaterialIDs;
+    std::set<int> matIDs;
+    std::set<int> bcMatIDs;
 
     // Exact solution to validate the estimator
     TLaplaceExample1 exactSolution;
