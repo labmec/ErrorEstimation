@@ -145,14 +145,14 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
         fHybridizer.HybridizeInternalSides(mesh_vectors);
         
 //        #ifdef PZDEBUG
-//            {
+            {
 //                std::ofstream out("OriginalFlux.txt");
 //                fOriginal[3]->Print(out);
 //                std::ofstream out2("OriginalPotential.txt");
 //                fOriginal[4]->Print(out2);
-//                std::ofstream out3("OriginalMeshHybrid.txt");
+                std::ofstream out3("OriginalMeshHybrid.txt");
 //                fOriginal[0]->Print(out3);
-//            }
+            }
 //        #endif
     }
     else
@@ -163,7 +163,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
         IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao
         IncreaseSideOrders(mesh_vectors[0]);//malha do fluxo
     
-#ifdef PZDEBUG
+//#ifdef PZDEBUG
     {
         std::ofstream out("EnrichedFluxBorder.txt");
         mesh_vectors[0]->Print(out);
@@ -171,7 +171,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
         std::ofstream out2("EnrichedPressure.txt");
         mesh_vectors[1]->Print(out2);
     }
-#endif
+//#endif
 
 
     
@@ -286,8 +286,8 @@ void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh)
             continue;
         }
         TPZMaterial *mat=cel->Material();
-        int matId=mat->Id();
- //       std::cout<<"material "<<matId<<std::endl;
+
+        std::cout<<"material "<<mat->Id()<<std::endl;
         TPZGeoElSide gelside(gel,gel->NSides()-1);
         TPZStack<TPZCompElSide> celstack;
         gelside.EqualLevelCompElementList(celstack, 1, 0);
@@ -308,12 +308,12 @@ void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh)
         TPZInterpolatedElement *intelS = dynamic_cast<TPZInterpolatedElement*>(celstack[ineigh].Element());
             int orderEl=intelS->GetPreferredOrder();
             
- //           std::cout<<"ordem El "<<orderEl<< std::endl;
+            std::cout<<"ordem El "<<orderEl<< std::endl;
 
             maxOrder = (orderEl > maxOrder) ? orderEl : maxOrder;
         }
 
-//        std::cout<<"max order "<<maxOrder<< std::endl;
+        std::cout<<"max order "<<maxOrder<< std::endl;
 
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
         int nsides = gel->NSides();
