@@ -29,21 +29,25 @@ TPZGeoMesh *CreateGeoMesh(const std::string &meshFileName);
 
 // Creates mixed mesh to calculate the solution
 TPZMultiphysicsCompMesh *CreateSolutionMixedMesh(ProblemConfig &config);
-
 TPZCompMesh *CreateSolutionFluxMesh(ProblemConfig &config);
 TPZCompMesh *CreateSolutionPressureMesh(ProblemConfig &config);
+
 void Solve(TPZAnalysis &analysis);
+void PostProcessSolution(TPZAnalysis &analysis);
 
 void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 
 int main() {
 
     ProblemConfig config;
-    config.gmesh = CreateGeoMesh("BasicMesh.msh");
-    config.exactSolution.fExact = TLaplaceExample1::ECosCos;
-    config.matIDs.insert(1);
-    config.bcMatIDs.insert(-1);
-    config.bcMatIDs.insert(-2);
+
+    config.meshFileName = "BasicMesh.msh";
+    config.InsertDomainMat("domain", 1, 2);
+    config.InsertBCMat("dirichlet", -1, 1);
+    config.InsertBCMat("neumann", -2, 1);
+    config.CreateGeoMesh();
+
+    config.exactSolution.fExact = TLaplaceExample1::ESinSin;
     config.nDivisions = 2;
     config.pOrder = 2;
 
@@ -53,31 +57,9 @@ int main() {
 
     TPZAnalysis an(solutionMixedMesh);
     Solve(an);
+    PostProcessSolution(an);
 
     std::cout << "hell yeah!";
-}
-
-TPZGeoMesh *CreateGeoMesh(const std::string &meshFileName) {
-
-    TPZGeoMesh *gmesh = nullptr;
-
-    TPZGmshReader reader;
-
-    reader.GetDimNamePhysical()[1]["dirichlet"] = -1;
-    reader.GetDimNamePhysical()[1]["neumann"] = -2;
-    reader.GetDimNamePhysical()[2]["domain"] = 1;
-
-    reader.SetFormatVersion("4.1");
-
-#ifdef MACOSX
-    meshfilename = "../" + meshfilename;
-    gmesh = reader.GeometricGmshMesh(meshfilename);
-    reader.PrintPartitionSummary(std::cout);
-#else
-    gmesh = reader.GeometricGmshMesh(meshFileName);
-#endif
-    gmesh->SetDimension(2); // TODO Is this really needed?
-    return gmesh;
 }
 
 TPZMultiphysicsCompMesh *CreateSolutionMixedMesh(ProblemConfig &config) {
@@ -85,8 +67,8 @@ TPZMultiphysicsCompMesh *CreateSolutionMixedMesh(ProblemConfig &config) {
     TPZMultiphysicsCompMesh *mixedMesh = new TPZMultiphysicsCompMesh(config.gmesh);
 
     TPZMaterial *mat = nullptr;
-    for (auto matID : config.matIDs) {
-
+    for (const auto & domainMat: config.DomainMats) {
+        int matID = std::get<1>(domainMat);
         TPZMixedPoisson *mixedMat = new TPZMixedPoisson(matID, config.gmesh->Dimension());
 
         mixedMat->SetForcingFunction(config.exactSolution.ForcingFunction());
@@ -96,10 +78,12 @@ TPZMultiphysicsCompMesh *CreateSolutionMixedMesh(ProblemConfig &config) {
         if (!mat) mat = mixedMat;
     }
 
-    for (auto matID : config.bcMatIDs) {
+    for (const auto & bcMat: config.BCMats) {
+        int matID = std::get<1>(bcMat);
+
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
 
-        int bctype = 0;
+        int bctype = 0; // TODO hardcoded bc type here
         if (matID == -2) {
             val2.Zero();
         }
@@ -139,15 +123,18 @@ TPZCompMesh *CreateSolutionFluxMesh(ProblemConfig &config) {
 
     int dim = config.gmesh->Dimension();
 
-    for (auto matID : config.matIDs) {
+    for (const auto & domainMat: config.DomainMats) {
+        int matID = std::get<1>(domainMat);
         TPZVecL2 *mix = new TPZVecL2(matID);
         mix->SetDimension(dim);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
 
-    for (auto matID : config.bcMatIDs) {
+    for (const auto & bcMat: config.BCMats) {
+        int matID = std::get<1>(bcMat);
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
+        if (!mat) DebugStop();
         TPZBndCond *bc = mat->CreateBC(mat, matID, 0, val1, val2);
         bc->TPZMaterial::SetForcingFunction(config.exactSolution.Exact());
         cmesh->InsertMaterialObject(bc);
@@ -171,14 +158,14 @@ TPZCompMesh *CreateSolutionFluxMesh(ProblemConfig &config) {
                 int side = gel->NSides() - 1;
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
                 intel->SetSideOrder(side, config.pOrder + config.hdivplus);
-                intel->SetPreferredOrder(config.pOrder + config.hdivplus); // TODO perguntar pro philwhat does this function do?
+                intel->SetPreferredOrder(config.pOrder + config.hdivplus); // TODO perguntar pro phil o que isso faz
             }
         }
     }
 
     //  if(config.pRefine){
     //      Prefinamento(cmesh, config.nDivisions, config.pOrder);
-    //  } TODO: do something about this. Also, should this part be inside if(config.hdivplus) condition?
+    //  } TODO: do something about this.
 
     cmesh->InitializeBlock();
     std::ofstream out("fluxsolmesh.txt");
@@ -193,7 +180,8 @@ TPZCompMesh *CreateSolutionPressureMesh(ProblemConfig &config) {
 
     TPZMaterial *mat = nullptr;
 
-    for (auto matID : config.matIDs) {
+    for (const auto & domainMat: config.DomainMats) {
+        int matID = std::get<1>(domainMat);
         TPZMixedPoisson *mix = new TPZMixedPoisson(matID, cmesh->Dimension());
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
@@ -238,15 +226,8 @@ void Solve(TPZAnalysis &analysis) {
     direct = nullptr;
     analysis.Assemble();
     analysis.Solve();
-
-    // TODO puts into an own function
-    // Post process
-    TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("Pressure");
-    vecnames.Push("Flux");
-    analysis.DefineGraphMesh(2, scalnames, vecnames, "Original.vtk"); // TODO dimension is hardcoded
-    analysis.PostProcess(0, 2); // TODO dimension is hardcoded
 }
+
 
 void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
 
@@ -264,5 +245,14 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
             gel->Divide(children);
         }
     }
+}
+
+void PostProcessSolution(TPZAnalysis &analysis) {
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("Pressure");
+    vecnames.Push("Flux");
+    int dim = analysis.Mesh()->Reference()->Dimension();
+    analysis.DefineGraphMesh(dim, scalnames, vecnames, "Original.vtk");
+    analysis.PostProcess(0, dim);
 }
 
