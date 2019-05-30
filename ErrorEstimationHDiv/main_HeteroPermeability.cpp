@@ -63,7 +63,7 @@ void ExataOmega4(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
 void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
 
 
-bool mixedsolution = true;
+bool mixedsolution = false;
 
 
 REAL  alpha=1.;//sqrt(0.1);
@@ -81,10 +81,11 @@ int main(int argc, char *argv[]) {
     
     
     ProblemConfig config;
-    config.porder = 1;
+    config.porder = 2;
     config.hdivmais = 1;
     
-    config.ndivisions=2;
+
+    config.ndivisions=0;
     config.alpha=alpha;
     
     config.prefine=false;
@@ -253,10 +254,10 @@ int main(int argc, char *argv[]) {
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("ExactPressure");
         vecnames.Push("ExactFlux");
-        
+
         std::stringstream sout;
         sout << config.dir_name << "/" <<  "ExactSolution_"<<config.problemname<<"Nref_"<<config.ndivisions<<".vtk";
-        
+
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
         an.PostProcess(2,2);
         }
@@ -361,6 +362,11 @@ int main(int argc, char *argv[]) {
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        
+        if(config.GalvisExample || config.steklovexample){
+            
+            HDivEstimate.SetAnalyticSolution(config.exact);
+        }
     
         HDivEstimate.PotentialReconstruction();
         
