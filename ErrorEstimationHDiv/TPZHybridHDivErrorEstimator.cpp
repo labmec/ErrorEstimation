@@ -287,7 +287,7 @@ void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh)
         }
         TPZMaterial *mat=cel->Material();
 
-        std::cout<<"material "<<mat->Id()<<std::endl;
+       // std::cout<<"material "<<mat->Id()<<std::endl;
         TPZGeoElSide gelside(gel,gel->NSides()-1);
         TPZStack<TPZCompElSide> celstack;
         gelside.EqualLevelCompElementList(celstack, 1, 0);
@@ -308,12 +308,12 @@ void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh)
         TPZInterpolatedElement *intelS = dynamic_cast<TPZInterpolatedElement*>(celstack[ineigh].Element());
             int orderEl=intelS->GetPreferredOrder();
             
-            std::cout<<"ordem El "<<orderEl<< std::endl;
+         //   std::cout<<"ordem El "<<orderEl<< std::endl;
 
             maxOrder = (orderEl > maxOrder) ? orderEl : maxOrder;
         }
 
-        std::cout<<"max order "<<maxOrder<< std::endl;
+       // std::cout<<"max order "<<maxOrder<< std::endl;
 
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
         int nsides = gel->NSides();
@@ -991,7 +991,7 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices()
             REAL ErrorEstimate=cmesh->ElementSolution()(el,i+1);
             REAL ErrorExact=cmesh->ElementSolution()(el,i);
             
-            if((abs(ErrorEstimate)<tol)/*|| (abs(ErrorExact)<tol)*/)
+            if((abs(ErrorEstimate)<tol))
             {
                 cmesh->ElementSolution()(el,4+i/2) = 1.;
                 
