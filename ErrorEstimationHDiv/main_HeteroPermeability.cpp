@@ -84,13 +84,13 @@ int main(int argc, char *argv[]) {
     config.porder = 1;
     config.hdivmais = 1;
     
-    config.ndivisions=4;
+    config.ndivisions=2;
     config.alpha=alpha;
     
     config.prefine=false;
     config.makepressurecontinuous = true;
-    config.steklovexample=false;
-    config.GalvisExample=true;
+    config.steklovexample=true;
+    config.GalvisExample=false;
     
     config.dir_name = "HPermeability";
     
@@ -653,12 +653,12 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 if(problem.steklovexample){
                     
                     mix->SetForcingFunctionExact(problem.exact.Exact());
-                    K(0,0)=100.;
-                    K(1,1)=100.;
-                    K(2,2)=100.;
-                    invK(0,0)=1./100.;
-                    invK(1,1)=1./100.;
-                    invK(2,2)=1./100.;
+                    K(0,0)=5.;
+                    K(1,1)=5.;
+                    K(2,2)=5.;
+                    invK(0,0)=1./5.;
+                    invK(1,1)=1./5.;
+                    invK(2,2)=1./5.;
                     mix->SetPermeabilityTensor(K, invK);
                     if (!mat) mat = mix;
                     cmesh->InsertMaterialObject(mix);
@@ -761,12 +761,12 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 if(problem.steklovexample){
                     
                     mix->SetForcingFunctionExact(problem.exact.Exact());
-                    K(0,0)=100.;
-                    K(1,1)=100.;
-                    K(2,2)=100.;
-                    invK(0,0)=1./100.;
-                    invK(1,1)=1./100.;
-                    invK(2,2)=1./100.;
+                    K(0,0)=5.;
+                    K(1,1)=5.;
+                    K(2,2)=5.;
+                    invK(0,0)=1./5.;
+                    invK(1,1)=1./5.;
+                    invK(2,2)=1./5.;
                     mix->SetPermeabilityTensor(K, invK);
                     if (!mat) mat = mix;
                     cmesh->InsertMaterialObject(mix);
@@ -814,12 +814,12 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 if(problem.steklovexample){
                     
                     mix->SetForcingFunctionExact(problem.exact.Exact());
-                    K(0,0)=100.;
-                    K(1,1)=100.;
-                    K(2,2)=100.;
-                    invK(0,0)=1./100.;
-                    invK(1,1)=1./100.;
-                    invK(2,2)=1./100.;
+                    K(0,0)=1.;
+                    K(1,1)=1.;
+                    K(2,2)=1.;
+                    invK(0,0)=1./1.;
+                    invK(1,1)=1./1.;
+                    invK(2,2)=1./1.;
                     mix->SetPermeabilityTensor(K, invK);
                     if (!mat) mat = mix;
                     cmesh->InsertMaterialObject(mix);
