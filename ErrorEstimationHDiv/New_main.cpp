@@ -64,12 +64,12 @@ int main(int argc, char *argv[]) {
     config.porder = 1;
     config.hdivmais = 1;
     
-    config.ndivisions=4;
+    config.ndivisions=2;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinMark;//ESinSin;//EArcTanSingular;//EArcTan;//
-    config.problemname = "ESinSinDirNonHom";//"ESinMark";//"ESinSin";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
+    config.problemname ="ESinSinDirNonHom";//""ESinSin";// ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
     
     config.dir_name= "ESinSinDirNonHom";//LcircleMark";
     

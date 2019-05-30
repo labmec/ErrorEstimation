@@ -65,7 +65,8 @@ void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
 
 bool mixedsolution = true;
 
-REAL  alpha=1;//sqrt(0.1);
+
+REAL  alpha=1.;//sqrt(0.1);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -81,13 +82,15 @@ int main(int argc, char *argv[]) {
     
     ProblemConfig config;
     config.porder = 1;
-    config.hdivmais = 0;
+    config.hdivmais = 1;
     
-    config.ndivisions=3;
+    config.ndivisions=4;
     config.alpha=alpha;
     
     config.prefine=false;
     config.makepressurecontinuous = true;
+    config.steklovexample=false;
+    config.GalvisExample=true;
     
     config.dir_name = "HPermeability";
     
@@ -97,8 +100,93 @@ int main(int argc, char *argv[]) {
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
     
-            
+    if(config.steklovexample){
+        
+        config.exact.fExact = TLaplaceExample1::ESteklovNonConst;
+        config.problemname ="ESteklovNonConst";
+        std::string meshfilename = "../MalhaSteklov.msh";
+        TPZGmshReader gmsh;
+        
+
+        
+        gmsh.GetDimNamePhysical()[2]["Omega1"] = 1;
+        gmsh.GetDimNamePhysical()[2]["Omega2"] = 2;
+        gmsh.GetDimNamePhysical()[2]["Omega3"] = 3;
+        gmsh.GetDimNamePhysical()[2]["Omega4"] = 4;
+        
+        gmsh.GetDimNamePhysical()[1]["boundary1"] =5;
+        gmsh.GetDimNamePhysical()[1]["boundary2"] =6;
+        gmsh.GetDimNamePhysical()[1]["boundary3"] =7;
+        gmsh.GetDimNamePhysical()[1]["boundary4"] =8;
+        
+        config.materialids.insert(1);
+        config.materialids.insert(2);
+        config.materialids.insert(3);
+        config.materialids.insert(4);
+        
+        config.bcmaterialids.insert(5);
+        config.bcmaterialids.insert(6);
+        config.bcmaterialids.insert(7);
+        config.bcmaterialids.insert(8);
+        
+        
+        gmsh.SetFormatVersion("4.1");
+        gmesh = gmsh.GeometricGmshMesh(meshfilename);
+        gmsh.PrintPartitionSummary(std::cout);
+        gmesh->SetDimension(dim);
+        config.gmesh = gmesh;
     
+    }
+    
+    else if(config.GalvisExample){
+        
+        config.exact.fExact = TLaplaceExample1::EGalvisNonConst;
+        config.problemname ="EGalvisNonConst";
+        std::string meshfilename = "../Galvismesh.msh";
+        TPZGmshReader gmsh;
+        
+        
+        
+        gmsh.GetDimNamePhysical()[2]["Omega1"] = 1;
+        gmsh.GetDimNamePhysical()[2]["Omega2"] = 2;
+        gmsh.GetDimNamePhysical()[2]["Omega3"] = 3;
+        gmsh.GetDimNamePhysical()[2]["Omega4"] = 4;
+        
+        gmsh.GetDimNamePhysical()[1]["boundary1"] =5;
+        gmsh.GetDimNamePhysical()[1]["boundary2"] =6;
+        gmsh.GetDimNamePhysical()[1]["boundary3"] =7;
+        gmsh.GetDimNamePhysical()[1]["boundary4"] =8;
+        gmsh.GetDimNamePhysical()[1]["boundary5"] =9;
+        gmsh.GetDimNamePhysical()[1]["boundary6"] =10;
+        gmsh.GetDimNamePhysical()[1]["boundary7"] =11;
+        gmsh.GetDimNamePhysical()[1]["boundary8"] =12;
+        
+        config.materialids.insert(1);
+        config.materialids.insert(2);
+        config.materialids.insert(3);
+        config.materialids.insert(4);
+        
+        config.bcmaterialids.insert(5);
+        config.bcmaterialids.insert(6);
+        config.bcmaterialids.insert(7);
+        config.bcmaterialids.insert(8);
+        config.bcmaterialids.insert(9);
+        config.bcmaterialids.insert(10);
+        config.bcmaterialids.insert(11);
+        config.bcmaterialids.insert(12);
+        
+        
+        gmsh.SetFormatVersion("4.1");
+        gmesh = gmsh.GeometricGmshMesh(meshfilename);
+        gmsh.PrintPartitionSummary(std::cout);
+        gmesh->SetDimension(dim);
+        config.gmesh = gmesh;
+        
+    }
+    
+    
+    else{
+
             std::string meshfilename = "../MeshHetero.msh";
             TPZGmshReader gmsh;  
             
@@ -129,7 +217,7 @@ int main(int argc, char *argv[]) {
             gmesh->SetDimension(dim);
             config.gmesh = gmesh;
     
-
+    }
     
     UniformRefinement(config.ndivisions, gmesh);
     
@@ -160,9 +248,19 @@ int main(int argc, char *argv[]) {
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
         
-
-        
         TPZAnalysis an(cmesh_HDiv);
+        {
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("ExactPressure");
+        vecnames.Push("ExactFlux");
+        
+        std::stringstream sout;
+        sout << config.dir_name << "/" <<  "ExactSolution_"<<config.problemname<<"Nref_"<<config.ndivisions<<".vtk";
+        
+        an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+        an.PostProcess(2,2);
+        }
+        
         
 #ifdef USING_MKL
         TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
@@ -185,7 +283,9 @@ int main(int argc, char *argv[]) {
         an.Solve();//resolve o problema misto ate aqui
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
+        scalnames.Push("ExactPressure");
         vecnames.Push("Flux");
+        vecnames.Push("ExactFlux");
         
         std::stringstream sout;
         sout << config.dir_name << "/" <<  "OriginalMixed_Order_"<<config.porder<<"Nref_"<<config.ndivisions<<".vtk";
@@ -194,11 +294,6 @@ int main(int argc, char *argv[]) {
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
         an.PostProcess(2,2);
 
-        
-        {
-            std::ofstream out("MixedMesh_ComSol.txt");
-            cmesh_HDiv->Print(out);
-        }
         
     }
      
@@ -400,7 +495,7 @@ void Neumann1(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     y = pt[1];
     z = pt[2];
     //-K grad u. eta
-    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);//flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
+    ff[0] = -2*x*normal(0,0) + 2*y*normal(1,0);//flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
    //   std::cout<<"derivada normal em omega1 pt " << pt << " normal " << ff[0] << std::endl;
     
 }
@@ -424,7 +519,7 @@ void Neumann2(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     y = pt[1];
     z = pt[2];
     
-    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);
+    ff[0] = -2*x*normal(0,0) + 2*y*normal(1,0);
     
     //ff[0] = (flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0))* alpha2;
    //    std::cout<<"derivada normal em omega2 pt " << pt << " normal " << ff[0] << std::endl;//
@@ -449,7 +544,7 @@ void Neumann3(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     y = pt[1];
     z = pt[2];
     
-    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);
+    ff[0] = -2*x*normal(0,0) + 2*y*normal(1,0);
     
     //ff[0] = flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0);
   //    std::cout<<"derivada normal em omega3 pt " << pt << " normal " << ff[0] << std::endl;
@@ -475,7 +570,7 @@ void Neumann4(const TPZVec<REAL> &pt, TPZVec<STATE> &ff)
     y = pt[1];
     z = pt[2];
     
-    ff[0]= -2*x*normal(0,0)+2*y*normal(1,0);
+    ff[0] = -2*x*normal(0,0) + 2*y*normal(1,0);
     
     
   //  ff[0] = ((flux(0,0)*normal(0,0)+flux(1,0)*normal(1,0)+flux(2,0)*normal(2,0)))*alpha4;
@@ -539,114 +634,245 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
     TPZMultiphysicsCompMesh *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
     TPZMaterial *mat = NULL;
     for (auto matid : problem.materialids) {
-//        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
         TPZMixedPoisson *mix =NULL;
-//
-        TPZAutoPointer<TPZFunction<STATE> > solexata;
-//        //o termo do lado direito ff=0
-//        mix->SetInternalFlux(0);
-        
-        if(matid==1){
-            
-//            TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            mix->SetInternalFlux(0);
-            
-            solexata = new TPZDummyFunction<STATE>(ExataOmega1,10);
-            TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-            mix->SetForcingFunctionExact(sol);
-            
-            //mix->SetForcingFunctionExact(solexata);
-          //  mix->SetPermeability(1.);
-            TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
-            K.Identity();
-            invK.Identity();
-            mix->SetPermeabilityTensor(K, invK);
-            if (!mat) mat = mix;
-            cmesh->InsertMaterialObject(mix);
-            
-        }
-        
-        if(matid==2){
-           // TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            mix->SetInternalFlux(0);
-            
-            solexata = new TPZDummyFunction<STATE>(ExataOmega2,10);
-            TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-            mix->SetForcingFunctionExact(sol);
-            // mix->SetForcingFunctionExact(solexata);
-            
-            STATE alpha2=(problem.alpha)*(problem.alpha);
-            
-          //  mix->SetPermeability(alpha2);
-            TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
-            K.Identity();
-            invK.Identity();
-            K(0,0) = alpha2;
-            K(1,1) = alpha2;
-            K(2,2) = alpha2;
-            
-            invK(0,0) = 1./alpha2;
-             invK(1,1) = 1./alpha2;
-             invK(2,2) = 1./alpha2;
-            
-            mix->SetPermeabilityTensor(K, invK);
-            if (!mat) mat = mix;
-            cmesh->InsertMaterialObject(mix);
-            
-            
-            
-        }
-        
-        if(matid==3){
-            mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            solexata = new TPZDummyFunction<STATE>(ExataOmega3,10);
-            TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-            mix->SetForcingFunctionExact(sol);
-            TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
-            K.Identity();
-            invK.Identity();
-            mix->SetPermeabilityTensor(K, invK);
-            if (!mat) mat = mix;
-            cmesh->InsertMaterialObject(mix);
-            // mix->SetForcingFunctionExact(solexata);
-           // mix->SetPermeability(1.);
 
-        }
-        if(matid==4){
-          //  TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            mix->SetInternalFlux(0);
-            
-            mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-            solexata = new TPZDummyFunction<STATE>(ExataOmega4,10);
-            TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-            mix->SetForcingFunctionExact(sol);
-            
-            // mix->SetForcingFunctionExact(solexata);
-            STATE alpha4=pow(problem.alpha, 4);
-           // mix->SetPermeability(alpha4);
-            TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
-            K.Identity();
-            invK.Identity();
-            K(0,0) = alpha4;
-            K(1,1) = alpha4;
-            K(2,2) = alpha4;
-            
-            invK(0,0) = 1./alpha4;
-            invK(1,1) = 1./alpha4;
-            invK(2,2) = 1./alpha4;
-            
-            mix->SetPermeabilityTensor(K, invK);
-              if (!mat) mat = mix;
-            cmesh->InsertMaterialObject(mix);
-            
-        }
+        TPZAutoPointer<TPZFunction<STATE> > solexata;
+        TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
+        K.Identity();
+        invK.Identity();
+        REAL k1=2;
+        REAL k2=5;
+
         
-        
-      //  if (!mat) mat = mix;
-      //  cmesh->InsertMaterialObject(mix);
+        switch (matid) {
+            case 1:
+            {
+                mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+                mix->SetInternalFlux(0);
+                
+                if(problem.steklovexample){
+                    
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    K(0,0)=100.;
+                    K(1,1)=100.;
+                    K(2,2)=100.;
+                    invK(0,0)=1./100.;
+                    invK(1,1)=1./100.;
+                    invK(2,2)=1./100.;
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+                
+                else if(problem.GalvisExample){
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    mix->SetForcingFunction(problem.exact.ForcingFunction());
+                    K(0,0) = k1*k2;
+                    K(1,1) = k1*k2;
+                    K(2,2) = k1*k2;
+                    invK(0,0) = 1./k1*k2;
+                    invK(1,1) = 1./k1*k2;
+                    invK(2,2) = 1./k1*k2;
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+                else{
+                    
+                    solexata = new TPZDummyFunction<STATE>(ExataOmega1,10);
+                    TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
+                    mix->SetForcingFunctionExact(sol);
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+                
+                
+//                mix->SetPermeabilityTensor(K, invK);
+//                if (!mat) mat = mix;
+//                cmesh->InsertMaterialObject(mix);
+            }
+                break;
+                case 2:
+            {
+                mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+                mix->SetInternalFlux(0);
+                
+                if(problem.steklovexample){
+                    
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+                
+                else if(problem.GalvisExample){
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    mix->SetForcingFunction(problem.exact.ForcingFunction());
+                    K(0,0) = k2;
+                    K(1,1) = k2;
+                    K(2,2) = k2;
+                    invK(0,0) = 1./k2;
+                    invK(1,1) = 1./k2;
+                    invK(2,2) = 1./k2;
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+                
+                
+                else{
+                    
+                    solexata = new TPZDummyFunction<STATE>(ExataOmega2,10);
+                    TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
+                    mix->SetForcingFunctionExact(sol);
+                    
+                    STATE alpha2=(problem.alpha)*(problem.alpha);
+                    
+                    K(0,0) = alpha2;
+                    K(1,1) = alpha2;
+                    K(2,2) = alpha2;
+                    
+                    invK(0,0) = 1./alpha2;
+                    invK(1,1) = 1./alpha2;
+                    invK(2,2) = 1./alpha2;
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                }
+                
+//                mix->SetPermeabilityTensor(K, invK);
+//                if (!mat) mat = mix;
+//                cmesh->InsertMaterialObject(mix);
+                
+                
+                
+            }
+                 break;
+            case 3:{
+                
+                mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+                
+                if(problem.steklovexample){
+                    
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    K(0,0)=100.;
+                    K(1,1)=100.;
+                    K(2,2)=100.;
+                    invK(0,0)=1./100.;
+                    invK(1,1)=1./100.;
+                    invK(2,2)=1./100.;
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+                
+               else if(problem.GalvisExample){
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    mix->SetForcingFunction(problem.exact.ForcingFunction());
+                    K(0,0) = k1;
+                    K(1,1) = k1;
+                    K(2,2) = k1;
+                    invK(0,0) = 1./k1;
+                    invK(1,1) = 1./k1;
+                    invK(2,2) = 1./k1;
+                   mix->SetPermeabilityTensor(K, invK);
+                   if (!mat) mat = mix;
+                   cmesh->InsertMaterialObject(mix);
+                    
+                }
+                
+                
+                else{
+                    
+                    solexata = new TPZDummyFunction<STATE>(ExataOmega3,10);
+                    TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
+                    mix->SetForcingFunctionExact(sol);
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                }
+                
+                
+//                mix->SetPermeabilityTensor(K, invK);
+//                if (!mat) mat = mix;
+//                cmesh->InsertMaterialObject(mix);
+                
+            }
+                 break;
+            case 4:{
+                
+                mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+                mix->SetInternalFlux(0);
+                
+                if(problem.steklovexample){
+                    
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    K(0,0)=100.;
+                    K(1,1)=100.;
+                    K(2,2)=100.;
+                    invK(0,0)=1./100.;
+                    invK(1,1)=1./100.;
+                    invK(2,2)=1./100.;
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+               else if(problem.GalvisExample){
+                    mix->SetForcingFunctionExact(problem.exact.Exact());
+                    mix->SetForcingFunction(problem.exact.ForcingFunction());
+                   
+                   K.Identity();
+                   invK.Identity();
+                   
+                   mix->SetPermeabilityTensor(K, invK);
+                   if (!mat) mat = mix;
+                   cmesh->InsertMaterialObject(mix);
+
+                    
+                }
+                
+                else{
+                    
+                    
+                    solexata = new TPZDummyFunction<STATE>(ExataOmega4,10);
+                    TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
+                    mix->SetForcingFunctionExact(sol);
+                    
+                    STATE alpha4=pow(problem.alpha, 4);
+                
+                    
+                    K(0,0) = alpha4;
+                    K(1,1) = alpha4;
+                    K(2,2) = alpha4;
+                    
+                    invK(0,0) = 1./alpha4;
+                    invK(1,1) = 1./alpha4;
+                    invK(2,2) = 1./alpha4;
+                    mix->SetPermeabilityTensor(K, invK);
+                    if (!mat) mat = mix;
+                    cmesh->InsertMaterialObject(mix);
+                    
+                }
+//                mix->SetPermeabilityTensor(K, invK);
+//                if (!mat) mat = mix;
+//                cmesh->InsertMaterialObject(mix);
+                
+                
+                
+            }
+                
+            default:
+                break;
+        }
+   
     }
     
     
@@ -656,26 +882,57 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
         TPZAutoPointer<TPZFunction<STATE> > bcfunction;
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         
-        if(matid==5){
+        if(problem.steklovexample)
+        {
+
+                bctype=0;
+                val2.Zero();
+                TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+                bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+                cmesh-> InsertMaterialObject(bc);
+            
+        }
+        
+        else if(problem.GalvisExample){
+            bctype=0;
+            val2.Zero();
+            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+            cmesh-> InsertMaterialObject(bc);
+            
+            
+        }
+        
+        else{
+            
+        switch(matid){
+
+        case 5:
+        {
             bcfunction=new TPZDummyFunction<STATE>(Dirichlet1,5);
+         //   bcfunction=new TPZDummyFunction<STATE>(Neumann1,5);
             int bctype=0;
             bc->SetType(bctype);
             TPZAutoPointer<TPZFunction<STATE>> func(bcfunction);
             bc->TPZMaterial::SetForcingFunction(func);
             cmesh->InsertMaterialObject(bc);
         }
-        
-        if(matid==6){
+            
+            break;
+
+        case 6:
+        {
             bcfunction=new TPZDummyFunction<STATE>(Neumann2,5);
             int bctype = 1;
             bc->SetType(bctype);
-            
+
             TPZAutoPointer<TPZFunction<STATE>> func(bcfunction);
             bc->TPZMaterial::SetForcingFunction(func);
             cmesh->InsertMaterialObject(bc);
         }
-        if(matid==7){
-          //  bcfunction=new TPZDummyFunction<STATE>(Neumann3,5);
+            break;
+        case 7:
+        {
+            //bcfunction=new TPZDummyFunction<STATE>(Neumann3,5);
             bcfunction=new TPZDummyFunction<STATE>(Dirichlet3,5);
             int  bctype=0;
             bc->SetType(bctype);
@@ -683,8 +940,10 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
             bc->TPZMaterial::SetForcingFunction(func);
             cmesh->InsertMaterialObject(bc);
         }
-        
-        if(matid==8){
+            break;
+
+        case 8:
+        {
             bcfunction=new TPZDummyFunction<STATE>(Neumann4,5);
             int bctype = 1;
             bc->SetType(bctype);
@@ -692,9 +951,10 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
             bc->TPZMaterial::SetForcingFunction(func);
             cmesh->InsertMaterialObject(bc);
         }
-        
-        
     }
+}
+        
+}
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
     
     TPZManVector<int> active(2,1);
@@ -706,6 +966,11 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
     cmesh->LoadReferences();
     bool keepmatrix = false;
     TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
+    
+    {
+        std::ofstream out("MixedMesh.txt");
+        cmesh->Print(out);
+    }
     
     return cmesh;
 }

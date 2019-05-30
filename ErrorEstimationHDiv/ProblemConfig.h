@@ -24,8 +24,11 @@ struct ProblemConfig
     
     int ndivisions=1;
     bool prefine=false;
+    bool steklovexample=false;
+    bool GalvisExample;
     STATE alpha=1;
     std::string dir_name;
+    
     
     
     std::string problemname;
@@ -37,7 +40,7 @@ struct ProblemConfig
     ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
     makepressurecontinuous(cp.makepressurecontinuous),
     problemname(cp.problemname),
-    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine),alpha(cp.alpha),dir_name(cp.dir_name)
+    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine),alpha(cp.alpha),dir_name(cp.dir_name),steklovexample(cp.steklovexample),GalvisExample(cp.GalvisExample)
     {
     }
     
@@ -56,6 +59,9 @@ struct ProblemConfig
         prefine = cp.prefine;
         alpha = cp.alpha;
         dir_name = cp.dir_name;
+        steklovexample=cp.steklovexample;
+        GalvisExample=cp.GalvisExample;
+        
         
         return *this;
     }

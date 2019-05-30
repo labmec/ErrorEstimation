@@ -67,12 +67,14 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
                 intel->SetPreferredOrder(problem.porder+problem.hdivmais);
             }
         }
-        
-        if(problem.prefine){
-            Prefinamento(cmesh, problem.ndivisions, problem.porder);
-        }
-        
+ 
     }
+    
+    if(problem.prefine){
+        Prefinamento(cmesh, problem.ndivisions, problem.porder);
+    }
+    
+    
     cmesh->InitializeBlock();
     return cmesh;
     
