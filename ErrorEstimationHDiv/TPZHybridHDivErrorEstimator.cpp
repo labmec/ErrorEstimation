@@ -63,6 +63,21 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
 
         std::cout << "Computed errors " << errorvec << std::endl;
+    
+    
+    //Erro global
+    
+    ofstream myfile;
+    myfile.open ("ArquivosErros.txt", ios::app);
+    myfile << "\n\n Estimator errors for Problem "<< fProblemConfig.problemname;
+    myfile << "\n-------------------------------------------------- \n";
+    myfile << "Ndiv = "<< fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
+    myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
+    myfile << "Global estimator = " << errorvec[3] << "\n";
+    myfile << "Global exact error = " << errorvec[2] << "\n";
+    myfile.close();
+    
+    
         
         ComputeEffectivityIndices();
     
@@ -74,17 +89,17 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an){
     
     TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("PressureFem");
-    scalnames.Push("PressureReconstructed");
+   // scalnames.Push("PressureFem");
+   // scalnames.Push("PressureReconstructed");
     scalnames.Push("PressureExact");
-    scalnames.Push("PressureErrorExact");
-    scalnames.Push("PressureErrorEstimate");
+  //  scalnames.Push("PressureErrorExact");
+   // scalnames.Push("PressureErrorEstimate");
     scalnames.Push("EnergyErrorExact");
     scalnames.Push("EnergyErrorEstimate");
-    scalnames.Push("PressureEffectivityIndex");
-    scalnames.Push("EnergyEffectivityIndex");
-    vecnames.Push("FluxFem");
-    vecnames.Push("FluxReconstructed");
+   // scalnames.Push("PressureEffectivityIndex");
+  //  scalnames.Push("EnergyEffectivityIndex");
+   // vecnames.Push("FluxFem");
+  //  vecnames.Push("FluxReconstructed");
     vecnames.Push("FluxExact");
     //scalnames.Push("POrder");
     
@@ -100,20 +115,20 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an){
     an.PostProcess(2,dim);
     //        an.SetStep(1);
     //        an.PostProcess(0,dim);
-    {
-        TPZAnalysis an(fPostProcMesh.MeshVector()[1],false);
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("State");
-        int dim = this->fOriginal->Reference()->Dimension()-1;
-        std::string plotname;
-        {
-            std::stringstream out;
-            out << fProblemConfig.dir_name << "/" << "LagrangeMultiplierPostProces _" << fProblemConfig.problemname << ".vtk";
-            plotname = out.str();
-        }
-        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(2,dim);
-    }
+//    {
+//        TPZAnalysis an(fPostProcMesh.MeshVector()[1],false);
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("State");
+//        int dim = this->fOriginal->Reference()->Dimension()-1;
+//        std::string plotname;
+//        {
+//            std::stringstream out;
+//            out << fProblemConfig.dir_name << "/" << "LagrangeMultiplierPostProces _" << fProblemConfig.problemname << ".vtk";
+//            plotname = out.str();
+//        }
+//        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//        an.PostProcess(2,dim);
+//    }
     
 }
 

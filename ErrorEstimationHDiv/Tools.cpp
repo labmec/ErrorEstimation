@@ -623,17 +623,18 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     direct = 0;
     an.Assemble();
     an.Solve();
-    TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("Pressure");
-    vecnames.Push("Flux");
     
-    std::stringstream sout;
-    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
-    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-    
-    
-   // an.DefineGraphMesh(2, scalnames, vecnames, "OriginalHybrid_Problem.vtk");
-    an.PostProcess(2,2);
+//    TPZStack<std::string> scalnames, vecnames;
+//    scalnames.Push("Pressure");
+//    vecnames.Push("Flux");
+//
+//    std::stringstream sout;
+//    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
+//    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+//
+//
+//   // an.DefineGraphMesh(2, scalnames, vecnames, "OriginalHybrid_Problem.vtk");
+//    an.PostProcess(2,2);
     
 }
 void PlotLagrangreMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
