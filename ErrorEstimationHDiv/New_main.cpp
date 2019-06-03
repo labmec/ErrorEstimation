@@ -44,7 +44,7 @@
 #include <memory>
 
 
-bool IsgmeshReader=false;
+bool IsgmeshReader=true;
 bool neumann=true;
 
 
@@ -64,14 +64,14 @@ int main(int argc, char *argv[]) {
     config.porder = 1;
     config.hdivmais = 1;
     
-    config.ndivisions=2;
+    config.ndivisions=0;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname ="ESinSinDirNonHom";//""ESinSin";// ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::EConst;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
+    config.problemname ="EConst";//""ESinSin";// ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
     
-    config.dir_name= "ESinSinDirNonHom";//LcircleMark";
+    config.dir_name= "EConst";//LcircleMark";
     
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     
  //   FunctionTest();
     
-    int dim=2;
+    int dim=3;
     
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
@@ -87,32 +87,45 @@ int main(int argc, char *argv[]) {
     if(IsgmeshReader){
         
         
-            std::string meshfilename = "../LCircle.msh";
-            TPZGmshReader gmsh;
-            gmsh.GetDimNamePhysical().resize(4);
-            gmsh.GetDimPhysicalTagName().resize(4);
+        std::string meshfilename = "../LCircle.msh";
+    
+        if(dim==3)
+        {
+            meshfilename = "../Cube.msh";
+        }
+        TPZGmshReader gmsh;
+        gmsh.GetDimNamePhysical().resize(4);
+        gmsh.GetDimPhysicalTagName().resize(4);
+        if(dim==2)
+        {
             gmsh.GetDimNamePhysical()[1]["dirichlet"] =2;
             gmsh.GetDimNamePhysical()[2]["domain"] = 1;
-            
-            config.materialids.insert(1);
-            config.bcmaterialids.insert(2);
+        }
+        else
+        {
+            gmsh.GetDimNamePhysical()[2]["dirichlet"] =2;
+            gmsh.GetDimNamePhysical()[3]["domain"] = 1;
+        }
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(2);
+    
         
-            
-            gmsh.SetFormatVersion("4.1");
-            gmesh = gmsh.GeometricGmshMesh(meshfilename);
-            gmsh.PrintPartitionSummary(std::cout);
-            gmesh->SetDimension(dim);
-            config.gmesh = gmesh;
+        gmsh.SetFormatVersion("4.1");
+        gmesh = gmsh.GeometricGmshMesh(meshfilename);
+        gmsh.PrintPartitionSummary(std::cout);
+        gmesh->SetDimension(dim);
+        config.gmesh = gmesh;
 
     }
     
     else{
     
-    gmesh = CreateGeoMesh(1);
-    config.materialids.insert(1);
-    config.bcmaterialids.insert(-1);
-    config.bcmaterialids.insert(-2);
-    config.gmesh = gmesh;
+        int nel = 2;
+        gmesh = CreateGeoMesh(2);
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(-1);
+        config.bcmaterialids.insert(-2);
+        config.gmesh = gmesh;
     }
     
     UniformRefinement(config.ndivisions, gmesh);

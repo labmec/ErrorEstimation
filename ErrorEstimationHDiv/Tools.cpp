@@ -633,7 +633,8 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     
     
    // an.DefineGraphMesh(2, scalnames, vecnames, "OriginalHybrid_Problem.vtk");
-    an.PostProcess(2,2);
+    int resolution = 2;
+    an.PostProcess(resolution,Hybridmesh->Dimension());
     
 }
 void PlotLagrangreMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
