@@ -46,6 +46,7 @@
 
 TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem);
 TPZCompMesh *CreateNeumannFluxHDivMesh(const ProblemConfig &problem);
+TPZMultiphysicsCompMesh *CreateBoundaryLayerHDivMesh(const ProblemConfig &problem);
 void Neumann1(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
 void Neumann2(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
 void Neumann3(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
@@ -68,6 +69,8 @@ bool mixedsolution = false;
 
 REAL  alpha=1.;//sqrt(0.1);
 
+bool IsreadMesh = true;
+
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
@@ -79,9 +82,10 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
+   
     
     ProblemConfig config;
-    config.porder = 2;
+    config.porder = 1;
     config.hdivmais = 1;
     
 
@@ -93,13 +97,20 @@ int main(int argc, char *argv[]) {
     config.steklovexample=true;
     config.GalvisExample=false;
     
-    config.dir_name = "HPermeability";
+    for (int ndiv=1 ; ndiv< 5; ndiv++){
+        
+        config.ndivisions= ndiv;
+    
+    
     
     
     int dim=2;
     
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
+    
+    if(IsreadMesh){
+        config.dir_name = "HPermeability";
     
     if(config.steklovexample){
         
@@ -219,28 +230,46 @@ int main(int argc, char *argv[]) {
             config.gmesh = gmesh;
     
     }
+    }
+    else{
+        
+        config.dir_name = "BoundaryLayer";
+        config.exact.fExact = TLaplaceExample1::EBoundaryLayer;
+        
+        gmesh= CreateGeoMesh(1);
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(-1);
+        config.gmesh = gmesh;
+        
+        
+    }
+    
+
+    
     
     UniformRefinement(config.ndivisions, gmesh);
     
-    {
-        std::ofstream out("gmesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        std::ofstream out2("gmeshInitial.txt");
-        gmesh->Print(out2);
-        
-    }
+//    {
+//        std::ofstream out("gmesh.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+//        std::ofstream out2("gmeshInitial.txt");
+//        gmesh->Print(out2);
+//
+//    }
     
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
     
-    TPZMultiphysicsCompMesh *cmesh_HDiv=CreateNeumannHDivMesh(config);//Hdiv x L2
+    
+    TPZMultiphysicsCompMesh *cmesh_HDiv=CreateNeumannHDivMesh(config);//CreateBoundaryLayerHDivMesh(config);//Hdiv x L2
+    
     cmesh_HDiv->InitializeBlock();
     
-    {
-
-        std::ofstream out2("MixedMesh_SemSol.txt");
-        cmesh_HDiv->Print(out2);
-        
-    }
+//    {
+//
+//        std::ofstream out2("MixedMesh_SemSol.txt");
+//        cmesh_HDiv->Print(out2);
+//
+//    }
     
     if(mixedsolution)
     {
@@ -250,6 +279,7 @@ int main(int argc, char *argv[]) {
         system(command.c_str());
         
         TPZAnalysis an(cmesh_HDiv);
+        
         {
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("ExactPressure");
@@ -327,33 +357,33 @@ int main(int argc, char *argv[]) {
     meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
     meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
     
-    {
-        
-        //                std::ofstream outgeo("HrybridGeometria.txt");
-        //                std::get<0>(HybridMesh)->Reference()->Print(outgeo);
-                        std::ofstream out("OriginalHybridMesh.txt");
-                        (HybridMesh)->Print(out);
-        //
-        std::ofstream out2("OriginalFluxMesh.txt");
-        meshvec_HDiv[0]->Print(out2);
-        
-        std::ofstream out3("OriginalPotentialMesh.txt");
-        meshvec_HDiv[1]->Print(out3);
-        
-        
-    }
+//    {
+//
+//        //                std::ofstream outgeo("HrybridGeometria.txt");
+//        //                std::get<0>(HybridMesh)->Reference()->Print(outgeo);
+//                        std::ofstream out("OriginalHybridMesh.txt");
+//                        (HybridMesh)->Print(out);
+//        //
+//        std::ofstream out2("OriginalFluxMesh.txt");
+//        meshvec_HDiv[0]->Print(out2);
+//
+//        std::ofstream out3("OriginalPotentialMesh.txt");
+//        meshvec_HDiv[1]->Print(out3);
+//
+//
+//    }
     
     
     SolveHybridProblem(cmesh_HDiv,n2,config);
     
 
     
-    {
-        std::ofstream out("OriginalHybridMesh.txt");
-        (HybridMesh)->Print(out);
-    }
+//    {
+//        std::ofstream out("OriginalHybridMesh.txt");
+//        (HybridMesh)->Print(out);
+//    }
 
-    PlotLagrangreMultiplier(meshvec_HDiv[1],config);
+  //  PlotLagrangreMultiplier(meshvec_HDiv[1],config);
     
     
     //reconstroi potencial e calcula o erro
@@ -378,7 +408,9 @@ int main(int argc, char *argv[]) {
     delete cmesh_HDiv;
     delete meshvec_HDiv[0];
     delete meshvec_HDiv[1];
-    return 0;
+   // return 0;
+        
+    }
     
     
 }
@@ -648,8 +680,8 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
         invK.Identity();
         REAL k1=2;
         REAL k2=5;
-
         
+     
         switch (matid) {
             case 1:
             {
@@ -1027,3 +1059,55 @@ TPZCompMesh *CreateNeumannFluxHDivMesh(const ProblemConfig &problem) {
     
 }
 
+TPZMultiphysicsCompMesh *CreateBoundaryLayerHDivMesh(const ProblemConfig &problem) {
+    
+    TPZMultiphysicsCompMesh *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
+    TPZMaterial *mat = NULL;
+    for (auto matid : problem.materialids) {
+        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+        
+        TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
+        K.Identity();
+        invK.Identity();
+        
+        mix->SetForcingFunctionExact(problem.exact.Exact());
+        mix->SetPermeabilityTensor(K, invK);
+        if (!mat) mat = mix;
+        cmesh->InsertMaterialObject(mix);
+
+
+    }
+    
+    
+    
+    for (auto matid : problem.bcmaterialids) {
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        int bctype = 0;
+        TPZAutoPointer<TPZFunction<STATE> > bcfunction;
+        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+
+        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+        cmesh-> InsertMaterialObject(bc);
+   
+        
+    }
+    
+    cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
+    
+    TPZManVector<int> active(2,1);
+    TPZManVector<TPZCompMesh *> meshvector(2,0);
+    
+    meshvector[0] = CreateNeumannFluxHDivMesh(problem);
+    meshvector[1] = CreatePressureMesh(problem);
+    cmesh->BuildMultiphysicsSpace(active, meshvector);
+    cmesh->LoadReferences();
+    bool keepmatrix = false;
+    TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
+    
+    {
+        std::ofstream out("MixedMesh.txt");
+        cmesh->Print(out);
+    }
+    
+    return cmesh;
+}

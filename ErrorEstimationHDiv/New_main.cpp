@@ -44,7 +44,7 @@
 #include <memory>
 
 
-bool IsgmeshReader=false;
+bool IsgmeshReader=true;
 bool neumann=true;
 
 
@@ -59,19 +59,24 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
+    for (int ndiv=1 ; ndiv< 7; ndiv++){
+        
+       
+    
     
     ProblemConfig config;
+        
+    config.ndivisions= ndiv;
+        
     config.porder = 1;
     config.hdivmais = 1;
-    
-    config.ndivisions=2;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname ="ESinSinDirNonHom";//""ESinSin";// ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::ESinMark;//ESinSin;//ESinSinDirNonHom;//EArcTanSingular;//EArcTan;//
+    config.problemname ="ESinMark";//"ESinSin";//"ESinSinDirNonHom";//"EArcTanSingular_PRef";//""ArcTang";//
     
-    config.dir_name= "ESinSinDirNonHom";//LcircleMark";
+    config.dir_name= "ESinMark";//"ESinSin";//"ESinSinDirNonHom";//;
     
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
@@ -117,14 +122,14 @@ int main(int argc, char *argv[]) {
     
     UniformRefinement(config.ndivisions, gmesh);
     
-    {
-        std::ofstream out("gmesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        std::ofstream out2("gmeshInitial.txt");
-        gmesh->Print(out2);
-        
-    }
-    
+//    {
+//        std::ofstream out("gmesh.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+//        std::ofstream out2("gmeshInitial.txt");
+//        gmesh->Print(out2);
+//
+//    }
+//
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
     
     TPZMultiphysicsCompMesh *cmesh_HDiv=nullptr;
@@ -158,33 +163,33 @@ int main(int argc, char *argv[]) {
     meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
     meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
     
-    {
-        
-        //                std::ofstream outgeo("HrybridGeometria.txt");
-        //                std::get<0>(HybridMesh)->Reference()->Print(outgeo);
-                        std::ofstream out("OriginalHybridMesh.txt");
-                        (HybridMesh)->Print(out);
-        //
-        std::ofstream out2("OriginalFluxMesh.txt");
-        meshvec_HDiv[0]->Print(out2);
-        
-        std::ofstream out3("OriginalPotentialMesh.txt");
-        meshvec_HDiv[1]->Print(out3);
-        
-        
-    }
+//    {
+//
+//        //                std::ofstream outgeo("HrybridGeometria.txt");
+//        //                std::get<0>(HybridMesh)->Reference()->Print(outgeo);
+//                        std::ofstream out("OriginalHybridMesh.txt");
+//                        (HybridMesh)->Print(out);
+//        //
+//        std::ofstream out2("OriginalFluxMesh.txt");
+//        meshvec_HDiv[0]->Print(out2);
+//
+//        std::ofstream out3("OriginalPotentialMesh.txt");
+//        meshvec_HDiv[1]->Print(out3);
+//
+//
+//    }
     
     
     SolveHybridProblem(cmesh_HDiv,n2,config);
     
 
-    
-    {
-        std::ofstream out("OriginalHybridMesh.txt");
-        (HybridMesh)->Print(out);
-    }
-
-    PlotLagrangreMultiplier(meshvec_HDiv[1],config);
+//
+//    {
+//        std::ofstream out("OriginalHybridMesh.txt");
+//        (HybridMesh)->Print(out);
+//    }
+//
+//    PlotLagrangreMultiplier(meshvec_HDiv[1],config);
     
     
     //reconstroi potencial e calcula o erro
@@ -205,8 +210,8 @@ int main(int argc, char *argv[]) {
     delete cmesh_HDiv;
     delete meshvec_HDiv[0];
     delete meshvec_HDiv[1];
-    return 0;
-    
+  //  return 0;
+}
     
 }
 
