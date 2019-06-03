@@ -59,6 +59,9 @@ int main() {
     Solve(an);
     PostProcessSolution(an);
 
+    
+    
+    
     std::cout << "hell yeah!";
 }
 
@@ -207,6 +210,24 @@ TPZCompMesh *CreateSolutionPressureMesh(ProblemConfig &config) {
     return cmesh;
 }
 
+void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
+
+    TPZManVector<TPZGeoEl*> children;
+    for(int division = 0; division < nDiv; division++) {
+
+        int64_t nels = gmesh->NElements();
+
+        for(int64_t elem = 0; elem < nels; elem++) {
+
+            TPZGeoEl * gel = gmesh->ElementVec()[elem];
+
+            if(!gel || gel->HasSubElement()) continue;
+            if(gel->Dimension() == 0) continue;
+            gel->Divide(children);
+        }
+    }
+}
+
 void Solve(TPZAnalysis &analysis) {
 
 #ifdef USING_MKL
@@ -226,25 +247,6 @@ void Solve(TPZAnalysis &analysis) {
     direct = nullptr;
     analysis.Assemble();
     analysis.Solve();
-}
-
-
-void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
-
-    TPZManVector<TPZGeoEl*> children;
-    for(int division = 0; division < nDiv; division++) {
-
-        int64_t nels = gmesh->NElements();
-
-        for(int64_t elem = 0; elem < nels; elem++) {
-
-            TPZGeoEl * gel = gmesh->ElementVec()[elem];
-
-            if(!gel || gel->HasSubElement()) continue;
-            if(gel->Dimension() == 0) continue;
-            gel->Divide(children);
-        }
-    }
 }
 
 void PostProcessSolution(TPZAnalysis &analysis) {

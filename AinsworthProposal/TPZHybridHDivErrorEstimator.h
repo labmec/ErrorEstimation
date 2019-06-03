@@ -1,16 +1,15 @@
 //
-// Created by gustavo on 30/05/19.
+// Created by Gustavo on 30/05/19.
 //
 
-#ifndef ERRORESTIMATION_TPZHYBRIDHDIVERRORESTIMATOR_H
-#define ERRORESTIMATION_TPZHYBRIDHDIVERRORESTIMATOR_H
+#ifndef TPZHYBRIDHDIVERRORESTIMATOR_H
+#define TPZHYBRIDHDIVERRORESTIMATOR_H
 
+#include "TPZAPosterioriErrorEstimator.h"
 
-
-class TPZHybridHDivErrorEstimator {
+class TPZHybridHDivErrorEstimator : TPZAPosterioriErrorEstimator {
 
 };
 
 
-
-#endif //ERRORESTIMATION_TPZHYBRIDHDIVERRORESTIMATOR_H
+#endif // TPZHYBRIDHDIVERRORESTIMATOR_H

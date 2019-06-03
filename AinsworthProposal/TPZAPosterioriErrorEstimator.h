@@ -1,16 +1,33 @@
 //
-// Created by gustavo on 30/05/19.
+// Created by Gustavo on 30/05/19.
 //
 
-#ifndef ERRORESTIMATION_TPZAPOSTERIORIERRORESTIMATOR_H
-#define ERRORESTIMATION_TPZAPOSTERIORIERRORESTIMATOR_H
+#ifndef TPZAPOSTERIORIERRORESTIMATOR_H
+#define TPZAPOSTERIORIERRORESTIMATOR_H
 
-
+#include "pzanalysis.h"
+#include "TPZAnalyticSolution.h"
 
 class TPZAPosterioriErrorEstimator {
 
+private:
+    TPZVec<REAL> fElementErrors;
+    TPZAnalysis *fAnalysis;
+    TPZAnalyticSolution *fAnalyticSolution;
+    
+    TPZCompMesh *originalPressureMesh;
+    TPZCompMesh *originalFluxMesh;
+    TPZCompMesh *reconstructedPressureMesh;
+    TPZCompMesh *reconstructedFluxMesh;
+
+public:
+    virtual void CreateAuxiliarySpaces() = 0;
+    virtual void ComputeErrors() = 0;
+
+    void SetAnalyticSolution(TPZAnalyticSolution *analyticSolution);
+    void CalculateEffectivityIndex();
+    void PostProcess();
 };
 
 
-
-#endif //ERRORESTIMATION_TPZAPOSTERIORIERRORESTIMATOR_H
+#endif // TPZAPOSTERIORIERRORESTIMATOR_H
