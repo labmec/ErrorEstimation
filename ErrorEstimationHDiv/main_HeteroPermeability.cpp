@@ -116,11 +116,13 @@ int main(int argc, char *argv[]) {
         
         config.exact.fExact = TLaplaceExample1::ESteklovNonConst;
         config.problemname ="ESteklovNonConst";
-        std::string meshfilename = "../MalhaSteklov.msh";
-        TPZGmshReader gmsh;
-        
 
-        
+
+        TPZGmshReader gmsh;
+        std::string meshfilename = "MalhaSteklov.msh";
+#ifdef MACOSX
+        meshfilename = "../" + meshfilename;
+#endif
         gmsh.GetDimNamePhysical()[2]["Omega1"] = 1;
         gmsh.GetDimNamePhysical()[2]["Omega2"] = 2;
         gmsh.GetDimNamePhysical()[2]["Omega3"] = 3;
@@ -154,7 +156,10 @@ int main(int argc, char *argv[]) {
         
         config.exact.fExact = TLaplaceExample1::EGalvisNonConst;
         config.problemname ="EGalvisNonConst";
-        std::string meshfilename = "../Galvismesh.msh";
+        std::string meshfilename = "Galvismesh.msh";
+#ifdef MACOSX
+        meshfilename = "../" + meshfilename;
+#endif
         TPZGmshReader gmsh;
         
         
