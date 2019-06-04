@@ -96,9 +96,10 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
+        val2.Zero();
         if (matid == -2) {
             bctype = 0;
-            val2.Zero();
+            
         }
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
@@ -129,144 +130,6 @@ void CloneMeshVec(TPZVec<TPZCompMesh *> &meshvec, TPZVec<TPZCompMesh *> &meshvec
 }
 
 /// Increase the approximation orders of the sides of the flux elements
-
-void IncreaseSideOrders(TPZCompMesh *fluxmesh) {
-    int64_t nel = fluxmesh->NElements();
-    int dim = fluxmesh->Dimension();
-    for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = fluxmesh->Element(el);
-        if (!cel || !cel->Reference()) {
-            continue;
-        }
-        TPZGeoEl *gel = cel->Reference();
-        if (gel->Dimension() != dim) {
-            continue;
-        }
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
-        int nc = cel->NConnects();
-        int order = cel->Connect(nc - 1).Order();
-        int nsides = gel->NSides();
-        int ncorner = gel->NCornerNodes();
-        intel->SetPreferredOrder(order);
-        for (int side = ncorner; side < nsides - 1; side++) {
-            if (intel->NSideConnects(side)) {
-                intel->SetSideOrder(side, order);
-            }
-        }
-        //        intel->Print();
-    }
-    fluxmesh->InitializeBlock();
-}
-
-std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridizer) {
-    TPZManVector<TPZCompMesh *, 2> meshvec_Hybrid(2, 0);
-    CloneMeshVec(meshvec_HDiv, meshvec_Hybrid);
-    IncreaseSideOrders(meshvec_Hybrid[0]);
-    hybridizer.ComputePeriferalMaterialIds(meshvec_Hybrid);
-    hybridizer.ComputeNState(meshvec_Hybrid);
-    /// insert the material objects for HDivWrap and LagrangeInterface
-    hybridizer.InsertPeriferalMaterialObjects(meshvec_Hybrid);
-    hybridizer.HybridizeInternalSides(meshvec_Hybrid);
-    TPZCompMesh *cmesh_Hybrid = hybridizer.CreateMultiphysicsMesh(cmesh_HDiv, meshvec_Hybrid);
-    hybridizer.CreateInterfaceElements(cmesh_Hybrid, meshvec_Hybrid);
-    hybridizer.GroupElements(cmesh_Hybrid);
-    return std::make_tuple(cmesh_Hybrid, meshvec_Hybrid);
-}
-
-/// Set the interface pressure to the average pressure
-void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, int InterfaceMatid)
-{
-    TPZGeoMesh *gmesh = pressure->Reference();
-    gmesh->ResetReference();
-    int dim = gmesh->Dimension();
-    pressure->LoadReferences();
-    int64_t nel = pressureHybrid->NElements();
-    for (int64_t el=0; el<nel; el++) {
-        TPZCompEl *cel = pressureHybrid->Element(el);
-        if(!cel || !cel->Reference() || cel->Reference()->Dimension() != dim-1)
-        {
-            continue;
-        }
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
-        TPZGeoEl *gel = cel->Reference();
-        if (gel->MaterialId() != InterfaceMatid) {
-            continue;
-        }
-        if (!intel || gel->Dimension() != dim-1) {
-            DebugStop();
-        }
-        int nc = cel->NConnects();
-        int order = cel->Connect(nc-1).Order();
-        TPZGeoElSide gelside(gel,gel->NSides()-1);
-        TPZStack<TPZCompElSide> celstack;
-        gelside.EqualLevelCompElementList(celstack, 1, 0);
-        TPZManVector<TPZTransform<REAL> ,2> tr(2);
-        tr[0] = gelside.NeighbourSideTransform(celstack[0].Reference());
-        {
-            TPZGeoEl *right = celstack[0].Element()->Reference();
-            TPZTransform<REAL> tmp = right->SideToSideTransform(celstack[0].Side(), right->NSides()-1);
-            tr[0] = tmp.Multiply(tr[0]);
-        }
-        if (celstack.size() == 1) {
-            TPZCompElSide lowlevel = gelside.LowerLevelCompElementList2(1);
-            if (!lowlevel) {
-                DebugStop();
-            }
-            celstack.Push(lowlevel);
-            tr[1] = TPZTransform<REAL>(gelside.Dimension());
-            gel->BuildTransform2(gelside.Side(), lowlevel.Reference().Element(), tr[1]);
-        }
-        else if(celstack.size() == 2)
-        {
-            tr[1] = gelside.NeighbourSideTransform(celstack[1].Reference());
-        }
-        else
-        {
-            DebugStop();
-        }
-        {
-            //nao poderia denomiar de left uma vez que esta pegando os elementos a diretira e esqueda do lado e
-            TPZGeoEl *right = celstack[1].Element()->Reference();
-            TPZTransform<REAL> tmp = right->SideToSideTransform(celstack[1].Side(), right->NSides()-1);
-            tr[1] = tmp.Multiply(tr[1]);
-        }
-        
-        std::unique_ptr<TPZIntPoints> intp( gel->CreateSideIntegrationRule(gel->NSides()-1, 2*order));
-        int nshape = intel->NShapeF();
-        TPZFNMatrix<20,REAL> L2Mat(nshape,nshape,0.), L2Rhs(nshape,1,0.);
-        TPZFNMatrix<220,REAL> phi(nshape,1,0.), dshape(dim,nshape);
-        int64_t npoints = intp->NPoints();
-        for (int64_t ip=0; ip<npoints; ip++) {
-            TPZManVector<REAL,3> pt(dim-1,0.),pt1(dim,0.), pt2(dim,0.),sol1(1),sol2(1);
-            REAL weight;
-            intp->Point(ip, pt, weight);
-            intel->Shape(pt, phi, dshape);
-            tr[0].Apply(pt, pt1);
-            tr[1].Apply(pt, pt2);
-            celstack[0].Element()->Solution(pt1, 0, sol1);//rigth pressure
-            celstack[1].Element()->Solution(pt2, 0, sol2);//lefth pressure
-            //            std::cout << "Values " << sol1 << " " << sol2 << std::endl;
-            for (int ishape=0; ishape<nshape; ishape++) {
-                L2Rhs(ishape,0) += weight*phi(ishape,0)*(sol1[0]+sol2[0])/2.;
-                for (int jshape = 0; jshape<nshape; jshape++) {
-                    L2Mat(ishape,jshape) += weight*phi(ishape,0)*phi(jshape,0);
-                }
-            }
-        }
-        L2Mat.SolveDirect(L2Rhs, ECholesky);
-        //        L2Rhs.Print("Average pressure");
-        int count = 0;
-        for (int ic=0; ic<nc; ic++) {
-            TPZConnect &c = cel->Connect(ic);
-            int64_t seqnum = c.SequenceNumber();
-            int64_t pos = pressureHybrid->Block().Position(seqnum);
-            int ndof = c.NShape()*c.NState();
-            for (int idf = 0; idf<ndof; idf++) {
-                pressureHybrid->Solution()(pos+idf,0) = L2Rhs(count++);
-            }
-        }
-    }
-}
 
 
 void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
@@ -591,12 +454,7 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     
     
     std::set<int> matIds;
-    //    matIds.insert(1);
-    //    matIds.insert(-1);
-    //    matIds.insert(-2);
-    //
-    //   // matIds.insert(4);
-    
+  
     
     for (auto matid : problem.materialids) {
         
@@ -623,18 +481,17 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     direct = 0;
     an.Assemble();
     an.Solve();
-    
-//    TPZStack<std::string> scalnames, vecnames;
-//    scalnames.Push("Pressure");
-//    vecnames.Push("Flux");
-//
-//    std::stringstream sout;
-//    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
-//    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-//
-//
-//   // an.DefineGraphMesh(2, scalnames, vecnames, "OriginalHybrid_Problem.vtk");
-//    an.PostProcess(2,2);
+
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("Pressure");
+    vecnames.Push("Flux");
+
+    std::stringstream sout;
+    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
+    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+    int resolution = 2;
+    an.PostProcess(resolution,Hybridmesh->Dimension());
+
     
 }
 void PlotLagrangreMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){

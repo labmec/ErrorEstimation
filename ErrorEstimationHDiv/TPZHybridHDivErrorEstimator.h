@@ -43,6 +43,9 @@ struct TPZHybridHDivErrorEstimator
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
     
+    // material id of the dim-2 skeleton elements
+    int fSkeletonMatId = 6;
+    
     TPZAnalyticSolution *fExact;
     
     ProblemConfig fProblemConfig;
@@ -108,8 +111,25 @@ private:
     /// increase the order of the lower dimensional pressure elements
     void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);
     
-    /// compute the average pressures of the hybridized form of the H(div) mesh
-    void ComputeAveragePressures();
+    /// compute the average pressures of across faces of the H(div) mesh
+    void ComputeAverageFacePressures();
+    
+    /// compute the average pressures of across edges of the H(div) mesh
+    void ComputeAveragePressures(int target_dim);
+    
+    /// transfer the solution of the edge functions to the face functions
+    void TransferEdgeSolution();
+    
+    /// create dim-2 skeleton mesh based on the dim-1 faces
+    // will do nothing if the dimension of the mesh == 2
+    void CreateEdgeSkeletonMesh(TPZCompMesh *pressure_mesh);
+    
+    /// adjust the interpolation orders so as to create an H1/2 boundary mesh
+    // this method is called by the CreateEdgeSkeletonMesh method
+    void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
+    
+    /// restrain the edge elements that have larger elements as neighbours
+    void RestrainSmallEdges(TPZCompMesh *pressuremesh);
     
     /// set the cornernode values equal to the averages
     void ComputeNodalAverages();
