@@ -146,16 +146,16 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
         fHybridizer.HybridizeInternalSides(mesh_vectors);
         int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
         fSkeletonMatId = lastmatid+1;
-//        #ifdef PZDEBUG
-            {
-//                std::ofstream out("OriginalFlux.txt");
-//                fOriginal[3]->Print(out);
-//                std::ofstream out2("OriginalPotential.txt");
-//                fOriginal[4]->Print(out2);
-                std::ofstream out3("OriginalMeshHybrid.txt");
-//                fOriginal[0]->Print(out3);
-            }
-//        #endif
+        #ifdef PZDEBUG
+        {
+            std::ofstream out("OriginalFlux.txt");
+            fOriginal[3].Print(out);
+            std::ofstream out2("OriginalPotential.txt");
+            fOriginal[4].Print(out2);
+            std::ofstream out3("OriginalMeshHybrid.txt");
+            fOriginal[0].Print(out3);
+        }
+        #endif
     }
     else
     {
@@ -172,7 +172,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
     {
         CreateEdgeSkeletonMesh(mesh_vectors[1]);
     }
-//#ifdef PZDEBUG
+#ifdef PZDEBUG
     {
         std::ofstream out("EnrichedFluxBorder.txt");
         mesh_vectors[0]->Print(out);
@@ -180,7 +180,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh()
         std::ofstream out2("EnrichedPressure.txt");
         mesh_vectors[1]->Print(out2);
     }
-//#endif
+#endif
 
 
     
