@@ -8,8 +8,17 @@
 #define ERRORESTIMATION_TPZHDIVERRORESTIMATORH1_H
 
 
-class TPZHDivErrorEstimatorH1 : TPZHybridHDivErrorEstimator {
+class TPZHDivErrorEstimatorH1 : public TPZHybridHDivErrorEstimator {
 
+    /// number of orders the pressure polynomial order is increase
+    int fUpliftOrder = 0;
+protected:
+    
+    /// create the post processed multiphysics mesh (which is necessarily hybridized)
+    virtual void CreatePostProcessingMesh() override;
+    
+    /// compute a more precise approximation for the pressure
+    void UpliftPressure();
 };
 
 

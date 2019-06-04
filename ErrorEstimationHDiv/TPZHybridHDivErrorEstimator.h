@@ -96,10 +96,10 @@ struct TPZHybridHDivErrorEstimator
     
     
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
-private:
+protected:
     
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
-    void CreatePostProcessingMesh();
+    virtual void CreatePostProcessingMesh();
     
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
