@@ -81,6 +81,12 @@ if(PTHREAD_LIB-NOTFOUND)
 	set(PTHREAD_LIBexit "" CACHE PATH "Directory where the pthread library can be found")
 endif()
 include_directories(${PTHREAD_INCLUDE})
+IF (WIN32)
+	find_package( PZ PATHS "C:/Arquivos de Programas/PZ" REQUIRED NO_DEFAULT_PATH)
+ELSE()
+	find_package( PZ REQUIRED )
+       find_package(OpenCV REQUIRED)
+ENDIF (WIN32)
 
 if(WIN32)
 	#add a define saying it is a VC compiler
@@ -114,7 +120,9 @@ if(WIN32)
 
 endif()
 
+
 add_subdirectory(AinsworthProposal)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(MHMEstimation)
+add_subdirectory(MHM_Maze)
