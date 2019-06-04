@@ -149,7 +149,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
 
         MixedMat::fForcingFunctionExact->Execute(datavec[0].x, pressvec,gradu);
         gradu.Resize(3, 1);
-        gradu(2,0) = 0.;
+        //gradu(2,0) = 0.;
     }
     
     PermTensor.Multiply(gradu, fluxinv);

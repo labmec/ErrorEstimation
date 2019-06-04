@@ -61,14 +61,10 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
-    for (int ndiv=1 ; ndiv< 7; ndiv++){
-        
-       
-    
-    
+
     ProblemConfig config;
         
-    config.ndivisions= ndiv;
+    config.ndivisions= 0;
         
     config.porder = 1;
     config.hdivmais = 1;
@@ -76,10 +72,10 @@ int main(int argc, char *argv[]) {
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::EBuble;//EConst;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname ="Buble";//"EConst";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::EBubble;//EConst;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
+    config.problemname ="Bubble";//"EConst";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
     
-    config.dir_name= "Buble";
+    config.dir_name= "Bubble";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -283,8 +279,6 @@ int main(int argc, char *argv[]) {
     delete cmesh_HDiv;
     delete meshvec_HDiv[0];
     delete meshvec_HDiv[1];
-  //  return 0;
-}
-    
+    return 0;
 }
 
