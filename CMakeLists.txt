@@ -34,7 +34,6 @@ include_directories(${PZ_INCLUDE_DIRS})
 set(SEARCH_DIRS ENV PATH /usr/local/opt/ /usr/local/opt/qt5/lib/cmake/ /usr/include /usr/local/include /usr/local/include/boost /usr/local/include/log4cxx /usr/local/include/tbb /usr/lib /usr/lib64 /usr/local/lib ./. ./.. ./../libs ./../libs/fad ./../libs/metis ./../libs/metis/include ./../libs/metis/lib ./../externallibs ./../externallibs/fad ./../externallibs/pthread ./../externallibs/metis ./../externallibs/metis/include ./../externallibs/metis/lib ./..metis ./../metis/include ./../metis/lib ./externallibs/lib ./externallibs/include ./../externallibs/lib ./../externallibs/include)
 
 
-
 #-----
 #enabling to use LOG4CXX library
 option(USING_LOG4CXX "Whether the LOG4CXX library will be linked in" OFF)
@@ -66,10 +65,14 @@ if(USING_LOG4CXX)
 endif(USING_LOG4CXX)
 
 
-
+#-----
+#enabling OpenCV projects
+option(BUILD_OPENCV_PROJECTS "Whether to build projects that require OpenCV" OFF)
+if(BUILD_OPENCV_PROJECTS)
+	find_package(OpenCV REQUIRED)
+	add_subdirectory(MHM_Maze)
+endif()
 #---
-
-
 
 #enabling pthread library
 find_path(PTHREAD_INCLUDE NAMES PThread.h pthread.h PATHS ${SEARCH_DIRS} D:/Projetos/externallibs/include )
@@ -85,7 +88,6 @@ IF (WIN32)
 	find_package( PZ PATHS "C:/Arquivos de Programas/PZ" REQUIRED NO_DEFAULT_PATH)
 ELSE()
 	find_package( PZ REQUIRED )
-       find_package(OpenCV REQUIRED)
 ENDIF (WIN32)
 
 if(WIN32)
@@ -120,9 +122,7 @@ if(WIN32)
 
 endif()
 
-
 add_subdirectory(AinsworthProposal)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(MHMEstimation)
-add_subdirectory(MHM_Maze)
