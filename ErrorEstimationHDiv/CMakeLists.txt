@@ -1,13 +1,15 @@
 # Project to apply hp-adaptive process to Poisson3D material on hexahedra with a shock problem
 set(
-common_SRC
-ProblemConfig.h
-Tools.h
-Tools.cpp
-TPZHybridHDivErrorEstimator.h
-TPZHybridHDivErrorEstimator.cpp
-TPZMixedHdivErrorEstimate.h
-TPZMixedHdivErrorEstimate.cpp
+        common_SRC
+        ProblemConfig.h
+        Tools.h
+        Tools.cpp
+        TPZHybridHDivErrorEstimator.h
+        TPZHybridHDivErrorEstimator.cpp
+        TPZMixedHdivErrorEstimate.h
+        TPZMixedHdivErrorEstimate.cpp
+        TPZHDivErrorEstimatorH1.h
+        TPZHDivErrorEstimatorH1.cpp
 )
 
 add_executable(HeteroPermeability ${common_SRC} main_HeteroPermeability.cpp)
