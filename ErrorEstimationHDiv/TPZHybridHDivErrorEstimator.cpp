@@ -783,6 +783,7 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim)
                 DebugStop();
             }
             celstack.Push(lowlevel);
+            tr.Resize(2);
             tr[1] = TPZTransform<REAL>(gelside.Dimension());
             gelside.SideTransform3(lowlevel.Reference(), tr[1]);
         }
