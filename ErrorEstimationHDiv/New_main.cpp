@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
     }
     
     //UniformRefinement(config.ndivisions, gmesh);
-    RandonRefine(config, config.ndivisions);
+    RandomRefine(config, config.ndivisions);
 
    #ifdef PZDEBUG
     {
