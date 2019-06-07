@@ -512,4 +512,45 @@ void PlotLagrangreMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
     
 }
 
-
+void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
+{
+    
+    TPZAnalysis an(cmesh_HDiv);
+    
+    
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
+    strmat.SetNumThreads(0);
+    //        strmat.SetDecomposeType(ELDLt);
+    an.SetStructuralMatrix(strmat);
+#else
+    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
+    strmat.SetNumThreads(0);
+    //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
+    //        strmat3.SetNumThreads(8);
+#endif
+    
+    TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
+    direct->SetDirect(ELDLt);
+    an.SetSolver(*direct);
+    delete direct;
+    direct = 0;
+    an.Assemble();
+    an.Solve();//resolve o problema misto ate aqui
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("Pressure");
+    scalnames.Push("ExactPressure");
+    vecnames.Push("Flux");
+    vecnames.Push("ExactFlux");
+    
+    int dim = config.gmesh->Dimension();
+    
+    std::stringstream sout;
+    
+    sout << config.dir_name << "/"  "OriginalMixed_Order_"<<config.problemname<<"Order"<< config.porder<<"Nref_"<<config.ndivisions<<".vtk";
+    
+    //an.DefineGraphMesh(2, scalnames, vecnames, "Original_Misto.vtk");
+    an.DefineGraphMesh(dim, scalnames, vecnames, sout.str());
+    int resolution=2;
+    an.PostProcess(resolution,dim);
+}

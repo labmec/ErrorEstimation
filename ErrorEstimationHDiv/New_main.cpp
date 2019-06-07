@@ -44,10 +44,10 @@
 #include <memory>
 
 
-bool IsgmeshReader=true;
-bool neumann=true;
+bool IsgmeshReader = false;
+bool neumann = true;
 
-bool mixedsolution=true;
+bool mixedsolution = false;
 
 
 int main(int argc, char *argv[]) {
@@ -68,21 +68,20 @@ int main(int argc, char *argv[]) {
         
     config.porder = 1;
     config.hdivmais = 1;
-    config.ndivisions=0;
+    config.ndivisions=1;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::EBubble;//EConst;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname ="Bubble";//"EConst";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//;//EConst;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
+    config.problemname ="ESinSinDirNonHom";//"EConst";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
     
-    config.dir_name= "Bubble";
+    config.dir_name= "ESinSinDirNonHom";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
+
     
- //   FunctionTest();
-    
-    int dim=3;
+    int dim = 2;
     
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
@@ -134,7 +133,8 @@ int main(int argc, char *argv[]) {
         
     }
     
-    UniformRefinement(config.ndivisions, gmesh);
+    //UniformRefinement(config.ndivisions, gmesh);
+    RandonRefine(config, config.ndivisions);
 
    #ifdef PZDEBUG
     {
@@ -165,50 +165,8 @@ int main(int argc, char *argv[]) {
     
     
     
-    if(mixedsolution)
-    {
+    if(mixedsolution) SolveMixedProblem(cmesh_HDiv,config);
 
-        
-        TPZAnalysis an(cmesh_HDiv);
-        
-        
-#ifdef USING_MKL
-        TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
-        strmat.SetNumThreads(0);
-        //        strmat.SetDecomposeType(ELDLt);
-        an.SetStructuralMatrix(strmat);
-#else
-        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
-        strmat.SetNumThreads(0);
-        //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
-        //        strmat3.SetNumThreads(8);
-#endif
-        
-        TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
-        direct->SetDirect(ELDLt);
-        an.SetSolver(*direct);
-        delete direct;
-        direct = 0;
-        an.Assemble();
-        an.Solve();//resolve o problema misto ate aqui
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("Pressure");
-        scalnames.Push("ExactPressure");
-        vecnames.Push("Flux");
-        vecnames.Push("ExactFlux");
-        
-        std::stringstream sout;
-       
-        sout << config.dir_name << "/"  "OriginalMixed_Order_"<<config.problemname<<"Order"<< config.porder<<"Nref_"<<config.ndivisions<<".vtk";
-        
-        //an.DefineGraphMesh(2, scalnames, vecnames, "Original_Misto.vtk");
-        an.DefineGraphMesh(dim, scalnames, vecnames, sout.str());
-        int resolution=2;
-        an.PostProcess(resolution,dim);
-        
-        
-    }
-    
     
     meshvec_HDiv = cmesh_HDiv->MeshVector();
     
@@ -222,14 +180,11 @@ int main(int argc, char *argv[]) {
     delete meshvec_HDiv[0];
     delete meshvec_HDiv[1];
     
-    int n=hybrid.fLagrangeInterface;
-    int n1=hybrid.fHDivWrapMatid;
-    int n2=hybrid.fInterfaceMatid;
     
     std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
-    std::cout <<" LagrangeInterface = "<<n<<std::endl;
-    std::cout <<" HDivWrapMatid = "<<n1<<std::endl;
-    std::cout <<" InterfaceMatid = "<<n2<<std::endl;
+    std::cout <<" LagrangeInterface = "<<hybrid.fLagrangeInterface<<std::endl;
+    std::cout <<" HDivWrapMatid = "<<hybrid.fHDivWrapMatid<<std::endl;
+    std::cout <<" InterfaceMatid = "<<hybrid.fInterfaceMatid<<std::endl;
     
     
     cmesh_HDiv=(HybridMesh);//malha hribrida
@@ -249,7 +204,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     
-    SolveHybridProblem(cmesh_HDiv,n2,config);
+    SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config);
 
 #ifdef PZDEBUG
     {

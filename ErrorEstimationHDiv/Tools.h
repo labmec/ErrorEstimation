@@ -65,6 +65,7 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder);
 
 
 void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem);
+void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config);
 void PlotLagrangreMultiplier(TPZCompMesh *cmesh, const ProblemConfig &problem);
 
 
