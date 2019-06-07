@@ -14,11 +14,17 @@ class TPZHDivErrorEstimatorH1 : public TPZHybridHDivErrorEstimator {
     int fUpliftOrder = 0;
 protected:
     
+    /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
+    virtual void SwitchMaterialObjects() override;    
+
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh() override;
     
     /// compute a more precise approximation for the pressure
     void UpliftPressure();
+    
+    /// create a constant pressure mesh used for uplifting the pressure
+    TPZCompMesh *CreateDiscontinuousMesh(const TPZCompMesh *pressuremesh);
 };
 
 
