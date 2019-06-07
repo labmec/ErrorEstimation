@@ -272,7 +272,7 @@ void MultiPhysicsHybrid(const ProblemConfig &config){
     
 }
 
-void RandonRefine(ProblemConfig &config,int numelrefine){
+void RandomRefine(ProblemConfig &config,int numelrefine){
     
     int64_t nel = config.gmesh->NElements();
     if (numelrefine > nel/2) {
@@ -290,23 +290,28 @@ void RandonRefine(ProblemConfig &config,int numelrefine){
         }
     }
     nel = config.gmesh->NElements();
-    for (int64_t el=0; el<nel; el++) {
-        TPZGeoEl *gel = config.gmesh->Element(el);
-        if(gel && gel->Dimension() < config.gmesh->Dimension())
-        {
-            TPZGeoElSide gelside(gel,gel->NSides()-1);
-            TPZGeoElSide neighbour = gelside.Neighbour();
-            while (neighbour != gelside) {
-                if (neighbour.Element()->NSubElements() != 0) {
-                    TPZStack<TPZGeoEl *> subels;
-                    gel->Divide(subels);
-                    break;
+    bool changed = true;
+    while(changed)
+    {
+        changed = false;
+        for (int64_t el=0; el<nel; el++) {
+            TPZGeoEl *gel = config.gmesh->Element(el);
+            if(gel && gel->Dimension() < config.gmesh->Dimension())
+            {
+                TPZGeoElSide gelside(gel,gel->NSides()-1);
+                TPZGeoElSide neighbour = gelside.Neighbour();
+                while (neighbour != gelside) {
+                    if (neighbour.Element()->HasSubElement() != 0 && !gel->HasSubElement()) {
+                        TPZStack<TPZGeoEl *> subels;
+                        gel->Divide(subels);
+                        changed = true;
+                        break;
+                    }
+                    neighbour = neighbour.Neighbour();
                 }
-                neighbour = neighbour.Neighbour();
             }
         }
     }
-    
     
 }
 
