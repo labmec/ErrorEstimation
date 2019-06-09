@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
     
     if(random_refine){
         int numelrefine=4;
-        RandonRefine(config,numelrefine);
+        RandomRefine(config,numelrefine);
   
     }
     

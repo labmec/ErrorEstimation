@@ -272,7 +272,7 @@ void MultiPhysicsHybrid(const ProblemConfig &config){
     
 }
 
-void RandonRefine(ProblemConfig &config,int numelrefine){
+void RandomRefine(ProblemConfig &config,int numelrefine){
     
     int64_t nel = config.gmesh->NElements();
     if (numelrefine > nel/2) {
@@ -290,23 +290,28 @@ void RandonRefine(ProblemConfig &config,int numelrefine){
         }
     }
     nel = config.gmesh->NElements();
-    for (int64_t el=0; el<nel; el++) {
-        TPZGeoEl *gel = config.gmesh->Element(el);
-        if(gel && gel->Dimension() < config.gmesh->Dimension())
-        {
-            TPZGeoElSide gelside(gel,gel->NSides()-1);
-            TPZGeoElSide neighbour = gelside.Neighbour();
-            while (neighbour != gelside) {
-                if (neighbour.Element()->NSubElements() != 0) {
-                    TPZStack<TPZGeoEl *> subels;
-                    gel->Divide(subels);
-                    break;
+    bool changed = true;
+    while(changed)
+    {
+        changed = false;
+        for (int64_t el=0; el<nel; el++) {
+            TPZGeoEl *gel = config.gmesh->Element(el);
+            if(gel && gel->Dimension() < config.gmesh->Dimension())
+            {
+                TPZGeoElSide gelside(gel,gel->NSides()-1);
+                TPZGeoElSide neighbour = gelside.Neighbour();
+                while (neighbour != gelside) {
+                    if (neighbour.Element()->HasSubElement() != 0 && !gel->HasSubElement()) {
+                        TPZStack<TPZGeoEl *> subels;
+                        gel->Divide(subels);
+                        changed = true;
+                        break;
+                    }
+                    neighbour = neighbour.Neighbour();
                 }
-                neighbour = neighbour.Neighbour();
             }
         }
     }
-    
     
 }
 
@@ -512,4 +517,45 @@ void PlotLagrangreMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
     
 }
 
-
+void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
+{
+    
+    TPZAnalysis an(cmesh_HDiv);
+    
+    
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
+    strmat.SetNumThreads(0);
+    //        strmat.SetDecomposeType(ELDLt);
+    an.SetStructuralMatrix(strmat);
+#else
+    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
+    strmat.SetNumThreads(0);
+    //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
+    //        strmat3.SetNumThreads(8);
+#endif
+    
+    TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
+    direct->SetDirect(ELDLt);
+    an.SetSolver(*direct);
+    delete direct;
+    direct = 0;
+    an.Assemble();
+    an.Solve();//resolve o problema misto ate aqui
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("Pressure");
+    scalnames.Push("ExactPressure");
+    vecnames.Push("Flux");
+    vecnames.Push("ExactFlux");
+    
+    int dim = config.gmesh->Dimension();
+    
+    std::stringstream sout;
+    
+    sout << config.dir_name << "/"  "OriginalMixed_Order_"<<config.problemname<<"Order"<< config.porder<<"Nref_"<<config.ndivisions<<".vtk";
+    
+    //an.DefineGraphMesh(2, scalnames, vecnames, "Original_Misto.vtk");
+    an.DefineGraphMesh(dim, scalnames, vecnames, sout.str());
+    int resolution=2;
+    an.PostProcess(resolution,dim);
+}

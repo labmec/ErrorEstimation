@@ -54,7 +54,7 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 TPZGeoMesh *CreateGeoMesh(int nelem);
 void MultiPhysicsCompel(const ProblemConfig &config);
 
-void RandonRefine(ProblemConfig &config,int numelrefine);
+void RandomRefine(ProblemConfig &config,int numelrefine);
 
 std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);
 void PrintSolAndDerivate(const ProblemConfig config);
@@ -65,6 +65,7 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder);
 
 
 void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem);
+void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config);
 void PlotLagrangreMultiplier(TPZCompMesh *cmesh, const ProblemConfig &problem);
 
 

@@ -135,7 +135,7 @@ protected:
     void ComputeNodalAverages();
     
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-    void SwitchMaterialObjects();
+    virtual void SwitchMaterialObjects();
     
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();

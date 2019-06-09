@@ -132,14 +132,14 @@ int main(){
     InitializePZLOG();
     
     ConfigCasesMaze ConfCasesMeze;
-    ConfCasesMeze.SetImageName("maze8x8.png");
+    ConfCasesMeze.SetImageName("../Mazes/maze8x8.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);
     ConfCasesMeze.SetPermeableMatPermeability(1000000);
     ConfCasesMeze.SetFluxOrder(1);
     ConfCasesMeze.SetPressureOrder(1);
     ConfCasesMeze.SetCCPressureIn(100);
     ConfCasesMeze.SetCCPressureOut(1);
-    ConfCasesMeze.SetMHMOpenChannel(true);
+    ConfCasesMeze.SetMHMOpenChannel(false);
     ConfCasesMeze.SetVTKName("maze8x8.vtk");
  
 //    H1Test(ConfCasesMeze);
