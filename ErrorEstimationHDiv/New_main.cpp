@@ -37,11 +37,14 @@
 #include "TPZMultiphysicsCompMesh.h"
 
 #include "TPZHybridHDivErrorEstimator.h"
+
 #include "Tools.h"
 
 #include "TPZBFileStream.h"
 #include <tuple>
 #include <memory>
+
+
 
 
 bool IsgmeshReader = false;
@@ -68,7 +71,7 @@ int main(int argc, char *argv[]) {
         
     config.porder = 1;
     config.hdivmais = 1;
-    config.ndivisions=1;
+    config.ndivisions=0;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
@@ -133,8 +136,10 @@ int main(int argc, char *argv[]) {
         
     }
     
-    //UniformRefinement(config.ndivisions, gmesh);
-    RandomRefine(config, config.ndivisions);
+
+    
+    UniformRefinement(config.ndivisions, gmesh);
+   // RandomRefine(config, config.ndivisions);
 
    #ifdef PZDEBUG
     {

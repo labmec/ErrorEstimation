@@ -31,6 +31,8 @@
 
 #include "TPZVTKGeoMesh.h"
 
+#include "TPZHDivErrorEstimateMaterial.h"
+
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
 #endif
@@ -245,6 +247,16 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses()
         if(!cel) continue;
             TPZElementMatrix ek, ef;
             cel->CalcStiff(ek, ef);
+        
+#ifdef LOG4CXX
+        std::stringstream sout;
+        sout << "Stiffness for computational element vec " << cel<<std::endl;
+        ek.Print(sout);
+        ef.Print(sout);
+        
+#endif
+        
+        
         
     }
     
@@ -1595,6 +1607,16 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
     
+    //testing the new material
+    {
+        
+        SwitchNewMaterialObjects();
+        ComputeElementStiffnesses();
+        
+        DebugStop();
+        
+    }
+    
     PlotLagrangeMultiplier("AfterNodalAverage");
 #ifdef PZDEBUG
     {
@@ -1731,6 +1753,32 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects()
                 }
             }
             fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            delete mixpoisson;
+        }
+    }
+}
+
+void TPZHybridHDivErrorEstimator::SwitchNewMaterialObjects()
+{
+    for(auto matid : fPostProcMesh.MaterialVec())
+    {
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+        if(mixpoisson)
+        {
+            TPZHDivErrorEstimateMaterial *mix = new TPZHDivErrorEstimateMaterial(1, fOriginal->Dimension());
+            
+            if(fExact)
+            {
+                mix->SetForcingFunctionExact(fExact->Exact());
+            }
+            
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(mix);
+                }
+            }
+            fPostProcMesh.MaterialVec()[mix->Id()] = mix;
             delete mixpoisson;
         }
     }

@@ -4,6 +4,9 @@
 //
 //  Created by Philippe Devloo on 11/06/19.
 //
+/**
+ This material implement the Ainsworth proposal
+ **/
 
 #ifndef TPZHDivErrorEstimateMaterial_hpp
 #define TPZHDivErrorEstimateMaterial_hpp
@@ -31,6 +34,10 @@ public:
     
 
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
+    
+    virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
+    
+    bool fNeumannLocalProblem = true;
 
 };
 
