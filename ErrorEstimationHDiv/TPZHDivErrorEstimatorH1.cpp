@@ -3,7 +3,9 @@
 //
 
 #include "TPZHDivErrorEstimatorH1.h"
-
+#include "mixedpoisson.h"
+#include "pzbndcond.h"
+#include "TPZHDivErrorEstimateMaterial.h"
 #include "TPZVTKGeoMesh.h"
 
 /// create the post processed multiphysics mesh (which is necessarily hybridized)
@@ -29,6 +31,7 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         // pressure interface elements etc
         DebugStop();
     }
+    UpliftPressure();
     IdentifyPeripheralMaterialIds();
     int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
     fSkeletonMatId = lastmatid+1;
@@ -83,6 +86,31 @@ TPZCompMesh *TPZHDivErrorEstimatorH1::CreateDiscontinuousMesh(const TPZCompMesh 
 void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
 {
     // switch the material of the HDiv approximation to a material for an H1 approximation
-    DebugStop();
+    for(auto matid : fPostProcMesh.MaterialVec())
+    {
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+        if(mixpoisson)
+        {
+            int dim = mixpoisson->Dimension();
+            int matid = mixpoisson->Id();
+            
+            TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
+            
+            if(fExact)
+            {
+                newmat->SetForcingFunctionExact(fExact->Exact());
+            }
+            
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(newmat);
+                }
+            }
+            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            delete mixpoisson;
+        }
+    }
+
 }
 

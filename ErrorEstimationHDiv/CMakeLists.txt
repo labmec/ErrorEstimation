@@ -10,6 +10,8 @@ set(
         TPZMixedHdivErrorEstimate.cpp
         TPZHDivErrorEstimatorH1.h
         TPZHDivErrorEstimatorH1.cpp
+        TPZHDivErrorEstimateMaterial.h
+        TPZHDivErrorEstimateMaterial.cpp
 )
 
 add_executable(HeteroPermeability ${common_SRC} main_HeteroPermeability.cpp)
