@@ -249,7 +249,7 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses()
         TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
         if(condense)
         {
-            condense->Assemble();
+            //condense->Assemble();
         }
 //        TPZElementMatrix ek, ef;
 //        cel->CalcStiff(ek, ef);
@@ -1665,9 +1665,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
             fPostProcMesh.MeshVector()[0]->Print(out2);
 
         }
+        VerifySolutionConsistency(fPostProcMesh.MeshVector()[1]);
 #endif
     }
-
 }
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed)
@@ -1790,3 +1790,82 @@ void TPZHybridHDivErrorEstimator::SwitchNewMaterialObjects()
     }
 }
 
+void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
+    {
+        std::ofstream out("MeshToVerifyConsistency.txt");
+        cmesh->Print(out);
+
+        std::ofstream outvtk("MeshToVerifyConsistency2.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
+    }
+
+    int64_t nel = cmesh->NElements();
+    int dim = cmesh->Reference()->Dimension();
+
+    for (int64_t iel = 0; iel < nel; iel++) {
+        TPZCompEl *cel = cmesh->Element(iel);
+        if (!cel) continue;
+
+        // Filters elements of highest dimension (2 or 3)
+        TPZGeoEl *gel = cel->Reference();
+        if (gel->Dimension() != dim) continue;
+
+        // Iterates through the sides of the element
+        int nsides = gel->NSides();
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+
+            // Filters sides of lower dimension
+            if (gelside.Dimension() == dim) continue;
+
+            // Gets compel sides of equal and lower (if existing) level linked to the gelside
+            TPZStack<TPZCompElSide> celstack;
+            gelside.EqualLevelCompElementList(celstack, 1, 0);
+            TPZCompElSide large = gelside.LowerLevelCompElementList2(1);
+            bool debugLarge = false;
+            if (large) {
+                celstack.Push(large);
+            }
+
+            if (celstack.size() == 0) continue;
+
+            int intOrder = 2;
+            TPZIntPoints *intRule = gelside.Element()->CreateSideIntegrationRule(gelside.Side(), intOrder);
+
+            int nstack = celstack.size();
+            // TODO O bug acontece quando o vizinho eh de nivel menor de refinamento. Nestes casos a transformacao nao funciona
+            for (int ist = 0; ist < nstack; ist++) {
+                TPZCompElSide cneighbour = celstack[ist];
+                if (!cneighbour) continue;
+                TPZGeoElSide neighbour = cneighbour.Reference();
+
+                // TODO essa verificacao permite que o programa rode mas acho que agora nenhum vizinho de ordem menor eh contabilizado
+                if(!gelside.NeighbourExists(neighbour)) continue;
+
+                if (neighbour.Element()->Dimension() != dim) continue;
+                TPZTransform<REAL> transform = gelside.NeighbourSideTransform(neighbour);
+
+                TPZManVector<REAL> pt0(gelside.Dimension(), 0);
+                TPZManVector<REAL> pt1(neighbour.Dimension(), 0);
+
+                int npoints = intRule->NPoints();
+                for (int ipt = 0; ipt < npoints; ipt ++) {
+                    REAL weight;
+                    intRule->Point(ipt, pt0, weight);
+                    transform.Apply(pt0, pt1);
+
+                    TPZManVector<REAL> x0(3);
+                    TPZManVector<REAL> x1(3);
+
+                    gelside.X(pt0, x0);
+                    neighbour.X(pt1, x1);
+
+                    std::cout << "Side coord:\t\t[" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+                    std::cout << "Neigh coord:\t[" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n\n";
+                }
+            }
+
+            delete intRule;
+        }
+    }
+}

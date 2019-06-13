@@ -163,6 +163,9 @@ protected:
     void IdentifyPeripheralMaterialIds();
     //just to test the new material and contribute
     void SwitchNewMaterialObjects();
+
+    // Checks if the solution is in fact continuous
+    void VerifySolutionConsistency(TPZCompMesh* cmesh);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
