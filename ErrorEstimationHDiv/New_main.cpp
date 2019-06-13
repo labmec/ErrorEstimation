@@ -15,7 +15,6 @@
 #include "tpzgeoelrefpattern.h"
 #include "tpzarc3d.h"
 
-
 #include "ProblemConfig.h"
 
 #include "mixedpoisson.h"
@@ -42,7 +41,6 @@
 #include "TPZBFileStream.h"
 #include <tuple>
 #include <memory>
-
 
 bool IsgmeshReader = false;
 bool neumann = true;
@@ -120,7 +118,7 @@ int main(int argc, char *argv[]) {
 
     }
     
-    else{
+    else {
     
         gmesh = CreateGeoMesh(2);
         config.materialids.insert(1);
@@ -129,11 +127,9 @@ int main(int argc, char *argv[]) {
         config.gmesh = gmesh;
         gmesh->SetDimension(dim);
         
-        
-        
     }
     
-    //UniformRefinement(config.ndivisions, gmesh);
+    //UniformRefinement(1, gmesh);
     RandomRefine(config, config.ndivisions);
 
    #ifdef PZDEBUG
@@ -212,10 +208,7 @@ int main(int argc, char *argv[]) {
         (HybridMesh)->Print(out);
     }
 #endif
- //   PlotLagrangreMultiplier(meshvec_HDiv[1],config);
 
-    
-    
     //reconstroi potencial e calcula o erro
     {
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);

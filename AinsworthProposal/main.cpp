@@ -22,7 +22,10 @@
 #include "pzskylstrmatrix.h"
 #include "pzstepsolver.h"
 
+#include "TPZAPosterioriErrorEstimator.h"
 #include "ProblemConfig.h"
+
+#include "Tools.h"
 
 // Creates TPZGeoMesh mesh from a Gmsh .msh file
 TPZGeoMesh *CreateGeoMesh(const std::string &meshFileName);
@@ -32,13 +35,13 @@ TPZMultiphysicsCompMesh *CreateSolutionMixedMesh(ProblemConfig &config);
 TPZCompMesh *CreateSolutionFluxMesh(ProblemConfig &config);
 TPZCompMesh *CreateSolutionPressureMesh(ProblemConfig &config);
 
+// Solution calculation
 void Solve(TPZAnalysis &analysis);
 void PostProcessSolution(TPZAnalysis &analysis);
 
-void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
-
 int main() {
 
+    // Sets problem data
     ProblemConfig config;
 
     config.meshFileName = "BasicMesh.msh";
@@ -53,14 +56,19 @@ int main() {
 
     UniformRefinement(config.nDivisions, config.gmesh);
 
+    // Creates multiphysics mesh
     TPZMultiphysicsCompMesh *solutionMixedMesh = CreateSolutionMixedMesh(config);
 
+    // Solves problem
     TPZAnalysis an(solutionMixedMesh);
     Solve(an);
     PostProcessSolution(an);
 
+    // Estimates error
+    TPZCompMesh *solutionFlux = solutionMixedMesh->MeshVector()[0];
+    TPZCompMesh *solutionPressure = solutionMixedMesh->MeshVector()[1];
     
-    
+    //TPZAPosterioriErrorEstimator estimator();
     
     std::cout << "hell yeah!";
 }
@@ -70,7 +78,7 @@ TPZMultiphysicsCompMesh *CreateSolutionMixedMesh(ProblemConfig &config) {
     TPZMultiphysicsCompMesh *mixedMesh = new TPZMultiphysicsCompMesh(config.gmesh);
 
     TPZMaterial *mat = nullptr;
-    for (const auto & domainMat: config.DomainMats) {
+    for (const auto &domainMat: config.DomainMats) {
         int matID = std::get<1>(domainMat);
         TPZMixedPoisson *mixedMat = new TPZMixedPoisson(matID, config.gmesh->Dimension());
 
@@ -81,7 +89,7 @@ TPZMultiphysicsCompMesh *CreateSolutionMixedMesh(ProblemConfig &config) {
         if (!mat) mat = mixedMat;
     }
 
-    for (const auto & bcMat: config.BCMats) {
+    for (const auto &bcMat: config.BCMats) {
         int matID = std::get<1>(bcMat);
 
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
@@ -126,7 +134,7 @@ TPZCompMesh *CreateSolutionFluxMesh(ProblemConfig &config) {
 
     int dim = config.gmesh->Dimension();
 
-    for (const auto & domainMat: config.DomainMats) {
+    for (const auto &domainMat: config.DomainMats) {
         int matID = std::get<1>(domainMat);
         TPZVecL2 *mix = new TPZVecL2(matID);
         mix->SetDimension(dim);
@@ -134,7 +142,7 @@ TPZCompMesh *CreateSolutionFluxMesh(ProblemConfig &config) {
         cmesh->InsertMaterialObject(mix);
     }
 
-    for (const auto & bcMat: config.BCMats) {
+    for (const auto &bcMat: config.BCMats) {
         int matID = std::get<1>(bcMat);
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
         if (!mat) DebugStop();
@@ -161,7 +169,7 @@ TPZCompMesh *CreateSolutionFluxMesh(ProblemConfig &config) {
                 int side = gel->NSides() - 1;
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
                 intel->SetSideOrder(side, config.pOrder + config.hdivplus);
-                intel->SetPreferredOrder(config.pOrder + config.hdivplus); // TODO perguntar pro phil o que isso faz
+                intel->SetPreferredOrder(config.pOrder + config.hdivplus);
             }
         }
     }
@@ -210,23 +218,6 @@ TPZCompMesh *CreateSolutionPressureMesh(ProblemConfig &config) {
     return cmesh;
 }
 
-void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
-
-    TPZManVector<TPZGeoEl*> children;
-    for(int division = 0; division < nDiv; division++) {
-
-        int64_t nels = gmesh->NElements();
-
-        for(int64_t elem = 0; elem < nels; elem++) {
-
-            TPZGeoEl * gel = gmesh->ElementVec()[elem];
-
-            if(!gel || gel->HasSubElement()) continue;
-            if(gel->Dimension() == 0) continue;
-            gel->Divide(children);
-        }
-    }
-}
 
 void Solve(TPZAnalysis &analysis) {
 

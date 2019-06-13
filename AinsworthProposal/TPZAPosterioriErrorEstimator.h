@@ -10,7 +10,7 @@
 
 class TPZAPosterioriErrorEstimator {
 
-private:
+protected:
     TPZVec<REAL> fElementErrors;
     TPZAnalysis *fAnalysis;
     TPZAnalyticSolution *fAnalyticSolution;

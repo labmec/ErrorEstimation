@@ -7,7 +7,7 @@
 
 #include "TPZAPosterioriErrorEstimator.h"
 
-class TPZHybridHDivErrorEstimator : TPZAPosterioriErrorEstimator {
+class TPZHybridHDivErrorEstimator : public TPZAPosterioriErrorEstimator {
 
 };
 

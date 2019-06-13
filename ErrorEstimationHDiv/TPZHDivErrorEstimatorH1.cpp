@@ -1,10 +1,11 @@
 //
-// Created by gustavo on 30/05/19.
+// Created by Gustavo on 30/05/19.
 //
 
 #include "TPZHDivErrorEstimatorH1.h"
 
 #include "TPZVTKGeoMesh.h"
+#include "mixedpoisson.h"
 
 /// create the post processed multiphysics mesh (which is necessarily hybridized)
 void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
@@ -13,12 +14,13 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
     fOriginal->CopyMaterials(fPostProcMesh);
+
     // switch the material from mixed to TPZMixedHdivErrorEstimate...
     SwitchMaterialObjects();
     
     TPZManVector<TPZCompMesh *,4> mesh_vectors(4,0);
-    mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
-    mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
+    mesh_vectors[2] = fOriginal->MeshVector()[0]; //flux
+    mesh_vectors[3] = fOriginal->MeshVector()[1]; //potential
     // create a copy of the pressure mesh
     mesh_vectors[0] = fOriginal->MeshVector()[1]->Clone();
     mesh_vectors[1] = CreateDiscontinuousMesh(mesh_vectors[0]);
@@ -29,9 +31,11 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         // pressure interface elements etc
         DebugStop();
     }
+
     IdentifyPeripheralMaterialIds();
     int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
     fSkeletonMatId = lastmatid+1;
+
     // increase the order of the dim-1 elements to the maximum of both neighbouring elements
     IncreasePressureSideOrders(mesh_vectors[0]);//malha da pressao
 
@@ -82,7 +86,29 @@ TPZCompMesh *TPZHDivErrorEstimatorH1::CreateDiscontinuousMesh(const TPZCompMesh 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
 void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
 {
+
     // switch the material of the HDiv approximation to a material for an H1 approximation
-    DebugStop();
+    for(auto matid : fPostProcMesh.MaterialVec())
+    {
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+        if(mixpoisson)
+        {
+           // TPZMixedHDivErrorEstimate<TPZMixedPoisson> *newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
+
+           // if(fExact)
+           // {
+           //     newmat->SetForcingFunctionExact(fExact->Exact());
+           // }
+
+           // for (auto bcmat : fPostProcMesh.MaterialVec()) {
+           //     TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+           //     if (bc) {
+           //         bc->SetMaterial(newmat);
+           //     }
+           // }
+           // fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+           // delete mixpoisson;
+        }
+    }
 }
 
