@@ -1,4 +1,4 @@
-# Project to apply hp-adaptive process to Poisson3D material on hexahedra with a shock problem
+# Project to apply error estimation for Hdiv reconstrcuction
 set(
         common_SRC
         ProblemConfig.h
@@ -27,6 +27,10 @@ target_link_libraries(HybridMain pz)
 add_executable(NoHybridMain ${common_SRC} main.cpp)
 
 target_link_libraries(NoHybridMain pz)
+
+add_executable(H1Reconstruction ${common_SRC} main_H1.cpp)
+
+target_link_libraries(H1Reconstruction pz)
 
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)

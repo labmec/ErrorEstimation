@@ -1607,15 +1607,15 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
     
-    //testing the new material
-    {
-        
-        SwitchNewMaterialObjects();
-        ComputeElementStiffnesses();
-        
-        DebugStop();
-        
-    }
+//    //testing the new material
+//    {
+//        
+//        SwitchNewMaterialObjects();
+//        ComputeElementStiffnesses();
+//        
+//        DebugStop();
+//        
+//    }
     
     PlotLagrangeMultiplier("AfterNodalAverage");
 #ifdef PZDEBUG

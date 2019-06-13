@@ -8,6 +8,9 @@
 #include "Tools.h"
 #include "pzgengrid.h"
 
+#include <tuple>
+#include <memory>
+
 
 
 TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem) {
@@ -499,7 +502,7 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
 
     
 }
-void PlotLagrangreMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
+void PlotLagrangeMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
     
     TPZAnalysis an(cmesh,false);
     TPZStack<std::string> scalnames, vecnames;
@@ -558,4 +561,136 @@ void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
     an.DefineGraphMesh(dim, scalnames, vecnames, sout.str());
     int resolution=2;
     an.PostProcess(resolution,dim);
+}
+
+
+TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
+    
+   
+     TPZGeoMesh *gmesh = nullptr;
+     int dim= config.dimension;
+    
+    
+    
+    if(IsgmeshReader){
+
+
+        std::string meshfilename = "../LCircle.msh";
+
+        if(dim==3)
+        {
+            meshfilename = "../Cube.msh";
+        }
+        TPZGmshReader gmsh;
+        //  gmsh.GetDimNamePhysical().resize(4);
+        //  gmsh.GetDimPhysicalTagName().resize(4);
+        if(dim==2)
+        {
+            gmsh.GetDimNamePhysical()[1]["dirichlet"] =2;
+            gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+        }
+        else
+        {
+            gmsh.GetDimNamePhysical()[2]["dirichlet"] =2;
+            gmsh.GetDimNamePhysical()[3]["domain"] = 1;
+        }
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(2);
+
+
+        gmsh.SetFormatVersion("4.1");
+        gmesh = gmsh.GeometricGmshMesh(meshfilename);
+        gmsh.PrintPartitionSummary(std::cout);
+        gmesh->SetDimension(dim);
+        config.gmesh = gmesh;
+
+    }
+
+    else{
+
+        gmesh = CreateGeoMesh(2);
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(-1);
+        config.bcmaterialids.insert(-2);
+        config.gmesh = gmesh;
+        gmesh->SetDimension(dim);
+
+
+
+    }
+    
+    return gmesh;
+    
+    
+}
+
+ TPZMultiphysicsCompMesh * HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv,TPZManVector<TPZCompMesh*, 2> hibridmeshvec, struct ProblemConfig &config){
+    
+//    //TPZMultiphysicsCompMesh *cmesh_HDiv=nullptr;
+//    
+//    cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
+//    cmesh_HDiv->InitializeBlock();
+//    
+//#ifdef PZDEBUG
+//    {
+//        
+//        std::ofstream out2("MixedMesh.txt");
+//        cmesh_HDiv->Print(out2);
+//        
+//    }
+//#endif
+//    
+//    
+//    //SolveMixedProblem(cmesh_HDiv,config);
+//    
+    
+    hibridmeshvec = cmesh_HDiv->MeshVector();
+    
+    //cria malha hibrida
+    std::cout<<"Initializing the hybridization procedure"<<std::endl;
+    
+    TPZHybridizeHDiv hybrid;
+    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
+    HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
+    HybridMesh->AdjustBoundaryElements();
+    delete cmesh_HDiv;
+    delete hibridmeshvec[0];
+    delete hibridmeshvec[1];
+    
+    
+    std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
+    std::cout <<" LagrangeInterface = "<<hybrid.fLagrangeInterface<<std::endl;
+    std::cout <<" HDivWrapMatid = "<<hybrid.fHDivWrapMatid<<std::endl;
+    std::cout <<" InterfaceMatid = "<<hybrid.fInterfaceMatid<<std::endl;
+    
+    
+    cmesh_HDiv=(HybridMesh);//malha hribrida
+    hibridmeshvec[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
+    hibridmeshvec[1] = (HybridMesh)->MeshVector()[1];//malha L2
+    
+       #ifdef PZDEBUG
+        {
+    
+            std::ofstream out2("OriginalFluxMesh.txt");
+            hibridmeshvec[0]->Print(out2);
+    
+            std::ofstream out3("OriginalPotentialMesh.txt");
+            hibridmeshvec[1]->Print(out3);
+    
+        }
+    #endif
+    
+    
+        SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config);
+    
+    #ifdef PZDEBUG
+        {
+            std::ofstream out("OriginalHybridMesh.txt");
+            (HybridMesh)->Print(out);
+        }
+    #endif
+    
+       PlotLagrangeMultiplier(hibridmeshvec[1],config);
+    
+     return cmesh_HDiv;
 }

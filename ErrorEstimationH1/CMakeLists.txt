@@ -6,6 +6,7 @@ set(ErrorEstimateSRCGmesh main.cpp TPZMixedErrorEstimate.h TPZMixedErrorEstimate
 add_executable(ErrorEstimateH1GMsh ${ErrorEstimateSRCGmesh})
 target_link_libraries(ErrorEstimateH1GMsh pz)
 
+
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
 configure_file(../Meshes/BasicMesh.msh BasicMesh.msh COPYONLY)

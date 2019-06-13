@@ -25,10 +25,10 @@ struct ProblemConfig
     bool makepressurecontinuous = 0;
     
     /// number of uniform refinements applied to the mesh
-    int ndivisions=1;
-    
-    bool prefine=false;
-    bool steklovexample=false;
+    int ndivisions = 1;
+    int dimension = 0;
+    bool prefine = false;
+    bool steklovexample = false;
     bool GalvisExample;
     STATE alpha=1;
     /// directory where the files will be stored
@@ -46,7 +46,7 @@ struct ProblemConfig
     ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
     makepressurecontinuous(cp.makepressurecontinuous),
     problemname(cp.problemname),
-    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine),alpha(cp.alpha),dir_name(cp.dir_name),steklovexample(cp.steklovexample),GalvisExample(cp.GalvisExample)
+    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine),alpha(cp.alpha),dir_name(cp.dir_name),steklovexample(cp.steklovexample),GalvisExample(cp.GalvisExample),dimension(cp.dimension)
     {
     }
     
@@ -60,6 +60,7 @@ struct ProblemConfig
         materialids = cp.materialids;
         bcmaterialids = cp.bcmaterialids;
         exact = cp.exact;
+        dimension = cp.dimension;
         
         ndivisions = cp.ndivisions;
         prefine = cp.prefine;
