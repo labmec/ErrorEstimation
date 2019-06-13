@@ -161,9 +161,6 @@ protected:
 
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
-
-    // Checks if the solution is in fact continuous
-    void VerifySolutionConsistency(TPZCompMesh* cmesh);
     //just to test the new material and contribute
     void SwitchNewMaterialObjects();
 };

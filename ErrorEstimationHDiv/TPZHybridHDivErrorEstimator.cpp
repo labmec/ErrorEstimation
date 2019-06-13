@@ -38,30 +38,32 @@
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
 #endif
 
-TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator() {
+TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator()
+{
     TPZVec<TPZCompMesh *> meshvec = fPostProcMesh.MeshVector();
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i<2; i++) {
         delete meshvec[i];
     }
 }
 
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
-void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, bool store) {
-    TPZAnalysis an(&fPostProcMesh, false);
+void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, bool store)
+{
+        TPZAnalysis an(&fPostProcMesh,false);
+    
+        if (fExact) {
+            an.SetExact(fExact->ExactSolution());
+        }
 
-    if (fExact) {
-        an.SetExact(fExact->ExactSolution());
-    }
 
-
-    TPZManVector<REAL> errorvec(6, 0.);
-    int64_t nelem = fPostProcMesh.NElements();
-    fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
-    fPostProcMesh.ExpandSolution();
-    fPostProcMesh.ElementSolution().Redim(nelem, 4);
-
-    an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
+        TPZManVector<REAL> errorvec(6,0.);
+        int64_t nelem = fPostProcMesh.NElements();
+        fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
+        fPostProcMesh.ExpandSolution();
+        fPostProcMesh.ElementSolution().Redim(nelem, 4);
+    
+        an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
 
         std::cout << "Computed errors " << errorvec << std::endl;
     
@@ -251,16 +253,16 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses()
         }
 //        TPZElementMatrix ek, ef;
 //        cel->CalcStiff(ek, ef);
-
+        
 #ifdef LOG4CXX
         std::stringstream sout;
         sout << "Stiffness for computational element vec " << cel<<std::endl;
         ek.Print(sout);
         ef.Print(sout);
-
+        
 #endif
-
-
+        
+        
         
     }
     
@@ -1610,17 +1612,17 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
         meshvec[1] = fPostProcMesh.MeshVector()[1];
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
-
+    
 //    //testing the new material
 //    {
-//
+//        
 //        SwitchNewMaterialObjects();
 //        ComputeElementStiffnesses();
-//
+//        
 //        DebugStop();
-//
+//        
 //    }
-
+    
     PlotLagrangeMultiplier("AfterNodalAverage");
 #ifdef PZDEBUG
     {
@@ -1757,6 +1759,32 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects()
                 }
             }
             fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            delete mixpoisson;
+        }
+    }
+}
+
+void TPZHybridHDivErrorEstimator::SwitchNewMaterialObjects()
+{
+    for(auto matid : fPostProcMesh.MaterialVec())
+    {
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+        if(mixpoisson)
+        {
+            TPZHDivErrorEstimateMaterial *mix = new TPZHDivErrorEstimateMaterial(1, fOriginal->Dimension());
+            
+            if(fExact)
+            {
+                mix->SetForcingFunctionExact(fExact->Exact());
+            }
+            
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(mix);
+                }
+            }
+            fPostProcMesh.MaterialVec()[mix->Id()] = mix;
             delete mixpoisson;
         }
     }

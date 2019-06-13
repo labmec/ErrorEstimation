@@ -8,7 +8,7 @@
 #define PROBLEMCONFIG_H
 
 #include <set>
-#include <tuple>
+#include<tuple>
 #include "TPZAnalyticSolution.h"
 
 using namespace std;
@@ -61,11 +61,11 @@ struct ProblemConfig {
     TPZGeoMesh *CreateGeoMesh() {
 
         TPZGmshReader reader;
-        for (const auto &DomainMat : DomainMats) {
+        for (const auto & DomainMat : DomainMats) {
             reader.GetDimNamePhysical()[get<2>(DomainMat)][get<0>(DomainMat)] = get<1>(DomainMat);
         }
 
-        for (const auto &BCMat : BCMats) {
+        for (const auto & BCMat : BCMats) {
             reader.GetDimNamePhysical()[get<2>(BCMat)][get<0>(BCMat)] = get<1>(BCMat);
         }
 
@@ -78,9 +78,8 @@ struct ProblemConfig {
         gmesh = reader.GeometricGmshMesh(meshFileName);
         gmesh->SetDimension(reader.Dimension());
 
-#ifdef PZDEBUG
-        reader.PrintPartitionSummary(std::cout);
-#endif
+        // reader.PrintPartitionSummary(std::cout);
+
         return gmesh;
     }
 

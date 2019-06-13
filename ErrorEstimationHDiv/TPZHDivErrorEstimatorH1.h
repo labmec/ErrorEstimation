@@ -1,12 +1,12 @@
 //
-// Created by Gustavo on 30/05/19.
+// Created by gustavo on 30/05/19.
 //
 
 #include "TPZHybridHDivErrorEstimator.h"
 
 
-#ifndef TPZHDIVERRORESTIMATORH1_H
-#define TPZHDIVERRORESTIMATORH1_H
+#ifndef ERRORESTIMATION_TPZHDIVERRORESTIMATORH1_H
+#define ERRORESTIMATION_TPZHDIVERRORESTIMATORH1_H
 
 
 class TPZHDivErrorEstimatorH1 : public TPZHybridHDivErrorEstimator {
@@ -29,4 +29,4 @@ protected:
 };
 
 
-#endif // TPZHDIVERRORESTIMATORH1_H
+#endif //ERRORESTIMATION_TPZHDIVERRORESTIMATORH1_H
