@@ -117,62 +117,7 @@ int main(int argc, char *argv[]) {
 #endif
     
     TPZMultiphysicsCompMesh *hybridmesh= HybridSolveProblem(cmesh_HDiv,meshvec_HDiv ,config);
-  
 
-//
-//    
-//    
-//    if(mixedsolution) SolveMixedProblem(cmesh_HDiv,config);
-//
-//    
-//    meshvec_HDiv = cmesh_HDiv->MeshVector();
-//    
-//    //cria malha hibrida
-//    
-//    TPZHybridizeHDiv hybrid;
-//    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
-//    HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
-//    HybridMesh->AdjustBoundaryElements();
-//    delete cmesh_HDiv;
-//    delete meshvec_HDiv[0];
-//    delete meshvec_HDiv[1];
-//    
-//    
-//    std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
-//    std::cout <<" LagrangeInterface = "<<hybrid.fLagrangeInterface<<std::endl;
-//    std::cout <<" HDivWrapMatid = "<<hybrid.fHDivWrapMatid<<std::endl;
-//    std::cout <<" InterfaceMatid = "<<hybrid.fInterfaceMatid<<std::endl;
-//    
-//    
-//    cmesh_HDiv=(HybridMesh);//malha hribrida
-//    meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
-//    meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
-
-//   #ifdef PZDEBUG
-//    {
-//        
-//        std::ofstream out2("OriginalFluxMesh.txt");
-//        meshvec_HDiv[0]->Print(out2);
-//
-//        std::ofstream out3("OriginalPotentialMesh.txt");
-//        meshvec_HDiv[1]->Print(out3);
-//
-//    }
-//#endif
-//
-//
-//    SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config);
-//
-//#ifdef PZDEBUG
-//    {
-//        std::ofstream out("OriginalHybridMesh.txt");
-//        (HybridMesh)->Print(out);
-//    }
-//#endif
- //   PlotLagrangreMultiplier(meshvec_HDiv[1],config);
-
-    
-    
     //reconstroi potencial e calcula o erro
     {
         //TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
