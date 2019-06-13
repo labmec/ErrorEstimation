@@ -8,6 +8,7 @@
 #include "TPZHybridHDivErrorEstimator.h"
 #include "pzcmesh.h"
 #include "pzcompel.h"
+#include "pzcondensedcompel.h"
 #include "pzintel.h"
 #include "pzelmat.h"
 #include "pzbndcond.h"
@@ -245,8 +246,13 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses()
 
     for (auto cel:fPostProcMesh.ElementVec()) {
         if(!cel) continue;
-            TPZElementMatrix ek, ef;
-            cel->CalcStiff(ek, ef);
+        TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
+        if(condense)
+        {
+            condense->Assemble();
+        }
+//        TPZElementMatrix ek, ef;
+//        cel->CalcStiff(ek, ef);
         
 #ifdef LOG4CXX
         std::stringstream sout;
