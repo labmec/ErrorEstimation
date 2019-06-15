@@ -121,7 +121,8 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     cmesh->BuildMultiphysicsSpace(active, meshvector);
     cmesh->LoadReferences();
     bool keepmatrix = false;
-    TPZCompMeshTools::CreatedCondensedElements(cmesh, true, keepmatrix);
+    bool keeponelagrangian = true;
+    TPZCompMeshTools::CreatedCondensedElements(cmesh, keeponelagrangian, keepmatrix);
     
     return cmesh;
 }
@@ -624,7 +625,7 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
     
 }
 
- TPZMultiphysicsCompMesh * HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv,TPZManVector<TPZCompMesh*, 2> hibridmeshvec, struct ProblemConfig &config){
+ TPZMultiphysicsCompMesh * HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv, struct ProblemConfig &config){
     
 //    //TPZMultiphysicsCompMesh *cmesh_HDiv=nullptr;
 //    
@@ -643,8 +644,8 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
 //    
 //    //SolveMixedProblem(cmesh_HDiv,config);
 //    
-    
-    hibridmeshvec = cmesh_HDiv->MeshVector();
+     TPZManVector<TPZCompMesh *,2> hybridmeshvec;
+    hybridmeshvec = cmesh_HDiv->MeshVector();
     
     //cria malha hibrida
     std::cout<<"Initializing the hybridization procedure"<<std::endl;
@@ -654,8 +655,8 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
     HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
     HybridMesh->AdjustBoundaryElements();
     delete cmesh_HDiv;
-    delete hibridmeshvec[0];
-    delete hibridmeshvec[1];
+    delete hybridmeshvec[0];
+    delete hybridmeshvec[1];
     
     
     std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
@@ -664,24 +665,21 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
     std::cout <<" InterfaceMatid = "<<hybrid.fInterfaceMatid<<std::endl;
     
     
-    cmesh_HDiv=(HybridMesh);//malha hribrida
-    hibridmeshvec[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
-    hibridmeshvec[1] = (HybridMesh)->MeshVector()[1];//malha L2
     
        #ifdef PZDEBUG
         {
     
             std::ofstream out2("OriginalFluxMesh.txt");
-            hibridmeshvec[0]->Print(out2);
+            HybridMesh->MeshVector()[0]->Print(out2);
     
             std::ofstream out3("OriginalPotentialMesh.txt");
-            hibridmeshvec[1]->Print(out3);
+            HybridMesh->MeshVector()[1]->Print(out3);
     
         }
     #endif
     
     
-        SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config);
+        SolveHybridProblem(HybridMesh,hybrid.fInterfaceMatid,config);
     
     #ifdef PZDEBUG
         {
@@ -690,7 +688,7 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
         }
     #endif
     
-       PlotLagrangeMultiplier(hibridmeshvec[1],config);
+       PlotLagrangeMultiplier(HybridMesh->MeshVector()[1],config);
     
-     return cmesh_HDiv;
+     return HybridMesh;
 }

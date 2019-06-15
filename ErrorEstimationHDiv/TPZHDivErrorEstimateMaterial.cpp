@@ -60,13 +60,13 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
    
      **/
     
-    
+    int dim = datavec[0].axes.Rows();
     //defining test functions
     // Setting the phis
     TPZFMatrix<REAL> &phiuk = datavec[0].phi;
     TPZFMatrix<REAL> &phirest = datavec[2].phi;// function of restriction term
     TPZFMatrix<REAL> &dphiukaxes = datavec[0].dphix;
-    TPZFMatrix<REAL> &dphiv = datavec[0].dphix;
+//    TPZFMatrix<REAL> &dphiv = datavec[0].dphix;
     TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[0].axes);
     
@@ -90,51 +90,51 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     }
     
    
-    TPZFNMatrix<3,REAL> PermTensor = fTensorK;
-    TPZFNMatrix<3,REAL> InvPermTensor = fInvK;
+    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
+    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
     
     
 
-    TPZFMatrix<STATE> kgraduk(3,nphiuk);
+    TPZFMatrix<STATE> kgraduk(3,nphiuk,0.);
     
         
-        for(int irow=0 ; irow<nphiuk; irow++){
+    for(int irow=0 ; irow<nphiuk; irow++){
+        
+        //K graduk
+        for(int i=0; i< dim; i++){
             
-             //K graduk
-            for(int i=0; i< dphiv.Rows(); i++){
-
-                for(int j=0; j< dphiv.Rows();j++){
-
-                    kgraduk(i,irow)+=InvPermTensor(i,j)*dphiv(j,irow);
-
-                }
-                //bk=int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
+            for(int jd=0; jd< dim;jd++){
                 
-                ef(irow,0)+=weight*dphiuk(i,irow)*solsigmafem(i,irow);
+                kgraduk(i,irow) += PermTensor(i,jd)*dphiuk(jd,irow);
+                
             }
+            //bk=int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
             
-            //matrix Sk= int_{K} K graduk.gradv
-            for(int jcol=0; jcol<nphiuk;jcol++){
-                
-                for(int jd=0;  jd< dphiv.Rows(); jd++){
-                    ek(irow,jcol) +=weight*kgraduk(jd,irow)*dphiv(jd,jcol);
-                }
-                
-            }
-             //Ck=int_{K} phi_i e Ck^t
-            if(fNeumannLocalProblem){
-  
-                ek(irow,nphiuk+1)+= weight*phirest(irow,0);
-                ek(nphiuk+1,irow)+= weight*phirest(irow,0);
-                
-            }
-            else{
-                
-                ek(irow,nphiuk)+= weight*phirest(irow,0);
-                ek(nphiuk,irow)+= weight*phirest(irow,0);
+            ef(irow,0)+=weight*dphiuk(i,irow)*solsigmafem(i,0);
+        }
+        
+        //matrix Sk= int_{K} K graduk.gradv
+        for(int jcol=0; jcol<nphiuk;jcol++){
+            
+            for(int jd=0;  jd< dim; jd++)
+            {
+                ek(irow,jcol) +=weight*kgraduk(jd,irow)*dphiuk(jd,jcol);
             }
             
         }
+        //Ck=int_{K} phi_i e Ck^t
+        if(fNeumannLocalProblem){
+            
+            ek(irow,nphiuk)+= weight*phiuk(irow,0);
+            ek(nphiuk,irow)+= weight*phiuk(irow,0);
+            
+        }
+        
+    }
+    if(!fNeumannLocalProblem)
+    {
+        ek(nphiuk,nphiuk) += weight;
+    }
     
     //muk = int_k ukfem
     ef(nphiuk,0)+= weight*solukfem(0,0);
@@ -154,3 +154,9 @@ void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData >
     datavec[3].SetAllRequirements(false);
     datavec[3].fNeedsSol = true;
 }
+
+void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
+{
+    
+}
+

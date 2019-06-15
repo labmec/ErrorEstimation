@@ -7,6 +7,9 @@
 #include "pzbndcond.h"
 #include "TPZHDivErrorEstimateMaterial.h"
 #include "TPZVTKGeoMesh.h"
+#include "pzintel.h"
+#include "pzcondensedcompel.h"
+#include "pzbuildmultiphysicsmesh.h"
 
 /// create the post processed multiphysics mesh (which is necessarily hybridized)
 void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
@@ -31,7 +34,7 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         // pressure interface elements etc
         DebugStop();
     }
-    UpliftPressure();
+    IncreasePressureOrders(mesh_vectors[0]);
     IdentifyPeripheralMaterialIds();
     int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
     fSkeletonMatId = lastmatid+1;
@@ -44,10 +47,10 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     }
 #ifdef PZDEBUG
     {
-        std::ofstream out("EnrichedFluxBorder.txt");
+        std::ofstream out("EnrichedPressure.txt");
         mesh_vectors[0]->Print(out);
         
-        std::ofstream out2("EnrichedPressure.txt");
+        std::ofstream out2("DiscontinuousMesh.txt");
         mesh_vectors[1]->Print(out2);
     }
 #endif
@@ -62,24 +65,122 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         std::ofstream out("multiphysicsWithnoInterface.txt");
         fPostProcMesh.Print(out);
     }
+    // compute a higher order pressure solution
+    UpliftPressure();
 
-    DebugStop();
+    // transfer the continuous pressures to the multiphysics space
+    {
+        TPZManVector<TPZCompMesh *,2> meshvec(2);
+        meshvec[0] = fPostProcMesh.MeshVector()[0];
+        meshvec[1] = fPostProcMesh.MeshVector()[1];
+        TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+    }
 
-
+    PreparePostProcElements();
+    
 
 }
 
-/// compute a more precise approximation for the pressure
-void TPZHDivErrorEstimatorH1::UpliftPressure()
+/// return a pointer to the pressure mesh
+TPZCompMesh *TPZHDivErrorEstimatorH1::PressureMesh()
 {
-    // fPostProcMesh has been created
-    // for each element of dimension dim - compute the stiffness matrix, invert it and load the solution
+    return fPostProcMesh.MeshVector()[0];
+}
+
+/// prepare the elements of postprocmesh to compute the pressures with increased accuracy
+void TPZHDivErrorEstimatorH1::PreparePostProcElements()
+{
+    /// we increase the connects of the borders of the pressure elements so that
+    // the condensed compel does not condense these equations
+    // then if we compute the stiffness matrix and load the solution the internal solution
+    // is updated
+    fPostProcMesh.ComputeNodElCon();
+    int64_t nel = fPostProcMesh.NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) DebugStop();
+        if(gel->Dimension() != fPostProcMesh.Dimension()) continue;
+        TPZMultiphysicsElement *mcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
+        if(!mcel) DebugStop();
+        TPZCompEl *subcel = mcel->Element(0);
+        TPZInterpolatedElement *subintel = dynamic_cast<TPZInterpolatedElement *>(subcel);
+        if(!subintel) DebugStop();
+        int nsides = gel->NSides();
+        for (int side = 0; side<nsides; side++) {
+            if(subintel->NSideConnects(side) == 0) continue;
+            TPZConnect &connect = subintel->MidSideConnect(side);
+            connect.IncrementElConnected();
+        }
+    }
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) DebugStop();
+        if(gel->Dimension() != fPostProcMesh.Dimension()) continue;
+        TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel,false);
+    }
+    for (auto matit : fPostProcMesh.MaterialVec()) {
+        TPZMaterial *mat = matit.second;
+        TPZHDivErrorEstimateMaterial *errormat = dynamic_cast<TPZHDivErrorEstimateMaterial *>(mat);
+        if(errormat)
+        {
+            errormat->fNeumannLocalProblem = false;
+        }
+    }
+    fPostProcMesh.CleanUpUnconnectedNodes();
+}
+
+
+/// compute a more precise approximation for the pressure
+void TPZHDivErrorEstimatorH1::IncreasePressureOrders(TPZCompMesh *pressuremesh)
+{
+//    Increase the order of the pressure elements
+    int64_t nel = pressuremesh->NElements();
+    pressuremesh->Reference()->ResetReference();
+    for(int64_t el=0; el<nel; el++)
+    {
+        TPZCompEl *cel = pressuremesh->Element(el);
+        if(!cel ||cel->Reference()->Dimension() != pressuremesh->Dimension()) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if(!intel) DebugStop();
+        int nc = intel->NConnects();
+        int order = intel->Connect(nc-1).Order();
+        intel->PRefine(order+this->fUpliftOrder);
+    }
+    pressuremesh->ExpandSolution();
 }
 
 /// create a constant pressure mesh used for uplifting the pressure
 TPZCompMesh *TPZHDivErrorEstimatorH1::CreateDiscontinuousMesh(const TPZCompMesh *pressuremesh)
 {
-    DebugStop();
+    TPZCompMesh *cmesh = new TPZCompMesh(pressuremesh->Reference());
+    for (auto matptr: pressuremesh->MaterialVec()) {
+        if(matptr.second->Dimension() == pressuremesh->Dimension())
+        {
+            TPZMaterial *newmat = matptr.second->NewMaterial();
+            cmesh->InsertMaterialObject(newmat);
+        }
+    }
+    pressuremesh->Reference()->ResetReference();
+    int64_t nel = pressuremesh->NElements();
+    cmesh->SetAllCreateFunctionsDiscontinuous();
+    cmesh->SetDefaultOrder(0);
+    for (int64_t el=0; el<nel; el++) {
+        const TPZCompEl *cel = pressuremesh->Element(el);
+        if(!cel || cel->Reference()->Dimension() != pressuremesh->Dimension())
+        {
+            continue;
+        }
+        TPZGeoEl *gel = cel->Reference();
+        int64_t index;
+        cmesh->CreateCompEl(gel, index);
+    }
+    cmesh->ExpandSolution();
+    cmesh->ComputeNodElCon();
+    return cmesh;
 }
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
@@ -112,5 +213,58 @@ void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
         }
     }
 
+}
+
+/// Compute an uplifted solution for the pressure
+void TPZHDivErrorEstimatorH1::UpliftPressure()
+{
+    fPostProcMesh.ComputeNodElCon();
+    int64_t nel = fPostProcMesh.NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) DebugStop();
+        if(gel->Dimension() != fPostProcMesh.Dimension()) continue;
+        TPZCondensedCompEl *cond = new TPZCondensedCompEl(cel,false);
+#ifdef PZDEBUG
+        int nc = cond->NConnects();
+        for (int ic=0; ic<nc; ic++) {
+            if(cond->Connect(ic).IsCondensed() == false)
+            {
+                DebugStop();
+            }
+        }
+    }
+#endif
+    fPostProcMesh.ExpandSolution();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) DebugStop();
+        if(gel->Dimension() != fPostProcMesh.Dimension()) continue;
+        TPZCondensedCompEl *cond = dynamic_cast<TPZCondensedCompEl *>(cel);
+        if(!cond)
+        {
+            DebugStop();
+        }
+        TPZElementMatrix ek,ef;
+        cond->CalcStiff(ek,ef);
+        cond->LoadSolution();
+    }
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) DebugStop();
+        if(gel->Dimension() != fPostProcMesh.Dimension()) continue;
+        TPZCondensedCompEl *cond = dynamic_cast<TPZCondensedCompEl *>(cel);
+        if(!cond)
+        {
+            DebugStop();
+        }
+        cond->Unwrap();
+    }
 }
 

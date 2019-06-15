@@ -104,6 +104,9 @@ protected:
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
     
+    /// return a pointer to the pressure mesh
+    virtual TPZCompMesh *PressureMesh();
+    
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
     

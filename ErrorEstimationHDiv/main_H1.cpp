@@ -36,7 +36,7 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimatorH1.h"
 
 #include "Tools.h"
 
@@ -102,8 +102,6 @@ int main(int argc, char *argv[]) {
 
 
         
-    TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-    
     TPZMultiphysicsCompMesh *cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
     
@@ -116,12 +114,12 @@ int main(int argc, char *argv[]) {
     }
 #endif
     
-    TPZMultiphysicsCompMesh *hybridmesh= HybridSolveProblem(cmesh_HDiv,meshvec_HDiv ,config);
+    TPZMultiphysicsCompMesh *hybridmesh= HybridSolveProblem(cmesh_HDiv, config);
 
     //reconstroi potencial e calcula o erro
     {
         //TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-        TPZHybridHDivErrorEstimator HDivEstimate(*hybridmesh);
+        TPZHDivErrorEstimatorH1 HDivEstimate(*hybridmesh);
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
@@ -133,9 +131,11 @@ int main(int argc, char *argv[]) {
         
     }
     
-    delete cmesh_HDiv;
-    delete meshvec_HDiv[0];
-    delete meshvec_HDiv[1];
+    TPZManVector<TPZCompMesh *,2> meshvector;
+    meshvector = hybridmesh->MeshVector();
+    delete hybridmesh;
+    delete meshvector[0];
+    delete meshvector[1];
     return 0;
 }
 
