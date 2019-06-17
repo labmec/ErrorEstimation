@@ -261,19 +261,7 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses()
         {
             condense->Assemble();
         }
-//        TPZElementMatrix ek, ef;
-//        cel->CalcStiff(ek, ef);
-        
-//#ifdef LOG4CXX
-//        std::stringstream sout;
-//        sout << "Stiffness for computational element vec " << cel<<std::endl;
-//        ek.Print(sout);
-//        ef.Print(sout);
-//        
-//#endif
-        
-        
-        
+      
     }
     
     
@@ -1631,15 +1619,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
     
-//    //testing the new material
-//    {
-//        
-//        SwitchNewMaterialObjects();
-//        ComputeElementStiffnesses();
-//        
-//        DebugStop();
-//        
-//    }
+
     
     PlotLagrangeMultiplier("AfterNodalAverage");
 #ifdef PZDEBUG
@@ -1670,8 +1650,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction(){
  
     {
         TPZManVector<TPZCompMesh *,2> meshvec(2);
-        // fPostProcMesh[1] is the flux mesh
-        // fPostProcMesh[2] is the pressure mesh
+        // fPostProcMesh[0] is the H1 mesh
+        // fPostProcMesh[1] is the L2 mesh
         meshvec[0] = fPostProcMesh.MeshVector()[0];
         meshvec[1] = fPostProcMesh.MeshVector()[1];
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
@@ -1782,31 +1762,6 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects()
     }
 }
 
-void TPZHybridHDivErrorEstimator::SwitchNewMaterialObjects()
-{
-    for(auto matid : fPostProcMesh.MaterialVec())
-    {
-        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
-        if(mixpoisson)
-        {
-            TPZHDivErrorEstimateMaterial *mix = new TPZHDivErrorEstimateMaterial(1, fOriginal->Dimension());
-            
-            if(fExact)
-            {
-                mix->SetForcingFunctionExact(fExact->Exact());
-            }
-            
-            for (auto bcmat : fPostProcMesh.MaterialVec()) {
-                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
-                if (bc) {
-                    bc->SetMaterial(mix);
-                }
-            }
-            fPostProcMesh.MaterialVec()[mix->Id()] = mix;
-            delete mixpoisson;
-        }
-    }
-}
 
 void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
     {

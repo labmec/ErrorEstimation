@@ -689,6 +689,9 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
     #endif
     
        PlotLagrangeMultiplier(HybridMesh->MeshVector()[1],config);
+     
+     cmesh_HDiv = HybridMesh;
     
-     return HybridMesh;
+     //return HybridMesh;
+     return cmesh_HDiv;
 }
