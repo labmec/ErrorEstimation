@@ -74,8 +74,8 @@ int main(int argc, char *argv[]) {
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//EConst;//;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname = "ESinSinDirNonHom";//"EConst";////"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::EConst;//ESinSinDirNonHom;//;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
+    config.problemname = "EConst";//"ESinSinDirNonHom";////"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
     
     //config.dir_name= "ESinSinDirNonHom";
     config.dir_name= "EConst";

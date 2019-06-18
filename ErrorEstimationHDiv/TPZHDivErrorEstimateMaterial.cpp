@@ -194,6 +194,8 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
         this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
     }
     
+   
+    
     pressurereconstructed[0] = data[0].sol[0][0];
   
     pressurefem[0] = data[3].sol[0][0];
@@ -261,6 +263,7 @@ int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "PressureEffectivityIndex") return 104;
     if(name == "EnergyEffectivityIndex") return 105;
     if(name == "POrder") return 46;
+     if(name == "UpliftingSol") return 47;
     return -1;
 }
 
@@ -277,6 +280,7 @@ int TPZHDivErrorEstimateMaterial::NSolutionVariables(int var)
         case 44:
         case 45:
         case 46:
+        case 47:
         case 100:
         case 101:
         case 102:
@@ -357,6 +361,9 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
             break;
         case 46:
             Solout[0] = datavec[1].p;
+            break;
+        case 47://Uplifing
+            Solout[0] = datavec[0].sol[0][0];
             break;
         default:
             DebugStop();

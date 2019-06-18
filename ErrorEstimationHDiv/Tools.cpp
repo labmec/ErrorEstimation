@@ -626,24 +626,7 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
 }
 
  TPZMultiphysicsCompMesh * HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv, struct ProblemConfig &config){
-    
-//    //TPZMultiphysicsCompMesh *cmesh_HDiv=nullptr;
-//    
-//    cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
-//    cmesh_HDiv->InitializeBlock();
-//    
-//#ifdef PZDEBUG
-//    {
-//        
-//        std::ofstream out2("MixedMesh.txt");
-//        cmesh_HDiv->Print(out2);
-//        
-//    }
-//#endif
-//    
-//    
-//    //SolveMixedProblem(cmesh_HDiv,config);
-//    
+        
      TPZManVector<TPZCompMesh *,2> hybridmeshvec;
     hybridmeshvec = cmesh_HDiv->MeshVector();
     

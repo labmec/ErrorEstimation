@@ -25,8 +25,8 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
     // create a copy of the pressure mesh
-    mesh_vectors[0] = fOriginal->MeshVector()[1]->Clone();
-    mesh_vectors[1] = CreateDiscontinuousMesh(mesh_vectors[0]);
+    mesh_vectors[0] = fOriginal->MeshVector()[1]->Clone();//H1 mesh
+    mesh_vectors[1] = CreateDiscontinuousMesh(mesh_vectors[0]);//L2 mesh
     
     if(!fOriginalIsHybridized)
     {
@@ -65,8 +65,34 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         std::ofstream out("multiphysicsWithnoInterface.txt");
         fPostProcMesh.Print(out);
     }
-    // compute a higher order pressure solution
+    // compute a higher order pressure solution: compute the Local Neumann problem
     UpliftPressure();
+    //post processing for local problem
+    {
+        
+#ifdef PZDEBUG
+        {
+            std::ofstream out("MeshPosNeumann.txt");
+            fPostProcMesh.Print(out);
+            
+        }
+#endif
+        
+//        TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
+//
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("UpliftingSol");
+//
+//        int dim = 2;
+//        std::string plotname("LocalNeumannProblem.vtk");
+//        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//        an.PostProcess(2, dim);
+        
+        
+    }
+    
+    
+    
 
     // transfer the continuous pressures to the multiphysics space
     {
@@ -80,6 +106,8 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     
 
 }
+
+
 
 /// return a pointer to the pressure mesh
 TPZCompMesh *TPZHDivErrorEstimatorH1::PressureMesh()
@@ -167,7 +195,7 @@ TPZCompMesh *TPZHDivErrorEstimatorH1::CreateDiscontinuousMesh(const TPZCompMesh 
     pressuremesh->Reference()->ResetReference();
     int64_t nel = pressuremesh->NElements();
     cmesh->SetAllCreateFunctionsDiscontinuous();
-    cmesh->SetDefaultOrder(0);
+    cmesh->SetDefaultOrder(0);//space of constant functions
     for (int64_t el=0; el<nel; el++) {
         const TPZCompEl *cel = pressuremesh->Element(el);
         if(!cel || cel->Reference()->Dimension() != pressuremesh->Dimension())
@@ -250,7 +278,9 @@ void TPZHDivErrorEstimatorH1::UpliftPressure()
             DebugStop();
         }
         TPZElementMatrix ek,ef;
+        //stifness matrix for local Neumann problem
         cond->CalcStiff(ek,ef);
+        //solve the local Neumann problem
         cond->LoadSolution();
     }
     for (int64_t el = 0; el<nel; el++) {

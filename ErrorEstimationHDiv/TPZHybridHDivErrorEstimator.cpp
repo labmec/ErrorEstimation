@@ -53,6 +53,14 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     if (fExact) {
         an.SetExact(fExact->ExactSolution());
     }
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshToComputeError.txt");
+        fPostProcMesh.Print(out);
+        
+    }
+#endif
 
 
     TPZManVector<REAL> errorvec(6, 0.);
@@ -60,6 +68,15 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
     fPostProcMesh.ElementSolution().Redim(nelem, 4);
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshToComputeError2.txt");
+        fPostProcMesh.Print(out);
+        
+    }
+#endif
+    
 
     an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
 
@@ -243,6 +260,7 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses() {
         if (!cel) continue;
         TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
         if (condense) {
+            // for Mark proposal ek correspond to local dirichlet problem
             condense->Assemble();
         }
     }
@@ -286,7 +304,7 @@ void TPZHybridHDivErrorEstimator::IncreaseSideOrders(TPZCompMesh *mesh) {
 
 void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh) {
 
-    /// esta ordem eh mal calculado!!!
+
     TPZGeoMesh *gmesh = cmesh->Reference();
 
     gmesh->ResetReference();
@@ -1556,10 +1574,34 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     }
 #endif
+    
+    {
+        
+#ifdef PZDEBUG
+        {
+            std::ofstream out("MeshPosDirichletProblem.txt");
+            fPostProcMesh.Print(out);
+            
+        }
+#endif
+     
+//            TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
+//            
+//            TPZStack<std::string> scalnames, vecnames;
+//            scalnames.Push("UpliftingSol");
+//            
+//            int dim = 2;
+//            std::string plotname("LocalDirichletProblem.vtk");
+//            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//            an.PostProcess(2, dim);
+            
+     
+    }
+    
 
     {
         TPZManVector<TPZCompMesh *,2> meshvec(2);
-        // fPostProcMesh[0] is the H1 mesh
+        // fPostProcMesh[0] is the H1 or Hdiv mesh
         // fPostProcMesh[1] is the L2 mesh
 
         meshvec[0] = fPostProcMesh.MeshVector()[0];
