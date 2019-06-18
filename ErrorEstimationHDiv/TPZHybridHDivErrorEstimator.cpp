@@ -1540,6 +1540,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     ComputeNodalAverages();
 
+    CopySolutionFromSkeleton();
     // transfer the continuous pressures to the multiphysics space
     {
         TPZManVector<TPZCompMesh *, 2> meshvec(2);
@@ -1565,6 +1566,13 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     ComputeElementStiffnesses();
 
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshAposLoadSol.txt");
+        fPostProcMesh.Print(out);
+        
+    }
+#endif
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
 
 #ifdef PZDEBUG

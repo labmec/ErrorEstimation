@@ -137,6 +137,12 @@ protected:
     /// set the cornernode values equal to the averages
     void ComputeNodalAverages();
     
+    /// copy the solution from the neighbouring skeleton elements
+    virtual void CopySolutionFromSkeleton()
+    {
+        
+    }
+    
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
     virtual void SwitchMaterialObjects();
     
