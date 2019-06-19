@@ -137,6 +137,12 @@ protected:
     /// set the cornernode values equal to the averages
     void ComputeNodalAverages();
     
+    /// copy the solution from the neighbouring skeleton elements
+    virtual void CopySolutionFromSkeleton()
+    {
+        
+    }
+    
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
     virtual void SwitchMaterialObjects();
     
@@ -164,8 +170,7 @@ protected:
 
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
-    //just to test the new material and contribute
-    void SwitchNewMaterialObjects();
+    
 
     // Checks if the solution is in fact continuous
     void VerifySolutionConsistency(TPZCompMesh* cmesh);

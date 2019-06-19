@@ -76,6 +76,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name)
     if(name == "PressureEffectivityIndex") return 104;
     if(name == "EnergyEffectivityIndex") return 105;
     if(name == "POrder") return 46;
+   
     return -1;
 }
 

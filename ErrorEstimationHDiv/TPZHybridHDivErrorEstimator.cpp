@@ -53,6 +53,14 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     if (fExact) {
         an.SetExact(fExact->ExactSolution());
     }
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshToComputeError.txt");
+        fPostProcMesh.Print(out);
+        
+    }
+#endif
 
 
     TPZManVector<REAL> errorvec(6, 0.);
@@ -60,6 +68,15 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
     fPostProcMesh.ElementSolution().Redim(nelem, 4);
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshToComputeError2.txt");
+        fPostProcMesh.Print(out);
+        
+    }
+#endif
+    
 
     an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
 
@@ -243,21 +260,9 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses() {
         if (!cel) continue;
         TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
         if (condense) {
+            // for Mark proposal ek correspond to local dirichlet problem
             condense->Assemble();
         }
-//        TPZElementMatrix ek, ef;
-//        cel->CalcStiff(ek, ef);
-
-//#ifdef LOG4CXX
-//        std::stringstream sout;
-//        sout << "Stiffness for computational element vec " << cel<<std::endl;
-//        ek.Print(sout);
-//        ef.Print(sout);
-//        
-//#endif
-
-
-
     }
 
 
@@ -299,7 +304,7 @@ void TPZHybridHDivErrorEstimator::IncreaseSideOrders(TPZCompMesh *mesh) {
 
 void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh) {
 
-    /// esta ordem eh mal calculado!!!
+
     TPZGeoMesh *gmesh = cmesh->Reference();
 
     gmesh->ResetReference();
@@ -1535,6 +1540,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     ComputeNodalAverages();
 
+    CopySolutionFromSkeleton();
     // transfer the continuous pressures to the multiphysics space
     {
         TPZManVector<TPZCompMesh *, 2> meshvec(2);
@@ -1542,16 +1548,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         meshvec[1] = fPostProcMesh.MeshVector()[1];
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
-
-//    //testing the new material
-//    {
-//        
-//        SwitchNewMaterialObjects();
-//        ComputeElementStiffnesses();
-//        
-//        DebugStop();
-//        
-//    }
 
     PlotLagrangeMultiplier("AfterNodalAverage");
 #ifdef PZDEBUG
@@ -1570,6 +1566,13 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     ComputeElementStiffnesses();
 
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshAposLoadSol.txt");
+        fPostProcMesh.Print(out);
+        
+    }
+#endif
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
 
 #ifdef PZDEBUG
@@ -1579,11 +1582,36 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     }
 #endif
+    
+    {
+        
+#ifdef PZDEBUG
+        {
+            std::ofstream out("MeshPosDirichletProblem.txt");
+            fPostProcMesh.Print(out);
+            
+        }
+#endif
+     
+//            TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
+//            
+//            TPZStack<std::string> scalnames, vecnames;
+//            scalnames.Push("UpliftingSol");
+//            
+//            int dim = 2;
+//            std::string plotname("LocalDirichletProblem.vtk");
+//            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//            an.PostProcess(2, dim);
+            
+     
+    }
+    
 
     {
-        TPZManVector<TPZCompMesh *, 2> meshvec(2);
-        // fPostProcMesh[1] is the flux mesh
-        // fPostProcMesh[2] is the pressure mesh
+        TPZManVector<TPZCompMesh *,2> meshvec(2);
+        // fPostProcMesh[0] is the H1 or Hdiv mesh
+        // fPostProcMesh[1] is the L2 mesh
+
         meshvec[0] = fPostProcMesh.MeshVector()[0];
         meshvec[1] = fPostProcMesh.MeshVector()[1];
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
@@ -1685,27 +1713,6 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
     }
 }
 
-void TPZHybridHDivErrorEstimator::SwitchNewMaterialObjects() {
-    for (auto matid : fPostProcMesh.MaterialVec()) {
-        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
-        if (mixpoisson) {
-            TPZHDivErrorEstimateMaterial *mix = new TPZHDivErrorEstimateMaterial(1, fOriginal->Dimension());
-
-            if (fExact) {
-                mix->SetForcingFunctionExact(fExact->Exact());
-            }
-
-            for (auto bcmat : fPostProcMesh.MaterialVec()) {
-                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
-                if (bc) {
-                    bc->SetMaterial(mix);
-                }
-            }
-            fPostProcMesh.MaterialVec()[mix->Id()] = mix;
-            delete mixpoisson;
-        }
-    }
-}
 
 void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
     {

@@ -25,8 +25,8 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
     // create a copy of the pressure mesh
-    mesh_vectors[0] = fOriginal->MeshVector()[1]->Clone();
-    mesh_vectors[1] = CreateDiscontinuousMesh(mesh_vectors[0]);
+    mesh_vectors[0] = fOriginal->MeshVector()[1]->Clone();//H1 mesh
+    mesh_vectors[1] = CreateDiscontinuousMesh(mesh_vectors[0]);//L2 mesh
     
     if(!fOriginalIsHybridized)
     {
@@ -65,8 +65,34 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         std::ofstream out("multiphysicsWithnoInterface.txt");
         fPostProcMesh.Print(out);
     }
-    // compute a higher order pressure solution
+    // compute a higher order pressure solution: compute the Local Neumann problem
     UpliftPressure();
+    //post processing for local problem
+    {
+        
+#ifdef PZDEBUG
+        {
+            std::ofstream out("MeshPosNeumann.txt");
+            fPostProcMesh.Print(out);
+            
+        }
+#endif
+        
+//        TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
+//
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("UpliftingSol");
+//
+//        int dim = 2;
+//        std::string plotname("LocalNeumannProblem.vtk");
+//        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//        an.PostProcess(2, dim);
+        
+        
+    }
+    
+    
+    
 
     // transfer the continuous pressures to the multiphysics space
     {
@@ -81,6 +107,8 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
 
 }
 
+
+
 /// return a pointer to the pressure mesh
 TPZCompMesh *TPZHDivErrorEstimatorH1::PressureMesh()
 {
@@ -90,6 +118,7 @@ TPZCompMesh *TPZHDivErrorEstimatorH1::PressureMesh()
 /// prepare the elements of postprocmesh to compute the pressures with increased accuracy
 void TPZHDivErrorEstimatorH1::PreparePostProcElements()
 {
+    
     /// we increase the connects of the borders of the pressure elements so that
     // the condensed compel does not condense these equations
     // then if we compute the stiffness matrix and load the solution the internal solution
@@ -108,9 +137,10 @@ void TPZHDivErrorEstimatorH1::PreparePostProcElements()
         TPZInterpolatedElement *subintel = dynamic_cast<TPZInterpolatedElement *>(subcel);
         if(!subintel) DebugStop();
         int nsides = gel->NSides();
-        for (int side = 0; side<nsides; side++) {
+        for (int side = 0; side<nsides-1; side++) {
             if(subintel->NSideConnects(side) == 0) continue;
-            TPZConnect &connect = subintel->MidSideConnect(side);
+            int connectindex = subintel->MidSideConnectLocId(side);
+            TPZConnect &connect = cel->Connect(connectindex);
             connect.IncrementElConnected();
         }
     }
@@ -167,7 +197,7 @@ TPZCompMesh *TPZHDivErrorEstimatorH1::CreateDiscontinuousMesh(const TPZCompMesh 
     pressuremesh->Reference()->ResetReference();
     int64_t nel = pressuremesh->NElements();
     cmesh->SetAllCreateFunctionsDiscontinuous();
-    cmesh->SetDefaultOrder(0);
+    cmesh->SetDefaultOrder(0);//space of constant functions
     for (int64_t el=0; el<nel; el++) {
         const TPZCompEl *cel = pressuremesh->Element(el);
         if(!cel || cel->Reference()->Dimension() != pressuremesh->Dimension())
@@ -250,7 +280,9 @@ void TPZHDivErrorEstimatorH1::UpliftPressure()
             DebugStop();
         }
         TPZElementMatrix ek,ef;
+        //stifness matrix for local Neumann problem
         cond->CalcStiff(ek,ef);
+        //solve the local Neumann problem
         cond->LoadSolution();
     }
     for (int64_t el = 0; el<nel; el++) {
@@ -266,5 +298,64 @@ void TPZHDivErrorEstimatorH1::UpliftPressure()
         }
         cond->Unwrap();
     }
+}
+
+/// copy the solution from the neighbouring skeleton elements
+void TPZHDivErrorEstimatorH1::CopySolutionFromSkeleton()
+{
+    TPZCompMesh *pressuremesh = PressureMesh();
+    {
+        std::ofstream out("pressuremesh.txt");
+        pressuremesh->Print(out);
+    }
+    pressuremesh->Reference()->ResetReference();
+    pressuremesh->LoadReferences();
+    int dim = pressuremesh->Dimension();
+    int64_t nel = pressuremesh->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = pressuremesh->Element(el);
+        if(!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if(!intel) DebugStop();
+        TPZGeoEl *gel = intel->Reference();
+        if(gel->Dimension() != dim) continue;
+        int nsides = gel->NSides();
+        for (int is=0; is<nsides; is++) {
+            TPZConnect &c = intel->Connect(is);
+            int64_t c_seqnum = c.SequenceNumber();
+            int c_blocksize = c.NShape()*c.NState();
+            TPZGeoElSide gelside(gel,is);
+            TPZStack<TPZCompElSide> celstack;
+            gelside.EqualLevelCompElementList(celstack, 1, 0);
+            int nst = celstack.NElements();
+            for(int ist=0; ist<nst; ist++)
+            {
+                TPZCompElSide cneigh = celstack[ist];
+                TPZGeoElSide gneigh = cneigh.Reference();
+                if (gneigh.Element()->MaterialId() == this->fHybridizer.fLagrangeInterface) {
+                    TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
+                    if(!intelneigh) DebugStop();
+                    TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
+                    int64_t con_seqnum = con_neigh.SequenceNumber();
+                    int con_size = con_neigh.NState()*con_neigh.NShape();
+                    if(con_size != c_blocksize) DebugStop();
+                    for (int ibl = 0; ibl<con_size; ibl++) {
+                        pressuremesh->Block()(c_seqnum,0,ibl,0) = pressuremesh->Block()(con_seqnum,0,ibl,0);
+                    }
+                    break;
+                }
+                // all elements must have at least one neighbour of type skeleton
+                if(ist == nst-1)
+                {
+                    std::cout << "Connect " << is << " from element el " << el << " was not updated \n";
+                }
+            }
+        }
+    }
+    {
+        std::ofstream out("pressuremesh2.txt");
+        pressuremesh->Print(out);
+    }
+
 }
 

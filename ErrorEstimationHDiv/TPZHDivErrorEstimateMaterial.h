@@ -48,6 +48,13 @@ public:
     // error[3] - energy error computed with reconstructed solution
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
     
+    int VariableIndex(const std::string &name)override;
+    int NSolutionVariables(int var)override;
+    void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+
+    
+    
+    
 
 };
 

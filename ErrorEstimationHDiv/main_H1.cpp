@@ -69,15 +69,16 @@ int main(int argc, char *argv[]) {
     
     config.porder = 1;
     config.hdivmais = 1;
-    config.ndivisions = 0;
+    config.ndivisions = 1;
     config.dimension = 2;
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//;//EConst;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname ="ESinSinDirNonHom";//"EConst";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::EConst;//ESinSinDirNonHom;//;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
+    config.problemname = "EConst";//"ESinSinDirNonHom";////"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
     
-    config.dir_name= "ESinSinDirNonHom";
+    //config.dir_name= "ESinSinDirNonHom";
+    config.dir_name= "EConst";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -85,6 +86,10 @@ int main(int argc, char *argv[]) {
     //geometric mesh
 
      TPZGeoMesh *gmesh = ReadGeometricMesh(config, IsgmeshReader);
+    
+
+    UniformRefinement(config.ndivisions, gmesh);
+   // RandomRefine(config, config.ndivisions);
     
 #ifdef PZDEBUG
     {
@@ -95,10 +100,6 @@ int main(int argc, char *argv[]) {
         
     }
 #endif
-    
- 
-    UniformRefinement(config.ndivisions, gmesh);
-   // RandomRefine(config, config.ndivisions);
 
 
         
@@ -118,7 +119,7 @@ int main(int argc, char *argv[]) {
 
     //reconstroi potencial e calcula o erro
     {
-        //TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+        // TPZHybridHDivErrorEstimator HDivEstimate(*hybridmesh);
         TPZHDivErrorEstimatorH1 HDivEstimate(*hybridmesh);
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
