@@ -1773,25 +1773,49 @@ void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) 
                 TPZTransform<REAL> transform(gelside.Dimension());
                 gelside.SideTransform3(neighbour, transform);
 
-                TPZManVector<REAL> pt0(gelside.Dimension(), 0);
-                TPZManVector<REAL> pt1(neighbour.Dimension(), 0);
+                TPZVec<REAL> pt0(gelside.Dimension(), 0);
+                TPZVec<REAL> pt1(neighbour.Dimension(), 0);
 
                 int npoints = intRule->NPoints();
                 for (int ipt = 0; ipt < npoints; ipt++) {
                     REAL weight;
+                    // Gets point in side parametric space from integration rule
                     intRule->Point(ipt, pt0, weight);
+                    // Gets point in neighbour parametric space
                     transform.Apply(pt0, pt1);
 
+                    // Transform from parametric to global coordinates
                     TPZManVector<REAL> x0(3);
                     TPZManVector<REAL> x1(3);
 
                     gelside.X(pt0, x0);
                     neighbour.X(pt1, x1);
+
+                    // Maps pt0 and pt1 to volume and gets solution on this points
+                    TPZTransform<REAL> sideToVolume(dim, dim);
+                    sideToVolume = gelside.Element()->SideToSideTransform(iside, nsides - 1);
+
+                    TPZManVector<REAL> pt0_vol(dim, 0);
+                    sideToVolume.Apply(pt0, pt0_vol);
+                    TPZManVector<STATE> sol0(1);
+                    cel->Solution(pt0_vol, 0, sol0);
+
+                    TPZTransform<REAL> neighSideToVolume(dim, dim);
+                    neighSideToVolume = neighbour.Element()->SideToSideTransform(cneighbour.Side(), neighbour.Element()->NSides() - 1);
+
+                    TPZManVector<REAL> pt1_vol(dim, 0);
+                    neighSideToVolume.Apply(pt1, pt1_vol);
+                    TPZManVector<STATE> sol1(1);
+                    cneighbour.Element()->Solution(pt1_vol, 0, sol1);
+
 #ifdef LOG4CXX
                     if (logger->isDebugEnabled()) {
                         std::stringstream sout;
-                        sout << "\nSide coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
-                        sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n\n";
+                        sout << "\nSide solution =  " << sol0[0] << "\n";
+                        sout << "Neigh solution = " << sol1[0] << "\n";
+                        sout << "Diff = " << sol1[0] - sol0[0] << "\n";
+                        sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+                        sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
 
                         LOGPZ_DEBUG(logger, sout.str())
                     }
