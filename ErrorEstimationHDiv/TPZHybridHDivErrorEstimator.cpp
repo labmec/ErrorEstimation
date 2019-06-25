@@ -67,7 +67,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
-    fPostProcMesh.ElementSolution().Redim(nelem, 4);
+    fPostProcMesh.ElementSolution().Redim(nelem, 5);
     
 #ifdef PZDEBUG
     {
@@ -250,6 +250,8 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
 
 /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
 void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses() {
+   std::cout << "Solving local Dirichlet problem " << std::endl;
+    
     {
         std::ofstream out("MeshToComputeStiff.txt");
         fPostProcMesh.Print(out);
@@ -1449,9 +1451,9 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
      Is increased 2 cols on ElementSolution() to store the efectivity index for pressure and flux
      **/
     TPZCompMesh *cmesh = &fPostProcMesh;
-    if (cmesh->ElementSolution().Cols() != 4) {
-        DebugStop();
-    }
+//    if (cmesh->ElementSolution().Cols() != 4) {
+//        DebugStop();
+//    }
     int64_t nrows = cmesh->ElementSolution().Rows();
     cmesh->ElementSolution().Resize(nrows, 6);
     for (int64_t el = 0; el < nrows; el++) {
@@ -1566,19 +1568,22 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     ComputeElementStiffnesses();
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
-        std::ofstream out("MeshAposLoadSol.txt");
+        std::ofstream out("MeshBeforeLoadSol.txt");
         fPostProcMesh.Print(out);
+        fPostProcMesh.Solution().Print("SolBeforeLoadSolution");
         
     }
 #endif
+    
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
-        std::ofstream out("MeshAposLoadSol.txt");
+        std::ofstream out("MeshAfterLoadSol.txt");
         fPostProcMesh.Print(out);
+        fPostProcMesh.Solution().Print("SolAfterLoadSolution");
 
     }
 #endif
@@ -1593,16 +1598,17 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         }
 #endif
      
-//            TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
-//            
-//            TPZStack<std::string> scalnames, vecnames;
-//            scalnames.Push("UpliftingSol");
-//            
-//            int dim = 2;
-//            std::string plotname("LocalDirichletProblem.vtk");
-//            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-//            an.PostProcess(2, dim);
-            
+            TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
+        
+            TPZStack<std::string> scalnames, vecnames;
+        
+            scalnames.Push("State");
+        
+            int dim = 2;
+            std::string plotname("LocalDirichletProblem.vtk");
+            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+            an.PostProcess(2, dim);
+        
      
     }
     
@@ -1750,6 +1756,7 @@ void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) 
             if (celstack.size() == 0) continue;
 
             int intOrder = 2;
+            
             TPZIntPoints *intRule = gelside.CreateIntegrationRule(intOrder);
 
             // Iterates through the comp sides connected to the reference gelside
@@ -1795,16 +1802,6 @@ void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) 
                     if (!intel) DebugStop();
 
                     // TODO estou conseguindo imprimir as pressoes, mas estao fora de ordem
-                    int64_t conindex = intel->ConnectIndex(cneighbour.Side());
-
-                    std::set<int64_t> connects;
-                    if (connects.find(conindex) != connects.end()) DebugStop();
-                    connects.insert(conindex);
-                    TPZConnect &c = intel->Connect(cneighbour.Side());
-                    int64_t seqnum = c.SequenceNumber();
-                    if (c.NState() != 1 || c.NShape() != 1) DebugStop();
-                    REAL pressure = cmesh->Block().Get(seqnum, 0, 0, 0);
-                    //std::cout << pressure << std::endl;
                 }
             }
             delete intRule;

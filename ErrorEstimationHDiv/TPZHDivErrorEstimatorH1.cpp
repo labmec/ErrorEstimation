@@ -11,9 +11,11 @@
 #include "pzcondensedcompel.h"
 #include "pzbuildmultiphysicsmesh.h"
 
-/// create the post processed multiphysics mesh (which is necessarily hybridized)
+/// create the post processed multiphysics mesh
 void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
 {
+    
+    std::cout<<"Creating post processed meshes"<<std::endl;
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
@@ -34,6 +36,7 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         // pressure interface elements etc
         DebugStop();
     }
+    
     IncreasePressureOrders(mesh_vectors[0]);
     IdentifyPeripheralMaterialIds();
     int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
@@ -65,8 +68,25 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         std::ofstream out("multiphysicsWithnoInterface.txt");
         fPostProcMesh.Print(out);
     }
-    // compute a higher order pressure solution: compute the Local Neumann problem
-    UpliftPressure();
+    
+    if(fperformUplift){
+        
+        std::cout<<"Solving local Neumann problem"<<std::endl;
+        // compute a higher order pressure solution: compute the Local Neumann problem
+        UpliftPressure();
+        
+    }
+    
+
+    // transfer the continuous pressures to the multiphysics space
+    {
+        TPZManVector<TPZCompMesh *,2> meshvec(2);
+        meshvec[0] = fPostProcMesh.MeshVector()[0];
+        meshvec[1] = fPostProcMesh.MeshVector()[1];
+        TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+    }
+
+    
     //post processing for local problem
     {
         
@@ -78,30 +98,20 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         }
 #endif
         
-//        TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
-//
-//        TPZStack<std::string> scalnames, vecnames;
-//        scalnames.Push("UpliftingSol");
-//
-//        int dim = 2;
-//        std::string plotname("LocalNeumannProblem.vtk");
-//        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-//        an.PostProcess(2, dim);
+        
+        TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
+        
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("State");
+        
+        int dim = 2;
+        std::string plotname("LocalNeumannProblem.vtk");
+        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+        an.PostProcess(2, dim);
         
         
     }
     
-    
-    
-
-    // transfer the continuous pressures to the multiphysics space
-    {
-        TPZManVector<TPZCompMesh *,2> meshvec(2);
-        meshvec[0] = fPostProcMesh.MeshVector()[0];
-        meshvec[1] = fPostProcMesh.MeshVector()[1];
-        TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
-    }
-
     PreparePostProcElements();
     
 
@@ -230,6 +240,7 @@ void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
             if(fExact)
             {
                 newmat->SetForcingFunctionExact(fExact->Exact());
+    
             }
             
             for (auto bcmat : fPostProcMesh.MaterialVec()) {

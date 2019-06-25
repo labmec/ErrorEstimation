@@ -50,7 +50,7 @@
 bool IsgmeshReader = false;
 bool neumann = true;
 
-bool mixedsolution = false;
+bool mixedsolution = true;
 
 
 int main(int argc, char *argv[]) {
@@ -65,24 +65,20 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
 
-    ProblemConfig config;
+    for(int ndiv=2; ndiv<6; ndiv++){
+        ProblemConfig config;
         
-    config.ndivisions= 0;
+        config.porder = 1;
+        config.hdivmais = 1;
+        config.ndivisions = ndiv;
+        config.dimension = 2;
+        config.prefine=false;
+        config.makepressurecontinuous = true;
         
-    config.porder = 1;
-    config.hdivmais = 1;
-    config.ndivisions=0;
-    config.prefine=false;
-    config.makepressurecontinuous = true;
-    
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//;//EConst;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname ="ESinSinDirNonHom";//"EConst";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
-    
-    config.dir_name= "ESinSinDirNonHom";
-    std::string command = "mkdir " + config.dir_name;
-    system(command.c_str());
-
-
+        config.exact.fExact = TLaplaceExample1::ESinSin;//EConst;//ESinSinDirNonHom;//EX;//ESinMark;//EArcTanSingular;//EArcTan;//
+        config.problemname = "ESinSinNossaPropostak=1n=1";//"ESinSinDirNonHomMine";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+        
+        config.dir_name= "ESinSin";
     
     int dim = 2;
     
@@ -92,19 +88,23 @@ int main(int argc, char *argv[]) {
     if(IsgmeshReader){
         
         
-        std::string meshfilename = "../LCircle.msh";
+       // std::string meshfilename = "../LCircle.msh";
+        std::string meshfilename = "../esfera2.msh";
     
         if(dim==3)
         {
             meshfilename = "../Cube.msh";
+            
         }
         TPZGmshReader gmsh;
       //  gmsh.GetDimNamePhysical().resize(4);
       //  gmsh.GetDimPhysicalTagName().resize(4);
         if(dim==2)
         {
-            gmsh.GetDimNamePhysical()[1]["dirichlet"] =2;
+            gmsh.GetDimNamePhysical()[1]["boundary"] =2;
             gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+             gmsh.GetDimNamePhysical()[1]["boundary2"] =3;
+            
         }
         else
         {
@@ -113,6 +113,7 @@ int main(int argc, char *argv[]) {
         }
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
+        config.bcmaterialids.insert(3);
     
         
         gmsh.SetFormatVersion("4.1");
@@ -239,6 +240,7 @@ int main(int argc, char *argv[]) {
     delete cmesh_HDiv;
     delete meshvec_HDiv[0];
     delete meshvec_HDiv[1];
-    return 0;
+    //return 0;
+    }
 }
 

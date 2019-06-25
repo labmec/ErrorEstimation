@@ -21,7 +21,8 @@ TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem) {
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
-    cmesh->SetDefaultOrder(problem.porder+problem.hdivmais);//ordem + hdivmais
+    
+    cmesh->SetDefaultOrder(problem.porder+problem.hdivmais);//ordem +
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     cmesh->ApproxSpace().CreateDisconnectedElements(true);
     cmesh->AutoBuild();
@@ -89,24 +90,16 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
         mix->SetForcingFunction(problem.exact.ForcingFunction());
-        
         mix->SetForcingFunctionExact(problem.exact.Exact());
         
-     //   mix->SetInternalFlux(1);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
-        val2.Zero();
-        if (matid == -2) {
-            bctype = 0;
-            
-        }
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
-
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -524,7 +517,7 @@ void PlotLagrangeMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
 void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
 {
     
-    TPZAnalysis an(cmesh_HDiv);
+    TPZAnalysis an(cmesh_HDiv,false);
     
     
 #ifdef USING_MKL

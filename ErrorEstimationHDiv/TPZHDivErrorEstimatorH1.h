@@ -11,8 +11,11 @@
 
 class TPZHDivErrorEstimatorH1 : public TPZHybridHDivErrorEstimator {
 
+public:
     /// number of orders the pressure polynomial order is increase
     int fUpliftOrder = 0;
+    //for solve a neumann problem
+    bool fperformUplift = true;
 public:
     
     TPZHDivErrorEstimatorH1(TPZMultiphysicsCompMesh &InputMesh) : TPZHybridHDivErrorEstimator(InputMesh)

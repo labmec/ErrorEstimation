@@ -15,10 +15,12 @@
 #include "TPZMatLaplacian.h"
 #include "mixedpoisson.h"
 
+
 class TPZHDivErrorEstimateMaterial : public TPZMixedPoisson
 {
 
 public:
+    
     
     TPZHDivErrorEstimateMaterial(int matid, int dim);
     
@@ -39,7 +41,7 @@ public:
     
     bool fNeumannLocalProblem = true;
 
-    virtual int NEvalErrors() override {return 4;}
+    virtual int NEvalErrors() override {return 5;}//erro de oscilacao de dados tbem
     
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure
@@ -51,6 +53,7 @@ public:
     int VariableIndex(const std::string &name)override;
     int NSolutionVariables(int var)override;
     void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+ 
 
     
     

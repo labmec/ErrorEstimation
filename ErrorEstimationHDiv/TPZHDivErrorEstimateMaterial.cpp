@@ -7,7 +7,7 @@
 
 #include "TPZHDivErrorEstimateMaterial.h"
 #include "pzaxestools.h"
-
+#include "TPZAnalyticSolution.h"
 
 
 TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(int matid, int dim) : TPZMixedPoisson(matid,dim)
@@ -64,18 +64,12 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     //defining test functions
     // Setting the phis
     TPZFMatrix<REAL> &phiuk = datavec[0].phi;
-    TPZFMatrix<REAL> &phirest = datavec[2].phi;// function of restriction term
     TPZFMatrix<REAL> &dphiukaxes = datavec[0].dphix;
-//    TPZFMatrix<REAL> &dphiv = datavec[0].dphix;
     TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[0].axes);
     
-   //  TPZFMatrix<REAL> &axes = datavec[0].axes;
-    
     
     int nphiuk = phiuk.Rows();
-    
-
     
     TPZFMatrix<STATE> solsigmafem(3,nphiuk),solukfem(1,1);
     solsigmafem.Zero();
@@ -93,8 +87,6 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
     
-    
-
     TPZFMatrix<STATE> kgraduk(3,nphiuk,0.);
     
         
@@ -108,9 +100,10 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
                 kgraduk(i,irow) += PermTensor(i,jd)*dphiuk(jd,irow);
                 
             }
-            //bk=int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
+            //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
+            //the minus sign is necessary because we are workin with sigma_h = - K grad u, Mark works with sigma_h = K grad u
             
-            ef(irow,0)+=weight*dphiuk(i,irow)*solsigmafem(i,0);
+            ef(irow,0)+=(-1.)*weight*dphiuk(i,irow)*solsigmafem(i,0);
         }
         
         //matrix Sk= int_{K} K graduk.gradv
@@ -134,10 +127,16 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     if(!fNeumannLocalProblem)
     {
         ek(nphiuk,nphiuk) += weight;
+        ef(nphiuk,0)+= weight;
     }
     
     //muk = int_k ukfem
-    ef(nphiuk,0)+= weight*solukfem(0,0);
+    
+    else{
+    
+        ef(nphiuk,0)+= weight*solukfem(0,0);
+    }
+
     
 
 
@@ -167,33 +166,46 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
       error[1] - error computed with reconstructed pressure
       error[2] - energy error computed with exact solution
       error[3] - energy error computed with reconstructed solution
+      error[4] - oscilatory data error
      **/
     
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
     
     
-    TPZManVector<STATE,3> fluxfem(3),fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
+    TPZManVector<STATE,3> fluxfem(3),pressurefem(1), pressurereconstructed(1);
     
-    for (int i=0; i<3; i++) {
-        fluxfem[i] = data[2].sol[0][i];
-       
-    }
+    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
     
+//    for (int i=0; i<3; i++) {
+//        fluxfem[i] = data[2].sol[0][i];
+//
+//    }
+    
+    fluxfem=data[2].sol[0];
+    STATE divsigmafem=data[2].divsol[0][0];
+   
     TPZFMatrix<REAL> &dsolaxes = data[0].dsol[0];
     TPZFNMatrix<9,REAL> fluxrec(3,0);
     TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[0].axes);
     
     for(int id=0 ; id<3; id++) {
-        fluxreconstructed[id] = fluxrec(id,0);
+        fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
     }
     
+    
+    TPZVec<STATE> divsigma(1);
     
     if(this->fForcingFunctionExact){
         
         this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
+        //this->Force(data[0].x, divsigma);
+        this->fForcingFunction->Execute(data[0].x,divsigma);
     }
     
+    REAL oscilatory = 0.;
+    
+    oscilatory = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
    
     
     pressurereconstructed[0] = data[0].sol[0][0];
@@ -206,7 +218,8 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     
     TPZFNMatrix<3,REAL> fluxexactneg;
     
-    //sigma=-K grad(u)
+    //sigmarec = -K grad(urec)
+    //  sigmak = -K graduk
     
     {
         TPZFNMatrix<9,REAL> gradpressure(3,1);
@@ -216,10 +229,15 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
         PermTensor.Multiply(gradpressure,fluxexactneg);
     }
     
+     PermTensor.Multiply(fluxreconstructed2,fluxreconstructed);
+    
+    
     REAL innerexact = 0.;
     REAL innerestimate = 0.;
     
-#ifdef PZDEBUG
+    
+    
+#ifdef PZDEBUG2
     std::cout<<"flux fem "<<fluxfem<<std::endl;
     std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -232,7 +250,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
         }
     }
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     std::cout<<"potential fem "<<pressurefem<<std::endl;
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -241,6 +259,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     errors[1] = (pressurefem[0]-pressurereconstructed[0])*(pressurefem[0]-pressurereconstructed[0]);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
+    errors[4] = oscilatory; //||f - Proj_divsigma||
 
     
     
@@ -263,7 +282,7 @@ int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "PressureEffectivityIndex") return 104;
     if(name == "EnergyEffectivityIndex") return 105;
     if(name == "POrder") return 46;
-     if(name == "UpliftingSol") return 47;
+     
     return -1;
 }
 
@@ -369,4 +388,3 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
             DebugStop();
     }
 }
-

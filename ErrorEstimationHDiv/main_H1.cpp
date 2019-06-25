@@ -64,21 +64,22 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
-
+    for(int ndiv=0; ndiv<5; ndiv++){
     ProblemConfig config;
     
     config.porder = 1;
-    config.hdivmais = 1;
-    config.ndivisions = 1;
+    config.hdivmais = 2;
+    config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine=false;
     config.makepressurecontinuous = true;
+
     
-    config.exact.fExact = TLaplaceExample1::EConst;//ESinSinDirNonHom;//;//ESinSin;//ESinMark;//EArcTanSingular;//EArcTan;//
-    config.problemname = "EConst";//"ESinSinDirNonHom";////"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+    config.exact.fExact = TLaplaceExample1::ESinSin;//ESinMark;//ESinSinDirNonHom;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+    config.problemname = "ESinSinWith--Upliftingk=1 e n=2 SemUp";//"EConst";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
     
-    //config.dir_name= "ESinSinDirNonHom";
-    config.dir_name= "EConst";
+    config.dir_name= "ESinSin";
+    //config.dir_name= "ESinSin";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -125,6 +126,9 @@ int main(int argc, char *argv[]) {
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
         
+        HDivEstimate.fperformUplift = false;
+        HDivEstimate.fUpliftOrder = 1;
+        
         HDivEstimate.PotentialReconstruction();
         
         TPZManVector<REAL> elementerrors;
@@ -137,6 +141,7 @@ int main(int argc, char *argv[]) {
     delete hybridmesh;
     delete meshvector[0];
     delete meshvector[1];
-    return 0;
+    //return 0;
+    }
 }
 

@@ -247,6 +247,8 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
         }
         PermTensor.Multiply(gradpressure,fluxexactneg);
     }
+    
+    
     REAL innerexact = 0.;
     REAL innerestimate = 0.;
     for (int i=0; i<3; i++) {
