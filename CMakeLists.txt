@@ -122,6 +122,8 @@ if(WIN32)
 
 endif()
 
+set(CONF_INCLUDE_DIRS "." "ErrorEstimationHDiv")
+
 add_subdirectory(AinsworthProposal)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)

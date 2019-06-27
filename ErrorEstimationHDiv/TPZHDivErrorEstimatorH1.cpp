@@ -5,7 +5,7 @@
 #include "TPZHDivErrorEstimatorH1.h"
 #include "mixedpoisson.h"
 #include "pzbndcond.h"
-#include "TPZHDivErrorEstimateMaterial.h"
+#include "../TPZHDivErrorEstimateMaterial.h"
 #include "TPZVTKGeoMesh.h"
 #include "pzintel.h"
 #include "pzcondensedcompel.h"
@@ -89,7 +89,6 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     
     //post processing for local problem
     {
-        
 #ifdef PZDEBUG
         {
             std::ofstream out("MeshPosNeumann.txt");
@@ -98,12 +97,11 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         }
 #endif
         
-        
         TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
-        
+
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
-        
+
         int dim = 2;
         std::string plotname("LocalNeumannProblem.vtk");
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
@@ -259,6 +257,7 @@ void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
 /// Compute an uplifted solution for the pressure
 void TPZHDivErrorEstimatorH1::UpliftPressure()
 {
+    if(fUpliftOrder < 0) return;
     fPostProcMesh.ComputeNodElCon();
     int64_t nel = fPostProcMesh.NElements();
     for (int64_t el = 0; el<nel; el++) {
