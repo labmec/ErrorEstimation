@@ -5,7 +5,7 @@
 #include "TPZHDivErrorEstimatorH1.h"
 #include "mixedpoisson.h"
 #include "pzbndcond.h"
-#include "../TPZHDivErrorEstimateMaterial.h"
+#include "TPZHDivErrorEstimateMaterial.h"
 #include "TPZVTKGeoMesh.h"
 #include "pzintel.h"
 #include "pzcondensedcompel.h"
