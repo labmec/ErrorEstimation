@@ -70,7 +70,7 @@ endif(USING_LOG4CXX)
 option(BUILD_OPENCV_PROJECTS "Whether to build projects that require OpenCV" OFF)
 if(BUILD_OPENCV_PROJECTS)
 	find_package(OpenCV REQUIRED)
-	add_subdirectory(MHM_Maze)
+#	add_subdirectory(MHM_Maze)
 endif()
 #---
 
