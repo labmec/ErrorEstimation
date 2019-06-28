@@ -122,9 +122,12 @@ if(WIN32)
 
 endif()
 
-set(CONF_INCLUDE_DIRS "." "ErrorEstimationHDiv")
+#set(CONF_INCLUDE_DIRS "." "ErrorEstimationHDiv")
+
+add_subdirectory(Common)
+include_directories(Common)
 
 add_subdirectory(AinsworthProposal)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
-add_subdirectory(MHMEstimation)
+add_subdirectory(MHM_Maze)

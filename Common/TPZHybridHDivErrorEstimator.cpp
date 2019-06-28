@@ -1311,9 +1311,9 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
     int64_t nel = fOriginal->NElements();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = fOriginal->Element(el);
-        TPZMultiphysicsInterfaceElement *interface = dynamic_cast<TPZMultiphysicsInterfaceElement *>(cel);
-        if (interface) {
-            int matid = interface->Reference()->MaterialId();
+        TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(cel);
+        if (interf) {
+            int matid = interf->Reference()->MaterialId();
             fHybridizer.fInterfaceMatid = matid;
             break;
         }

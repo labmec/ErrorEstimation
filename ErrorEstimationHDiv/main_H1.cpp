@@ -16,7 +16,7 @@
 #include "tpzarc3d.h"
 
 
-#include "../ProblemConfig.h"
+#include "ProblemConfig.h"
 
 #include "mixedpoisson.h"
 #include "TPZVecL2.h"

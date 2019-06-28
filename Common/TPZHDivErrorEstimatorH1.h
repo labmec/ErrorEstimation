@@ -5,7 +5,7 @@
 #define ERRORESTIMATION_TPZHDIVERRORESTIMATORH1_H
 
 
-#include "../TPZHybridHDivErrorEstimator.h"
+#include "TPZHybridHDivErrorEstimator.h"
 
 
 

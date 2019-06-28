@@ -1,18 +1,4 @@
 # Project to apply error estimation for Hdiv reconstrcuction
-set(
-        common_SRC
-        ProblemConfig.h
-        Tools.h
-        Tools.cpp
-        TPZHybridHDivErrorEstimator.h
-        TPZHybridHDivErrorEstimator.cpp
-        TPZMixedHdivErrorEstimate.h
-        TPZMixedHdivErrorEstimate.cpp
-        TPZHDivErrorEstimatorH1.h
-        TPZHDivErrorEstimatorH1.cpp
-        TPZHDivErrorEstimateMaterial.h
-        TPZHDivErrorEstimateMaterial.cpp
-)
 
 add_executable(HeteroPermeability ${common_SRC} main_HeteroPermeability.cpp)
 

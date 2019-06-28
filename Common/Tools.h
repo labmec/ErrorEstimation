@@ -12,7 +12,7 @@
 #include "TPZRefPatternDataBase.h"
 #include "TPZGmshReader.h"
 #include "TPZVTKGeoMesh.h"
-#include "../ProblemConfig.h"
+#include "ProblemConfig.h"
 
 #include "mixedpoisson.h"
 #include "TPZVecL2.h"
@@ -32,7 +32,7 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "../TPZHybridHDivErrorEstimator.h"
+#include "TPZHybridHDivErrorEstimator.h"
 
 class TPZMultiphysicsCompMesh;
 

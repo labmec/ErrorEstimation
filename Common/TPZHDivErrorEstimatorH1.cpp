@@ -5,7 +5,7 @@
 #include "TPZHDivErrorEstimatorH1.h"
 #include "mixedpoisson.h"
 #include "pzbndcond.h"
-#include "../TPZHDivErrorEstimateMaterial.h"
+#include "TPZHDivErrorEstimateMaterial.h"
 #include "TPZVTKGeoMesh.h"
 #include "pzintel.h"
 #include "pzcondensedcompel.h"
@@ -275,8 +275,8 @@ void TPZHDivErrorEstimatorH1::UpliftPressure()
                 DebugStop();
             }
         }
-    }
 #endif
+    }
     fPostProcMesh.ExpandSolution();
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
@@ -362,10 +362,9 @@ void TPZHDivErrorEstimatorH1::CopySolutionFromSkeleton()
             }
         }
     }
-    {
-        std::ofstream out("pressuremesh2.txt");
-        pressuremesh->Print(out);
-    }
-
+	{
+		std::ofstream out("pressuremesh2.txt");
+		pressuremesh->Print(out);
+	}
 }
 
