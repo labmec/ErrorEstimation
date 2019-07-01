@@ -70,7 +70,7 @@ endif(USING_LOG4CXX)
 option(BUILD_OPENCV_PROJECTS "Whether to build projects that require OpenCV" OFF)
 if(BUILD_OPENCV_PROJECTS)
 	find_package(OpenCV REQUIRED)
-#	add_subdirectory(MHM_Maze)
+	#add_subdirectory(MHM_Maze)     #must be done at the end
 endif()
 #---
 
@@ -130,4 +130,7 @@ include_directories(Common)
 add_subdirectory(AinsworthProposal)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
-add_subdirectory(MHM_Maze)
+
+if(BUILD_OPENCV_PROJECTS)
+	add_subdirectory(MHM_Maze) # must be added here to inherit non-empty ${common_SRC} 
+endif()

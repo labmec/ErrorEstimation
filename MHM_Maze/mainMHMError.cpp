@@ -81,7 +81,7 @@
 
 #include "TPZPersistenceManager.h"
 
-#include "../TPZMHMHDivErrorEstimator.h"
+#include "TPZMHMHDivErrorEstimator.h"
 
 #define new_identifier
 
@@ -995,7 +995,7 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
         int nel = gmeshcoarse->NElements();
         for(int i=0; i<nel; i++){
             TPZGeoEl * gel = gmeshcoarse->Element(i);
-            if (!gel or gel->HasSubElement()) {
+            if (!gel || gel->HasSubElement()) {
                 continue;
             }
             gel->Divide(indexf);
@@ -1008,7 +1008,7 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     
     for(int i=0; i<nel; i++){
         TPZGeoEl *gel = gmeshcoarse->Element(i);
-        if (!gel or gel->HasSubElement()) {
+        if (!gel || gel->HasSubElement()) {
             continue;
         }
         
