@@ -60,7 +60,8 @@ struct TPZHybridHDivErrorEstimator
         fOriginalIsHybridized(copy.fOriginalIsHybridized),fUpliftPostProcessMesh(copy.fUpliftPostProcessMesh),
         fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig)
     {
-        
+        // this method wont work because multiphysics meshes have no copy constructor (yet)
+        DebugStop();
     }
     
     TPZHybridHDivErrorEstimator &operator=(const TPZHybridHDivErrorEstimator &cp)
@@ -68,6 +69,9 @@ struct TPZHybridHDivErrorEstimator
         fOriginal = cp.fOriginal;
         fOriginalIsHybridized = cp.fOriginalIsHybridized;
         fUpliftPostProcessMesh = cp.fUpliftPostProcessMesh;
+        // this method wont work because multiphysics meshes have no operator= (yet)
+        DebugStop();
+
         fPostProcMesh = cp.fPostProcMesh;
         fExact = cp.fExact;
         fProblemConfig = cp.fProblemConfig;
@@ -84,14 +88,12 @@ struct TPZHybridHDivErrorEstimator
     
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
-    void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);
+    virtual void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);
     
     //reconstruction of potential using hybrid solution on enrichement space
-    void PotentialReconstruction();
+    virtual void PotentialReconstruction();
     
-    
-    void PostProcessingHybridMesh();
-    void CreateMultiphysicsHybridMesh();
+    /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an);
     
     
@@ -104,6 +106,11 @@ protected:
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
     
+    // a method for generating the HDiv mesh
+    virtual TPZCompMesh *CreateFluxMesh();
+    // a method for creating the pressure mesh
+    virtual TPZCompMesh *CreatePressureMesh();
+
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
     
@@ -118,7 +125,7 @@ protected:
     void ComputeAverageFacePressures();
     
     /// compute the average pressures of across edges of the H(div) mesh
-    void ComputeAveragePressures(int target_dim);
+    virtual void ComputeAveragePressures(int target_dim);
     
     /// transfer the solution of the edge functions to the face functions
     void TransferEdgeSolution();
@@ -135,9 +142,13 @@ protected:
     void RestrainSmallEdges(TPZCompMesh *pressuremesh);
     
     /// set the cornernode values equal to the averages
-    void ComputeNodalAverages();
+    virtual void ComputeNodalAverages();
+    
+    /// compute the nodal average of all elements that share a point
+    void ComputeNodalAverage(TPZCompElSide &celside);
     
     /// copy the solution from the neighbouring skeleton elements
+    // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
     virtual void CopySolutionFromSkeleton()
     {
         
@@ -148,15 +159,6 @@ protected:
     
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();
-    
-    /// create the multiphysics mesh using the TPZMixedErrorEstimate material
-    void CreateMultiphysicsMesh();
-    
-    /// clone the fluxmesh but using TPZCompElReferred objects
-    void CreateFluxMesh();
-    
-    /// clone the pressure mesh using TPZCompElReferred objects
-    void CreatePressureMesh();
     
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices();
@@ -174,6 +176,11 @@ protected:
 
     // Checks if the solution is in fact continuous
     void VerifySolutionConsistency(TPZCompMesh* cmesh);
+    
+protected:
+    
+    // compute the average of an element iel in the pressure mesh looking at its neighbours
+    void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

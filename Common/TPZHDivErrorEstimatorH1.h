@@ -44,7 +44,7 @@ public:
     /// prepare the elements of postprocmesh to compute the pressures with increased accuracy
     void PreparePostProcElements();
     
-    /// copy the solution from the neighbouring skeleton elements
+    /// copy the solution from the neighbouring skeleton elements to the H1 pressure elements
     virtual void CopySolutionFromSkeleton() override;
     
 };

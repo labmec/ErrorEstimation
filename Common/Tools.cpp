@@ -300,7 +300,7 @@ void RandomRefine(ProblemConfig &config,int numelrefine){
     }
     int count = 0;
     while(count < numelrefine) {
-        int64_t elindex = random()%nel;
+        int64_t elindex = rand()%nel;
         TPZGeoEl *gel = config.gmesh->Element(elindex);
         if(gel && gel->Dimension() == config.gmesh->Dimension() && !gel->Father())
         {

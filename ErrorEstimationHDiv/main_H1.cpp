@@ -124,6 +124,7 @@ int main(int argc, char *argv[]) {
         TPZHDivErrorEstimatorH1 HDivEstimate(*hybridmesh);
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        HDivEstimate.fUpliftOrder = -1;
         HDivEstimate.SetAnalyticSolution(config.exact);
         
         HDivEstimate.fperformUplift = true;

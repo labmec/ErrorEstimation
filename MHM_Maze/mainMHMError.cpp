@@ -81,6 +81,8 @@
 
 #include "TPZPersistenceManager.h"
 
+#include "TPZMHMHDivErrorEstimator.h"
+
 #define new_identifier
 
 
@@ -100,7 +102,8 @@ TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf);
 TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,ConfigCasesMaze Conf);
 
 // Read a mesh from a png file. The size of the domain will be npix_x by npix_y (read from the image) . Return l=nx; h=ny.
-TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h);
+// on entry image_size_x and image_size_y are equal to the number of MHM elements in x and y
+TPZGeoMesh *GeoMeshFromPng(string name, int &image_size_x, int &image_size_y);
 
 // Create a geometric mesh with the given parameters, nx and ny are the coarse elements number. The total number of elements are defined by the image read.
 TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny);
@@ -134,42 +137,42 @@ int main(){
     ConfigCasesMaze ConfCasesMeze;
     ConfCasesMeze.SetImageName("../Mazes/maze8x8.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);
-    ConfCasesMeze.SetPermeableMatPermeability(1000000);
+    ConfCasesMeze.SetPermeableMatPermeability(1000);
     ConfCasesMeze.SetFluxOrder(1);
     ConfCasesMeze.SetPressureOrder(1);
-    ConfCasesMeze.SetCCPressureIn(100);
+    ConfCasesMeze.SetCCPressureIn(10);
     ConfCasesMeze.SetCCPressureOut(1);
     ConfCasesMeze.SetMHMOpenChannel(false);
     ConfCasesMeze.SetVTKName("maze8x8.vtk");
- 
-//    H1Test(ConfCasesMeze);
- //   MixedTest(ConfCasesMeze);
-      MHMTest(ConfCasesMeze);
     
-//    ConfCasesMeze.SetImageName("maze200x200.png");
-//    ConfCasesMeze.SetImperviousMatPermeability(1);
-//    ConfCasesMeze.SetPermeableMatPermeability(1000000);
-//    ConfCasesMeze.SetFluxOrder(1);
-//    ConfCasesMeze.SetPressureOrder(1);
-//    ConfCasesMeze.SetCCPressureIn(100);
-//    ConfCasesMeze.SetCCPressureOut(1);
-//    ConfCasesMeze.SetMHMOpenChannel(true);
-//    ConfCasesMeze.SetVTKName("maze200x200_open_channel.vtk");
-//
-//    MHMTest(ConfCasesMeze);
-//
+    //    H1Test(ConfCasesMeze);
+    //   MixedTest(ConfCasesMeze);
+    MHMTest(ConfCasesMeze);
+    
+    //    ConfCasesMeze.SetImageName("maze200x200.png");
+    //    ConfCasesMeze.SetImperviousMatPermeability(1);
+    //    ConfCasesMeze.SetPermeableMatPermeability(1000000);
+    //    ConfCasesMeze.SetFluxOrder(1);
+    //    ConfCasesMeze.SetPressureOrder(1);
+    //    ConfCasesMeze.SetCCPressureIn(100);
+    //    ConfCasesMeze.SetCCPressureOut(1);
+    //    ConfCasesMeze.SetMHMOpenChannel(true);
+    //    ConfCasesMeze.SetVTKName("maze200x200_open_channel.vtk");
+    //
+    //    MHMTest(ConfCasesMeze);
+    //
     
     
     
-
-      return 0;
+    
+    return 0;
     
     
 }
 
 
 TPZCompMesh* MixedTest(ConfigCasesMaze Conf){
-  
+    
     TPZGeoMesh *gmesh = GenerateGeoMesh(Conf.GetImageName(),2,2);
     int flux_order = Conf.GetFluxOrder();
     int p_order = Conf.GetPressureOrder();
@@ -231,7 +234,7 @@ TPZCompMesh* MixedTest(ConfigCasesMaze Conf){
     an->Assemble();
     an->Solve();
     
-   
+    
     
     //POS
     TPZManVector<std::string,10> scalnames(2), vecnames(1);
@@ -254,9 +257,9 @@ TPZCompMesh* MixedTest(ConfigCasesMaze Conf){
 
 int H1Test(ConfigCasesMaze Conf)
 {
-    double l;
-    double h;
-    TPZGeoMesh *gmesh = GeoMeshFromPng(Conf.GetImageName(),l,h);
+    int image_size_x;
+    int image_size_y;
+    TPZGeoMesh *gmesh = GeoMeshFromPng(Conf.GetImageName(),image_size_x,image_size_y);
     {
 #ifdef PZDEBUG
         std::ofstream file("mazeh1.txt");
@@ -284,7 +287,7 @@ int H1Test(ConfigCasesMaze Conf)
     struct_mat.SetNumThreads(number_threads);
     an->SetStructuralMatrix(struct_mat);
 #endif
-   // TPZStepSolver<STATE> step;
+    // TPZStepSolver<STATE> step;
     //step.SetDirect(ECholesky);
     
     
@@ -403,7 +406,7 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     int permeable_mat = 2;
     int dim = gmesh->Dimension();
     
-  
+    
     
     REAL conv=0;
     TPZVec<REAL> convdir(dim,0.0);
@@ -420,7 +423,7 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     //  inserting volumetric materials objects
     cmesh->InsertMaterialObject(mat_0);
     cmesh->InsertMaterialObject(mat_1);
-   
+    
     cmesh->SetAllCreateFunctionsHDiv(); //Creating H(div) functions
     
     
@@ -516,12 +519,7 @@ TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf){
     
     
 }
-TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
-    const int bcDL = -1;
-    const int bcB = -2;
-    const int bcDR = -3;
-    const int bcDT = -4;
-    
+TPZGeoMesh *GeoMeshFromPng(string name, int &mesh_size_x, int &mesh_size_y){
     
     //  Mat image = imread("normal.png",IMREAD_GRAYSCALE);
     Mat image = imread(name,IMREAD_GRAYSCALE);
@@ -529,9 +527,27 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     int k=0;
     int px=image.size[0];
     int py=image.size[1];
-    l=px;
-    h=py;
-    int p =px*py;
+    {
+        int nelx = mesh_size_x;
+        int nely = mesh_size_y;
+        if(nelx)
+        {
+            while(nelx < px) nelx *= 2;
+        } else
+        {
+            nelx = px;
+        }
+        mesh_size_x = nelx;
+        if(nely)
+        {
+            while(nely < py) nely *= 2;
+        } else
+        {
+            nely = py;
+        }
+        mesh_size_y = py;
+    }
+    int p = px*py;
     if(p==0){
         DebugStop();
     }
@@ -545,9 +561,6 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
             }
             int pix =val/255;
             vec[p-k]=pix;
-            
-            
-            
             k++;
         }
     }
@@ -557,8 +570,8 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     // Creating the Geo mesh
     TPZManVector<REAL,3> x0(3,0.),x1(3,px);
     x1[2] = 0.;
-    TPZManVector<int,2> nelx(2,py);
-    nelx[0] = px;
+    TPZManVector<int,2> nelx(2,mesh_size_y);
+    nelx[0] = mesh_size_x;
     TPZGenGrid gengrid(nelx,x0,x1);
     gengrid.SetElementType(EQuadrilateral);
     TPZGeoMesh *gmesh = new TPZGeoMesh;
@@ -568,43 +581,64 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     
     //MatsID
     int nels = gmesh->NElements();
-    TPZGeoEl *gel_in;
-    TPZGeoEl *gel_out;
-    TPZGeoEl *gel_in1D;
-    TPZGeoEl *gel_out1D;
+    TPZGeoEl *gel_in = 0;
+    TPZGeoEl *gel_out = 0;
+    int out_index = -1;
     
     
     for (int i=0; i<nels; i++) {
-        TPZGeoEl *gel =gmesh->Element(i);
-        gel->SetMaterialId(vec[i]+ 1 );
-        
-        if (i<= px) {
-            if((vec[i]+1)==2){
-                gel_in =gel;
+        int image_x = i%nelx[0];
+        int image_y = i/nelx[0];
+        int image_index = -1;
+        if(image_x < px && image_y < py) image_index = image_x + image_y*px;
+        if(image_index >= 0)
+        {
+            TPZGeoEl *gel = gmesh->Element(i);
+            gel->SetMaterialId(vec[image_index]+ 1 );
+            
+            if (image_index <= px) {
+                if((vec[image_index]+1)==2){
+                    gel_in =gel;
+                }
+            }
+            
+            if (image_index >= (px)*(py-1)) {
+                if((vec[image_index]+1)==2){
+                    gel_out=gel;
+                    out_index = image_x;
+                }
             }
         }
-        
-        if (i >= (px)*(py-1)) {
-            if((vec[i]+1)==2){
-                gel_out=gel;
-            }
+        else if(gel_out && out_index == image_x)
+        {
+            // all elements above the outlet of the image will have material id 2
+            TPZGeoEl *gel = gmesh->Element(i);
+            gel->SetMaterialId(2);
         }
-        
     }
+    if(gel_in == 0 || gel_out == 0) DebugStop();
     
     //gengrid.SetBC(TPZGeoMesh *gr, int side, int bc)
+    // definition of the boundary indices
+    const int bcDL = -1;
+    const int bcB = -2;
+    const int bcDR = -3;
+    const int bcDT = -4;
+    
+
     gengrid.SetBC(gmesh, 4, bcDL);
     gengrid.SetBC(gmesh, 5, bcB);
     gengrid.SetBC(gmesh, 6, bcDR);
     gengrid.SetBC(gmesh, 7, bcDT);
     
+    // change the boundary condition of a single entry and exit element
+    TPZGeoEl *gel_in1D = gel_in->Neighbour(4).Element();
     
-    int gel_in_index = gel_in->Index();
-    gel_in1D = gmesh->Element(gel_in_index)->Neighbour(4).Element();
+    if(gel_in1D->Dimension() != 1) DebugStop();
     gel_in1D->SetMaterialId(-5);
     
-    int gel_out_index = gel_out->Index();
-    gel_out1D = gmesh->Element(gel_out_index)->Neighbour(6).Element();
+    TPZGeoEl *gel_out1D = gel_out->Neighbour(6).Element();
+    if(gel_out1D->Dimension() != 1) DebugStop();
     gel_out1D->SetMaterialId(-6);
     
     
@@ -698,14 +732,16 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
 int MHMTest(ConfigCasesMaze Conf){
     
     TRunConfig Configuration;
-  
-    TPZGeoMesh *gmeshcoarse =GenerateGeoMesh(Conf.GetImageName(), 2, 2);
-//    std::ofstream file("mesh4x4.vtk");
-//    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
-//
-//
-//    std::ofstream out2("mesh4x4.txt");
-//    gmeshcoarse->Print(out2);
+    
+    // number of coarse elements in the x and y direction
+    int nelx = 2, nely = 2;
+    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), nelx, nely);
+    //    std::ofstream file("mesh4x4.vtk");
+    //    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+    //
+    //
+    //    std::ofstream out2("mesh4x4.txt");
+    //    gmeshcoarse->Print(out2);
     
     int interface_mat_id = 600;
     int flux_order = 1;
@@ -713,7 +749,7 @@ int MHMTest(ConfigCasesMaze Conf){
     bool OpenChannel = Conf.GetMHMOpenChannel();
     
     TPZAutoPointer<TPZMHMixedMeshChannelControl> MHMixed;
-  
+    
     {
         TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
         {
@@ -721,11 +757,12 @@ int MHMTest(ConfigCasesMaze Conf){
             gmeshauto->Print(out);
         }
         TPZMHMixedMeshChannelControl *mhm = new TPZMHMixedMeshChannelControl(gmeshauto);
+        // compute for each element the coarse index to which it will belong
         TPZVec<int64_t> coarseindices;
         ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
-//        for(int i =0; i < coarseindices.size(); i++){
-//            std::cout << "i = " << coarseindices[i] << std::endl;
-//        }
+        //        for(int i =0; i < coarseindices.size(); i++){
+        //            std::cout << "i = " << coarseindices[i] << std::endl;
+        //        }
         gmeshauto->AddInterfaceMaterial(1, 2, interface_mat_id);
         gmeshauto->AddInterfaceMaterial(2, 1, interface_mat_id);
         
@@ -735,6 +772,7 @@ int MHMTest(ConfigCasesMaze Conf){
         //        MHMMixedPref << "MHMixed";
         MHMixed = mhm;
         
+        // indicate the boundary material indices to  the MHM control structure
         TPZMHMixedMeshChannelControl &meshcontrol = *mhm;
         {
             std::set<int> matids;
@@ -751,7 +789,7 @@ int MHMTest(ConfigCasesMaze Conf){
             mhm->fMaterialBCIds = matids;
         }
         
-        
+        // insert the material objects in the multiphysics mesh
         InsertMaterialObjects(*mhm);
         
 #ifdef PZDEBUG2
@@ -761,27 +799,27 @@ int MHMTest(ConfigCasesMaze Conf){
             meshcontrol.Print(out);
         }
 #endif
-        meshcontrol.SetInternalPOrder(2);
+        meshcontrol.SetInternalPOrder(1);
         meshcontrol.SetSkeletonPOrder(1);
         
         meshcontrol.DivideSkeletonElements(0);
         meshcontrol.DivideBoundarySkeletonElements();
         
-//        std::ofstream file_geo("geometry.txt");
-//        meshcontrol.GMesh()->Print(file_geo);
-//
+        //        std::ofstream file_geo("geometry.txt");
+        //        meshcontrol.GMesh()->Print(file_geo);
+        //
         bool substructure = true;
-//        std::ofstream filee("Submesh.txt");
-//        meshcontrol.CMesh()->Print(filee);
+        //        std::ofstream filee("Submesh.txt");
+        //        meshcontrol.CMesh()->Print(filee);
+        // check the creation of datastructures that identify which channels should be open
         std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> test;
         if(OpenChannel){
-        TPZCompMesh *flux_temp = MixedTest(Conf);
-        test = IdentifyChanel(flux_temp);
+            TPZCompMesh *flux_temp = MixedTest(Conf);
+            test = IdentifyChanel(flux_temp);
         }
-    
-     meshcontrol.BuildComputationalMesh(substructure,OpenChannel,test);
+        meshcontrol.BuildComputationalMesh(substructure,OpenChannel,test);
         
-      
+        
         
         
 #ifdef PZDEBUG
@@ -816,14 +854,19 @@ int MHMTest(ConfigCasesMaze Conf){
         
     }
     
-    TPZCompMesh *MixedMesh = MHMixed->CMesh().operator->();
-    
     //    MixedMesh->Print(out);
     
-//    std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
+    //    std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
     
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), 0,  Conf.GetVTKName(), Configuration);
     
+
+    // Error estimation
+    TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
+    if(!InputMesh) DebugStop();
+    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
+    ErrorEstimator.fOriginalIsHybridized = false;
+    ErrorEstimator.PotentialReconstruction();
     
     return 0;
 }
@@ -834,8 +877,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     
     TPZGeoMesh &gmesh = control.GMesh();
     const int typeFlux = 1, typePressure = 0;
-    TPZFMatrix<STATE> val1(1,1,0.), val2Flux(1,1,0.), val2Pressure(1,1,10.);
-  
+    TPZFMatrix<STATE> val1(1,1,0.), val2Flux(1,1,0.), val2Pressure(1,1,1.);
+    
     
     int dim = gmesh.Dimension();
     cmesh.SetDimModel(dim);
@@ -851,11 +894,11 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     
     TPZMixedPoisson * mat_2 = new TPZMixedPoisson(2,dim);
     mat_2->SetSymmetric();
-    mat_2->SetPermeability(1000000.0);
+    mat_2->SetPermeability(1000.0);
     //    mat->SetForcingFunction(One);
     MixedFluxPressureCmesh->InsertMaterialObject(mat_2);
     
-   // Bc N
+    // Bc N
     TPZBndCond * bcN = mat->CreateBC(mat, -1, typeFlux, val1, val2Flux);
     //    bcN->SetForcingFunction(0, force);
     
@@ -871,7 +914,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
     bcS = mat->CreateBC(mat, -4, typeFlux, val1, val2Flux);
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
-    val2Pressure(0,0) = 100.;
+    val2Pressure(0,0) = 10.;
     TPZBndCond * bcIn = mat->CreateBC(mat, -5, typePressure, val1, val2Pressure);
     
     MixedFluxPressureCmesh->InsertMaterialObject(bcIn);
@@ -885,10 +928,10 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
 // compute the coarse indices of the geometric mesh
 void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
 {
-//    {
-//        std::ofstream out("gmeshref.txt");
-//        gmesh->Print(out);
-//    }
+    //    {
+    //        std::ofstream out("gmeshref.txt");
+    //        gmesh->Print(out);
+    //    }
     coarseindices.Resize(gmesh->NElements());
     int count = 0;
     for (int64_t el=0; el<gmesh->NElements(); el++) {
@@ -902,9 +945,9 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
 }
 TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     
-    double l;
-    double h;
-    TPZGeoMesh *FineMesh = GeoMeshFromPng(name,l,h);
+    int image_size_x = nx;
+    int image_size_y = ny;
+    TPZGeoMesh *FineMesh = GeoMeshFromPng(name,image_size_x,image_size_y);
     
     std::ofstream file_base_vtk("base.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(FineMesh, file_base_vtk);
@@ -913,8 +956,8 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     FineMesh->Print(file_base_txt);
     
     // Creating the Geo mesh
-    TPZManVector<REAL,3> x0(3,0.),x1(3,l);
-    x1[1] = h;
+    TPZManVector<REAL,3> x0(3,0.),x1(3,image_size_x);
+    x1[1] = image_size_y;
     x1[2] = 0.;
     TPZManVector<int,2> nelx(2,ny);
     nelx[0] = nx;
@@ -922,10 +965,10 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     gengrid.SetElementType(EQuadrilateral);
     TPZGeoMesh *gmeshcoarse = new TPZGeoMesh;
     gmeshcoarse->SetDimension(2);
-        gengrid.SetRefpatternElements(true);
+    gengrid.SetRefpatternElements(true);
     gengrid.Read(gmeshcoarse);
     //gengrid.Read(gmesh,2);
-
+    
     
     //gengrid.SetBC(TPZGeoMesh *gr, int side, int bc)
     gengrid.SetBC(gmeshcoarse, 4, -1);
@@ -946,8 +989,11 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     TPZVec<REAL> result(3,0);
     TPZStack<TPZVec<int64_t>> vecs;
     TPZVec<TPZGeoEl*> indexf;
-//    int nref=6; para 128x128 com coarse 2x2
-    int nref = log2(l) - log2(nx);
+    if(image_size_x%nx != 0) DebugStop();
+    if(image_size_y%ny != 0) DebugStop();
+    //    int nref=6; para 128x128 com coarse 2x2
+    int nref = log2(image_size_x/nx);
+    if(nx<<nref != image_size_x) DebugStop();
     for(int i=0; i<nref; i++){
         int nel = gmeshcoarse->NElements();
         for(int i=0; i<nel; i++){
@@ -958,7 +1004,7 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
             gel->Divide(indexf);
         }
     }
-  
+    
     
     //
     int nel = gmeshcoarse->NElements();
@@ -970,12 +1016,12 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
         }
         
         if(gel->Dimension()==2){
-            TPZFMatrix<REAL> cooridnates1(3,4);
+            TPZFMatrix<REAL> coordinates1(3,4);
             TPZVec<REAL> qsi(3,0);
             TPZVec<REAL> result(3,0);
             gel->X(qsi,result);
-            int flor =floor(result[0]);
-            int y =floor(result[1])*l;
+            int flor = floor(result[0]);
+            int y = floor(result[1])*image_size_x;
             int pos = flor + y;
             TPZGeoEl *gel2 = FineMesh->Element(pos);
             if(!gel2){
@@ -984,12 +1030,12 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
             int matid= gel2->MaterialId();
             gel->SetMaterialId(matid);
             
-            if(y==0 && matid==2){
+            if(y==0 && matid == 2){
                 TPZGeoEl *el1D = gel->Neighbour(4).Element();
                 el1D->SetMaterialId(-5);
             }
-            int niv =y/l;
-            if(niv==(l-1) && matid==2){
+            int niv = y/image_size_x;
+            if(niv == (image_size_y-1) && matid == 2){
                 TPZGeoEl *el1D = gel->Neighbour(6).Element();
                 el1D->SetMaterialId(-6);
             }
@@ -1002,6 +1048,8 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     
     std::ofstream out2("mazehcoarse.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, out2, true);
+    
+    delete FineMesh;
     
     return gmeshcoarse;
 };
@@ -1030,7 +1078,7 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel (TPZCompMesh *
     bool exit=false;
     
     while(exit==false){
-            
+        
         TPZGeoElSide exit_test = first_gelside;
         exit_test.SetSide(6);
         TPZGeoElSide candidate_exist =exit_test.Neighbour();
@@ -1041,77 +1089,77 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel (TPZCompMesh *
         }
         
         
-//    while(candidate.Element()->Dimension()!=2){
-//
-//            candidate=candidate.Neighbour();
-//
-//    }
-    int side_in = first_gelside.Side();
-    for(int ican=4; ican<8; ican++){
-        first_gelside.SetSide(ican);
-        TPZGeoElSide candidate = first_gelside.Neighbour();
-        while(candidate.Element()->Dimension()!=2){
-           
-            candidate=candidate.Neighbour();
-        }
-        if(side_in == ican ){continue;}
-        
-        //calcula los 3 geoelement side y el fluxo
-        TPZVec<REAL> qsi(2);
-        qsi[0]=0;
-        qsi[1]=0;
-        int var=31;
-        TPZVec<STATE> sol;
-        TPZCompEl *cel = candidate.Element()->Reference();
-        cel->Solution(qsi, var,sol);
-        double Flux_can_Mag = sqrt(sol[0]*sol[0] + sol[1]*sol[1]);
-      
-        if(Flux_can_Mag > Flux_Max){
-            Flux_Max =Flux_can_Mag;
+        //    while(candidate.Element()->Dimension()!=2){
+        //
+        //            candidate=candidate.Neighbour();
+        //
+        //    }
+        int side_in = first_gelside.Side();
+        for(int ican=4; ican<8; ican++){
             first_gelside.SetSide(ican);
-            chain[count].first= first_gelside;
-            chain[count].second =candidate;
+            TPZGeoElSide candidate = first_gelside.Neighbour();
+            while(candidate.Element()->Dimension()!=2){
+                
+                candidate=candidate.Neighbour();
+            }
+            if(side_in == ican ){continue;}
+            
+            //calcula los 3 geoelement side y el fluxo
+            TPZVec<REAL> qsi(2);
+            qsi[0]=0;
+            qsi[1]=0;
+            int var=31;
+            TPZVec<STATE> sol;
+            TPZCompEl *cel = candidate.Element()->Reference();
+            cel->Solution(qsi, var,sol);
+            double Flux_can_Mag = sqrt(sol[0]*sol[0] + sol[1]*sol[1]);
+            
+            if(Flux_can_Mag > Flux_Max){
+                Flux_Max =Flux_can_Mag;
+                first_gelside.SetSide(ican);
+                chain[count].first= first_gelside;
+                chain[count].second =candidate;
+            }
         }
+        Flux_Max=0.0;
+        first_gelside =chain[count].second;
+        count++;
     }
-            Flux_Max=0.0;
-            first_gelside =chain[count].second;
-            count++;
-}
     
     //here
     
-        cmesh->LoadReferences();
-        TPZGeoMesh *gmesh =cmesh->Reference();
-        for(auto it:gmesh->ElementVec()){
-            int father_index = it->FatherIndex();
-            int element = it->Index();
-            std::cout<<"Element: "<<element<<" father: "<<father_index<<std::endl;
+    cmesh->LoadReferences();
+    TPZGeoMesh *gmesh =cmesh->Reference();
+    for(auto it:gmesh->ElementVec()){
+        int father_index = it->FatherIndex();
+        int element = it->Index();
+        std::cout<<"Element: "<<element<<" father: "<<father_index<<std::endl;
+        
+    }
     
+    
+    int n_el_chain = chain.size();
+    std::map<int,pair<TPZGeoElSide, TPZGeoElSide>> skelchanel;
+    int count_skel_chanel=0;
+    int matId_skel_chanel = 10;
+    count =0;
+    for(auto it : chain){
+        TPZGeoEl *first_element = it.second.first.Element();
+        TPZGeoEl *second_element = it.second.second.Element();
+        
+        int first_father_index = first_element->LowestFather()->Index();
+        int second_father_index = second_element->LowestFather()->Index();
+        
+        if(first_father_index!=second_father_index){
+            TPZGeoElBC(it.second.first, matId_skel_chanel);
+            skelchanel[count_skel_chanel] = it.second;
+            count_skel_chanel++;
         }
+        
+    }
+    std::ofstream out("TestMesh.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, true);
     
-    
-        int n_el_chain = chain.size();
-        std::map<int,pair<TPZGeoElSide, TPZGeoElSide>> skelchanel;
-        int count_skel_chanel=0;
-        int matId_skel_chanel = 10;
-        count =0;
-        for(auto it : chain){
-            TPZGeoEl *first_element = it.second.first.Element();
-            TPZGeoEl *second_element = it.second.second.Element();
-    
-            int first_father_index = first_element->LowestFather()->Index();
-            int second_father_index = second_element->LowestFather()->Index();
-
-            if(first_father_index!=second_father_index){
-                TPZGeoElBC(it.second.first, matId_skel_chanel);
-                skelchanel[count_skel_chanel] = it.second;
-                count_skel_chanel++;
-            }
-    
-        }
-        std::ofstream out("TestMesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, true);
-    
-        return skelchanel;
+    return skelchanel;
     
 }

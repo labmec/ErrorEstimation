@@ -89,7 +89,6 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     
     //post processing for local problem
     {
-        
 #ifdef PZDEBUG
         {
             std::ofstream out("MeshPosNeumann.txt");
@@ -98,12 +97,11 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         }
 #endif
         
-        
         TPZAnalysis an(fPostProcMesh.MeshVector()[0],false);
-        
+
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
-        
+
         int dim = 2;
         std::string plotname("LocalNeumannProblem.vtk");
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
@@ -260,6 +258,7 @@ void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
 /// Compute an uplifted solution for the pressure
 void TPZHDivErrorEstimatorH1::UpliftPressure()
 {
+    if(fUpliftOrder < 0) return;
     fPostProcMesh.ComputeNodElCon();
     int64_t nel = fPostProcMesh.NElements();
     for (int64_t el = 0; el<nel; el++) {
@@ -277,8 +276,8 @@ void TPZHDivErrorEstimatorH1::UpliftPressure()
                 DebugStop();
             }
         }
-    }
 #endif
+    }
     fPostProcMesh.ExpandSolution();
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
@@ -364,10 +363,9 @@ void TPZHDivErrorEstimatorH1::CopySolutionFromSkeleton()
             }
         }
     }
-    {
-        std::ofstream out("pressuremesh2.txt");
-        pressuremesh->Print(out);
-    }
-
+	{
+		std::ofstream out("pressuremesh2.txt");
+		pressuremesh->Print(out);
+	}
 }
 
