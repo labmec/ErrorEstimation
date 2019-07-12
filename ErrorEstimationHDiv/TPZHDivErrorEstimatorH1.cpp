@@ -240,6 +240,7 @@ void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
             if(fExact)
             {
                 newmat->SetForcingFunctionExact(fExact->Exact());
+                newmat->SetForcingFunction(fExact->ForcingFunction());
     
             }
             

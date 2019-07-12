@@ -199,7 +199,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     if(this->fForcingFunctionExact){
         
         this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
-        //this->Force(data[0].x, divsigma);
+    
         this->fForcingFunction->Execute(data[0].x,divsigma);
     }
     

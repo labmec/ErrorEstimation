@@ -87,12 +87,35 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
 TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     TPZMultiphysicsCompMesh *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
     TPZMaterial *mat = NULL;
+    TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
+    K.Identity();
+    invK.Identity();
+    
+    for(int i=0 ;i< 3;i++){
+        for(int j=0; j< 3; j++){
+            K(i,j)=1;
+            invK(i,j) = -1./4.;
+        
+        }
+    }
+    
+    K(0,0)=2;
+    K(1,1)=2;
+    K(2,2)=2;
+    
+    invK(0,0)= 3./4.;
+    invK(1,1)= 3./4.;
+    invK(2,2)= 3./4.;
+    
+    
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
         mix->SetForcingFunction(problem.exact.ForcingFunction());
         mix->SetForcingFunctionExact(problem.exact.Exact());
+        mix->SetPermeabilityTensor(K, invK);
         
         if (!mat) mat = mix;
+        
         cmesh->InsertMaterialObject(mix);
     }
     for (auto matid : problem.bcmaterialids) {

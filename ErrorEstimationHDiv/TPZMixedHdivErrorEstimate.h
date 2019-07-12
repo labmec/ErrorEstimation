@@ -50,7 +50,7 @@ public:
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
     
     virtual int NEvalErrors() override {
-        return 4;
+        return 5;
         
     }
     

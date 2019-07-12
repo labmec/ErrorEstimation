@@ -37,6 +37,7 @@
 #include "TPZMultiphysicsCompMesh.h"
 
 #include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimatorH1.h"
 
 #include "Tools.h"
 
@@ -47,10 +48,10 @@
 
 
 
-bool IsgmeshReader = false;
+bool IsgmeshReader = true;
 bool neumann = true;
 
-bool mixedsolution = true;
+bool mixedsolution = false;
 
 
 int main(int argc, char *argv[]) {
@@ -65,22 +66,24 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
 
-    for(int ndiv=2; ndiv<6; ndiv++){
+    for(int ndiv=1; ndiv<2; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
-        config.hdivmais = 1;
+        config.hdivmais = 0;
         config.ndivisions = ndiv;
         config.dimension = 2;
         config.prefine=false;
         config.makepressurecontinuous = true;
         
-        config.exact.fExact = TLaplaceExample1::ESinSin;//EConst;//ESinSinDirNonHom;//EX;//ESinMark;//EArcTanSingular;//EArcTan;//
-        config.problemname = "ESinSinNossaPropostak=1n=1";//"ESinSinDirNonHomMine";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+        config.exact.fExact = TLaplaceExample1::EBubble;//ESinMark;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
+        config.problemname = "EBubble k=1 n= 0 Up=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
         
-        config.dir_name= "ESinSin";
+        config.dir_name= "EBubble";
+        std::string command = "mkdir " + config.dir_name;
+        system(command.c_str());
     
-    int dim = 2;
+    int dim = 3;
     
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
@@ -88,8 +91,8 @@ int main(int argc, char *argv[]) {
     if(IsgmeshReader){
         
         
-       // std::string meshfilename = "../LCircle.msh";
-        std::string meshfilename = "../esfera2.msh";
+        std::string meshfilename = "../LCircle.msh";
+        //std::string meshfilename = "../esfera2.msh";
     
         if(dim==3)
         {
@@ -101,9 +104,10 @@ int main(int argc, char *argv[]) {
       //  gmsh.GetDimPhysicalTagName().resize(4);
         if(dim==2)
         {
-            gmsh.GetDimNamePhysical()[1]["boundary"] =2;
+             gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
+           // gmsh.GetDimNamePhysical()[1]["boundary"] =2;
             gmsh.GetDimNamePhysical()[2]["domain"] = 1;
-             gmsh.GetDimNamePhysical()[1]["boundary2"] =3;
+           //  gmsh.GetDimNamePhysical()[1]["boundary2"] =3;
             
         }
         else
@@ -224,11 +228,21 @@ int main(int argc, char *argv[]) {
     
     //reconstroi potencial e calcula o erro
     {
+        /*
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
+        */
+        
+        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
+        HDivEstimate.fProblemConfig = config;
+        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        HDivEstimate.SetAnalyticSolution(config.exact);
+        
+        HDivEstimate.fperformUplift = true;
+        HDivEstimate.fUpliftOrder = 1;
         
         HDivEstimate.PotentialReconstruction();
         

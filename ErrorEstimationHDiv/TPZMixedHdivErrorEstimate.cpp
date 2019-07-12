@@ -204,18 +204,31 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
   
     TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
 
-    for (int i=0; i<3; i++) {
-        fluxreconstructed[i] = data[0].sol[0][i];
-        fluxfem[i] = data[2].sol[0][i];
-    }
+//    for (int i=0; i<3; i++) {
+//        fluxreconstructed[i] = data[0].sol[0][i];
+//        fluxfem[i] = data[2].sol[0][i];
+//    }
+    
+    fluxreconstructed = data[0].sol[0];
+    fluxfem = data[2].sol[0];
+    STATE divsigmafem=data[2].divsol[0][0];
+    
+    
+    TPZVec<STATE> divsigma(1);
     
     if(this->fForcingFunctionExact){
         
         this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
+        this->fForcingFunction->Execute(data[0].x,divsigma);
     }
     
+
+    
+    REAL oscilatory = 0.;
+    oscilatory = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
+    
+    
     pressurereconstructed[0] = data[1].sol[0][0];
-    //pressurefem[0] = data[1].sol[0][1];
     pressurefem[0] = data[3].sol[0][0];
     
     TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
@@ -254,7 +267,6 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     for (int i=0; i<3; i++) {
         for (int j=0; j<3; j++) {
             innerexact += (fluxfem[i]+fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]+fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
-            //innerexact += (fluxfem[i]-du_exact[i])*InvPermTensor(i,j)*(fluxfem[j]-du_exact[j]);
             innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
         }
     }
@@ -262,6 +274,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     errors[1] = (pressurefem[0]-pressurereconstructed[0])*(pressurefem[0]-pressurereconstructed[0]);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
+    errors[4] = oscilatory;
 }
 
 

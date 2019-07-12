@@ -37,6 +37,7 @@
 #include "TPZMultiphysicsCompMesh.h"
 
 #include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimatorH1.h"
 #include "Tools.h"
 
 #include "TPZBFileStream.h"
@@ -84,24 +85,27 @@ int main(int argc, char *argv[]) {
     
    
     
+    for(int ndiv=2 ; ndiv<3; ndiv++){
     ProblemConfig config;
-    config.porder = 1;
-    config.hdivmais = 1;
+   
     
-
-    config.ndivisions=0;
+    config.porder = 1;
+    config.hdivmais = 3;
+    config.ndivisions = ndiv;
     config.alpha=alpha;
     
     config.prefine=false;
     config.makepressurecontinuous = true;
-    config.steklovexample=true;
-    config.GalvisExample=false;
     
-    for (int ndiv=1 ; ndiv< 5; ndiv++){
-        
-        config.ndivisions= ndiv;
+    config.steklovexample=false;
     
+    config.GalvisExample=true;
     
+       
+        config.dir_name = "HPermeability";
+        //config.dir_name= "ESinSin";
+        std::string command = "mkdir " + config.dir_name;
+        system(command.c_str());
     
     
     int dim=2;
@@ -110,12 +114,12 @@ int main(int argc, char *argv[]) {
     TPZGeoMesh *gmesh = nullptr;
     
     if(IsreadMesh){
-        config.dir_name = "HPermeability";
+        
     
     if(config.steklovexample){
         
         config.exact.fExact = TLaplaceExample1::ESteklovNonConst;
-        config.problemname ="ESteklovNonConst";
+        config.problemname ="ESteklovNonConst k=1 n=3";
 
 
         TPZGmshReader gmsh;
@@ -155,7 +159,7 @@ int main(int argc, char *argv[]) {
     else if(config.GalvisExample){
         
         config.exact.fExact = TLaplaceExample1::EGalvisNonConst;
-        config.problemname ="EGalvisNonConst";
+        config.problemname ="EGalvisNonConst k=1 n=3 Up=1";
         std::string meshfilename = "Galvismesh.msh";
 #ifdef MACOSX
         meshfilename = "../" + meshfilename;
@@ -254,13 +258,13 @@ int main(int argc, char *argv[]) {
     
     UniformRefinement(config.ndivisions, gmesh);
     
-//    {
-//        std::ofstream out("gmesh.vtk");
-//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-//        std::ofstream out2("gmeshInitial.txt");
-//        gmesh->Print(out2);
-//
-//    }
+    {
+        std::ofstream out("gmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+        std::ofstream out2("gmeshInitial.txt");
+        gmesh->Print(out2);
+
+    }
     
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
     
@@ -393,6 +397,18 @@ int main(int argc, char *argv[]) {
     
     //reconstroi potencial e calcula o erro
     {
+        
+       TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
+        HDivEstimate.fProblemConfig = config;
+        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        HDivEstimate.SetAnalyticSolution(config.exact);
+        
+        HDivEstimate.fperformUplift = true;
+        HDivEstimate.fUpliftOrder = 1;
+        
+ 
+        /*
+      
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
@@ -402,7 +418,8 @@ int main(int argc, char *argv[]) {
             
             HDivEstimate.SetAnalyticSolution(config.exact);
         }
-    
+        */
+        
         HDivEstimate.PotentialReconstruction();
         
         TPZManVector<REAL> elementerrors;
