@@ -137,10 +137,10 @@ int main(){
     ConfigCasesMaze ConfCasesMeze;
     ConfCasesMeze.SetImageName("../Mazes/maze8x8.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);
-    ConfCasesMeze.SetPermeableMatPermeability(1000000);
+    ConfCasesMeze.SetPermeableMatPermeability(1000);
     ConfCasesMeze.SetFluxOrder(1);
     ConfCasesMeze.SetPressureOrder(1);
-    ConfCasesMeze.SetCCPressureIn(100);
+    ConfCasesMeze.SetCCPressureIn(10);
     ConfCasesMeze.SetCCPressureOut(1);
     ConfCasesMeze.SetMHMOpenChannel(false);
     ConfCasesMeze.SetVTKName("maze8x8.vtk");
@@ -799,7 +799,7 @@ int MHMTest(ConfigCasesMaze Conf){
             meshcontrol.Print(out);
         }
 #endif
-        meshcontrol.SetInternalPOrder(2);
+        meshcontrol.SetInternalPOrder(1);
         meshcontrol.SetSkeletonPOrder(1);
         
         meshcontrol.DivideSkeletonElements(0);
@@ -854,16 +854,19 @@ int MHMTest(ConfigCasesMaze Conf){
         
     }
     
-    TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
-    if(!InputMesh) DebugStop();
-    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
-    ErrorEstimator.BuildPostProcessingMesh();
     //    MixedMesh->Print(out);
     
     //    std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
     
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), 0,  Conf.GetVTKName(), Configuration);
     
+
+    // Error estimation
+    TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
+    if(!InputMesh) DebugStop();
+    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
+    ErrorEstimator.fOriginalIsHybridized = false;
+    ErrorEstimator.PotentialReconstruction();
     
     return 0;
 }
@@ -874,7 +877,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     
     TPZGeoMesh &gmesh = control.GMesh();
     const int typeFlux = 1, typePressure = 0;
-    TPZFMatrix<STATE> val1(1,1,0.), val2Flux(1,1,0.), val2Pressure(1,1,10.);
+    TPZFMatrix<STATE> val1(1,1,0.), val2Flux(1,1,0.), val2Pressure(1,1,1.);
     
     
     int dim = gmesh.Dimension();
@@ -891,7 +894,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     
     TPZMixedPoisson * mat_2 = new TPZMixedPoisson(2,dim);
     mat_2->SetSymmetric();
-    mat_2->SetPermeability(1000000.0);
+    mat_2->SetPermeability(1000.0);
     //    mat->SetForcingFunction(One);
     MixedFluxPressureCmesh->InsertMaterialObject(mat_2);
     
@@ -911,7 +914,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
     bcS = mat->CreateBC(mat, -4, typeFlux, val1, val2Flux);
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
-    val2Pressure(0,0) = 100.;
+    val2Pressure(0,0) = 10.;
     TPZBndCond * bcIn = mat->CreateBC(mat, -5, typePressure, val1, val2Pressure);
     
     MixedFluxPressureCmesh->InsertMaterialObject(bcIn);

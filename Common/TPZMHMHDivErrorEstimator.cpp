@@ -5,23 +5,22 @@
 #include "pzsubcmesh.h"
 #include "TPZVTKGeoMesh.h"
 
-//reconstruction of potential using hybrid solution on enrichement space
-void TPZMHMHDivErrorEstimator::PotentialReconstruction()
-{
-    BuildPostProcessingMesh();
-    DebugStop();
-}
 
 // a method for generating the hybridized multiphysics post processing mesh
-void TPZMHMHDivErrorEstimator::BuildPostProcessingMesh()
+void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 {
     fPostProcMesh.SetReference(fOriginal->Reference());
-    TPZManVector<TPZCompMesh *> meshvec(2);
+    TPZManVector<TPZCompMesh *> meshvec(4);
     meshvec[0] = CreateFluxMesh();
     meshvec[1] = CreatePressureMesh();
+    meshvec[2] = fOriginal->MeshVector()[0];
+    meshvec[3] = fOriginal->MeshVector()[1];
+    TPZManVector<int,4> active(4,0);
+    active[0] = 1;
+    active[1] = 1;
     fOriginal->CopyMaterials(fPostProcMesh);
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
-    fPostProcMesh.BuildMultiphysicsSpace(meshvec);
+    fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
 #ifdef PZDEBUG
     {
@@ -152,6 +151,25 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     TransferEmbeddedElements();
     fPostProcMesh.ComputeNodElCon();
     fPostProcMesh.CleanUpUnconnectedNodes();
+    // set an analysis type for the submeshes
+    {
+        int64_t nel = fPostProcMesh.NElements();
+        for(int64_t el = 0; el<nel; el++)
+        {
+            TPZCompEl *cel = fPostProcMesh.Element(el);
+            TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+            if(sub)
+            {
+                fHybridizer.GroupandCondenseElements(sub);
+                sub->CleanUpUnconnectedNodes();
+                int numthreads = 0;
+                int preconditioned = 0;
+                TPZAutoPointer<TPZGuiInterface> guiInterface;
+                sub->SetAnalysisSkyline(numthreads, preconditioned, guiInterface);
+            }
+        }
+
+    }
     
 #ifdef PZDEBUG
     {
@@ -262,6 +280,10 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh()
         gel->ResetReference();
     }
     pressmesh->ExpandSolution();
+    int64_t nc = pressmesh->NConnects();
+    for (int64_t ic=0; ic<nc; ic++) {
+        pressmesh->ConnectVec()[ic].SetLagrangeMultiplier(1);
+    }
     return pressmesh;
 }
 
@@ -348,5 +370,86 @@ void TPZMHMHDivErrorEstimator::TransferEmbeddedElements()
         TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
         if(!sub) continue;
         sub->MakeAllInternal();
+    }
+}
+
+// a method for computing the pressures between subdomains as average pressures
+/// compute the average pressures of across edges of the H(div) mesh
+void TPZMHMHDivErrorEstimator::ComputeAveragePressures(int target_dim)
+{
+    // load the pressure elements of the finite element approximation
+    TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
+    TPZGeoMesh *gmesh = OrigPressure->Reference();
+    gmesh->ResetReference();
+    int dim = fPostProcMesh.Dimension();
+    if(target_dim < dim-1) OrigPressure = fPostProcMesh.MeshVector()[1];
+    int64_t nel = OrigPressure->NElements();
+    // load all elements of dimension target_dim+1
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = OrigPressure->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if (gel->Dimension() == target_dim+1) {
+            cel->LoadElementReference();
+        }
+    }
+    // compute the averages one element at a time
+    nel = fPostProcMesh.NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) continue;
+        if(gel->Dimension() == target_dim)
+        {
+            TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
+            if(!mphys) DebugStop();
+            TPZCompEl *pressel = mphys->Element(1);
+            int64_t index = pressel->Index();
+            ComputeAverage(pressel->Mesh(),index);
+        }
+    }
+    
+}
+/// compute the average pressure over corners
+/// set the cornernode values equal to the averages
+void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
+{
+    // load the one dimensional interface elements
+    // load the pressure elements of the finite element approximation
+    TPZCompMesh *OrigPressure = fPostProcMesh.MeshVector()[1];
+    TPZGeoMesh *gmesh = OrigPressure->Reference();
+    gmesh->ResetReference();
+    int dim = gmesh->Dimension();
+    int64_t nel = fPostProcMesh.NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) continue;
+        if (gel->Dimension() == dim-1) {
+            TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
+            if(!mphys) DebugStop();
+            TPZCompEl *pressel = mphys->Element(1);
+            pressel->LoadElementReference();
+        }
+    }
+
+    nel = OrigPressure->NElements();
+    // compute the averages
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = OrigPressure->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel || !gel->Reference()) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if(!intel) DebugStop();
+        if (gel->Dimension() == dim-1) {
+            int ncorner = gel->NCornerNodes();
+            for (int side = 0; side<ncorner; side++) {
+                TPZCompElSide celside(cel,side);
+                ComputeNodalAverage(celside);
+            }
+        }
     }
 }

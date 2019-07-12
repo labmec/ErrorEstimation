@@ -106,6 +106,11 @@ protected:
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
     
+    // a method for generating the HDiv mesh
+    virtual TPZCompMesh *CreateFluxMesh();
+    // a method for creating the pressure mesh
+    virtual TPZCompMesh *CreatePressureMesh();
+
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
     
@@ -120,7 +125,7 @@ protected:
     void ComputeAverageFacePressures();
     
     /// compute the average pressures of across edges of the H(div) mesh
-    void ComputeAveragePressures(int target_dim);
+    virtual void ComputeAveragePressures(int target_dim);
     
     /// transfer the solution of the edge functions to the face functions
     void TransferEdgeSolution();
@@ -137,7 +142,10 @@ protected:
     void RestrainSmallEdges(TPZCompMesh *pressuremesh);
     
     /// set the cornernode values equal to the averages
-    void ComputeNodalAverages();
+    virtual void ComputeNodalAverages();
+    
+    /// compute the nodal average of all elements that share a point
+    void ComputeNodalAverage(TPZCompElSide &celside);
     
     /// copy the solution from the neighbouring skeleton elements
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
@@ -168,6 +176,11 @@ protected:
 
     // Checks if the solution is in fact continuous
     void VerifySolutionConsistency(TPZCompMesh* cmesh);
+    
+protected:
+    
+    // compute the average of an element iel in the pressure mesh looking at its neighbours
+    void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

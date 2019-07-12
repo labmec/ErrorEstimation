@@ -28,7 +28,7 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, TPZMHMixedMeshControl *mhm) : TPZHybridHDivErrorEstimator(InputMesh,true),
         fMHM(mhm)
     {
-        
+        fProblemConfig.makepressurecontinuous = true;
     }
     
     TPZMHMHDivErrorEstimator(const TPZMHMHDivErrorEstimator &copy) : TPZHybridHDivErrorEstimator(copy), fMHM(copy.fMHM)
@@ -49,20 +49,17 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
         
     }
 
-    //reconstruction of potential using hybrid solution on enrichement space
-    virtual void PotentialReconstruction() override;
-
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
     virtual void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true) override;
     
 
     // a method for generating the HDiv mesh
-    TPZCompMesh *CreateFluxMesh();
+    virtual TPZCompMesh *CreateFluxMesh() override;
     // a method for creating the pressure mesh
-    TPZCompMesh *CreatePressureMesh();
+    virtual TPZCompMesh *CreatePressureMesh() override;
     // a method for generating the hybridized multiphysics post processing mesh
-    void BuildPostProcessingMesh();
+    virtual void CreatePostProcessingMesh() override;
     // a method for transferring the multiphysics elements in submeshes
     void SubStructurePostProcessingMesh();
     // transfer embedded elements to submeshes
@@ -73,6 +70,12 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     // remove the materials that are not listed in MHM
     void RemoveMaterialObjects(std::map<int,TPZMaterial *> &matvec);
     // a method for computing the pressures between subdomains as average pressures
+    /// compute the average pressures of across edges of the H(div) mesh
+    virtual void ComputeAveragePressures(int target_dim) override;
+    /// compute the average pressure over corners
+    /// set the cornernode values equal to the averages
+    virtual void ComputeNodalAverages() override;
+
     // a method for computing a reference solution
 };
 
