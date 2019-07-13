@@ -18,6 +18,9 @@ add_executable(H1Reconstruction ${common_SRC} main_H1.cpp)
 
 target_link_libraries(H1Reconstruction pz)
 
+add_executable(AdaptivityTest ${common_SRC} mainAdaptivity.cpp)
+
+target_link_libraries(AdaptivityTest pz)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
