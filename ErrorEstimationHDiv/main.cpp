@@ -86,10 +86,10 @@ int main(int argc, char *argv[]) {
     
     else{
         int nel = 1;
-        gmesh=CreateGeoMesh(nel);
+        TPZManVector<int,4> bcids(4,-1);
+        gmesh=CreateGeoMesh(nel, bcids);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
-        config.bcmaterialids.insert(-2);
         config.gmesh = gmesh;
     }
     

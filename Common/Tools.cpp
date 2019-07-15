@@ -171,7 +171,7 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
 }
 
 
-TPZGeoMesh *CreateGeoMesh(int nel) {
+TPZGeoMesh *CreateGeoMesh(int nel, TPZVec<int> &bcids) {
     
     TPZManVector<int> nx(2,nel);
     TPZManVector<REAL> x0(3,0.),x1(3,1.);
@@ -180,10 +180,10 @@ TPZGeoMesh *CreateGeoMesh(int nel) {
 
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
-    gen.SetBC(gmesh, 4, -1);
-    gen.SetBC(gmesh, 5, -1);
-    gen.SetBC(gmesh, 6, -1);
-    gen.SetBC(gmesh, 7, -1);
+    gen.SetBC(gmesh, 4, bcids[0]);
+    gen.SetBC(gmesh, 5, bcids[1]);
+    gen.SetBC(gmesh, 6, bcids[2]);
+    gen.SetBC(gmesh, 7, bcids[3]);
 
     
     
@@ -625,10 +625,10 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
 
     else{
 
-        gmesh = CreateGeoMesh(2);
+        TPZManVector<int,4> bcids(4,-1);
+        gmesh = CreateGeoMesh(2, bcids);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
-        config.bcmaterialids.insert(-2);
         config.gmesh = gmesh;
         gmesh->SetDimension(dim);
 
@@ -694,3 +694,50 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
      //return HybridMesh;
      return cmesh_HDiv;
 }
+
+/// Divide lower dimensional elements
+void DivideLowerDimensionalElements(TPZGeoMesh *gmesh)
+{
+    bool haschanged = true;
+    int dim = gmesh->Dimension();
+    while(haschanged)
+    {
+        haschanged = false;
+        int64_t nel = gmesh->NElements();
+        TPZStack<TPZGeoEl *> geldivide;
+        for (int64_t el = 0; el<nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(!gel || gel->Dimension() == dim || gel->Dimension() == 0)
+            {
+                continue;
+            }
+            if(gel->HasSubElement()) continue;
+            int nsides = gel->NSides();
+            int ncorner = gel->NCornerNodes();
+            for (int side = ncorner; side < nsides; side++) {
+                TPZGeoElSide gelside(gel,side);
+                TPZGeoElSide neighbour(gelside.Neighbour());
+                bool found = false;
+                while (neighbour != gelside) {
+                    if(neighbour.HasSubElement())
+                    {
+                        geldivide.Push(gel);
+                        found = true;
+                        break;
+                    }
+                    neighbour = neighbour.Neighbour();
+                }
+                if(found) break;
+            }
+        }
+        if(geldivide.size())
+        {
+            haschanged = true;
+            for (int64_t i = 0; i<geldivide.size(); i++) {
+                TPZManVector<TPZGeoEl *> sub;
+                geldivide[i]->Divide(sub);
+            }
+        }
+    }
+}
+

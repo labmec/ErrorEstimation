@@ -245,7 +245,8 @@ int main(int argc, char *argv[]) {
         config.dir_name = "BoundaryLayer";
         config.exact.fExact = TLaplaceExample1::EBoundaryLayer;
         
-        gmesh= CreateGeoMesh(1);
+        TPZManVector<int,4> bcids(4,-1);
+        gmesh= CreateGeoMesh(1,bcids);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         config.gmesh = gmesh;

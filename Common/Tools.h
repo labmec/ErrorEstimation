@@ -51,7 +51,13 @@ void IncreaseSideOrders(TPZCompMesh *fluxmesh);
 /// Set the interface pressure to the average pressure
 void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, int InterfaceMatid);
 void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
-TPZGeoMesh *CreateGeoMesh(int nelem);
+
+/// Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
+TPZGeoMesh *CreateGeoMesh(int nelem, TPZVec<int> &bcids);
+
+/// Divide lower dimensional elements
+void DivideLowerDimensionalElements(TPZGeoMesh *gmesh);
+
 void MultiPhysicsCompel(const ProblemConfig &config);
 
 void RandomRefine(ProblemConfig &config,int numelrefine);

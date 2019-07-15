@@ -129,11 +129,10 @@ int main(int argc, char *argv[]) {
     }
     
     else{
-    
-        gmesh = CreateGeoMesh(2);
+        TPZManVector<int,4> bcids(4,-1);
+        gmesh = CreateGeoMesh(2, bcids);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
-        config.bcmaterialids.insert(-2);
         config.gmesh = gmesh;
         gmesh->SetDimension(dim);
         
