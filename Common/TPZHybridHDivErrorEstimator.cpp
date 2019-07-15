@@ -1464,7 +1464,7 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
             
             if (fExact) {
                 newmat->SetForcingFunctionExact(fExact->Exact());
-                newmat->SetForcingFunction(fExact->ForcingFunction());            }
+                newmat->SetForcingFunction(fExact->ForcingFunction());
 
             }
         
