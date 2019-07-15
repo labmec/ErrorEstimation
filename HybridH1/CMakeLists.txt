@@ -1,26 +1,9 @@
 # Project to apply error estimation for Hdiv reconstrcuction
 
-add_executable(HeteroPermeability ${common_SRC} main_HeteroPermeability.cpp)
 
-target_link_libraries(HeteroPermeability pz)
+add_executable(HybridH1 ${common_SRC} main_HybridH1.cpp)
 
-
-add_executable(HybridHDiv ${common_SRC} New_main.cpp)
-
-target_link_libraries(HybridHDiv pz)
-
-
-add_executable(NoHybridMain ${common_SRC} main.cpp)
-
-target_link_libraries(NoHybridMain pz)
-
-add_executable(H1Reconstruction ${common_SRC} main_H1.cpp)
-
-target_link_libraries(H1Reconstruction pz)
-
-add_executable(AdaptivityTest ${common_SRC} mainAdaptivity.cpp)
-
-target_link_libraries(AdaptivityTest pz)
+target_link_libraries(HybridH1 pz)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)

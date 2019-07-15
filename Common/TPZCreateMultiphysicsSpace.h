@@ -1,12 +1,12 @@
 //
-//  TPZCreateMultiPhysicsSpace.hpp
+//  TPZCreateMultiphysicsSpace.hpp
 //  ErrorEstimation
 //
 //  Created by Philippe Devloo on 13/07/19.
 //
 
-#ifndef TPZCreateMultiPhysicsSpace_hpp
-#define TPZCreateMultiPhysicsSpace_hpp
+#ifndef TPZCreateMultiphysicsSpace_hpp
+#define TPZCreateMultiphysicsSpace_hpp
 
 #include <stdio.h>
 #include <set>
@@ -15,9 +15,10 @@ class TPZCompMesh;
 class TPZGeoMesh;
 class TPZMultiphysicsCompMesh;
 class TPZCompEl;
+class TPZGeoElSide;
 
 
-class TPZCreateMultiPhysicsSpace
+class TPZCreateMultiphysicsSpace
 {
 public:
     /// types of spaces this class can create
@@ -35,7 +36,7 @@ private:
     std::set<int> fBCMaterialIds;
     
     /// default internal order for the H1 elements
-    int fDefaultPOrder = 2;
+    int fDefaultPOrder = 3;
     
     /// default Lagrange multiplier order
     int fDefaultLagrangeOrder = 1;
@@ -77,17 +78,30 @@ public:
     TConfigH1Hybrid fH1Hybrid;
     
     /// default constructor
-    TPZCreateMultiPhysicsSpace(TPZGeoMesh *gmesh);
+    TPZCreateMultiphysicsSpace(TPZGeoMesh *gmesh, MSpaceType spacetype = EH1Hybrid);
     
     /// copy constructor
-    TPZCreateMultiPhysicsSpace(const TPZCreateMultiPhysicsSpace &copy);
+    TPZCreateMultiphysicsSpace(const TPZCreateMultiphysicsSpace &copy);
     
     /// = operator
-    TPZCreateMultiPhysicsSpace &operator=(const TPZCreateMultiPhysicsSpace &copy);
+    TPZCreateMultiphysicsSpace &operator=(const TPZCreateMultiphysicsSpace &copy);
     
     /// Indicate to create Hybridized H1 meshes
     void SetH1Hybridized(const TConfigH1Hybrid &config);
     
+    /// Compute Periferal Material ids
+    // the material ids will be computed from a number whose modulus by base is zero
+    void ComputePeriferalMaterialIds(int base = 10);
+    
+    /// Insert the periferal material objects (for wrapmatid, fluxmatid and lagrange matid
+    void InsertPeriferalMaterialObjects(TPZMultiphysicsCompMesh *mphys);
+    
+    /// Initialize the material ids and bc material ids
+    void SetMaterialIds(const std::set<int> &matids, const std::set<int> &bc_matids)
+    {
+        fMaterialIds = matids;
+        fBCMaterialIds = bc_matids;
+    }
     /// create meshes and elements for all geometric elements
     void CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec);
     
@@ -123,7 +137,11 @@ private:
     
     /// Find the neighbouring flux element
     TPZCompEl *FindFluxElement(TPZCompEl *wrapelement);
+    
+    /// if there a neighbouring element with matid == lagrangematid -> return true
+    bool ShouldCreateFluxElement(TPZGeoElSide &gelside, int lagrangematid);
+
 };
 
 
-#endif /* TPZCreateMultiPhysicsSpace_hpp */
+#endif /* TPZCreateMultiphysicsSpace_hpp */

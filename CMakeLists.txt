@@ -130,6 +130,7 @@ include_directories(Common)
 add_subdirectory(AinsworthProposal)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
+add_subdirectory(HybridH1)
 
 if(BUILD_OPENCV_PROJECTS)
 	add_subdirectory(MHM_Maze) # must be added here to inherit non-empty ${common_SRC} 
