@@ -10,6 +10,7 @@
 #include "pzcmesh.h"
 #include "pzcompel.h"
 #include "pzcondensedcompel.h"
+#include "pzelementgroup.h"
 #include "pzintel.h"
 #include "pzelmat.h"
 #include "pzbndcond.h"
@@ -889,7 +890,7 @@ void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int6
             TPZManVector<REAL,3> xeq(3,0.);
             celstack[ieq].Element()->Reference()->X(pt1,xeq);
             celstack[ieq].Element()->Solution(pt1, 0, sol1);//solucao a esquerda
-            std::cout << "xref " << xref << " ieq " << ieq << " xeq " << xeq << " sol " << sol1 << std::endl;
+//            std::cout << "xref " << xref << " ieq " << ieq << " xeq " << xeq << " sol " << sol1 << std::endl;
             for (int ishape = 0; ishape < nshape; ishape++)
             {
                 L2Rhs(ishape, 0) += weight * phi(ishape, 0) * sol1[0] / nequal;
@@ -906,11 +907,11 @@ void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int6
     //apos este passo temos uma pressao que é continua ao longo das interfaces dos elementos, nos esqueletos. Falta suavizar nos vértices
     // L2Rhs.Print("Average pressure");
     
-    std::cout << "average ";
-    for (int i=0; i<nshape; i++) {
-        std::cout << L2Rhs(i,0) << " ";
-    }
-    std::cout << std::endl;
+//    std::cout << "average ";
+//    for (int i=0; i<nshape; i++) {
+//        std::cout << L2Rhs(i,0) << " ";
+//    }
+//    std::cout << std::endl;
     
     int count = 0;
     for (int ic = 0; ic < nc; ic++) {
@@ -1131,7 +1132,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         TPZManVector<REAL,3> pt(0), x(3);
         gelside0.X(pt, x);
-        std::cout << "x = " << x << " sol " << pressureHybrid->Block().Get(seqnum, 0, 0, 0) << std::endl;
+//        std::cout << "x = " << x << " sol " << pressureHybrid->Block().Get(seqnum, 0, 0, 0) << std::endl;
         //soma a soluçao dos elementos que possuem este no
         for (int istate = 0; istate < nstate; istate++) {
             averageval[istate] += pressureHybrid->Block().Get(seqnum, 0, istate, 0);
@@ -1145,7 +1146,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         averageval[istate] /= ncontr;
         //   std::cout<<"valor nos vertices "<<averageval[istate]<<std::endl;
     }//constroi o operador averaging
-    std::cout << "average " << averageval << std::endl;
+//    std::cout << "average " << averageval << std::endl;
     for (auto conindex : connects) {
         TPZConnect &c = pressureHybrid->ConnectVec()[conindex];
         int64_t seqnum = c.SequenceNumber();
@@ -1415,6 +1416,35 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
     
 }
 
+static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)
+{
+    const TPZStack<TPZCompEl *,5> &elgr = cel->GetElGroup();
+    for(int i=0; i<elgr.size(); i++)
+    {
+        TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(elgr[i]);
+        if(interf) return interf;
+    }
+    return NULL;
+}
+
+static TPZMultiphysicsInterfaceElement *Extract(TPZCondensedCompEl *cond)
+{
+    TPZCompEl *cel = cond->ReferenceCompEl();
+    TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(cond);
+    if(interf) return interf;
+    TPZElementGroup *elgr = dynamic_cast<TPZElementGroup *>(cel);
+    if(elgr) return Extract(elgr);
+    return NULL;
+}
+
+static TPZMultiphysicsInterfaceElement *Extract(TPZCompEl *cel)
+{
+    TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(cel);
+    if(interf) return interf;
+    TPZCondensedCompEl *cond = dynamic_cast<TPZCondensedCompEl *>(cel);
+    if(cond) return Extract(cond);
+    return NULL;
+}
 /// identify the peripheral material objects and store the information in fHybridizer
 void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
     int dim = fOriginal->Dimension();
@@ -1423,6 +1453,11 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = fOriginal->Element(el);
         TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(cel);
+        if(!interf)
+        {
+            TPZCondensedCompEl *cond = dynamic_cast<TPZCondensedCompEl *>(cel);
+            if(cond) interf = Extract(cond);
+        }
         if (interf) {
             int matid = interf->Reference()->MaterialId();
             fHybridizer.fInterfaceMatid = matid;
