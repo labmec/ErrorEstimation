@@ -48,7 +48,7 @@
 
 
 
-bool IsgmeshReader = true;
+bool IsgmeshReader = false;
 bool neumann = true;
 
 bool mixedsolution = false;
@@ -76,14 +76,14 @@ int main(int argc, char *argv[]) {
         config.prefine=false;
         config.makepressurecontinuous = true;
         
-        config.exact.fExact = TLaplaceExample1::EBubble;//ESinMark;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
+        config.exact.fExact = TLaplaceExample1::ESinSin;//EBubble;//ESinMark;//ESinSinDirNonHom;//EConst;//EX;//EArcTanSingular;//EArcTan;//
         config.problemname = "EBubble k=1 n= 0 Up=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
         
         config.dir_name= "EBubble";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     
-    int dim = 3;
+    int dim = 2;
     
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
@@ -227,21 +227,20 @@ int main(int argc, char *argv[]) {
     
     //reconstroi potencial e calcula o erro
     {
-        /*
+        
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
-        */
+
         
-        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-        HDivEstimate.SetAnalyticSolution(config.exact);
-        
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 1;
+//        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
+//        HDivEstimate.fProblemConfig = config;
+//        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+//        HDivEstimate.SetAnalyticSolution(config.exact);
+//        HDivEstimate.fperformUplift = true;
+//        HDivEstimate.fUpliftOrder = 1;
         
         HDivEstimate.PotentialReconstruction();
         
