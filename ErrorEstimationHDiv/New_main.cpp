@@ -48,7 +48,7 @@
 
 
 
-bool IsgmeshReader = true;
+bool IsgmeshReader = false;
 bool neumann = true;
 
 bool mixedsolution = false;
@@ -66,24 +66,24 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
 
-    for(int ndiv=1; ndiv<2; ndiv++){
+    for(int ndiv=0; ndiv<1; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
-        config.hdivmais = 0;
+        config.hdivmais = 1;
         config.ndivisions = ndiv;
         config.dimension = 2;
         config.prefine=false;
         config.makepressurecontinuous = true;
         
-        config.exact.fExact = TLaplaceExample1::EBubble;//ESinMark;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
-        config.problemname = "EBubble k=1 n= 0 Up=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+        config.exact.fExact = TLaplaceExample1::ESinSin;//EBubble;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
+        config.problemname = "ESinSin k=1 n=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
         
-        config.dir_name= "EBubble";
+        config.dir_name= "ESinSin";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     
-    int dim = 3;
+    int dim = 2;
     
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
@@ -227,13 +227,15 @@ int main(int argc, char *argv[]) {
     
     //reconstroi potencial e calcula o erro
     {
-        /*
+        
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
-        */
+        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        
+        /*
         
         TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
         HDivEstimate.fProblemConfig = config;
@@ -242,6 +244,7 @@ int main(int argc, char *argv[]) {
         
         HDivEstimate.fperformUplift = true;
         HDivEstimate.fUpliftOrder = 1;
+        */
         
         HDivEstimate.PotentialReconstruction();
         

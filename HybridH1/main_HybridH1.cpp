@@ -50,10 +50,13 @@
 
 
 
-bool IsgmeshReader = true;
 bool neumann = true;
+bool h1solution = true;
 
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
+void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
+TPZCompMesh *CMeshH1(const ProblemConfig &problem);
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -61,26 +64,20 @@ int main(int argc, char *argv[]) {
 #endif
     
     
-    // Initializing uniform refinements for reference elements
-//    gRefDBase.InitializeUniformRefPattern(EOned);
-//    gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
-//    gRefDBase.InitializeUniformRefPattern(ETriangle);
-    
+    for (int ndiv=1 ; ndiv<6;ndiv++){
+
     ProblemConfig config;
     
-    config.porder = 1;
-    config.hdivmais = 0;
-    config.ndivisions = 0;
+    config.porder = 2;
+    config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine=false;
-    config.makepressurecontinuous = true;
+    int orderlagrange =2;
+    TLaplaceExample1 example;
+    config.exact.fExact = example.ESinSin;//EX;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+    config.problemname = "ESinSin k=1 e lagrange order 2";
     
-    
-    config.exact.fExact = TLaplaceExample1::EX;//ESinSinDirNonHom;//ESinSin;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
-    config.problemname = "Constant k=1 e n=0 Up=2";//"EConst";//"ESinSinDirNonHom";//"ESinSin";//" //"EArcTanSingular_PRef";//""ArcTang";//
-    
-    config.dir_name= "HybridH1_Const";
-    //config.dir_name= "ESinSin";
+    config.dir_name= "HybridH1_ESinSin";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
     
@@ -88,12 +85,19 @@ int main(int argc, char *argv[]) {
     //geometric mesh
     TPZManVector<int,4> bcids(4,-1);
     TPZGeoMesh *gmesh = CreateGeoMesh(2, bcids);
-    if(1)
-    {
-        TPZManVector<TPZGeoEl *> sub;
-        gmesh->Element(0)->Divide(sub);
-        DivideLowerDimensionalElements(gmesh);
-    }
+//    if(1)
+//    {
+//        TPZManVector<TPZGeoEl *> sub;
+//        gmesh->Element(0)->Divide(sub);
+//        DivideLowerDimensionalElements(gmesh);
+//    }
+        
+        
+        config.gmesh=gmesh;
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(-1);
+        
+        
     
     UniformRefinement(config.ndivisions, gmesh);
     // RandomRefine(config, config.ndivisions);
@@ -107,15 +111,44 @@ int main(int argc, char *argv[]) {
         
     }
 #endif
+        
+        //problema H1
+    if(h1solution)
+    {
+            
+        example.fSignConvention = -1;
+        TPZCompMesh *cmeshH1 = CMeshH1(config);
+        {
+            ofstream arg1("CompMeshH1.txt");
+            cmeshH1->Print(arg1);
+        }
+        SolveH1Problem(cmeshH1,config);
+
+    }
+        
     
     TPZCreateMultiphysicsSpace createspace(gmesh);
     
     createspace.SetMaterialIds({1}, {-2,-1});
-    createspace.fH1Hybrid.fHybridizeBC = false;
+    createspace.fH1Hybrid.fHybridizeBC = false;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
+
+    
+    std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
+    std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId.first<<std::endl;
+    std::cout <<" fMatWrapId - = "<<createspace.fH1Hybrid.fMatWrapId.second<<std::endl;
+    std::cout <<" fLagrangeMatid + = "<<createspace.fH1Hybrid.fLagrangeMatid.first<<std::endl;
+    std::cout <<" fLagrangeMatid - = "<<createspace.fH1Hybrid.fLagrangeMatid.second<<std::endl;
+    std::cout <<" fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl;
+        
+
+    
+    
     
     TPZManVector<TPZCompMesh *> meshvec;
-    createspace.CreateAtomicMeshes(meshvec);
+        
+    
+    createspace.CreateAtomicMeshes(meshvec,config.porder,orderlagrange);
     
     TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(gmesh);
     InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
@@ -127,27 +160,42 @@ int main(int argc, char *argv[]) {
     
     cmesh_H1Hybrid->InitializeBlock();
     cmesh_H1Hybrid->ComputeNodElCon();
+        
+        
+        //Solve Hybrid problem
+        
+        SolveHybridH1Problem(cmesh_H1Hybrid,config);
     
-    TPZAnalysis an(cmesh_H1Hybrid);
-    TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
-    TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
-    an.SetStructuralMatrix(skylstr);
-    TPZStepSolver<STATE> step;
-    step.SetDirect(ELDLt);
-    an.SetSolver(step);
-    
-    an.Run();
-    
+//Post Processing for Lagrange Multiplier
+//    {
+//        TPZAnalysis an(meshvec[1],false);
+//
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("State");
+//
+//        int dim = 1;
+//        std::string plotname("LagrangeMultiplier.vtk");
+//        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//        an.PostProcess(0, dim);
+//
+//
+//    }
+        
 #ifdef PZDEBUG
-    {
-        
-        std::ofstream out2("H1HybridMesh.txt");
-        cmesh_H1Hybrid->Print(out2);
-        std::ofstream out3("gmeshHybridH1.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
-        
-    }
+        {
+            
+            std::ofstream out2("H1HybridMesh.txt");
+            cmesh_H1Hybrid->Print(out2);
+            std::ofstream out3("gmeshHybridH1.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
+            
+        }
 #endif
+
+
+   }
+    
+    return 0.;
     
 }
 
@@ -166,6 +214,7 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
     if(config.exact.fExact != TLaplaceExample1::ENone)
     {
         material->SetForcingFunction(config.exact.ForcingFunction());
+        material->SetForcingFunctionExact(config.exact.Exact());
     }
     //    TPZMaterial * mat(material);
     //    cmesh->InsertMaterialObject(mat);
@@ -184,4 +233,193 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
     cmesh_H1Hybrid->InsertMaterialObject(BCond1);
     
 
+}
+
+
+TPZCompMesh *CMeshH1(const ProblemConfig &problem) {
+    
+    TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
+    TPZMaterial *mat = 0;
+    
+    
+    for (auto matid : problem.materialids) {
+        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
+        mix->SetForcingFunctionExact(problem.exact.Exact());
+        mix->SetForcingFunction(problem.exact.ForcingFunction());
+        
+        if (!mat) mat = mix;
+        cmesh->InsertMaterialObject(mix);
+        
+    }
+    
+    for (auto matid : problem.bcmaterialids) {
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        int bctype = 0;
+        val2.Zero();
+        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+        
+        cmesh->InsertMaterialObject(bc);
+    }
+    
+    cmesh->SetDefaultOrder(problem.porder);//ordem
+    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    
+    cmesh->AutoBuild();
+    
+
+    return cmesh;
+}
+
+void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
+    
+    TPZAnalysis an(cmeshH1);
+    
+    
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(cmeshH1);
+    strmat.SetNumThreads(0);
+    //        strmat.SetDecomposeType(ELDLt);
+#else
+    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
+    strmat.SetNumThreads(0);
+    //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
+    //        strmat3.SetNumThreads(8);
+#endif
+    
+    std::set<int> matids;
+    matids.insert(1);
+    
+    for(auto mat:config.bcmaterialids){
+        matids.insert(mat);
+    }
+    
+    strmat.SetMaterialIds(matids);
+    an.SetStructuralMatrix(strmat);
+    
+    
+    
+    TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
+    direct->SetDirect(ELDLt);
+    an.SetSolver(*direct);
+    delete direct;
+    direct = 0;
+    an.Assemble();
+    an.Solve();//resolve o problema misto ate aqui
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("Solution");
+    vecnames.Push("Derivative");
+    scalnames.Push("ExactSolution");
+    
+
+    
+    
+    
+    int dim = cmeshH1->Reference()->Dimension();
+    
+    std::string plotname;
+    {
+        std::stringstream out;
+        out << config.dir_name << "/" << "H1_Problem" << config.porder << "_" << dim
+        << "D_" << config.problemname << "Ndiv_ " << config.ndivisions << ".vtk";
+        plotname = out.str();
+    }
+    int resolution=0;
+    an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+    an.PostProcess(resolution,dim);
+    
+    
+    an.SetExact(config.exact.ExactSolution());
+    
+    TPZManVector<REAL> errorvec(10, 0.);
+    int64_t nelem = cmeshH1->NElements();
+    cmeshH1->LoadSolution(cmeshH1->Solution());
+    cmeshH1->ExpandSolution();
+    cmeshH1->ElementSolution().Redim(nelem, 10);
+    
+    an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
+    
+    std::cout << "Computed errors " << errorvec << std::endl;
+    
+    
+    //Erro
+    
+    ofstream myfile;
+    myfile.open("ArquivosErrosH1.txt", ios::app);
+    myfile << "\n\n Error for H1 formulation " << config.problemname;
+    myfile << "\n-------------------------------------------------- \n";
+    myfile << "Ndiv = " << config.ndivisions << " Order = " << config.porder << "\n";
+    myfile << "DOF Total = " << cmeshH1->NEquations() << "\n";
+    myfile << "Energy norm = " << errorvec[0] << "\n";//norma energia
+    myfile << "error norm L2 = " << errorvec[1] << "\n";//norma L2
+    myfile << "Semi norm H1 = " << errorvec[2] << "\n";//norma L2
+    myfile.close();
+    
+    
+}
+
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config){
+    
+    TPZAnalysis an(cmesh_H1Hybrid);
+    TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
+    TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
+    an.SetStructuralMatrix(skylstr);
+    TPZStepSolver<STATE> step;
+    step.SetDirect(ELDLt);
+    an.SetSolver(step);
+    
+    an.Run();
+  
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("Pressure");
+        scalnames.Push("PressureExact");
+        
+        int dim = 2;
+        std::string plotname;
+        {
+            std::stringstream out;
+            out << config.dir_name << "/" << "HybridH1" << config.porder << "_" << dim
+            << "D_" << config.problemname << "Ndiv_ " << config.ndivisions << "HdivMais"
+            << config.hdivmais << ".vtk";
+            plotname = out.str();
+        }
+        int resolution=0;
+        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+        an.PostProcess(resolution, dim);
+    
+    
+    //Calculo do Erro
+
+        
+        
+        an.SetExact(config.exact.ExactSolution());
+        
+        TPZManVector<REAL> errorvec(5, 0.);
+        int64_t nelem = cmesh_H1Hybrid->NElements();
+        cmesh_H1Hybrid->LoadSolution(cmesh_H1Hybrid->Solution());
+        cmesh_H1Hybrid->ExpandSolution();
+        cmesh_H1Hybrid->ElementSolution().Redim(nelem, 5);
+        
+        an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
+        
+        std::cout << "Computed errors " << errorvec << std::endl;
+        
+        
+        //Erro
+        
+        ofstream myfile;
+        myfile.open("ArquivosErrosH1Hibrido.txt", ios::app);
+        myfile << "\n\n Estimator errors for Problem " << config.problemname;
+        myfile << "\n-------------------------------------------------- \n";
+        myfile << "Ndiv = " << config.ndivisions << " Order = " << config.porder << "\n";
+        myfile << "DOF Total = " << cmesh_H1Hybrid->NEquations() << "\n";
+        myfile << "error norm L2 = " << errorvec[0] << "\n";
+        myfile << "semi norm H1 = " << errorvec[1] << "\n";
+        myfile << "H1 norm = " << errorvec[2] << "\n";
+        myfile << "energy norm = " << errorvec[3] << "\n";
+        myfile.close();
+        
+
+    
+    
 }

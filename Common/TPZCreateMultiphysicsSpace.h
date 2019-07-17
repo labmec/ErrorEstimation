@@ -57,6 +57,7 @@ public:
         
         /// material id of the dim-1 flux elements
         int fFluxMatId = -1;
+
         
         /// material id of left and right lagrange multipliers
         std::pair<int, int> fLagrangeMatid = {-1,-1};
@@ -73,6 +74,17 @@ public:
         /// copy operator
         TConfigH1Hybrid &operator=(const TConfigH1Hybrid &copy);
     };
+    
+    void SetPOrder(int order){
+        fDefaultPOrder = order;
+        
+    }
+    
+    void SetLagrangeOrder(int order){
+        
+        fDefaultLagrangeOrder = order;
+    }
+    
     
     /// object which contains the relevant information for create a hybrid H1 mesh
     TConfigH1Hybrid fH1Hybrid;
@@ -103,7 +115,7 @@ public:
         fBCMaterialIds = bc_matids;
     }
     /// create meshes and elements for all geometric elements
-    void CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec);
+    void CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec,int pressureOrder, int lagrangeorder);
     
     /// add interface elements to the multiphysics space
     void AddInterfaceElements(TPZMultiphysicsCompMesh *mphys);
@@ -114,10 +126,10 @@ public:
 private:
     
     /// Create the pressure mesh
-    TPZCompMesh *CreatePressureMesh();
+    TPZCompMesh *CreatePressureMesh(int pressureOrder);
     
     /// Create the flux mesh
-    TPZCompMesh *CreateFluxMesh();
+    TPZCompMesh *CreateFluxMesh(int lagrangeOrder);
 
     /// create the geometric elements for the lagrange multipliers
     // these elements will go with the largest H1 element

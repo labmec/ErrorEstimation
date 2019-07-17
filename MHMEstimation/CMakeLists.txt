@@ -2,7 +2,7 @@
 file(GLOB header *.h)
 file(GLOB source *.cpp)
 
-set(ErrorEstimateSRC ${header} ${source})
+set(ErrorEstimateSRC  ${common_SRC} ${header} ${source})
 
 add_executable(MHMEstimation ${ErrorEstimateSRC})
 

@@ -625,7 +625,7 @@ TPZGeoMesh *GeoMeshFromPng(string name, int &mesh_size_x, int &mesh_size_y){
     const int bcDR = -3;
     const int bcDT = -4;
     
-    
+
     gengrid.SetBC(gmesh, 4, bcDL);
     gengrid.SetBC(gmesh, 5, bcB);
     gengrid.SetBC(gmesh, 6, bcDR);
@@ -860,7 +860,7 @@ int MHMTest(ConfigCasesMaze Conf){
     
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), 0,  Conf.GetVTKName(), Configuration);
     
-    
+
     // Error estimation
     TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     if(!InputMesh) DebugStop();
