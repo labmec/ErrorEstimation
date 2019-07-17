@@ -22,6 +22,10 @@ add_executable(AdaptivityTest ${common_SRC} mainAdaptivity.cpp)
 
 target_link_libraries(AdaptivityTest pz)
 
+#add_executable(MHMMethod ${common_SRC} mainMHM.cpp)
+
+#target_link_libraries(MHMMethod pz)
+
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
 configure_file(../Meshes/BasicMesh.msh BasicMesh.msh COPYONLY)

@@ -56,16 +56,16 @@ void TPZCreateMultiphysicsSpace::SetH1Hybridized(const TConfigH1Hybrid &config)
 }
 
 /// create meshes and elements for all geometric elements
-void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec)
+void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec, int pressureOrder, int lagrangeorder)
 {
-    TPZCompMesh *pressure = CreatePressureMesh();
-    CreateLagrangeGeometricElements(pressure);
-    TPZCompMesh *fluxmesh = CreateFluxMesh();
+    TPZCompMesh *pressure = CreatePressureMesh(pressureOrder);
+    CreateLagrangeGeometricElements(pressure);//create approximation space for 1D geometric element
+    TPZCompMesh *fluxmesh = CreateFluxMesh(lagrangeorder);
     TPZCompMesh *gspace = new TPZCompMesh(fGeoMesh);
     {
         InsertNullSpaceMaterialIds(gspace);
         gspace->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
-        gspace->SetDefaultOrder(0);
+        gspace->SetDefaultOrder(0);//sao espacos de pressao media 
         gspace->AutoBuild();
         int64_t nconnects = gspace->NConnects();
         for (int ic = 0; ic<nconnects; ic++) {
@@ -311,13 +311,15 @@ void TPZCreateMultiphysicsSpace::InsertNullSpaceMaterialIds(TPZCompMesh *nullspa
 }
 
 /// Create the pressure mesh
-TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh()
+TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh(int pressureOrder)
 {
     // create the pressure mesh
     TPZCompMesh *pressure = new TPZCompMesh(fGeoMesh);
     InsertPressureMaterialIds(pressure);
     pressure->ApproxSpace().SetAllCreateFunctionsContinuous();
     pressure->ApproxSpace().CreateDisconnectedElements(true);
+    
+    SetPOrder(pressureOrder);
     pressure->SetDefaultOrder(fDefaultPOrder);
     pressure->AutoBuild(fMaterialIds);
     CreatePressureBoundaryElements(pressure);
@@ -337,12 +339,14 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh()
     return pressure;
 }
 
-/// Create the flux mesh
-TPZCompMesh *TPZCreateMultiphysicsSpace::CreateFluxMesh()
+/// Create the flux mesh for 1D-elements
+TPZCompMesh *TPZCreateMultiphysicsSpace::CreateFluxMesh(int lagrangeOrder)
 {
     TPZCompMesh *fluxmesh = new TPZCompMesh(fGeoMesh);
     InsertFluxMaterialIds(fluxmesh);
     fluxmesh->ApproxSpace().SetAllCreateFunctionsHDiv(fDimension);
+    
+    SetLagrangeOrder(lagrangeOrder);
     fluxmesh->SetDefaultOrder(fDefaultLagrangeOrder);
     fluxmesh->AutoBuild();
     int64_t nconnects = fluxmesh->NConnects();

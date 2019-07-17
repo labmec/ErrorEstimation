@@ -152,18 +152,18 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
     if (mat) varindex = mat->VariableIndex("PressureFem");
     if (varindex != -1) {
         TPZStack<std::string> scalnames, vecnames;
-//scalnames.Push("PressureFem");
-       // scalnames.Push("PressureReconstructed");
-       // scalnames.Push("PressureExact");
-       // scalnames.Push("PressureErrorExact");
-      //  scalnames.Push("PressureErrorEstimate");
-      //  scalnames.Push("EnergyErrorExact");
+        scalnames.Push("PressureFem");
+        scalnames.Push("PressureReconstructed");
+        scalnames.Push("PressureExact");
+        scalnames.Push("PressureErrorExact");
+        scalnames.Push("PressureErrorEstimate");
+        scalnames.Push("EnergyErrorExact");
         scalnames.Push("EnergyErrorEstimate");
-     //   scalnames.Push("PressureEffectivityIndex");
-     //   scalnames.Push("EnergyEffectivityIndex");
-     //   vecnames.Push("FluxFem");
-      //  vecnames.Push("FluxReconstructed");
-      //  vecnames.Push("FluxExact");
+        scalnames.Push("PressureEffectivityIndex");
+        scalnames.Push("EnergyEffectivityIndex");
+        vecnames.Push("FluxFem");
+        vecnames.Push("FluxReconstructed");
+        vecnames.Push("FluxExact");
         // scalnames.Push("POrder");
         
         
