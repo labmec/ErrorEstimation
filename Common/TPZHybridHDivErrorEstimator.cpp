@@ -1359,20 +1359,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             fPostProcMesh.MeshVector()[0]->Print(out2);
             
         }
-        {
-            TPZAnalysis an(&fPostProcMesh,false);
-            
-            TPZStack<std::string> scalnames, vecnames;
-            
-            scalnames.Push("Pressure");
-            scalnames.Push("DivFlux");
-            vecnames.Push("Flux");
-            int dim = 2;
-            std::string plotname("LocalDirichletProblem.vtk");
-            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-            an.PostProcess(2, dim);
-
-        }
         VerifySolutionConsistency(PressureMesh());
 #endif
     }
