@@ -75,9 +75,10 @@ int main(int argc, char *argv[]) {
         config.dimension = 2;
         config.prefine=false;
         config.makepressurecontinuous = true;
-        
+    
         config.exact.fExact = TLaplaceExample1::ESinSin;//EBubble;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
         config.problemname = "ESinSin k=1 n=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+
         
         config.dir_name= "ESinSin";
         std::string command = "mkdir " + config.dir_name;
@@ -236,15 +237,14 @@ int main(int argc, char *argv[]) {
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         
         /*
-        
-        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-        HDivEstimate.SetAnalyticSolution(config.exact);
-        
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 1;
-        */
+
+//        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
+//        HDivEstimate.fProblemConfig = config;
+//        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+//        HDivEstimate.SetAnalyticSolution(config.exact);
+//        HDivEstimate.fperformUplift = true;
+//        HDivEstimate.fUpliftOrder = 1;
+*/
         
         HDivEstimate.PotentialReconstruction();
         
