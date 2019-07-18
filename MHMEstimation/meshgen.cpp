@@ -728,7 +728,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     TPZAnalysis an(cmesh,shouldrenumber);
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(config.n_threads);
+    strmat.SetNumThreads(0/*config.n_threads*/);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
     strmat.SetNumThreads(config.n_threads);

@@ -1194,6 +1194,9 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
 //        DebugStop();
 //    }
     int64_t nrows = cmesh->ElementSolution().Rows();
+    
+    TPZFMatrix<REAL> dataIeff(nrows,1);
+    
     cmesh->ElementSolution().Resize(nrows, 6);
     for (int64_t el = 0; el < nrows; el++) {
         for (int i = 0; i < 3; i += 2) {
@@ -1204,11 +1207,15 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             if ((abs(ErrorEstimate) < tol)) {
                 cmesh->ElementSolution()(el, 4 + i / 2) = 1.;
                 
+                dataIeff(el,0)=1.;
+                
             }
             // if(!IsZero(cmesh->ElementSolution()(el,i)))
             else {
                 
                 REAL EfIndex = ErrorEstimate / ErrorExact;
+                dataIeff(el,0)= EfIndex;
+                
                 cmesh->ElementSolution()(el, 4 + i / 2) = EfIndex;
                 //                cmesh->ElementSolution()(el,4+i/2) =cmesh->ElementSolution()(el,i+1)/cmesh->ElementSolution()(el,i);
             }
@@ -1217,7 +1224,19 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             //                cmesh->ElementSolution()(el,4+i/2) = 1.;
             //            }
         }
+
     }
+    
+#ifdef LOG4CXX
+    if(logger->isDebugEnabled())
+    {
+        std::stringstream sout;
+        dataIeff.Print("Ieff = ",sout,EMathematicaInput);
+        LOGPZ_DEBUG(logger,sout.str())
+    }
+#endif
+    
+    
 }
 
 /// returns true if the material associated with the element is a boundary condition

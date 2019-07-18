@@ -42,6 +42,8 @@ struct ProblemConfig
     /// exact solution
     TLaplaceExample1 exact;
     
+
+    
     ProblemConfig(){};
     ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
     makepressurecontinuous(cp.makepressurecontinuous),

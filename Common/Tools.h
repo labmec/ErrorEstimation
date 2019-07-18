@@ -76,6 +76,7 @@ void PlotLagrangeMultiplier(TPZCompMesh *cmesh, const ProblemConfig &problem);
 
 TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader);
  TPZMultiphysicsCompMesh * HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv, struct ProblemConfig &config);
+TPZCompMesh *CMeshH1( ProblemConfig problem);
 
 
 
