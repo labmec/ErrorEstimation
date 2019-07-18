@@ -1183,16 +1183,15 @@ void TPZHybridHDivErrorEstimator::CloneMeshVec() {
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
 void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     /**The  ElementSolution() is a matrix with 4 cols,
-     col 0: pressure estimate error
-     col 1: pressure exact error
-     col 2: flux estimate error
-     col 3: flux exact error
+     col 0: pressure exact error
+     col 1: pressure estimate error
+     col 2: flux exact error
+     col 3: flux estimate error
      Is increased 2 cols on ElementSolution() to store the efectivity index for pressure and flux
      **/
+
     TPZCompMesh *cmesh = &fPostProcMesh;
-//    if (cmesh->ElementSolution().Cols() != 4) {
-//        DebugStop();
-//    }
+
     int64_t nrows = cmesh->ElementSolution().Rows();
     
     TPZFMatrix<REAL> dataIeff(nrows,1);
@@ -1200,29 +1199,22 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     cmesh->ElementSolution().Resize(nrows, 6);
     for (int64_t el = 0; el < nrows; el++) {
         for (int i = 0; i < 3; i += 2) {
+
             REAL tol = 1.e-10;
             REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
             REAL ErrorExact = cmesh->ElementSolution()(el, i);
             
-            if ((abs(ErrorEstimate) < tol)) {
+            if (abs(ErrorEstimate) < tol) {
                 cmesh->ElementSolution()(el, 4 + i / 2) = 1.;
-                
                 dataIeff(el,0)=1.;
-                
+
             }
-            // if(!IsZero(cmesh->ElementSolution()(el,i)))
             else {
-                
                 REAL EfIndex = ErrorEstimate / ErrorExact;
                 dataIeff(el,0)= EfIndex;
                 
                 cmesh->ElementSolution()(el, 4 + i / 2) = EfIndex;
-                //                cmesh->ElementSolution()(el,4+i/2) =cmesh->ElementSolution()(el,i+1)/cmesh->ElementSolution()(el,i);
             }
-            //            else
-            //            {
-            //                cmesh->ElementSolution()(el,4+i/2) = 1.;
-            //            }
         }
 
     }
@@ -1378,7 +1370,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             fPostProcMesh.MeshVector()[0]->Print(out2);
             
         }
-
         VerifySolutionConsistency(PressureMesh());
 #endif
     }
@@ -1626,8 +1617,6 @@ void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) 
                     // Checks pressure value on these nodes
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
                     if (!intel) DebugStop();
-
-                    // TODO estou conseguindo imprimir as pressoes, mas estao fora de ordem
                 }
             }
             delete intRule;

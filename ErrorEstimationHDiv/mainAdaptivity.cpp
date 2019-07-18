@@ -21,11 +21,14 @@ bool readGeoMeshFromFile = false;
 
 TPZGeoMesh *CreateGeoMesh2D();
 
+void hAdaptivity(TPZCompMesh * postProcessMesh, TPZGeoMesh * gmeshToRefine);
+
 int main(int argc, char *argv[]) {
 
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
+
 
     // Initializing uniform refinements for reference elements
     gRefDBase.InitializeUniformRefPattern(EOned);
@@ -36,14 +39,14 @@ int main(int argc, char *argv[]) {
 
     config.porder = 1;
     config.hdivmais = 0;
-    config.ndivisions = 2;
+    config.ndivisions = 1;
     config.dimension = 2;
     config.prefine = false;
     config.makepressurecontinuous = true;
 
-    config.exact.fExact = TLaplaceExample1::ESinMark;
-    config.problemname = "AdaptivityMark";
-    config.dir_name = "ESinMarkAdaptivity";
+    config.exact.fExact = TLaplaceExample1::ESinSin;
+    config.problemname = "AdaptivityTest";
+    config.dir_name = "ESinSinAdaptivity";
 
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
@@ -52,18 +55,32 @@ int main(int argc, char *argv[]) {
     TPZGeoMesh *gmesh = nullptr;
 
     if (readGeoMeshFromFile) {
-        config.meshFileName = "LCircle.msh";
-        config.InsertDomainMat("domain", 1, 2);
-        config.InsertBCMat("dirichlet", 2, 1);
-        config.ReadGeoMeshFromFile();
-        gmesh = config.gmesh;
+        TPZGmshReader gmsh;
+        std::string meshfilename = "../LCircle.msh";
+
+        gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
+        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(2);
+        config.bcmaterialids.insert(3);
+
+        gmsh.SetFormatVersion("4.1");
+        gmsh.PrintPartitionSummary(std::cout);
+
+        config.gmesh = gmsh.GeometricGmshMesh(meshfilename);
+        config.gmesh->SetDimension(2);
     }
     else {
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(2);
+        config.bcmaterialids.insert(3);
         config.gmesh = CreateGeoMesh2D();
     }
     gmesh = config.gmesh;
 
     UniformRefinement(config.ndivisions, gmesh);
+    int nelem = gmesh->NElements();
 
 #ifdef PZDEBUG
     {
@@ -72,38 +89,38 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    return 0;
-    TPZMultiphysicsCompMesh *cmesh_HDiv = nullptr;
+    TPZMultiphysicsCompMesh *mixedMesh = nullptr;
 
-    cmesh_HDiv = CreateHDivMesh(config); //Hdiv x L2
-    cmesh_HDiv->InitializeBlock();
+    mixedMesh = CreateHDivMesh(config); //Hdiv x L2
+    mixedMesh->InitializeBlock();
 
-    TPZManVector<TPZCompMesh *, 2> meshvec_HDiv(2, 0);
-    meshvec_HDiv = cmesh_HDiv->MeshVector();
+    TPZManVector<TPZCompMesh *, 2> mixedMeshVector(2, 0);
+    mixedMeshVector = mixedMesh->MeshVector();
 
-    //cria malha hibrida
+    // Hybridizes mixed mesh
     TPZHybridizeHDiv hybrid;
-    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
-    HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
+    auto HybridMesh = hybrid.Hybridize(mixedMesh);
+    HybridMesh->CleanUpUnconnectedNodes();
     HybridMesh->AdjustBoundaryElements();
-    delete cmesh_HDiv;
-    delete meshvec_HDiv[0];
-    delete meshvec_HDiv[1];
+    delete mixedMesh;
+    delete mixedMeshVector[0];
+    delete mixedMeshVector[1];
 
-    std::cout << "---Original PerifericalMaterialId --- " << std::endl;
+    std::cout << "---Original PerifericalMaterialID --- " << std::endl;
     std::cout << " LagrangeInterface = " << hybrid.fLagrangeInterface << std::endl;
-    std::cout << " HDivWrapMatid = " << hybrid.fHDivWrapMatid << std::endl;
-    std::cout << " InterfaceMatid = " << hybrid.fInterfaceMatid << std::endl;
+    std::cout << " HDivWrapMatID = " << hybrid.fHDivWrapMatid << std::endl;
+    std::cout << " InterfaceMatID = " << hybrid.fInterfaceMatid << std::endl;
 
-    cmesh_HDiv = (HybridMesh);//malha hribrida
-    meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0]; // malha Hdiv
-    meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1]; // malha L2
+    mixedMesh = (HybridMesh); // Substitute mixed by hybrid mesh
+    mixedMeshVector[0] = (HybridMesh)->MeshVector()[0]; // Hdiv mesh
+    mixedMeshVector[1] = (HybridMesh)->MeshVector()[1]; // L2 mesh
 
-    SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config);
+    // Solves problem
+    SolveHybridProblem(mixedMesh, hybrid.fInterfaceMatid, config);
 
     // reconstroi potencial e calcula o erro
     {
-        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
+        TPZHDivErrorEstimatorH1 HDivEstimate(*mixedMesh);
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
@@ -115,11 +132,13 @@ int main(int argc, char *argv[]) {
 
         TPZManVector<REAL> elementerrors;
         HDivEstimate.ComputeErrors(elementerrors);
+
+        hAdaptivity(&HDivEstimate.fPostProcMesh, gmesh);
     }
 
-    delete cmesh_HDiv;
-    delete meshvec_HDiv[0];
-    delete meshvec_HDiv[1];
+    delete mixedMesh;
+    delete mixedMeshVector[0];
+    delete mixedMeshVector[1];
 
     return 0;
 }
@@ -134,6 +153,7 @@ TPZGeoMesh *CreateLCircularBlendMesh() {
 TPZGeoMesh *CreateGeoMesh2D() {
 
     TPZGeoMesh *gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
 
     TPZVec<REAL> coord(3, 0.);
 
@@ -179,24 +199,72 @@ TPZGeoMesh *CreateGeoMesh2D() {
 
     gmesh->BuildConnectivity();
 
-    {
-        TPZVec<TPZGeoEl *> sons;
-        for (int iDiv = 0; iDiv < 0; iDiv++) {
-            const int nel = gmesh->NElements();
-            for (int iel = 0; iel < nel; iel++) {
-                TPZGeoEl *geo = gmesh->ElementVec()[iel];
-                if (geo && !geo->HasSubElement()) {
-                    geo->Divide(sons);
+    return gmesh;
+}
+
+void hAdaptivity(TPZCompMesh * postProcessMesh, TPZGeoMesh * gmeshToRefine) {
+
+    // Column of the flux error estimate on the element solution matrix
+    const int fluxErrorEstimateCol = 3;
+
+    int64_t nelem = postProcessMesh->ElementSolution().Rows();
+
+    // Iterates through element errors to get the maximum value
+    REAL maxError = 0.;
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZCompEl * cel = postProcessMesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
+        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+
+        std::cout << "geo element: " << cel->Reference()->Id() << " error: " << elementError << std::endl;
+
+        if (elementError > maxError) {
+            maxError = elementError;
+        }
+    }
+
+    // Refines elements which error are bigger than 30% of the maximum error
+    REAL threshold = 0.8 * maxError; // TODO voltar pra 0.3
+
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZCompEl * cel = postProcessMesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
+        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        if (elementError > threshold) {
+            TPZGeoEl * gel = cel->Reference();
+            int iel  = gel->Id();
+
+            TPZVec<TPZGeoEl *> sons;
+            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[iel];
+            if (gelToRefine && !gelToRefine->HasSubElement()) {
+                gelToRefine->Divide(sons);
+
+#ifdef LOG4CXX
+                int nsides = gelToRefine->NSides();
+                TPZVec<REAL> loccenter(3);
+                TPZVec<REAL> center(3);
+                gelToRefine->CenterPoint(nsides - 1, loccenter);
+
+                gelToRefine->X(loccenter, center);
+                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+                if (logger->isDebugEnabled()) {
+                    std::stringstream sout;
+                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
+                    sout << "Error = " << elementError << "\n\n";
+                    LOGPZ_DEBUG(logger, sout.str())
                 }
+#endif
             }
         }
     }
 
     {
-        std::string meshFileName = "blendmesh2D.vtk";
+        std::string meshFileName = "gmeshHopefullyRefined.vtk";
         std::ofstream outVTK(meshFileName.c_str());
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
+        TPZVTKGeoMesh::PrintGMeshVTK(gmeshToRefine, outVTK, true);
         outVTK.close();
     }
-    return gmesh;
+
 }
