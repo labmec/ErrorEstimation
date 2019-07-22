@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
 
-    for(int ndiv=0; ndiv<1; ndiv++){
+    for(int ndiv=1; ndiv<2; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
@@ -77,8 +77,9 @@ int main(int argc, char *argv[]) {
         config.makepressurecontinuous = true;
     
         config.exact.fExact = TLaplaceExample1::EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
-        config.problemname = "EBubble Mark k=1 n=1 up1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+        config.problemname = "EBubble k=1 n=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
 
+        bool RunMark = false;
         
         config.dir_name= "EBubble";
         std::string command = "mkdir " + config.dir_name;
@@ -229,28 +230,36 @@ int main(int argc, char *argv[]) {
     //reconstroi potencial e calcula o erro
     {
         
-        
-       /*
-        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-        HDivEstimate.SetAnalyticSolution(config.exact);
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-        
-        */
+        if(RunMark){
+            TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
+            HDivEstimate.fProblemConfig = config;
+            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+            HDivEstimate.SetAnalyticSolution(config.exact);
+            HDivEstimate.fperformUplift = true;
+            HDivEstimate.fUpliftOrder = 1;
 
-        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-        HDivEstimate.SetAnalyticSolution(config.exact);
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 1;
+            HDivEstimate.PotentialReconstruction();
+            
+            TPZManVector<REAL> elementerrors;
+            HDivEstimate.ComputeErrors(elementerrors);
+            
+        }
+        
+        else{
+            
+            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+            HDivEstimate.fProblemConfig = config;
+            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+            HDivEstimate.SetAnalyticSolution(config.exact);
+            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+            
+            HDivEstimate.PotentialReconstruction();
+            
+            TPZManVector<REAL> elementerrors;
+            HDivEstimate.ComputeErrors(elementerrors);
+        
+        }
 
-        
-        HDivEstimate.PotentialReconstruction();
-        
-        TPZManVector<REAL> elementerrors;
-        HDivEstimate.ComputeErrors(elementerrors);
         
     }
     

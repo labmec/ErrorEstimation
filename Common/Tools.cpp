@@ -22,7 +22,7 @@ TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem) {
         cmesh->InsertMaterialObject(mix);
     }
     
-    cmesh->SetDefaultOrder(problem.porder+problem.hdivmais);//ordem +
+    cmesh->SetDefaultOrder(problem.porder+problem.hdivmais);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     cmesh->ApproxSpace().CreateDisconnectedElements(true);
     cmesh->AutoBuild();
@@ -91,23 +91,7 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
     K.Identity();
     invK.Identity();
-    
-//    for(int i=0 ;i< 3;i++){
-//        for(int j=0; j< 3; j++){
-//            K(i,j)=1;
-//            invK(i,j) = -1./4.;
-//
-//        }
-//    }
-//    
-//    K(0,0)=2;
-//    K(1,1)=2;
-//    K(2,2)=2;
-//
-//    invK(0,0)= 3./4.;
-//    invK(1,1)= 3./4.;
-//    invK(2,2)= 3./4.;
-    
+
     
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());

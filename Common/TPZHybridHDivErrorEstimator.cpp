@@ -120,7 +120,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     */
     
 
-    an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
+    an.PostProcessError(errorvec,false);//calculo do erro com sol exata e aprox
     
     std::cout << "Computed errors " << errorvec << std::endl;
     
@@ -171,7 +171,8 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         std::string plotname;
         {
             std::stringstream out;
-            out << fProblemConfig.dir_name << "/" << "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim
+            //out << fProblemConfig.dir_name << "/" << "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim
+            out << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
             << "D_" << fProblemConfig.problemname << "Ndiv_ " << fProblemConfig.ndivisions << "HdivMais"
             << fProblemConfig.hdivmais << ".vtk";
             plotname = out.str();
@@ -1305,6 +1306,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
     
     PlotLagrangeMultiplier("AfterNodalAverage");
+
 #ifdef PZDEBUG
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
@@ -1325,7 +1327,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         std::ofstream out("MeshBeforeLoadSol.txt");
         fPostProcMesh.Print(out);
-//        fPostProcMesh.Solution().Print("SolBeforeLoadSolution");
+        fPostProcMesh.Solution().Print("SolBeforeLoadSolution");
         
     }
 #endif
@@ -1336,6 +1338,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         std::ofstream out("MeshAfterLoadSol.txt");
         fPostProcMesh.Print(out);
+         fPostProcMesh.Solution().Print("SolAfterLoadSolution");
         
     }
 #endif
@@ -1364,15 +1367,18 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 #ifdef PZDEBUG
         {
-            std::ofstream out("PressureAposLoadSol.txt");
+            std::ofstream out("PressureAfterTransfer.txt");
             fPostProcMesh.MeshVector()[1]->Print(out);
-            std::ofstream out2("FluxAposLoadSol.txt");
+            std::ofstream out2("FluxAfterTransfer.txt");
             fPostProcMesh.MeshVector()[0]->Print(out2);
             
         }
         VerifySolutionConsistency(PressureMesh());
 #endif
     }
+    
+    
+    
 }
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {
