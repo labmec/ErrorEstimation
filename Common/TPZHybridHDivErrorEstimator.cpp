@@ -80,44 +80,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 #endif
     
 
-    /*
-        int dim = fPostProcMesh.Dimension();
-        TPZManVector<REAL,10> globalerrors(6,0.);
-            REAL Ieff_global=0.,Ieff_local=0.;
-        for (int64_t el=0; el<nelem; el++) {
-            
-            TPZCompEl *cel = fPostProcMesh.ElementVec()[el];
-            TPZGeoEl *gel = cel->Reference();
-            REAL hk = gel->CharacteristicSize();
-            if(cel->Reference()->Dimension()!=dim) continue;
-            TPZManVector<REAL,10> elerror(10,0.);
-            elerror.Fill(0.);
-            cel->EvaluateError(fExact->ExactSolution(), elerror, NULL);
-            int nerr = elerror.size();
-            for (int i=0; i<nerr; i++) {
-                globalerrors[i] += elerror[i]*elerror[i];
-            }
-            globalerrors[nerr] += (hk/M_PI)*(hk/M_PI)*elerror[nerr-1]*elerror[nerr-1];
-         //   Ieff_local += globalerrors[nerr] + globalerrors[3];
     
-        }
-    
-   // Ieff_global = sqrt(Ieff_local)/sqrt(globalerrors[2]);
-    
-    ofstream myfile;
-    myfile.open("ArquivosErros.txt", ios::app);
-    myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
-    myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
-    myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
-  //  myfile << "I_eff global = " << Ieff_global << "\n";
-    myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
-    myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
-    myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
-    myfile << "Global oscilatory error = " << sqrt(globalerrors[5]) << "\n";
-    myfile.close();
-
-    */
     
 
     an.PostProcessError(errorvec,false);//calculo do erro com sol exata e aprox
@@ -141,6 +104,49 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     ComputeEffectivityIndices();
     
     PostProcessing(an);
+    
+    
+}
+void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
+    
+     int dim = fPostProcMesh.Dimension();
+     int64_t nelem = fPostProcMesh.NElements();
+     TPZManVector<REAL,10> globalerrors(6,0.);
+     REAL Ieff_global=0.,Ieff_local=0.;
+    
+     for (int64_t el=0; el<nelem; el++) {
+     
+         TPZCompEl *cel = fPostProcMesh.ElementVec()[el];
+         TPZGeoEl *gel = cel->Reference();
+         REAL hk = gel->CharacteristicSize();
+         if(cel->Reference()->Dimension()!=dim) continue;
+         TPZManVector<REAL,10> elerror(10,0.);
+         elerror.Fill(0.);
+         cel->EvaluateError(fExact->ExactSolution(), elerror, NULL);
+         int nerr = elerror.size();
+         for (int i=0; i<nerr; i++) {
+             globalerrors[i] += elerror[i]*elerror[i];
+         }
+         globalerrors[nerr] += (hk/M_PI)*(hk/M_PI)*elerror[nerr-1]*elerror[nerr-1];
+             Ieff_local += globalerrors[nerr] + globalerrors[3];
+     
+     }
+     
+      Ieff_global = sqrt(Ieff_local)/sqrt(globalerrors[2]);
+     
+     ofstream myfile;
+     myfile.open("ArquivosErros.txt", ios::app);
+     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
+     myfile << "\n-------------------------------------------------- \n";
+     myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
+     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
+     myfile << "I_eff global = " << Ieff_global << "\n";
+     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
+     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
+     myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
+     myfile << "Global oscilatory error = " << sqrt(globalerrors[5]) << "\n";
+     myfile.close();
+     
     
     
 }

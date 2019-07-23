@@ -140,7 +140,7 @@ int main(){
     for(int ndiv=1 ; ndiv<2 ; ndiv++){
     ProblemConfig config;
     
-    config.porder = 3;
+    config.porder = 1;
     config.hdivmais = 1;
     config.ndivisions = ndiv;
     config.dimension = 2;
@@ -148,9 +148,9 @@ int main(){
    
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.EX;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+    config.exact.fExact = example.ESinSin;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
      
-    config.problemname = "EX";
+    config.problemname = "ESinSin";
     
     config.dir_name= "MHM_Mixed";
     std::string command = "mkdir " + config.dir_name;

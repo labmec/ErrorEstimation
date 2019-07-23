@@ -28,7 +28,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     TPZManVector<int,4> active(4,0);
     active[0] = 1;
     active[1] = 1;
-    fOriginal->CopyMaterials(fPostProcMesh);
+  //  fOriginal->CopyMaterials(fPostProcMesh);
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
@@ -42,6 +42,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         fPostProcMesh.Print(out3);
     }
 #endif
+    
     fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
 
 #ifdef PZDEBUG
