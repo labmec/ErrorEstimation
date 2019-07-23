@@ -56,7 +56,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         an.SetExact(fExact->ExactSolution());
     }
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshToComputeError.txt");
         fPostProcMesh.Print(out);
@@ -71,7 +71,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     fPostProcMesh.ExpandSolution();
     fPostProcMesh.ElementSolution().Redim(nelem, 5);
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshToComputeError2.txt");
         fPostProcMesh.Print(out);
@@ -79,11 +79,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     }
 #endif
     
-
-    
-    
-
-    an.PostProcessError(errorvec,false);//calculo do erro com sol exata e aprox
+    an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
     
     std::cout << "Computed errors " << errorvec << std::endl;
     
@@ -108,6 +104,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     
 }
 void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
+    //rever codigo baseado no vetor de erros dos materiais
     
      int dim = fPostProcMesh.Dimension();
      int64_t nelem = fPostProcMesh.NElements();
