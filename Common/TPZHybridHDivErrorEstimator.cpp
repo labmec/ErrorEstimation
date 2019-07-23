@@ -70,6 +70,16 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
     fPostProcMesh.ElementSolution().Redim(nelem, 5);
+    for(int64_t el = 0; el<nelem; el++)
+    {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZSubCompMesh *subc = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(subc)
+        {
+            int64_t nelsub = subc->NElements();
+            subc->ElementSolution().Redim(nelsub, 5);
+        }
+    }
     
 #ifdef PZDEBUG2
     {
