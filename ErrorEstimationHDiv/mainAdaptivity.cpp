@@ -19,8 +19,8 @@
 
 bool readGeoMeshFromFile = false;
 
-TPZGeoMesh *CreateGeoMesh2D();
-
+TPZGeoMesh *CreateGeoMesh();
+TPZGeoMesh *CreateLCircleGeoMesh();
 void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine);
 
 int main(int argc, char *argv[]) {
@@ -35,48 +35,24 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
 
     // Creates geometric mesh
-    TPZGeoMesh *gmeshOriginal = nullptr;
-    if (readGeoMeshFromFile) {
-        TPZGmshReader gmsh;
-        std::string meshfilename = "LCircle.msh";
+    TPZGeoMesh *gmeshOriginal = CreateGeoMesh();
 
-        gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
-        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+    int refinementSteps = 5;
 
-        gmsh.SetFormatVersion("4.1");
-        gmsh.PrintPartitionSummary(std::cout);
+    // Copies meshes to be used with each proposal
+    TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
+    *hybridEstimatorMesh = *gmeshOriginal;
+    TPZGeoMesh *markEstimatorMesh = new TPZGeoMesh();
+    *markEstimatorMesh = *gmeshOriginal;
 
-        gmeshOriginal = gmsh.GeometricGmshMesh(meshfilename);
-        gmeshOriginal->SetDimension(2);
-    } else {
-        gmeshOriginal = CreateGeoMesh2D();
-    }
-    int initialRefinement = 1;
-    UniformRefinement(initialRefinement, gmeshOriginal);
-
-#ifdef PZDEBUG
-    {
-        std::ofstream out("GeometricMeshOriginal.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
-    }
-#endif
-
-    // Refinement steps
-    for (int i = 0; i < 5; i++) {
+    // Run tests with hybrid proposal
+    for (int i = 0; i < refinementSteps; i++) {
         ProblemConfig config;
-        config.dir_name = "SinMark";
+        config.dir_name = "AdaptivityHybridSinSin";
         config.adaptivityStep = i;
 
         config.gmesh = new TPZGeoMesh();
-        *config.gmesh = *gmeshOriginal;
-
-        {
-            std::stringstream out;
-            out << "gmeshAtRefinementStep" << i << ".vtk";
-            std::ofstream outVTK(out.str());
-            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, outVTK, true);
-            outVTK.close();
-        }
+        *config.gmesh = *hybridEstimatorMesh;
 
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
@@ -88,7 +64,7 @@ int main(int argc, char *argv[]) {
         config.prefine = false;
         config.makepressurecontinuous = true;
 
-        config.exact.fExact = TLaplaceExample1::ESinMark;
+        config.exact.fExact = TLaplaceExample1::ESinSin;
         config.problemname = "AdaptivityTest";
 
         std::string command = "mkdir " + config.dir_name;
@@ -96,8 +72,7 @@ int main(int argc, char *argv[]) {
 
         TPZMultiphysicsCompMesh *mixedMesh = nullptr;
 
-        mixedMesh = CreateHDivMesh(config); //Hdiv x L2
-
+        mixedMesh = CreateHDivMesh(config); // H(div) x L2
         mixedMesh->InitializeBlock();
 
         TPZManVector<TPZCompMesh *, 2> mixedMeshVector(2, 0);
@@ -130,19 +105,71 @@ int main(int argc, char *argv[]) {
 
         HDivEstimate.PotentialReconstruction();
 
-        TPZManVector<REAL> elementerrors;
-        HDivEstimate.ComputeErrors(elementerrors);
+        TPZManVector<REAL> elementErrors;
+        HDivEstimate.ComputeErrors(elementErrors);
 
         delete mixedMesh;
         delete mixedMeshVector[0];
         delete mixedMeshVector[1];
 
-        hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal);
+        hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
     }
+
+    // Run tests with Ainsworth's proposal
+    for (int i = 0; i < refinementSteps; i++) {
+
+        ProblemConfig config;
+        config.dir_name = "AdaptivityMarkSin";
+        config.adaptivityStep = i;
+
+        config.gmesh = new TPZGeoMesh();
+        *config.gmesh = *markEstimatorMesh;
+
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(2);
+        config.bcmaterialids.insert(3);
+
+        config.porder = 1;
+        config.hdivmais = 0;
+        config.dimension = 2;
+        config.prefine = false;
+        config.makepressurecontinuous = true;
+
+        config.exact.fExact = TLaplaceExample1::ESinSin;
+        config.problemname = "AdaptivityTest";
+
+        std::string command = "mkdir " + config.dir_name;
+        system(command.c_str());
+
+        TPZMultiphysicsCompMesh *mixedMesh = nullptr;
+
+        mixedMesh = CreateHDivMesh(config); // H(div) x L2
+        mixedMesh->InitializeBlock();
+
+        TPZMultiphysicsCompMesh *hybridmesh = HybridSolveProblem(mixedMesh, config);
+
+        // Reconstructs pressure and calculates error
+        TPZHDivErrorEstimatorH1 HDivEstimate(*hybridmesh);
+        HDivEstimate.fProblemConfig = config;
+        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+
+        HDivEstimate.SetAnalyticSolution(config.exact);
+
+        HDivEstimate.fperformUplift = true;
+        HDivEstimate.fUpliftOrder = 2;
+
+        HDivEstimate.PotentialReconstruction();
+
+        TPZManVector<REAL> elementErrors;
+        HDivEstimate.ComputeErrors(elementErrors);
+
+        hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh);
+    }
+
     return 0;
 }
 
-TPZGeoMesh *CreateGeoMesh2D() {
+TPZGeoMesh *CreateLCircleGeoMesh() {
 
     TPZGeoMesh *gmesh = new TPZGeoMesh();
     gmesh->SetDimension(2);
@@ -249,4 +276,33 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
         }
     }
     DivideLowerDimensionalElements(gmeshToRefine);
+}
+
+TPZGeoMesh *CreateGeoMesh() {
+    TPZGeoMesh * gmesh = nullptr;
+    if (readGeoMeshFromFile) {
+        TPZGmshReader gmsh;
+        std::string meshfilename = "LCircle.msh";
+
+        gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
+        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+
+        gmsh.SetFormatVersion("4.1");
+        gmsh.PrintPartitionSummary(std::cout);
+
+        gmesh = gmsh.GeometricGmshMesh(meshfilename);
+        gmesh->SetDimension(2);
+    } else {
+        gmesh = CreateLCircleGeoMesh();
+    }
+    int initialRefinement = 1;
+    UniformRefinement(initialRefinement, gmesh);
+
+#ifdef PZDEBUG
+    {
+        std::ofstream out("OriginalGeometricMesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+    }
+#endif
+    return gmesh;
 }
