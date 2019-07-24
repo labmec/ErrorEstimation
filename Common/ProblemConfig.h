@@ -26,6 +26,7 @@ struct ProblemConfig
     
     /// number of uniform refinements applied to the mesh
     int ndivisions = 1;
+    int adaptivityStep = 0;
     int dimension = 0;
     bool prefine = false;
     bool steklovexample = false;
@@ -41,19 +42,30 @@ struct ProblemConfig
     std::set<int> bcmaterialids;
     /// exact solution
     TLaplaceExample1 exact;
-    
 
-    
-    ProblemConfig(){};
-    ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh), porder(cp.porder), hdivmais(cp.hdivmais),
-    makepressurecontinuous(cp.makepressurecontinuous),
-    problemname(cp.problemname),
-    materialids(cp.materialids), bcmaterialids(cp.bcmaterialids),exact(cp.exact),ndivisions(cp.ndivisions),prefine(cp.prefine),alpha(cp.alpha),dir_name(cp.dir_name),steklovexample(cp.steklovexample),GalvisExample(cp.GalvisExample),dimension(cp.dimension)
+
+    ProblemConfig() {};
+
+    ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh),
+                                             porder(cp.porder),
+                                             hdivmais(cp.hdivmais),
+                                             makepressurecontinuous(cp.makepressurecontinuous),
+                                             problemname(cp.problemname),
+                                             materialids(cp.materialids),
+                                             bcmaterialids(cp.bcmaterialids),
+                                             exact(cp.exact),
+                                             ndivisions(cp.ndivisions),
+                                             prefine(cp.prefine),
+                                             alpha(cp.alpha),
+                                             dir_name(cp.dir_name),
+                                             steklovexample(cp.steklovexample),
+                                             GalvisExample(cp.GalvisExample),
+                                             dimension(cp.dimension),
+                                             adaptivityStep(cp.adaptivityStep)
     {
     }
-    
-    ProblemConfig &operator=(const ProblemConfig &cp)
-    {
+
+    ProblemConfig &operator=(const ProblemConfig &cp) {
         gmesh = cp.gmesh;
         porder = cp.porder;
         hdivmais = cp.hdivmais;
@@ -63,15 +75,17 @@ struct ProblemConfig
         bcmaterialids = cp.bcmaterialids;
         exact = cp.exact;
         dimension = cp.dimension;
-        
+
         ndivisions = cp.ndivisions;
         prefine = cp.prefine;
+        adaptivityStep = cp.adaptivityStep;
+
         alpha = cp.alpha;
         dir_name = cp.dir_name;
-        steklovexample=cp.steklovexample;
-        GalvisExample=cp.GalvisExample;
-        
-        
+        steklovexample = cp.steklovexample;
+        GalvisExample = cp.GalvisExample;
+
+
         return *this;
     }
 };

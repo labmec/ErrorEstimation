@@ -184,10 +184,10 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         std::string plotname;
         {
             std::stringstream out;
-            //out << fProblemConfig.dir_name << "/" << "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim
-            out << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
+            out << fProblemConfig.dir_name << "/" << "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim
+            //out << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
             << "D_" << fProblemConfig.problemname << "Ndiv_ " << fProblemConfig.ndivisions << "HdivMais"
-            << fProblemConfig.hdivmais << ".vtk";
+            << fProblemConfig.hdivmais << "AdaptivityStep" << fProblemConfig.adaptivityStep << ".vtk";
             plotname = out.str();
         }
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
@@ -1336,7 +1336,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     ComputeElementStiffnesses();
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshBeforeLoadSol.txt");
         fPostProcMesh.Print(out);
@@ -1347,7 +1347,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshAfterLoadSol.txt");
         fPostProcMesh.Print(out);
@@ -1358,7 +1358,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     {
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             std::ofstream out("MeshPosDirichletProblem.txt");
             fPostProcMesh.Print(out);
