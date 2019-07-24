@@ -4,21 +4,31 @@
 #include "pzintel.h"
 #include "pzsubcmesh.h"
 #include "TPZVTKGeoMesh.h"
+#include "TPZMHMHDivErrorEstimatorMaterial.h"
 
 
 // a method for generating the hybridized multiphysics post processing mesh
 void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 {
+    
+    // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
+
+    fOriginal->CopyMaterials(fPostProcMesh);
+        // switch the material from mixed to TPZMHMHDivErrorEstimationMaterial...
+    SwitchMaterialObjects();
+    
+
     TPZManVector<TPZCompMesh *> meshvec(4);
     meshvec[0] = CreateFluxMesh();
     meshvec[1] = CreatePressureMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
     meshvec[3] = fOriginal->MeshVector()[1];
+    
     TPZManVector<int,4> active(4,0);
     active[0] = 1;
     active[1] = 1;
-    fOriginal->CopyMaterials(fPostProcMesh);
+  //  fOriginal->CopyMaterials(fPostProcMesh);
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
@@ -32,6 +42,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         fPostProcMesh.Print(out3);
     }
 #endif
+    
     fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
 
 #ifdef PZDEBUG
@@ -127,7 +138,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     {
         iter.second->MakeAllInternal();
     }
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         int64_t nel = fPostProcMesh.NElements();
         for(int64_t el = 0; el<nel; el++)
@@ -171,7 +182,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     }
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         int64_t nel = fPostProcMesh.NElements();
         for(int64_t el = 0; el<nel; el++)
@@ -194,12 +205,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
 }
 
-/// compute the element errors comparing the reconstructed solution based on average pressures
-/// with the original solution
-void TPZMHMHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, bool store)
-{
-    DebugStop();
-}
 
 
 // a method for generating the HDiv mesh
@@ -452,4 +457,36 @@ void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
             }
         }
     }
+}
+
+
+void TPZMHMHDivErrorEstimator::SwitchMaterialObjects()
+{
+    // switch the material
+    for(auto matid : fPostProcMesh.MaterialVec())
+    {
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+        if(mixpoisson)
+        {
+            
+            TPZMHMHDivErrorEstimateMaterial *newmat = new TPZMHMHDivErrorEstimateMaterial(*mixpoisson);
+            
+            if(fExact)
+            {
+                newmat->SetForcingFunctionExact(fExact->Exact());
+                newmat->SetForcingFunction(fExact->ForcingFunction());
+                
+            }
+            
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(newmat);
+                }
+            }
+            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            delete mixpoisson;
+        }
+    }
+    
 }

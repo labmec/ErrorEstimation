@@ -48,10 +48,6 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     {
         
     }
-
-    /// compute the element errors comparing the reconstructed solution based on average pressures
-    /// with the original solution
-    virtual void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true) override;
     
 
     // a method for generating the HDiv mesh
@@ -75,8 +71,8 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     /// compute the average pressure over corners
     /// set the cornernode values equal to the averages
     virtual void ComputeNodalAverages() override;
-
-    // a method for computing a reference solution
+   //switch the material
+    virtual void SwitchMaterialObjects()override;
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

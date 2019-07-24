@@ -72,7 +72,9 @@ int main(int argc, char *argv[]) {
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine=false;
+        
     int orderlagrange =2;
+        
     TLaplaceExample1 example;
     config.exact.fExact = example.ESinSin;//EX;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
     config.problemname = "ESinSin k=1 e lagrange order 2";

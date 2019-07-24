@@ -721,14 +721,14 @@ TPZGeoMesh *MalhaGeomFredQuadrada(int nelx, int nely, TPZVec<REAL> &x0, TPZVec<R
     return gmesh;
 }
 
-void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCompMesh> > compmeshes, TPZAnalyticSolution *analytic, std::string prefix, TRunConfig config)
+void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCompMesh> > compmeshes, TPZAnalyticSolution &analytic, std::string prefix, TRunConfig config)
 {
     //calculo solution
     bool shouldrenumber = true;
     TPZAnalysis an(cmesh,shouldrenumber);
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(config.n_threads);
+    strmat.SetNumThreads(0/*config.n_threads*/);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
     strmat.SetNumThreads(config.n_threads);
@@ -741,15 +741,15 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     an.SetSolver(step);
     std::cout << "Assembling\n";
     an.Assemble();
-    if(0)
-    {
-        std::string filename = prefix;
-        filename += "_Global.nb";
-        std::ofstream global(filename.c_str());
-        TPZAutoPointer<TPZStructMatrix> strmat = an.StructMatrix();
-        an.Solver().Matrix()->Print("Kg = ",global,EMathematicaInput);
-        an.Rhs().Print("Fg = ",global,EMathematicaInput);
-    }
+//    if(0)
+//    {
+//        std::string filename = prefix;
+//        filename += "_Global.nb";
+//        std::ofstream global(filename.c_str());
+//        TPZAutoPointer<TPZStructMatrix> strmat = an.StructMatrix();
+//        an.Solver().Matrix()->Print("Kg = ",global,EMathematicaInput);
+//        an.Rhs().Print("Fg = ",global,EMathematicaInput);
+//    }
     std::cout << "Solving\n";
     an.Solve();
     std::cout << "Finished\n";
@@ -757,34 +757,22 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
     
-#ifdef PZDEBUG
-    {
-        std::ofstream out(prefix+"_MeshWithSol.txt");
-        cmesh->Print(out);
-    }
-#endif
     
-    //    TPZBuildMultiphysicsMesh::TransferFromMeshes(cmeshes, an.Mesh());
-    //    for (int i=0; i<cmeshes.size(); i++) {
-    //        cmeshes[i]->Solution().Print("sol = ");
-    //    }
-    //    cmeshes[0]->Solution().Print("solq = ");
-    //    cmeshes[1]->Solution().Print("solp = ");
-    std::string plotfile1,plotfile2;
-    std::stringstream sout_geo;
-    std::stringstream sout_1,sout_2;
-    {
-        sout_1 << prefix << "Approx_";
-        config.ConfigPrint(sout_1) << "_dim1.vtk";
-        plotfile1 = sout_1.str();
-    }
-    {
-        sout_2 << prefix << "Approx_";
-        config.ConfigPrint(sout_2) << "_dim2.vtk";
-        plotfile2 = sout_2.str();
-        sout_geo << prefix << "Geo_";
-        config.ConfigPrint(sout_geo) << "_dim2.vtk";
-    }
+//    std::string plotfile1,plotfile2;
+//    std::stringstream sout_geo;
+//    std::stringstream sout_1,sout_2;
+//    {
+//        sout_1 << prefix << "Approx_";
+//        config.ConfigPrint(sout_1) << "_dim1.vtk";
+//        plotfile1 = sout_1.str();
+//    }
+//    {
+//        sout_2 << prefix << "Approx_";
+//        config.ConfigPrint(sout_2) << "_dim2.vtk";
+//        plotfile2 = sout_2.str();
+//        sout_geo << prefix << "Geo_";
+//        config.ConfigPrint(sout_geo) << "_dim2.vtk";
+//    }
     
 //    std::ofstream plotfile3(sout_geo.str());
 //    TPZVTKGeoMesh::PrintGMeshVTK(cmesh.operator->()->Reference(), plotfile3, true);
@@ -795,9 +783,9 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     if (!mat) {
         DebugStop();
     }
-    if (analytic)
+    if (analytic.Exact())
     {
-        an.SetExact(analytic->ExactSolution());
+        an.SetExact(analytic.ExactSolution());
     }
     if (mat->NStateVariables() == 2)
     {
@@ -810,41 +798,46 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     {
         scalnames.Push("Pressure");
         scalnames.Push("Permeability");
+        scalnames.Push("ExactPressure");
         vecnames.Push("Flux");
+        vecnames.Push("ExactFlux");
         vecnames.Push("Derivative");
     }
     
-#ifndef QuietMode
-//    an.DefineGraphMesh(cmesh->Dimension()-1, scalnames, vecnames, plotfile1);
-    an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotfile2);
-    int resolution = 0;
-//    an.PostProcess(resolution,cmesh->Dimension()-1);
-    an.PostProcess(resolution,cmesh->Dimension());
-#endif
     
-    if(analytic)
+    std::string plotname;
+    {
+        std::stringstream out;
+        out << "MHMProblem_POrder_" <<config.pOrderInternal << "_" << cmesh->Dimension() << "D_" << "Ndiv_ " << config.numHDivisions<< ".vtk";
+        plotname = out.str();
+    }
+    int resolution=0;
+    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
+    an.PostProcess(resolution,cmesh->Dimension() );
+    
+    
+    if(analytic.Exact())
     {
         TPZManVector<REAL> errors(4,0.);
         an.SetThreadsForError(config.n_threads);
-//        an.SetExact(analytic);
+        an.SetExact(analytic.ExactSolution());
         an.PostProcessError(errors,false);
-        std::cout << prefix << " - ";
-        config.ConfigPrint(std::cout) << " errors computed " << errors << std::endl;
-        std::stringstream filename;
-        filename << prefix << "Errors.txt";
-        std::ofstream out (filename.str(),std::ios::app);
-        config.InlinePrint(out);
-        if(config.MHM_HDiv_Elast)
-        {
-            out <<  " Energy " << errors[1] << " L2 " << errors[3] << " EnergiaExata " << errors[6] << std::endl;
-        }else{
-            out <<  " Energy " << errors[0] << " L2 " << errors[1] << " H1 " << errors[2] << " EnergiaExata " << errors[3] << std::endl;
-        }
-        
-//        if (config.newline) {
-        out << std::endl;
-//        }
+
+        //Erro
+
+        ofstream myfile;
+        myfile.open("ArquivosErrosMHM.txt", ios::app);
+        myfile << "\n\n Error for MHM formulation " ;
+        myfile << "\n-------------------------------------------------- \n";
+        myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";
+        myfile << "DOF Total = " << cmesh->NEquations() << "\n";
+        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
+        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
+        myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
+        myfile.close();
+
     }
+    
 }
 
 /// Solve the problem composed of a multiphysics mesh composed of compmeshes - applies to MHM and MHM-H(div)

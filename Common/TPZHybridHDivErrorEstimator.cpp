@@ -56,7 +56,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         an.SetExact(fExact->ExactSolution());
     }
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshToComputeError.txt");
         fPostProcMesh.Print(out);
@@ -70,8 +70,18 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
     fPostProcMesh.ElementSolution().Redim(nelem, 5);
+    for(int64_t el = 0; el<nelem; el++)
+    {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZSubCompMesh *subc = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(subc)
+        {
+            int64_t nelsub = subc->NElements();
+            subc->ElementSolution().Redim(nelsub, 5);
+        }
+    }
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshToComputeError2.txt");
         fPostProcMesh.Print(out);
@@ -79,47 +89,6 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     }
 #endif
     
-
-    /*
-        int dim = fPostProcMesh.Dimension();
-        TPZManVector<REAL,10> globalerrors(6,0.);
-            REAL Ieff_global=0.,Ieff_local=0.;
-        for (int64_t el=0; el<nelem; el++) {
-            
-            TPZCompEl *cel = fPostProcMesh.ElementVec()[el];
-            TPZGeoEl *gel = cel->Reference();
-            REAL hk = gel->CharacteristicSize();
-            if(cel->Reference()->Dimension()!=dim) continue;
-            TPZManVector<REAL,10> elerror(10,0.);
-            elerror.Fill(0.);
-            cel->EvaluateError(fExact->ExactSolution(), elerror, NULL);
-            int nerr = elerror.size();
-            for (int i=0; i<nerr; i++) {
-                globalerrors[i] += elerror[i]*elerror[i];
-            }
-            globalerrors[nerr] += (hk/M_PI)*(hk/M_PI)*elerror[nerr-1]*elerror[nerr-1];
-         //   Ieff_local += globalerrors[nerr] + globalerrors[3];
-    
-        }
-    
-   // Ieff_global = sqrt(Ieff_local)/sqrt(globalerrors[2]);
-    
-    ofstream myfile;
-    myfile.open("ArquivosErros.txt", ios::app);
-    myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
-    myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
-    myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
-  //  myfile << "I_eff global = " << Ieff_global << "\n";
-    myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
-    myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
-    myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
-    myfile << "Global oscilatory error = " << sqrt(globalerrors[5]) << "\n";
-    myfile.close();
-
-    */
-    
-
     an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
     
     std::cout << "Computed errors " << errorvec << std::endl;
@@ -141,6 +110,50 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     ComputeEffectivityIndices();
     
     PostProcessing(an);
+    
+    
+}
+void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
+    //rever codigo baseado no vetor de erros dos materiais
+    
+     int dim = fPostProcMesh.Dimension();
+     int64_t nelem = fPostProcMesh.NElements();
+     TPZManVector<REAL,10> globalerrors(6,0.);
+     REAL Ieff_global=0.,Ieff_local=0.;
+    
+     for (int64_t el=0; el<nelem; el++) {
+     
+         TPZCompEl *cel = fPostProcMesh.ElementVec()[el];
+         TPZGeoEl *gel = cel->Reference();
+         REAL hk = gel->CharacteristicSize();
+         if(cel->Reference()->Dimension()!=dim) continue;
+         TPZManVector<REAL,10> elerror(10,0.);
+         elerror.Fill(0.);
+         cel->EvaluateError(fExact->ExactSolution(), elerror, NULL);
+         int nerr = elerror.size();
+         for (int i=0; i<nerr; i++) {
+             globalerrors[i] += elerror[i]*elerror[i];
+         }
+         globalerrors[nerr] += (hk/M_PI)*(hk/M_PI)*elerror[nerr-1]*elerror[nerr-1];
+             Ieff_local += globalerrors[nerr] + globalerrors[3];
+     
+     }
+     
+      Ieff_global = sqrt(Ieff_local)/sqrt(globalerrors[2]);
+     
+     ofstream myfile;
+     myfile.open("ArquivosErros.txt", ios::app);
+     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
+     myfile << "\n-------------------------------------------------- \n";
+     myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
+     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
+     myfile << "I_eff global = " << Ieff_global << "\n";
+     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
+     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
+     myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
+     myfile << "Global oscilatory error = " << sqrt(globalerrors[5]) << "\n";
+     myfile.close();
+     
     
     
 }
@@ -171,7 +184,8 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         std::string plotname;
         {
             std::stringstream out;
-            out << fProblemConfig.dir_name << "/" << "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim
+            //out << fProblemConfig.dir_name << "/" << "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim
+            out << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
             << "D_" << fProblemConfig.problemname << "Ndiv_ " << fProblemConfig.ndivisions << "HdivMais"
             << fProblemConfig.hdivmais << ".vtk";
             plotname = out.str();
@@ -1193,6 +1207,9 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     TPZCompMesh *cmesh = &fPostProcMesh;
 
     int64_t nrows = cmesh->ElementSolution().Rows();
+    
+    TPZFMatrix<REAL> dataIeff(nrows,1);
+    
     cmesh->ElementSolution().Resize(nrows, 6);
     for (int64_t el = 0; el < nrows; el++) {
         for (int i = 0; i < 3; i += 2) {
@@ -1203,13 +1220,29 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             
             if (abs(ErrorEstimate) < tol) {
                 cmesh->ElementSolution()(el, 4 + i / 2) = 1.;
+                dataIeff(el,0)=1.;
+
             }
             else {
                 REAL EfIndex = ErrorEstimate / ErrorExact;
+                dataIeff(el,0)= EfIndex;
+                
                 cmesh->ElementSolution()(el, 4 + i / 2) = EfIndex;
             }
         }
+
     }
+    
+#ifdef LOG4CXX
+    if(logger->isDebugEnabled())
+    {
+        std::stringstream sout;
+        dataIeff.Print("Ieff = ",sout,EMathematicaInput);
+        LOGPZ_DEBUG(logger,sout.str())
+    }
+#endif
+    
+    
 }
 
 /// returns true if the material associated with the element is a boundary condition
@@ -1286,6 +1319,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
     
     PlotLagrangeMultiplier("AfterNodalAverage");
+
 #ifdef PZDEBUG
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
@@ -1306,7 +1340,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         std::ofstream out("MeshBeforeLoadSol.txt");
         fPostProcMesh.Print(out);
-//        fPostProcMesh.Solution().Print("SolBeforeLoadSolution");
+        fPostProcMesh.Solution().Print("SolBeforeLoadSolution");
         
     }
 #endif
@@ -1317,6 +1351,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         std::ofstream out("MeshAfterLoadSol.txt");
         fPostProcMesh.Print(out);
+         fPostProcMesh.Solution().Print("SolAfterLoadSolution");
         
     }
 #endif
@@ -1345,15 +1380,18 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 #ifdef PZDEBUG
         {
-            std::ofstream out("PressureAposLoadSol.txt");
+            std::ofstream out("PressureAfterTransfer.txt");
             fPostProcMesh.MeshVector()[1]->Print(out);
-            std::ofstream out2("FluxAposLoadSol.txt");
+            std::ofstream out2("FluxAfterTransfer.txt");
             fPostProcMesh.MeshVector()[0]->Print(out2);
             
         }
         VerifySolutionConsistency(PressureMesh());
 #endif
     }
+    
+    
+    
 }
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {
