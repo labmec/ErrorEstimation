@@ -36,6 +36,16 @@ int main(int argc, char *argv[]) {
 
     // Creates geometric mesh
     TPZGeoMesh *gmeshOriginal = CreateGeoMesh();
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("Gmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
+        
+    }
+#endif
+    
+    
 
     int refinementSteps = 5;
 
@@ -44,8 +54,16 @@ int main(int argc, char *argv[]) {
     *hybridEstimatorMesh = *gmeshOriginal;
     TPZGeoMesh *markEstimatorMesh = new TPZGeoMesh();
     *markEstimatorMesh = *gmeshOriginal;
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("GmeshPosCopy.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(hybridEstimatorMesh, out);
+        
+    }
+#endif
 
-    // Run tests with hybrid proposal
+    // Run tests with hdiv++ proposal
     for (int i = 0; i < refinementSteps; i++) {
         ProblemConfig config;
         config.dir_name = "AdaptivityHybridSinSin";
@@ -59,7 +77,7 @@ int main(int argc, char *argv[]) {
         config.bcmaterialids.insert(3);
 
         config.porder = 1;
-        config.hdivmais = 0;
+        config.hdivmais = 1;
         config.dimension = 2;
         config.prefine = false;
         config.makepressurecontinuous = true;
@@ -95,13 +113,10 @@ int main(int argc, char *argv[]) {
         SolveHybridProblem(mixedMesh, hybrid.fInterfaceMatid, config);
 
         // Reconstructs pressure and calculates error
-        TPZHDivErrorEstimatorH1 HDivEstimate(*mixedMesh);
+        TPZHybridHDivErrorEstimator HDivEstimate(*mixedMesh);
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
-
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 1;
 
         HDivEstimate.PotentialReconstruction();
 

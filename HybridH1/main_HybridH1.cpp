@@ -54,8 +54,8 @@ bool neumann = true;
 bool h1solution = true;
 
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
-void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
-TPZCompMesh *CMeshH1(const ProblemConfig &problem);
+//void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
+//TPZCompMesh *CMeshH1(const ProblemConfig &problem);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config);
 
 int main(int argc, char *argv[]) {
@@ -238,130 +238,130 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
 }
 
 
-TPZCompMesh *CMeshH1(const ProblemConfig &problem) {
-    
-    TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial *mat = 0;
-    
-    
-    for (auto matid : problem.materialids) {
-        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetForcingFunctionExact(problem.exact.Exact());
-        mix->SetForcingFunction(problem.exact.ForcingFunction());
-        
-        if (!mat) mat = mix;
-        cmesh->InsertMaterialObject(mix);
-        
-    }
-    
-    for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
-        int bctype = 0;
-        val2.Zero();
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
-        
-        cmesh->InsertMaterialObject(bc);
-    }
-    
-    cmesh->SetDefaultOrder(problem.porder);//ordem
-    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
-    
-    cmesh->AutoBuild();
-    
+//TPZCompMesh *CMeshH1(const ProblemConfig &problem) {
+//    
+//    TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
+//    TPZMaterial *mat = 0;
+//    
+//    
+//    for (auto matid : problem.materialids) {
+//        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
+//        mix->SetForcingFunctionExact(problem.exact.Exact());
+//        mix->SetForcingFunction(problem.exact.ForcingFunction());
+//        
+//        if (!mat) mat = mix;
+//        cmesh->InsertMaterialObject(mix);
+//        
+//    }
+//    
+//    for (auto matid : problem.bcmaterialids) {
+//        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+//        int bctype = 0;
+//        val2.Zero();
+//        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+//        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+//        
+//        cmesh->InsertMaterialObject(bc);
+//    }
+//    
+//    cmesh->SetDefaultOrder(problem.porder);//ordem
+//    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+//    
+//    cmesh->AutoBuild();
+//    
+//
+//    return cmesh;
+//}
 
-    return cmesh;
-}
-
-void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
-    
-    TPZAnalysis an(cmeshH1);
-    
-    
-#ifdef USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmeshH1);
-    strmat.SetNumThreads(0);
-    //        strmat.SetDecomposeType(ELDLt);
-#else
-    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
-    strmat.SetNumThreads(0);
-    //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
-    //        strmat3.SetNumThreads(8);
-#endif
-    
-    std::set<int> matids;
-    matids.insert(1);
-    
-    for(auto mat:config.bcmaterialids){
-        matids.insert(mat);
-    }
-    
-    strmat.SetMaterialIds(matids);
-    an.SetStructuralMatrix(strmat);
-    
-    
-    
-    TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
-    direct->SetDirect(ELDLt);
-    an.SetSolver(*direct);
-    delete direct;
-    direct = 0;
-    an.Assemble();
-    an.Solve();//resolve o problema misto ate aqui
-    TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("Solution");
-    vecnames.Push("Derivative");
-    scalnames.Push("ExactSolution");
-    
-
-    
-    
-    
-    int dim = cmeshH1->Reference()->Dimension();
-    
-    std::string plotname;
-    {
-        std::stringstream out;
-        out << config.dir_name << "/" << "H1_Problem" << config.porder << "_" << dim
-        << "D_" << config.problemname << "Ndiv_ " << config.ndivisions << ".vtk";
-        plotname = out.str();
-    }
-    int resolution=0;
-    an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-    an.PostProcess(resolution,dim);
-    
-    
-    an.SetExact(config.exact.ExactSolution());
-    
-    TPZManVector<REAL> errorvec(10, 0.);
-    int64_t nelem = cmeshH1->NElements();
-    cmeshH1->LoadSolution(cmeshH1->Solution());
-    cmeshH1->ExpandSolution();
-    cmeshH1->ElementSolution().Redim(nelem, 10);
-    
-    an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
-    
-    std::cout << "Computed errors " << errorvec << std::endl;
-    
-    
-    //Erro
-    
-    ofstream myfile;
-    myfile.open("ArquivosErrosH1.txt", ios::app);
-    myfile << "\n\n Error for H1 formulation " << config.problemname;
-    myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << config.ndivisions << " Order = " << config.porder << "\n";
-    myfile << "DOF Total = " << cmeshH1->NEquations() << "\n";
-    myfile << "Energy norm = " << errorvec[0] << "\n";//norma energia
-    myfile << "error norm L2 = " << errorvec[1] << "\n";//norma L2
-    myfile << "Semi norm H1 = " << errorvec[2] << "\n";//norma L2
-    myfile.close();
-    
-    
-}
+//void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
+//
+//    TPZAnalysis an(cmeshH1);
+//
+//
+//#ifdef USING_MKL
+//    TPZSymetricSpStructMatrix strmat(cmeshH1);
+//    strmat.SetNumThreads(0);
+//    //        strmat.SetDecomposeType(ELDLt);
+//#else
+//    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
+//    strmat.SetNumThreads(0);
+//    //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
+//    //        strmat3.SetNumThreads(8);
+//#endif
+//
+//    std::set<int> matids;
+//    matids.insert(1);
+//
+//    for(auto mat:config.bcmaterialids){
+//        matids.insert(mat);
+//    }
+//
+//    strmat.SetMaterialIds(matids);
+//    an.SetStructuralMatrix(strmat);
+//
+//
+//
+//    TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
+//    direct->SetDirect(ELDLt);
+//    an.SetSolver(*direct);
+//    delete direct;
+//    direct = 0;
+//    an.Assemble();
+//    an.Solve();//resolve o problema misto ate aqui
+//    TPZStack<std::string> scalnames, vecnames;
+//    scalnames.Push("Solution");
+//    vecnames.Push("Derivative");
+//    scalnames.Push("ExactSolution");
+//
+//
+//
+//
+//
+//    int dim = cmeshH1->Reference()->Dimension();
+//
+//    std::string plotname;
+//    {
+//        std::stringstream out;
+//        out << config.dir_name << "/" << "H1_Problem" << config.porder << "_" << dim
+//        << "D_" << config.problemname << "Ndiv_ " << config.ndivisions << ".vtk";
+//        plotname = out.str();
+//    }
+//    int resolution=0;
+//    an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//    an.PostProcess(resolution,dim);
+//
+//
+//    an.SetExact(config.exact.ExactSolution());
+//
+//    TPZManVector<REAL> errorvec(10, 0.);
+//    int64_t nelem = cmeshH1->NElements();
+//    cmeshH1->LoadSolution(cmeshH1->Solution());
+//    cmeshH1->ExpandSolution();
+//    cmeshH1->ElementSolution().Redim(nelem, 10);
+//
+//    an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
+//
+//    std::cout << "Computed errors " << errorvec << std::endl;
+//
+//
+//    //Erro
+//
+//    ofstream myfile;
+//    myfile.open("ArquivosErrosH1.txt", ios::app);
+//    myfile << "\n\n Error for H1 formulation " << config.problemname;
+//    myfile << "\n-------------------------------------------------- \n";
+//    myfile << "Ndiv = " << config.ndivisions << " Order = " << config.porder << "\n";
+//    myfile << "DOF Total = " << cmeshH1->NEquations() << "\n";
+//    myfile << "Energy norm = " << errorvec[0] << "\n";//norma energia
+//    myfile << "error norm L2 = " << errorvec[1] << "\n";//norma L2
+//    myfile << "Semi norm H1 = " << errorvec[2] << "\n";//norma L2
+//    myfile.close();
+//
+//
+//}
 
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config){
-    
+
     TPZAnalysis an(cmesh_H1Hybrid);
     TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
     TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
@@ -369,13 +369,13 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct Problem
     TPZStepSolver<STATE> step;
     step.SetDirect(ELDLt);
     an.SetSolver(step);
-    
+
     an.Run();
-  
+
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
-        
+
         int dim = 2;
         std::string plotname;
         {
@@ -388,27 +388,27 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct Problem
         int resolution=0;
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(resolution, dim);
-    
-    
+
+
     //Calculo do Erro
 
-        
-        
+
+
         an.SetExact(config.exact.ExactSolution());
-        
+
         TPZManVector<REAL> errorvec(5, 0.);
         int64_t nelem = cmesh_H1Hybrid->NElements();
         cmesh_H1Hybrid->LoadSolution(cmesh_H1Hybrid->Solution());
         cmesh_H1Hybrid->ExpandSolution();
         cmesh_H1Hybrid->ElementSolution().Redim(nelem, 5);
-        
+
         an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
-        
+
         std::cout << "Computed errors " << errorvec << std::endl;
-        
-        
+
+
         //Erro
-        
+
         ofstream myfile;
         myfile.open("ArquivosErrosH1Hibrido.txt", ios::app);
         myfile << "\n\n Estimator errors for Problem " << config.problemname;
@@ -420,8 +420,8 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct Problem
         myfile << "H1 norm = " << errorvec[2] << "\n";
         myfile << "energy norm = " << errorvec[3] << "\n";
         myfile.close();
-        
 
-    
-    
+
+
+
 }

@@ -142,6 +142,11 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(TPZVec<TPZMaterialData> &datave
 template<class MixedMat>
 void TPZMixedErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
+    /*
+     data[0] Flux
+     data[1] pressure
+     
+     */
     errors.Resize(MixedMat::NEvalErrors());
     errors.Fill(0.0);
     TPZManVector<STATE,3> flux(3,0.), pressure(1,0.);
@@ -183,6 +188,7 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, TPZV
             inner += (flux[i]+fluxprimalneg(i,0))*InvPermTensor(i,j)*(flux[j]+fluxprimalneg(j,0));
         }
     }
+    
     errors[2] += inner;
 }
 

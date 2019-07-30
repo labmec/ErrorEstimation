@@ -78,5 +78,8 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader);
  TPZMultiphysicsCompMesh * HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv, struct ProblemConfig &config);
 TPZCompMesh *CMeshH1( ProblemConfig problem);
 
+//H1
+//void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
+//TPZCompMesh *CompMeshH1(struct ProblemConfig &problem);
 
 

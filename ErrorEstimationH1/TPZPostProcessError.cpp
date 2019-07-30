@@ -469,6 +469,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         << "\nNumber of internal equations " << nintequations << std::endl;
 //        PrintPartitionDiagnostics(color, std::cout);
         nequations = meshmixed->NEquations();
+        
+        std::cout<<"Solving mixed problem"<<std::endl;
         TPZAnalysis an(meshmixed,false);
 
         
@@ -533,14 +535,15 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         vecnames.Push("Flux");
         an.SetStep(color);
 
-        {
-            int ModelDimension = meshmixed->Dimension();
-            std::stringstream sout;
-            sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
-            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
-        }
+//        {
+//            int ModelDimension = meshmixed->Dimension();
+//            std::stringstream sout;
+//            sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
+//            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
+//            an.PostProcess(1,meshmixed->Dimension());
+//        }
         
-        an.PostProcess(1,meshmixed->Dimension());
+       
 
         for (int64_t el=0; el<nelem; el++) {
             meshmixed->ElementVec()[el] = elpointers[el];
@@ -557,9 +560,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 //            std::stringstream sout;
 //            sout << "../" << "FullPoisson" << ModelDimension << "HDiv" << ".vtk";
 //            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
+//            an.PostProcess(1,meshmixed->Dimension());
 //        }
         
-        an.PostProcess(1,meshmixed->Dimension());
+       
         fMeshVector[2]->Solution().Zero();
         fMeshVector[3]->Solution().Zero();
         an.Solution().Zero();
@@ -580,6 +584,15 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     }
     an.PostProcessError(errors);
     std::cout << "Estimated error " << errors << std::endl;
+    ofstream myfile;
+    myfile.open("ArquivosErros_estimate.txt", ios::app);
+    myfile << "\n\n Estimator errors  \n";
+    myfile << "\n-------------------------------------------------- \n";
+    myfile << "Order = " << meshmixed->GetDefaultOrder() << "\n";
+    myfile << "DOF Total = " << meshmixed->NEquations() << "\n";
+    myfile << "Global estimator = " << errors[2] << "\n";
+    myfile.close();
+    
 }
 
 // print partition diagnostics

@@ -17,6 +17,9 @@ struct SimulationCase {
     std::string dir_name;
     TPZGeoMesh * gmesh = nullptr;
     
+    /// name identifying the problem
+    std::string problemname;
+    
     std::set<int> materialids;
     std::set<int> bcmaterialids;
     TLaplaceExample1 exact;
@@ -32,7 +35,7 @@ struct SimulationCase {
               dir_name(cp.dir_name),
               gmesh(cp.gmesh),
     materialids(cp.materialids),
-    bcmaterialids (cp.bcmaterialids),
+    bcmaterialids (cp.bcmaterialids),problemname(cp.problemname),
     exact(cp.exact)
     {
     }

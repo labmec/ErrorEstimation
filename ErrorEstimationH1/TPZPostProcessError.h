@@ -17,6 +17,7 @@
 #include "pzfmatrix.h"
 #include "pzblock.h"
 #include "pzfunction.h"
+#include "TPZAnalyticSolution.h"
 
 struct TPZPatch
 {
@@ -142,6 +143,8 @@ private:
     /// create the partition of unity mesh
     void CreatePartitionofUnityMesh();
     
+     TPZAnalyticSolution *fExact;
+    
 public:
     
     // print partition diagnostics
@@ -166,6 +169,11 @@ public:
     TPZCompMesh *MultiPhysicsMesh()
     {
         return fMeshVector[1];
+    }
+    
+    void SetAnalyticSolution(TPZAnalyticSolution &exact)
+    {
+        fExact = &exact;
     }
     
 };
