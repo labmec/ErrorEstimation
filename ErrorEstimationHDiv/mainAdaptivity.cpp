@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
         config.dir_name = "AdaptivityHybridSinSin";
         config.adaptivityStep = i;
 
-        config.gmesh = new TPZGeoMesh();
-        *config.gmesh = *hybridEstimatorMesh;
+//        config.gmesh = new TPZGeoMesh();
+        config.gmesh = hybridEstimatorMesh;
 
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
@@ -140,8 +140,8 @@ int main(int argc, char *argv[]) {
         config.dir_name = "AdaptivityMarkSin";
         config.adaptivityStep = i;
 
-        config.gmesh = new TPZGeoMesh();
-        *config.gmesh = *markEstimatorMesh;
+//        config.gmesh = new TPZGeoMesh();
+        config.gmesh = markEstimatorMesh;
 
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
@@ -247,7 +247,68 @@ TPZGeoMesh *CreateLCircleGeoMesh() {
     return gmesh;
 }
 
+<<<<<<< HEAD
 
+=======
+void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
+
+    // Column of the flux error estimate on the element solution matrix
+    const int fluxErrorEstimateCol = 3;
+//    postProcessMesh->ElementSolution().Print(std::cout);
+    int64_t nelem = postProcessMesh->ElementSolution().Rows();
+
+    // Iterates through element errors to get the maximum value
+    REAL maxError = 0.;
+    for (int64_t iel = 0; iel < nelem; iel++) {
+
+        TPZCompEl *cel = postProcessMesh->Element(iel);
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
+        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+
+
+        if (elementError > maxError) {
+            maxError = elementError;
+        }
+    }
+
+    // Refines elements which error are bigger than 30% of the maximum error
+    REAL threshold = 0.3 * maxError;
+
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
+        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        if (elementError > threshold) {
+
+            TPZGeoEl *gel = cel->Reference();
+//            int eltorefine = gel->Id();
+
+            TPZVec<TPZGeoEl *> sons;
+            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[gel->Index()];
+            if (gelToRefine && !gelToRefine->HasSubElement()) {
+                gelToRefine->Divide(sons);
+#ifdef LOG4CXX
+                int nsides = gelToRefine->NSides();
+                TPZVec<REAL> loccenter(3);
+                TPZVec<REAL> center(3);
+                gelToRefine->CenterPoint(nsides - 1, loccenter);
+
+                gelToRefine->X(loccenter, center);
+                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+                if (logger->isDebugEnabled()) {
+                    std::stringstream sout;
+                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
+                    sout << "Error = " << elementError << "\n\n";
+                    LOGPZ_DEBUG(logger, sout.str())
+                }
+#endif
+            }
+        }
+    }
+    DivideLowerDimensionalElements(gmeshToRefine);
+}
 
 TPZGeoMesh *CreateGeoMesh() {
     TPZGeoMesh * gmesh = nullptr;
