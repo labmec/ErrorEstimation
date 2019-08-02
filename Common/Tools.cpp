@@ -775,7 +775,6 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
         TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
         if (!cel) continue;
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
-        
         REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
     
         
