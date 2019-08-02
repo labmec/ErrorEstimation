@@ -36,6 +36,8 @@
 
 #include "TPZHDivErrorEstimateMaterial.h"
 
+#include "TPZCompMeshTools.h"
+
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
 #endif
@@ -93,7 +95,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     
     std::cout << "Computed errors " << errorvec << std::endl;
     
-    
+    TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
+    TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
     //Erro global
     
     ofstream myfile;

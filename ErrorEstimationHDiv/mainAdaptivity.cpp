@@ -69,8 +69,8 @@ int main(int argc, char *argv[]) {
         config.dir_name = "AdaptivityHybridSinSin";
         config.adaptivityStep = i;
 
-        config.gmesh = new TPZGeoMesh();
-        *config.gmesh = *hybridEstimatorMesh;
+//        config.gmesh = new TPZGeoMesh();
+        config.gmesh = hybridEstimatorMesh;
 
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
@@ -137,8 +137,8 @@ int main(int argc, char *argv[]) {
         config.dir_name = "AdaptivityMarkSin";
         config.adaptivityStep = i;
 
-        config.gmesh = new TPZGeoMesh();
-        *config.gmesh = *markEstimatorMesh;
+//        config.gmesh = new TPZGeoMesh();
+        config.gmesh = markEstimatorMesh;
 
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
@@ -240,19 +240,18 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
 
     // Column of the flux error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;
-    postProcessMesh->ElementSolution().Print(std::cout);
+//    postProcessMesh->ElementSolution().Print(std::cout);
     int64_t nelem = postProcessMesh->ElementSolution().Rows();
 
     // Iterates through element errors to get the maximum value
     REAL maxError = 0.;
     for (int64_t iel = 0; iel < nelem; iel++) {
 
-        //TPZCompEl *cel = postProcessMesh->Element(iel);
-        //if (!cel) continue;
-        //if (cel->Dimension() != 2) continue;
-        //REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
-
+        TPZCompEl *cel = postProcessMesh->Element(iel);
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
         REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+
 
         if (elementError > maxError) {
             maxError = elementError;
@@ -264,16 +263,16 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
 
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
-        //if (!cel) continue;
-        //if (cel->Dimension() != 2) continue;
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
         REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
         if (elementError > threshold) {
 
-        //    TPZGeoEl *gel = cel->Reference();
-        //    int eltorefine = gel->Id();
+            TPZGeoEl *gel = cel->Reference();
+//            int eltorefine = gel->Id();
 
             TPZVec<TPZGeoEl *> sons;
-            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[iel];
+            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[gel->Index()];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
 #ifdef LOG4CXX
