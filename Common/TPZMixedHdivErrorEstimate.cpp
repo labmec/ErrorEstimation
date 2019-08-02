@@ -204,10 +204,6 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
   
     TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
 
-//    for (int i=0; i<3; i++) {
-//        fluxreconstructed[i] = data[0].sol[0][i];
-//        fluxfem[i] = data[2].sol[0][i];
-//    }
     
     fluxreconstructed = data[0].sol[0];
     fluxfem = data[2].sol[0];
@@ -224,8 +220,8 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     
 
     
-    REAL oscilatory = 0.;
-    oscilatory = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
+    REAL residual = 0.;
+    residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
     
     
     pressurereconstructed[0] = data[1].sol[0][0];
@@ -274,7 +270,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     errors[1] = (pressurefem[0]-pressurereconstructed[0])*(pressurefem[0]-pressurereconstructed[0]);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
-    errors[4] = oscilatory;
+    errors[4] = residual;
 }
 
 

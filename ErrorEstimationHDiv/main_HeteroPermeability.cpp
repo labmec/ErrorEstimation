@@ -65,7 +65,7 @@ void ExataOmega4(const TPZVec<REAL> &pt, TPZVec<STATE> &solp, TPZFMatrix<STATE> 
 void Forcing(const TPZVec<REAL> &pt, TPZVec<STATE> &ff);
 
 
-bool mixedsolution = false;
+bool mixedsolution = true;
 
 
 REAL  alpha=1.;//sqrt(0.1);
@@ -83,23 +83,22 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
-   
+   for (int i = 0; i < 2; i++) {
     
-    for(int ndiv=2 ; ndiv<3; ndiv++){
     ProblemConfig config;
    
     
     config.porder = 1;
-    config.hdivmais = 3;
-    config.ndivisions = ndiv;
+    config.hdivmais = 1;
+    config.ndivisions = 1;
     config.alpha=alpha;
     
     config.prefine=false;
     config.makepressurecontinuous = true;
     
-    config.steklovexample=false;
+    config.steklovexample = true;
     
-    config.GalvisExample=true;
+    config.GalvisExample = false;
     
        
         config.dir_name = "HPermeability";
@@ -108,7 +107,7 @@ int main(int argc, char *argv[]) {
         system(command.c_str());
     
     
-    int dim=2;
+    int dim=3;
     
     //malha geometrica
     TPZGeoMesh *gmesh = nullptr;
@@ -266,6 +265,9 @@ int main(int argc, char *argv[]) {
         gmesh->Print(out2);
 
     }
+        
+        TPZGeoMesh *markEstimatorMesh = new TPZGeoMesh();
+        *markEstimatorMesh = *gmesh;
     
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
     
@@ -274,69 +276,65 @@ int main(int argc, char *argv[]) {
     
     cmesh_HDiv->InitializeBlock();
     
-//    {
-//
-//        std::ofstream out2("MixedMesh_SemSol.txt");
-//        cmesh_HDiv->Print(out2);
-//
-//    }
+       
+       if(mixedsolution) SolveMixedProblem(cmesh_HDiv,config);
     
-    if(mixedsolution)
-    {
-        
-        // Creating the directory
-        std::string command = "mkdir " + config.dir_name;
-        system(command.c_str());
-        
-        TPZAnalysis an(cmesh_HDiv);
-        
-        {
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("ExactPressure");
-        vecnames.Push("ExactFlux");
-
-        std::stringstream sout;
-        sout << config.dir_name << "/" <<  "ExactSolution_"<<config.problemname<<"Nref_"<<config.ndivisions<<".vtk";
-
-        an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-        an.PostProcess(2,2);
-        }
-        
-        
-#ifdef USING_MKL
-        TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
-        strmat.SetNumThreads(0);
-        //        strmat.SetDecomposeType(ELDLt);
-        an.SetStructuralMatrix(strmat);
-#else
-        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
-        strmat.SetNumThreads(0);
-        //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
-        //        strmat3.SetNumThreads(8);
-#endif
-        
-        TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
-        direct->SetDirect(ELDLt);
-        an.SetSolver(*direct);
-        delete direct;
-        direct = 0;
-        an.Assemble();
-        an.Solve();//resolve o problema misto ate aqui
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("Pressure");
-        scalnames.Push("ExactPressure");
-        vecnames.Push("Flux");
-        vecnames.Push("ExactFlux");
-        
-        std::stringstream sout;
-        sout << config.dir_name << "/" <<  "OriginalMixed_Order_"<<config.porder<<"Nref_"<<config.ndivisions<<".vtk";
- 
-        //an.DefineGraphMesh(2, scalnames, vecnames, "Original_Misto.vtk");
-        an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-        an.PostProcess(2,2);
-
-        
-    }
+//    if(mixedsolution)
+//    {
+//        
+//        // Creating the directory
+//        std::string command = "mkdir " + config.dir_name;
+//        system(command.c_str());
+//        
+//        TPZAnalysis an(cmesh_HDiv);
+//        
+//        {
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("ExactPressure");
+//        vecnames.Push("ExactFlux");
+//
+//        std::stringstream sout;
+//        sout << config.dir_name << "/" <<  "ExactSolution_"<<config.problemname<<"Nref_"<<config.ndivisions<<".vtk";
+//
+//        an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+//        an.PostProcess(2,2);
+//        }
+//        
+//        
+//#ifdef USING_MKL
+//        TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
+//        strmat.SetNumThreads(0);
+//        //        strmat.SetDecomposeType(ELDLt);
+//        an.SetStructuralMatrix(strmat);
+//#else
+//        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
+//        strmat.SetNumThreads(0);
+//        //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
+//        //        strmat3.SetNumThreads(8);
+//#endif
+//        
+//        TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
+//        direct->SetDirect(ELDLt);
+//        an.SetSolver(*direct);
+//        delete direct;
+//        direct = 0;
+//        an.Assemble();
+//        an.Solve();//resolve o problema misto ate aqui
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("Pressure");
+//        scalnames.Push("ExactPressure");
+//        vecnames.Push("Flux");
+//        vecnames.Push("ExactFlux");
+//        
+//        std::stringstream sout;
+//        sout << config.dir_name << "/" <<  "OriginalMixed_Order_"<<config.porder<<"Nref_"<<config.ndivisions<<".vtk";
+// 
+//        //an.DefineGraphMesh(2, scalnames, vecnames, "Original_Misto.vtk");
+//        an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+//        an.PostProcess(2,2);
+//
+//        
+//    }
      
         
     
@@ -426,14 +424,19 @@ int main(int argc, char *argv[]) {
         TPZManVector<REAL> elementerrors;
         HDivEstimate.ComputeErrors(elementerrors);
         
-    }
-    
-    delete cmesh_HDiv;
-    delete meshvec_HDiv[0];
-    delete meshvec_HDiv[1];
-   // return 0;
+        hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh);
+        
+        
         
     }
+    
+//    delete cmesh_HDiv;
+//    delete meshvec_HDiv[0];
+//    delete meshvec_HDiv[1];
+   // return 0;
+       
+   }
+    
     
     
 }

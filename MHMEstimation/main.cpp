@@ -36,6 +36,10 @@
 #include "TPZSpStructMatrix.h"
 #include "pzbstrmatrix.h"
 
+#include "tpzarc3d.h"
+#include "tpzgeoblend.h"
+#include "TPZGeoLinear.h"
+
 #include "pzpoisson3d.h"
 //#include "pzhybridpoisson.h"
 #include "pzpoisson3dreferred.h"
@@ -134,10 +138,14 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf);
 // Conf contains the maze information and the problem boundary conditions
 int MHMTest(ProblemConfig &Conf);
 
+TPZGeoMesh *CreateCircleGeoMesh();
+
+bool IsgmeshReader = true;
+
 int main(){
     InitializePZLOG();
     
-    for(int ndiv=1 ; ndiv<2 ; ndiv++){
+    for(int ndiv=0 ; ndiv<1 ; ndiv++){
     ProblemConfig config;
     
     config.porder = 1;
@@ -148,26 +156,68 @@ int main(){
    
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSin;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+    config.exact.fExact = example.ESinSin;//ESinCosCircle;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
      
     config.problemname = "ESinSin";
     
     config.dir_name= "MHM_Mixed";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
-    
-    TPZManVector<int,4> bcids(4,-1);
-    
         
+        TPZGeoMesh *gmesh = nullptr;
+        
+
+    if(IsgmeshReader){
+
+        std::string meshfilename = "../Circular.msh";
+      //  std::string meshfilename = "../Circular.msh";
+
+        TPZGmshReader gmsh;
+
+
+       // gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
+        //gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
+        gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
+        gmsh.GetDimNamePhysical()[1]["neumann"] = 10;
+        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+
+ 
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(2);
+        config.bcmaterialids.insert(10);
+
+
+        gmsh.SetFormatVersion("4.1");
+        gmesh = gmsh.GeometricGmshMesh(meshfilename);
+        gmsh.PrintPartitionSummary(std::cout);
+        gmesh->SetDimension(config.dimension);
+        config.gmesh = gmesh;
+
+    }
+        
+    else{
+
+        TPZManVector<int,4> bcids(4,-1);
+
+
         TPZVec<int64_t> coarseindices;
-        
+
         TPZManVector<REAL,3> x0(3,0.),x1(3,1.);
         x1[2] = 0.;
-      
 
-    int nx = pow(2, ndiv);
+
+        int nx = pow(2, ndiv);
+        //para o exemplo do douglas
+        gmesh = CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
+        config.gmesh = gmesh;
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(2);
+        config.bcmaterialids.insert(3);
+        gmesh->SetDimension(config.dimension);
         
-    TPZGeoMesh *gmesh = CreateGeoMesh(nx, bcids);
+        
+        
+    }
         
 #ifdef PZDEBUG
         {
@@ -178,30 +228,35 @@ int main(){
             
         }
 #endif
+        
+        UniformRefinement(ndiv, gmesh);
+        
+        TPZGeoMesh *gmesh2 = new TPZGeoMesh();
+        *gmesh2 = *gmesh;
    
-//    UniformRefinement(ndiv, gmesh);
+
 //
 //    DivideLowerDimensionalElements(gmesh);
 
-    config.materialids.insert(1);
-    config.bcmaterialids.insert(-1);
-    config.gmesh = gmesh;
-    gmesh->SetDimension(config.dimension);
+//    config.materialids.insert(1);
+//    config.bcmaterialids.insert(-1);
+//    config.gmesh = gmesh;
+//    gmesh->SetDimension(config.dimension);
     
     
-//    H1Test(config);
+  //  H1Test(config);
     
     //TPZGeoMesh *gmesh2 = new TPZGeoMesh(*gmesh);
     
- //   MixedTest(config);
-    
-  //  delete gmesh;
-    
- //   config.gmesh = gmesh2;
+//    MixedTest(config);
+//    
+//    delete gmesh;
+//    
+//    config.gmesh = gmesh2;
   
     MHMTest(config);
         
-        delete gmesh;
+  
         
     }
     
@@ -379,6 +434,7 @@ int H1Test(ProblemConfig &Conf)
         TPZStack<std::string> scalnames, vecnames;
         
         scalnames.push_back("Solution");
+        scalnames.push_back("ExactSolution");
         vecnames.push_back("MinusKGradU");
         
         std::stringstream sout;
@@ -636,14 +692,29 @@ int MHMTest(ProblemConfig &Conf){
         
         // indicate the boundary material indices to  the MHM control structure
         TPZMHMixedMeshControl &meshcontrol = *mhm;
-        {
-            std::set<int> matids;
-            matids.insert(1);
-            mhm->fMaterialIds = matids;
-            matids.clear();
-            matids.insert(-1);
-            mhm->fMaterialBCIds = matids;
+        std::set<int> matids;
+       for (auto matid : Conf.materialids) {
+           matids.insert(matid);
+           
+       }
+        mhm->fMaterialIds = matids;
+        matids.clear();
+        
+        for (auto matid : Conf.bcmaterialids) {
+            matids.insert(matid);
+       
         }
+        mhm->fMaterialBCIds = matids;
+        
+        
+//        {
+//           std::set<int> matids;
+//            matids.insert(1);
+//            mhm->fMaterialIds = matids;
+//            matids.clear();
+//            matids.insert(-1);
+//            mhm->fMaterialBCIds = matids;
+//        }
         
         // insert the material objects in the multiphysics mesh
         InsertMaterialObjects(*mhm,Conf);
@@ -715,6 +786,7 @@ int MHMTest(ProblemConfig &Conf){
  
     
     std::cout<<"Error Estimation processing for MHM-Hdiv problem "<<std::endl;
+    
     // Error estimation
     TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     if(!InputMesh) DebugStop();
@@ -727,6 +799,7 @@ int MHMTest(ProblemConfig &Conf){
     TPZManVector<REAL> errors;
 
     ErrorEstimator.ComputeErrors(errors);
+    hAdaptivity(&ErrorEstimator.fPostProcMesh,gmeshcoarse);
     
     return 0;
 }
@@ -753,6 +826,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
     mat->SetForcingFunctionExact(config.exact.Exact());
     mat->SetForcingFunction(config.exact.ForcingFunction());
     
+    
     MixedFluxPressureCmesh->InsertMaterialObject(mat);
     
     for (auto matid : config.bcmaterialids) {
@@ -761,7 +835,6 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
         val2.Zero();
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(config.exact.Exact());
-        
         MixedFluxPressureCmesh->InsertMaterialObject(bc);
     }
     
@@ -914,14 +987,24 @@ TPZCompMesh *CMesh_H1(struct ProblemConfig &problem) {
         
     }
     
+    
+    
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
         val2.Zero();
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
-        
-        cmesh->InsertMaterialObject(bc);
+        if(matid==10){
+            int bctype = 1;
+            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+             bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+             cmesh->InsertMaterialObject(bc);
+        }
+        else{
+            TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+            bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+             cmesh->InsertMaterialObject(bc);
+        }
+       
     }
     
     cmesh->SetDefaultOrder(problem.porder);//ordem
@@ -931,4 +1014,73 @@ TPZCompMesh *CMesh_H1(struct ProblemConfig &problem) {
     
     
     return cmesh;
+}
+
+
+TPZGeoMesh *CreateCircleGeoMesh() {
+    
+    TPZGeoMesh *gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+    
+    TPZVec<REAL> coord(3, 0.);
+    
+    // Inserts node at origin
+    gmesh->NodeVec().AllocateNewElement();
+    gmesh->NodeVec()[0].Initialize(coord, *gmesh);
+    
+    // Inserts circumference nodes
+    for (int64_t i = 0; i < 16; i++) {
+        const REAL step = M_PI / 8;
+        coord[0] = cos(i * step);
+        coord[1] = sin(i * step);
+        std::cout<<"{"<<coord[0]<<"," <<coord[1]<<"},"<<std::endl;
+        
+    
+        
+        const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+        gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+    }
+    
+    int matIdTriangle = 1, matIdArc = 2;
+    
+    // Inserts triangle elements
+    TPZManVector<int64_t, 3> nodesIdVec(3);
+    for (int64_t i = 0; i < 7; i++) {
+        nodesIdVec[0] = 0;
+        nodesIdVec[1] = 1 + 2 * i;
+        nodesIdVec[2] = 3 + 2 * i;
+        std::cout<<"{"<<nodesIdVec[0] <<"," <<nodesIdVec[1] <<", "<<nodesIdVec[2] <<"},"<<std::endl;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
+    }
+    nodesIdVec[0] = 0;
+    nodesIdVec[1] = 15;
+    nodesIdVec[2] = 1;
+
+    new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
+    // Inserts arc elements
+    for (int64_t i = 0; i < 7; i++) {
+        nodesIdVec[0] = 1 + 2 * i;
+        nodesIdVec[1] = 3 + 2 * i;
+        nodesIdVec[2] = 2 + 2 * i;
+        new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, matIdArc, *gmesh);
+    }
+    
+    nodesIdVec[0] = 15;
+    nodesIdVec[1] = 1;
+    nodesIdVec[2] = 16;
+    //para o broblema do douglas matIdArc=3
+    new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, 3, *gmesh);
+//    // Finally, inserts line elements to complete boundary
+//    nodesIdVec.Resize(2);
+//    nodesIdVec[0] = 0;
+//    nodesIdVec[1] = 1;
+//    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+//    
+//    nodesIdVec[0] = 0;
+//    nodesIdVec[1] = 14;
+//    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+    
+    gmesh->BuildConnectivity();
+    
+    return gmesh;
 }

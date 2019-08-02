@@ -757,27 +757,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
     
-    
-//    std::string plotfile1,plotfile2;
-//    std::stringstream sout_geo;
-//    std::stringstream sout_1,sout_2;
-//    {
-//        sout_1 << prefix << "Approx_";
-//        config.ConfigPrint(sout_1) << "_dim1.vtk";
-//        plotfile1 = sout_1.str();
-//    }
-//    {
-//        sout_2 << prefix << "Approx_";
-//        config.ConfigPrint(sout_2) << "_dim2.vtk";
-//        plotfile2 = sout_2.str();
-//        sout_geo << prefix << "Geo_";
-//        config.ConfigPrint(sout_geo) << "_dim2.vtk";
-//    }
-    
-//    std::ofstream plotfile3(sout_geo.str());
-//    TPZVTKGeoMesh::PrintGMeshVTK(cmesh.operator->()->Reference(), plotfile3, true);
 
-//    std::cout << "plotfiles " << " " << plotfile2.c_str() << std::endl;
     TPZStack<std::string> scalnames,vecnames;
     TPZMaterial *mat = cmesh->FindMaterial(1);
     if (!mat) {

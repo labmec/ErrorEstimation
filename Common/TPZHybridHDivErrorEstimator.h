@@ -179,10 +179,13 @@ protected:
     // Checks if the solution is in fact continuous
     void VerifySolutionConsistency(TPZCompMesh* cmesh);
     
+    
 protected:
     
     // compute the average of an element iel in the pressure mesh looking at its neighbours
     void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
+    
+    
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

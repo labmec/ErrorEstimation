@@ -89,7 +89,10 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     }
 #endif
     
-    an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
+    an.PostProcessError(errorvec,true);//calculo do erro com sol exata e aprox e armazena no elementsolution
+    
+    TPZCompMesh *cmesh = &fPostProcMesh;
+//    cmesh->ElementSolution().Print("ElSolutionAposPosProcess",std::cout);
     
     std::cout << "Computed errors " << errorvec << std::endl;
     
@@ -97,19 +100,23 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     //Erro global
     
     ofstream myfile;
-    myfile.open("ArquivosErros.txt", ios::app);
+    myfile.open("ArquivosEstimationErrors.txt", ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     myfile << "Global estimator = " << errorvec[3] << "\n";
     myfile << "Global exact error = " << errorvec[2] << "\n";
+    myfile <<"Others erros 0= "<<errorvec[0] << "\n";
+     myfile <<"Others erros 1= "<<errorvec[1] << "\n";
+    myfile <<"Others erros 4= "<<errorvec[4] << "\n";
     myfile.close();
     
     
     ComputeEffectivityIndices();
     
     PostProcessing(an);
+ 
     
     
 }
@@ -151,7 +158,6 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
      myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
      myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
      myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
-     myfile << "Global oscilatory error = " << sqrt(globalerrors[5]) << "\n";
      myfile.close();
      
     
@@ -182,17 +188,22 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         
         int dim = fPostProcMesh.Reference()->Dimension();
         std::string plotname;
-        {
+//        std::stringstream out;
+//        out << "PostProcessEstimation_POrder" << fPostProcMesh.GetDefaultOrder() <<".vtk";
+//        plotname = out.str();
+
+
             std::stringstream out;
-            out << fProblemConfig.dir_name << "/" << "HybridPostProcessed_POrder" << fProblemConfig.porder << "_" << dim
-            //out << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
+            out << fProblemConfig.dir_name << "/" << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
             << "D_" << fProblemConfig.problemname << "Ndiv_ " << fProblemConfig.ndivisions << "HdivMais"
             << fProblemConfig.hdivmais << "AdaptivityStep" << fProblemConfig.adaptivityStep << ".vtk";
             plotname = out.str();
-        }
+        
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(2, dim);
-    } else {
+    }
+    else
+    {
         std::cout << __PRETTY_FUNCTION__ <<
         "\nVolumetric Post Processing not executed because the material is not conforming\n";
     }
@@ -1207,12 +1218,19 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     TPZCompMesh *cmesh = &fPostProcMesh;
 
     int64_t nrows = cmesh->ElementSolution().Rows();
+  //  int64_t ncols = cmesh->ElementSolution().Cols();
+    
+    //std::ostream &out;
+ //   cmesh->ElementSolution().Print("ElSolution",std::cout);
+
     
     TPZFMatrix<REAL> dataIeff(nrows,1);
     
     cmesh->ElementSolution().Resize(nrows, 6);
     for (int64_t el = 0; el < nrows; el++) {
         for (int i = 0; i < 3; i += 2) {
+            
+          //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
 
             REAL tol = 1.e-10;
             REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
@@ -1233,14 +1251,8 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
 
     }
     
-#ifdef LOG4CXX
-    if(logger->isDebugEnabled())
-    {
-        std::stringstream sout;
-        dataIeff.Print("Ieff = ",sout,EMathematicaInput);
-        LOGPZ_DEBUG(logger,sout.str())
-    }
-#endif
+    ofstream out("IeffPerElement.nb");
+    dataIeff.Print("Ieff = ",out,EMathematicaInput);
     
     
 }
@@ -1304,7 +1316,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         }
     }
     
-    PlotLagrangeMultiplier("BeforeNodalAverage");
+  //  PlotLagrangeMultiplier("BeforeNodalAverage");
     
     ComputeNodalAverages();
     
@@ -1318,9 +1330,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
     
-    PlotLagrangeMultiplier("AfterNodalAverage");
+    //PlotLagrangeMultiplier("AfterNodalAverage");
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
         fPostProcMesh.Print(out);
@@ -1642,3 +1654,4 @@ void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) 
         }
     }
 }
+

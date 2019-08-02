@@ -63,7 +63,7 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
       error[1] - error computed with reconstructed pressure
       error[2] - energy error computed with exact solution
       error[3] - energy error computed with reconstructed solution
-      error[4] - oscilatory data error
+      error[4] - residual data error
      **/
     
     errors.Resize(NEvalErrors());
@@ -87,8 +87,8 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     
     
     
-    REAL oscilatory = 0.;
-    oscilatory = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
+    REAL residual = 0.;
+    residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
     
     
     pressurereconstructed[0] = data[1].sol[0][0];
@@ -124,7 +124,8 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     errors[1] = (pressurefem[0]-pressurereconstructed[0])*(pressurefem[0]-pressurereconstructed[0]);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
-    errors[4] = oscilatory; //||f - Proj_divsigma||
+    errors[4] = residual; //||f - Proj_divsigma||
+    
 
     
     
@@ -135,10 +136,10 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
 int TPZMHMHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
 {
     if(name == "FluxFem") return 40;
+    if(name == "FluxReconstructed") return 41;
     if(name == "FluxExact") return 42;
     if(name == "PressureFem") return 43;
     if(name == "PressureReconstructed") return 44;
-    if(name == "FluxReconstructed") return 41;
     if(name == "PressureExact") return 45;
     if(name == "PressureErrorExact") return 100;
     if(name == "PressureErrorEstimate") return 101;
@@ -147,7 +148,7 @@ int TPZMHMHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "PressureEffectivityIndex") return 104;
     if(name == "EnergyEffectivityIndex") return 105;
     if(name == "POrder") return 46;
-     
+
     return -1;
 }
 

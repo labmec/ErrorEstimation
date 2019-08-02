@@ -72,16 +72,16 @@ int main(int argc, char *argv[]) {
         config.porder = 1;
         config.hdivmais = 1;
         config.ndivisions = ndiv;
-        config.dimension = 3;
+        config.dimension = 2;
         config.prefine=false;
         config.makepressurecontinuous = true;
     
-        config.exact.fExact = TLaplaceExample1::EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
+        config.exact.fExact = TLaplaceExample1::ESinSin;//EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
         config.problemname = "EBubble k=1 n=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
 
         bool RunMark = false;
         
-        config.dir_name= "EBubble";
+        config.dir_name= "ESinSin";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     

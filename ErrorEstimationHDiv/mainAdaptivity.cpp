@@ -21,7 +21,7 @@ bool readGeoMeshFromFile = false;
 
 TPZGeoMesh *CreateGeoMesh();
 TPZGeoMesh *CreateLCircleGeoMesh();
-void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine);
+
 
 int main(int argc, char *argv[]) {
 
@@ -55,6 +55,8 @@ int main(int argc, char *argv[]) {
     TPZGeoMesh *markEstimatorMesh = new TPZGeoMesh();
     *markEstimatorMesh = *gmeshOriginal;
     
+    
+    
 #ifdef PZDEBUG
     {
         std::ofstream out("GmeshPosCopy.vtk");
@@ -64,6 +66,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     // Run tests with hdiv++ proposal
+    
     for (int i = 0; i < refinementSteps; i++) {
         ProblemConfig config;
         config.dir_name = "AdaptivityHybridSinSin";
@@ -123,13 +126,13 @@ int main(int argc, char *argv[]) {
         TPZManVector<REAL> elementErrors;
         HDivEstimate.ComputeErrors(elementErrors);
 
-        delete mixedMesh;
-        delete mixedMeshVector[0];
-        delete mixedMeshVector[1];
+//        delete mixedMesh;
+//        delete mixedMeshVector[0];
+//        delete mixedMeshVector[1];
 
         hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
     }
-
+    return 0;
     // Run tests with Ainsworth's proposal
     for (int i = 0; i < refinementSteps; i++) {
 
@@ -150,12 +153,20 @@ int main(int argc, char *argv[]) {
         config.prefine = false;
         config.makepressurecontinuous = true;
 
-        config.exact.fExact = TLaplaceExample1::ESinSin;
+        config.exact.fExact = TLaplaceExample1::ESinMark;
         config.problemname = "AdaptivityTest";
 
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
-
+        
+//        std::string plotname;
+//        {
+//            std::stringstream out;
+//            out << config.dir_name << "/" << "GMeshT_" << i<<".vtk";
+//            plotname = out.str();
+//            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+//
+//        }
         TPZMultiphysicsCompMesh *mixedMesh = nullptr;
 
         mixedMesh = CreateHDivMesh(config); // H(div) x L2
@@ -236,62 +247,7 @@ TPZGeoMesh *CreateLCircleGeoMesh() {
     return gmesh;
 }
 
-void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
 
-    // Column of the flux error estimate on the element solution matrix
-    const int fluxErrorEstimateCol = 3;
-
-    int64_t nelem = postProcessMesh->ElementSolution().Rows();
-
-    // Iterates through element errors to get the maximum value
-    REAL maxError = 0.;
-    for (int64_t iel = 0; iel < nelem; iel++) {
-        TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
-        if (!cel) continue;
-        if (cel->Reference()->Dimension() != 2) continue;
-        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
-
-        if (elementError > maxError) {
-            maxError = elementError;
-        }
-    }
-
-    // Refines elements which error are bigger than 30% of the maximum error
-    REAL threshold = 0.3 * maxError;
-
-    for (int64_t iel = 0; iel < nelem; iel++) {
-        TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
-        if (!cel) continue;
-        if (cel->Reference()->Dimension() != 2) continue;
-        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
-        if (elementError > threshold) {
-            TPZGeoEl *gel = cel->Reference();
-            int iel = gel->Id();
-
-            TPZVec<TPZGeoEl *> sons;
-            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[iel];
-            if (gelToRefine && !gelToRefine->HasSubElement()) {
-                gelToRefine->Divide(sons);
-#ifdef LOG4CXX
-                int nsides = gelToRefine->NSides();
-                TPZVec<REAL> loccenter(3);
-                TPZVec<REAL> center(3);
-                gelToRefine->CenterPoint(nsides - 1, loccenter);
-
-                gelToRefine->X(loccenter, center);
-                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
-                if (logger->isDebugEnabled()) {
-                    std::stringstream sout;
-                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
-                    sout << "Error = " << elementError << "\n\n";
-                    LOGPZ_DEBUG(logger, sout.str())
-                }
-#endif
-            }
-        }
-    }
-    DivideLowerDimensionalElements(gmeshToRefine);
-}
 
 TPZGeoMesh *CreateGeoMesh() {
     TPZGeoMesh * gmesh = nullptr;
