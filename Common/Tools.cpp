@@ -162,7 +162,7 @@ TPZGeoMesh *CreateGeoMesh(int nel, TPZVec<int> &bcids) {
     TPZManVector<REAL> x0(3,0.),x1(3,1.);
     x1[2] = 0.;
     TPZGenGrid gen(nx,x0,x1);
-
+    gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
     gen.SetBC(gmesh, 4, bcids[0]);

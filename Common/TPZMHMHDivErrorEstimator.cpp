@@ -32,7 +32,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out1("fluxpostNH.txt");
         meshvec[0]->Print(out1);
@@ -45,7 +45,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     
     fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out1("fluxpost.txt");
         meshvec[0]->Print(out1);
@@ -57,10 +57,12 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 #endif
 
     SubStructurePostProcessingMesh();
+#ifdef PZDEBUG2
     {
         std::ofstream out("mphyspost.txt");
         fPostProcMesh.Print(out);
     }
+#endif
 }
 
 // a method for transferring the multiphysics elements in submeshes
@@ -82,7 +84,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         TPZSubCompMesh *ref = dynamic_cast<TPZSubCompMesh *>(mesh);
         ReferredMesh[el] = ref;
     }
-    
+#ifdef PZDEBUG2
     {
         std::ofstream out("gmesh_sub.txt");
         gmesh->Print(out);
@@ -90,6 +92,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         fOriginal->Print(out2);
         
     }
+#endif
     int64_t nel = fPostProcMesh.NElements();
     TPZVec<TPZSubCompMesh *> ElementMesh(nel,0);
     std::map<TPZSubCompMesh *,TPZSubCompMesh *> submeshmap;
