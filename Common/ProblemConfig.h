@@ -33,7 +33,7 @@ struct ProblemConfig
     bool GalvisExample;
     STATE alpha=1;
     /// directory where the files will be stored
-    std::string dir_name;
+    std::string dir_name = ".";
     /// name identifying the problem
     std::string problemname;
     /// set of materialids in the mesh

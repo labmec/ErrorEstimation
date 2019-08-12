@@ -72,6 +72,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     fOriginal->LoadReferences();
     int64_t numgel = gmesh->NElements();
     TPZVec<TPZSubCompMesh *> ReferredMesh(numgel,0);
+    // associate with each geometric element a subcmesh object
+    // we do this because the original mesh and post processing mesh share the same geometric mesh
+    // if an element of the original mesh is in a given subcmesh then the corresponding element in the
+    // post processing mesh will be put in the corresponding subcmesh
     for(int64_t el=0; el<numgel; el++)
     {
         TPZGeoEl *gel = gmesh->Element(el);
@@ -90,6 +94,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         fOriginal->Print(out2);
         
     }
+    // create the sub comp meshes and create a mapping data structure
     int64_t nel = fPostProcMesh.NElements();
     TPZVec<TPZSubCompMesh *> ElementMesh(nel,0);
     std::map<TPZSubCompMesh *,TPZSubCompMesh *> submeshmap;
@@ -99,6 +104,8 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if(!gel) DebugStop();
+        // we are only building the data structure for elements with mesh dimension
+        // this excludes interface elements, wrappers, lagrange multipliers etc
         if(gel->Dimension() != dim) continue;
         TPZSubCompMesh *submesh = ReferredMesh[gel->Index()];
         if(!submesh) DebugStop();
@@ -114,6 +121,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             ElementMesh[el] = iter->second;
         }
     }
+    // create a data structure associating each element with a group
+    // the value of elementgroup is the index of the computational element that
+    // will nucleate the group
+    // this only works if the post processing mesh is H(div) hybridized
     TPZVec<int64_t> elementgroup;
     fHybridizer.AssociateElements(&fPostProcMesh, elementgroup);
     // transfer the elements in the submesh indicated by elementgroup
@@ -159,6 +170,8 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     }
 #endif
     // transfer the elements this procedure didn't recognize
+    // this will transfer the wrappers, interface elements and lagrange multipliers
+    // transfer the elements whose connects belong to a unique submesh
     TransferEmbeddedElements();
     fPostProcMesh.ComputeNodElCon();
     fPostProcMesh.CleanUpUnconnectedNodes();
@@ -210,6 +223,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
 {
+    if(fPostProcesswithHDiv == false)
+    {
+        return 0;
+    }
     TPZCompMesh *OrigFlux = fOriginal->MeshVector()[0];
     TPZGeoMesh *gmesh = OrigFlux->Reference();
     gmesh->ResetReference();
@@ -251,8 +268,57 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
     fluxmesh->ExpandSolution();
     return fluxmesh;
 }
-// a method for creating the pressure mesh
+
+// method fro creating a discontinuous pressure mesh
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh()
+{
+    if(fPostProcesswithHDiv)
+    {
+        return CreateDiscontinuousPressureMesh();
+    }
+    else
+    {
+        return CreateContinousPressureMesh();
+    }
+}
+
+TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
+{
+    TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
+    TPZGeoMesh *gmesh = OrigPressure->Reference();
+    gmesh->ResetReference();
+    int dim = gmesh->Dimension();
+    TPZCompMesh *pressmesh = new TPZCompMesh(gmesh);
+    OrigPressure->CopyMaterials(*pressmesh);
+    RemoveMaterialObjects(pressmesh->MaterialVec());
+    pressmesh->SetDefaultOrder(OrigPressure->GetDefaultOrder());
+    pressmesh->SetAllCreateFunctionsContinuous();
+    int64_t nel = OrigPressure->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = OrigPressure->Element(el);
+        if(!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if(!intel) DebugStop();
+        TPZGeoEl *gel = cel->Reference();
+        if(gel->Dimension() != dim)
+        {
+            std::cout << __PRETTY_FUNCTION__ << " dimension of pressure element unexpected\n";
+            continue;
+        }
+        int64_t index;
+        TPZCompEl *celnew = pressmesh->CreateCompEl(gel, index);
+        TPZInterpolatedElement *newcel = dynamic_cast<TPZInterpolatedElement *>(celnew);
+        int nc = cel->NConnects();
+        int order = cel->Connect(nc-1).Order();
+        newcel->PRefine(order);
+    }
+    pressmesh->ExpandSolution();
+    return pressmesh;
+
+}
+
+// a method for creating the pressure mesh
+TPZCompMesh *TPZMHMHDivErrorEstimator::CreateDiscontinuousPressureMesh()
 {
     TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
     TPZGeoMesh *gmesh = OrigPressure->Reference();

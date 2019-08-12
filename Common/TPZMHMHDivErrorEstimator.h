@@ -41,6 +41,7 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     {
         TPZHybridHDivErrorEstimator::operator=(cp);
         fMHM = cp.fMHM;
+        fPostProcesswithHDiv = cp.fPostProcesswithHDiv;
         return *this;
     }
     
@@ -54,6 +55,10 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     virtual TPZCompMesh *CreateFluxMesh() override;
     // a method for creating the pressure mesh
     virtual TPZCompMesh *CreatePressureMesh() override;
+    // method fro creating a discontinuous pressure mesh
+    TPZCompMesh *CreateDiscontinuousPressureMesh();
+    // method for creating a continuous pressure mesh
+    TPZCompMesh *CreateContinousPressureMesh();
     // a method for generating the hybridized multiphysics post processing mesh
     virtual void CreatePostProcessingMesh() override;
     // a method for transferring the multiphysics elements in submeshes
