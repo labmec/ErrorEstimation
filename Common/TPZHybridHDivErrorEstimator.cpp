@@ -8,6 +8,7 @@
 
 #include "TPZHybridHDivErrorEstimator.h"
 #include "pzcmesh.h"
+#include "pzsubcmesh.h"
 #include "pzcompel.h"
 #include "pzcondensedcompel.h"
 #include "pzelementgroup.h"
@@ -243,6 +244,12 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
 
 /// create the post processed multiphysics mesh (which is necessarily hybridized)
 void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
+    
+    if(!fOriginalIsHybridized && fPostProcesswithHDiv == false)
+    {
+        // we can not post process with H1 if the original mesh is not hybridized
+        DebugStop();
+    }
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
@@ -254,7 +261,10 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     TPZManVector<TPZCompMesh *, 4> mesh_vectors(4, 0);
     mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
-    mesh_vectors[0] = CreateFluxMesh();//flux reconstruct
+    if(fPostProcesswithHDiv)
+    {
+        mesh_vectors[0] = CreateFluxMesh();//flux reconstruct
+    }
     mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
                                                // clone the flux and pressure mesh
     
@@ -285,16 +295,21 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     
     // increase the order of the dim-1 elements to the maximum of both neighbouring elements
     IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao
-    IncreaseSideOrders(mesh_vectors[0]);//malha do fluxo
+    if(fPostProcesswithHDiv)
+    {
+        IncreaseSideOrders(mesh_vectors[0]);//malha do fluxo
+    }
     
     if (dim == 3) {
         CreateEdgeSkeletonMesh(mesh_vectors[1]);
     }
 #ifdef PZDEBUG
     {
-        std::ofstream out("EnrichedFluxBorder.txt");
-        mesh_vectors[0]->Print(out);
-        
+        if(fPostProcesswithHDiv)
+        {
+            std::ofstream out("EnrichedFluxBorder.txt");
+            mesh_vectors[0]->Print(out);
+        }
         std::ofstream out2("EnrichedPressure.txt");
         mesh_vectors[1]->Print(out2);
     }
@@ -302,7 +317,11 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     
     
     TPZManVector<int> active(4, 0);
-    active[0] = 1;
+    if(fPostProcesswithHDiv)
+    {
+        // the flux mesh is active only if we postprocess with an H(div) approximation
+        active[0] = 1;
+    }
     active[1] = 1;
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     {
@@ -310,12 +329,19 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         fPostProcMesh.Print(out);
     }
     
-    // construction of the multiphysics mesh
-    //cria elementos de interface
-    fHybridizer.CreateInterfaceElements(&fPostProcMesh);
-    fHybridizer.GroupandCondenseElements(&fPostProcMesh);
-    fPostProcMesh.CleanUpUnconnectedNodes();
-    
+    if(fPostProcesswithHDiv)
+    {
+        // construction of the multiphysics mesh
+        //cria elementos de interface
+        fHybridizer.CreateInterfaceElements(&fPostProcMesh);
+        fHybridizer.GroupandCondenseElements(&fPostProcMesh);
+        fPostProcMesh.CleanUpUnconnectedNodes();
+    }
+    else
+    {
+        // lets think about this...
+        DebugStop();
+    }
 #ifdef PZDEBUG
     {
         std::ofstream out("multiphysicsgrouped.txt");
@@ -1206,7 +1232,48 @@ void TPZHybridHDivErrorEstimator::CloneMeshVec() {
     
 }
 
-
+/// compute the effectivity indices of the pressure error and flux error and store in the element solution
+void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh)
+{
+    int64_t nrows = subcmesh->ElementSolution().Rows();
+    int64_t ncols = subcmesh->ElementSolution().Cols();
+    
+    //std::ostream &out;
+    //    cmesh->ElementSolution().Print("ElSolution",std::cout);
+    
+    
+    subcmesh->ElementSolution().Resize(nrows, ncols+2);
+    int64_t nel = subcmesh->NElements();
+    TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
+    TPZManVector<REAL,4> errors(4,0.);
+    for (int64_t el = 0; el<nel; el++) {
+        for (int i=0; i<4; i++) {
+            errors[i] += elsol(el,i)*elsol(el,i);
+        }
+    }
+    for (int i=0; i<4; i++) {
+        errors[i] = sqrt(errors[i]);
+    }
+    for (int64_t el = 0; el < nrows; el++) {
+        for (int i = 0; i < 3; i += 2) {
+            
+            //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
+            
+            REAL tol = 1.e-10;
+            REAL ErrorEstimate = errors[i + 1];
+            REAL ErrorExact = errors[i];
+            
+            if (abs(ErrorEstimate) < tol) {
+                subcmesh->ElementSolution()(el, ncols + i / 2) = 1.;
+                
+            }
+            else {
+                REAL EfIndex = ErrorEstimate / ErrorExact;
+                subcmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
+            }
+        }
+    }
+}
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
 void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
@@ -1221,15 +1288,15 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     TPZCompMesh *cmesh = &fPostProcMesh;
 
     int64_t nrows = cmesh->ElementSolution().Rows();
-  //  int64_t ncols = cmesh->ElementSolution().Cols();
+    int64_t ncols = cmesh->ElementSolution().Cols();
     
     //std::ostream &out;
- //   cmesh->ElementSolution().Print("ElSolution",std::cout);
+//    cmesh->ElementSolution().Print("ElSolution",std::cout);
 
     
     TPZFMatrix<REAL> dataIeff(nrows,1);
     
-    cmesh->ElementSolution().Resize(nrows, 6);
+    cmesh->ElementSolution().Resize(nrows, ncols+2);
     for (int64_t el = 0; el < nrows; el++) {
         for (int i = 0; i < 3; i += 2) {
             
@@ -1240,7 +1307,7 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             REAL ErrorExact = cmesh->ElementSolution()(el, i);
             
             if (abs(ErrorEstimate) < tol) {
-                cmesh->ElementSolution()(el, 4 + i / 2) = 1.;
+                cmesh->ElementSolution()(el, ncols + i / 2) = 1.;
                 dataIeff(el,0)=1.;
 
             }
@@ -1248,12 +1315,18 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
                 REAL EfIndex = ErrorEstimate / ErrorExact;
                 dataIeff(el,0)= EfIndex;
                 
-                cmesh->ElementSolution()(el, 4 + i / 2) = EfIndex;
+                cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
-
+        TPZCompEl *cel = cmesh->Element(el);
+        TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(subcmesh)
+        {
+            ComputeEffectivityIndices(subcmesh);
+        }
     }
     
+    cmesh->ElementSolution().Print("ElSolution",std::cout);
     ofstream out("IeffPerElement.nb");
     dataIeff.Print("Ieff = ",out,EMathematicaInput);
     
