@@ -207,11 +207,13 @@ int main(){
 
 
         int nx = 2;//pow(2, ndiv);
-        //para o exemplo do douglas
-        gmesh = CreateGeoMesh(nx, bcids);//CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
+        gmesh =CreateGeoMesh(nx, bcids);// MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);//CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
         config.gmesh = gmesh;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
+        config.bcmaterialids.insert(-2);
+        config.bcmaterialids.insert(-3);
+        config.bcmaterialids.insert(-4);
 //        config.bcmaterialids.insert(2);
 //        config.bcmaterialids.insert(3);
         gmesh->SetDimension(config.dimension);
@@ -222,7 +224,7 @@ int main(){
         
 #ifdef PZDEBUG
         {
-            std::ofstream out("InitialGmesh.vtk");
+            std::ofstream out("GmeshMHM.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
             std::ofstream out2("gmeshInitial.txt");
             gmesh->Print(out2);
@@ -233,36 +235,21 @@ int main(){
         UniformRefinement(ndiv, gmesh);
         DivideLowerDimensionalElements(gmesh);
         
-#ifdef PZDEBUG
-        {
-            std::ofstream out("GmeshMHM.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-            
-        }
-#endif
+
         
         TPZGeoMesh *gmesh2 = new TPZGeoMesh();
         *gmesh2 = *gmesh;
    
-
-//
-
-
-//    config.materialids.insert(1);
-//    config.bcmaterialids.insert(-1);
-//    config.gmesh = gmesh;
-//    gmesh->SetDimension(config.dimension);
     
     
   //  H1Test(config);
     
-    //TPZGeoMesh *gmesh2 = new TPZGeoMesh(*gmesh);
     
-//    MixedTest(config);
-//    
-//    delete gmesh;
-//    
-//    config.gmesh = gmesh2;
+    MixedTest(config);
+    
+    delete gmesh;
+
+    config.gmesh = gmesh2;
   
     MHMTest(config);
         
@@ -292,13 +279,14 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
     
     TPZCompMesh *MixedMesh = CMeshMultphysics(gmesh,fmeshvec,Conf);
     
+    {
     std::ofstream file("MixedCMesh.vtk");
     TPZVTKGeoMesh::PrintCMeshVTK(MixedMesh, file);
     
-    std::ofstream out("MixedCMesh.txt");
-    //    MixedMesh->Print(out);
+    std::ofstream out("CMeshFlux.txt");
+    cmesh_flux->Print(out);
     
-    
+    }
     
     std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
     
@@ -367,21 +355,25 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
         
         //Erro
         
+        int nequationHybrid = cmesh_m_Hybrid->NEquations();
+        int nequationMixes = cmesh_presure->NEquations() +cmesh_flux->NEquations();
+        
         ofstream myfile;
         myfile.open("ArquivosErrosMixedHybrid.txt", ios::app);
         myfile << "\n\n Error for Hybrid Mixed formulation " ;
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Ndiv = " << Conf.ndivisions << " Order k = " << Conf.porder << " Order n = " << Conf.hdivmais << "\n";
-        myfile << "DOF Total = " << cmesh_m_Hybrid->NEquations() << "\n";
-        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
-        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
+        myfile << "DOF Total = " << nequationMixes << "\n";
+        myfile << "Energy norm (flux) = " << errors[0] << "\n";//norma energia
+        myfile << "error norm L2 (pressure)= " << errors[1] << "\n";//norma L2
         myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
         myfile.close();
         
     }
     
     
-    delete cmesh_flux;
+   // delete cmesh_flux;
+    delete  cmesh_m_Hybrid;
     
     return 0;
 }
@@ -604,9 +596,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
-    std::set<int> matid;
-    matid.insert(1);
-    matid.insert(-1);
+
     TPZManVector<int> active(2,1);
     TPZManVector<TPZCompMesh *> meshvector(2,0);
     
@@ -670,6 +660,7 @@ int MHMTest(ProblemConfig &Conf){
     Configuration.pOrderInternal = Conf.porder;
     Configuration.pOrderSkeleton = Conf.porder;
     Configuration.numHDivisions = Conf.ndivisions;
+    Configuration.hdivmaismais = Conf.hdivmais;
     
     // number of coarse elements in the x and y direction
     
@@ -720,7 +711,7 @@ int MHMTest(ProblemConfig &Conf){
         // insert the material objects in the multiphysics mesh
         InsertMaterialObjects(*mhm,Conf);
         
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         if(1)
         {
             std::ofstream out("MixedMeshControlHDiv.txt");
@@ -729,8 +720,9 @@ int MHMTest(ProblemConfig &Conf){
 #endif
         meshcontrol.SetInternalPOrder(Configuration.pOrderInternal);
         meshcontrol.SetSkeletonPOrder(Configuration.pOrderSkeleton);
+       // meshcontrol.SetHdivmaismais(Configuration.hdivmaismais);
         
-        meshcontrol.DivideSkeletonElements(Configuration.numDivSkeleton+1);
+        meshcontrol.DivideSkeletonElements(Configuration.numDivSkeleton);
         meshcontrol.DivideBoundarySkeletonElements();
 
         bool substructure = true;
@@ -750,7 +742,7 @@ int MHMTest(ProblemConfig &Conf){
         
         
         std::cout << "MHM Hdiv Computational meshes created\n";
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
 
         {
             std::ofstream gfile("geometryMHMHdiv.txt");
@@ -783,6 +775,7 @@ int MHMTest(ProblemConfig &Conf){
     TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
+    
     
     ErrorEstimator.PotentialReconstruction();
     

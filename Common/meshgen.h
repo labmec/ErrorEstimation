@@ -28,6 +28,7 @@ struct TRunConfig
     int nelycoarse = -1;
     int numHDivisions = 0;
     int pOrderInternal = 1;
+    int hdivmaismais = 1;
     int numDivSkeleton = 0;
     int pOrderSkeleton = 1;
     int Hybridize = 0;

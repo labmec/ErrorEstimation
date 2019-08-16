@@ -32,7 +32,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream out1("fluxpostNH.txt");
         meshvec[0]->Print(out1);
@@ -45,11 +45,11 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     
     fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
-        std::ofstream out1("fluxpost.txt");
+        std::ofstream out1("fluxbeforeSub.txt");
         meshvec[0]->Print(out1);
-        std::ofstream out2("pressurepost.txt");
+        std::ofstream out2("pressurebeforeSub.txt");
         meshvec[1]->Print(out2);
         std::ofstream out3("mphyspost_before.txt");
         fPostProcMesh.Print(out3);
@@ -57,10 +57,11 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 #endif
 
     SubStructurePostProcessingMesh();
-#ifdef PZDEBUG2
+    
+#ifdef PZDEBUG
     {
-        std::ofstream out("mphyspost.txt");
-        fPostProcMesh.Print(out);
+        std::ofstream out1("fluxbePostSub.txt");
+        meshvec[0]->Print(out1);
     }
 #endif
 }
@@ -88,8 +89,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         TPZSubCompMesh *ref = dynamic_cast<TPZSubCompMesh *>(mesh);
         ReferredMesh[el] = ref;
     }
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
+        std::ofstream file("GmeshSub.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
         std::ofstream out("gmesh_sub.txt");
         gmesh->Print(out);
         std::ofstream out2("original.txt");

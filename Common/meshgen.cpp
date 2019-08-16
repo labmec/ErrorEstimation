@@ -702,7 +702,7 @@ TPZGeoMesh *MalhaGeomFredQuadrada(int nelx, int nely, TPZVec<REAL> &x0, TPZVec<R
     }
     TPZCheckGeom geom(gmesh);
     geom.UniformRefine(ndiv);
-    //    InsertInterfaceElements(gmesh,1,2);
+    //InsertInterfaceElements(gmesh,1,2);
     
 #ifdef LOG4CXX
     if (logger->isDebugEnabled()) {
@@ -755,6 +755,8 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     std::cout << "Finished\n";
     an.LoadSolution(); // compute internal dofs
     
+    
+    
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
     
 
@@ -777,11 +779,11 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     else if(mat->NStateVariables() == 1)
     {
         scalnames.Push("Pressure");
-        scalnames.Push("Permeability");
+      //  scalnames.Push("Permeability");
         scalnames.Push("ExactPressure");
         vecnames.Push("Flux");
         vecnames.Push("ExactFlux");
-        vecnames.Push("Derivative");
+     //   vecnames.Push("Derivative");
     }
     
     

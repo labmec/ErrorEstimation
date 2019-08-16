@@ -111,9 +111,9 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     myfile << "Global estimator = " << errorvec[3] << "\n";
     myfile << "Global exact error = " << errorvec[2] << "\n";
-    myfile <<"Others erros 0= "<<errorvec[0] << "\n";
-     myfile <<"Others erros 1= "<<errorvec[1] << "\n";
-    myfile <<"Others erros 4= "<<errorvec[4] << "\n";
+    myfile <<"|uex-ufem|= "<<errorvec[0] << "\n";
+    myfile <<"|ufem-urec| = "<<errorvec[1] << "\n";
+    myfile <<"Residual ErrorL2= "<<errorvec[4] << "\n";
     myfile.close();
     
     
@@ -204,7 +204,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
             plotname = out.str();
         
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(2, dim);
+        an.PostProcess(0, dim);
     }
     else
     {
@@ -250,6 +250,8 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         // we can not post process with H1 if the original mesh is not hybridized
         DebugStop();
     }
+    
+    
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
