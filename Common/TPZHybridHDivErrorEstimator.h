@@ -155,11 +155,8 @@ protected:
     
     /// copy the solution from the neighbouring skeleton elements
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
-    virtual void CopySolutionFromSkeleton()
-    {
-        
-    }
-    
+    void CopySolutionFromSkeleton();
+
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
     virtual void SwitchMaterialObjects();
     
@@ -191,8 +188,9 @@ protected:
     
     // compute the average of an element iel in the pressure mesh looking at its neighbours
     void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
-    
-    
+
+
+    void PrepareElementsForH1Reconstruction();
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
