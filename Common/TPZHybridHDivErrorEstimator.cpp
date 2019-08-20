@@ -260,15 +260,20 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     SwitchMaterialObjects();
     
     
-    TPZManVector<TPZCompMesh *, 4> mesh_vectors(4, 0);
-    mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
-    mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
+    TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
     if(fPostProcesswithHDiv)
     {
+        mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
+        mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
         mesh_vectors[0] = CreateFluxMesh();//flux reconstruct
+        mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
     }
-    mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
-
+    else {
+        mesh_vectors.Resize(3);
+        mesh_vectors[1] = fOriginal->MeshVector()[0];//flux
+        mesh_vectors[2] = fOriginal->MeshVector()[1];//potential
+        mesh_vectors[0] = CreatePressureMesh();//potential reconstructed
+    }
     
     if (!fOriginalIsHybridized) {
         fHybridizer.ComputePeriferalMaterialIds(mesh_vectors);
@@ -315,13 +320,14 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
 #endif
     
     
-    TPZManVector<int> active(4, 0);
+    TPZManVector<int> active(3, 0);
     if(fPostProcesswithHDiv)
     {
+        active.Resize(4, 0);
         // the flux mesh is active only if we postprocess with an H(div) approximation
-        active[0] = 1;
+        active[1] = 1;
     }
-    active[1] = 1;
+    active[0] = 1;
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     {
         std::ofstream out("multiphysicsWithnoInterface.txt");

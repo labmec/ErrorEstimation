@@ -253,6 +253,8 @@ int main(int argc, char *argv[]) {
             HDivEstimate.SetAnalyticSolution(config.exact);
             HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
             
+            HDivEstimate.fPostProcesswithHDiv = true;
+            
             HDivEstimate.PotentialReconstruction();
             
             TPZManVector<REAL> elementerrors;
