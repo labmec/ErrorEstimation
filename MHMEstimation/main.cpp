@@ -720,13 +720,18 @@ int MHMTest(ProblemConfig &Conf){
 #endif
         meshcontrol.SetInternalPOrder(Configuration.pOrderInternal);
         meshcontrol.SetSkeletonPOrder(Configuration.pOrderSkeleton);
-       // meshcontrol.SetHdivmaismais(Configuration.hdivmaismais);
+        meshcontrol.SetHdivmaismaisPOrder(Configuration.hdivmaismais);
         
         meshcontrol.DivideSkeletonElements(Configuration.numDivSkeleton);
         meshcontrol.DivideBoundarySkeletonElements();
 
         bool substructure = true;
         meshcontrol.BuildComputationalMesh(substructure);
+        
+        
+
+        
+        //--
         
         
         
@@ -826,6 +831,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
     mat->SetForcingFunction(config.exact.ForcingFunction());
     mat->SetPermeabilityTensor(K, invK);
     
+
+    
     
     MixedFluxPressureCmesh->InsertMaterialObject(mat);
     
@@ -837,6 +844,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
        // bc->TPZMaterial::SetForcingFunction(config.exact.Exact());
         MixedFluxPressureCmesh->InsertMaterialObject(bc);
     }
+    
+
     
 }
 
