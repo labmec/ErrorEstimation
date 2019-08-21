@@ -753,11 +753,16 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     std::cout << "Solving\n";
     an.Solve();
     std::cout << "Finished\n";
+    
+    an.Solution().Print("SolutionBeforeLoadSol.txt");
+    
     an.LoadSolution(); // compute internal dofs
     
-    
+    an.Solution().Print("SolutionBeforeTransfer.txt");
     
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
+    
+    an.Solution().Print("Solution.txt");
     
 
     TPZStack<std::string> scalnames,vecnames;
@@ -790,7 +795,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     std::string plotname;
     {
         std::stringstream out;
-        out << "MHMProblem_POrder_" <<config.pOrderInternal << "_" << cmesh->Dimension() << "D_" << "Ndiv_ " << config.numHDivisions<< ".vtk";
+        out << config.dir_name <<"MHMProblem_POrder_" <<config.pOrderInternal << "_" << cmesh->Dimension() << "D_" << "Ndiv_ " << config.numHDivisions<< ".vtk";
         plotname = out.str();
         
     }
@@ -814,8 +819,8 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";
         myfile << "DOF Total = " << cmesh->NEquations() << "\n";
-        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
-        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
+        myfile << "Energy norm (flux)= " << errors[0] << "\n";//norma energia
+        myfile << "error norm L2 (pressure)= " << errors[1] << "\n";//norma L2
         myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
         myfile.close();
 

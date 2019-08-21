@@ -156,7 +156,7 @@ int main(){
    
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSin;//ESinCosCircle;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+    config.exact.fExact = example.EX;//ESinSin;//ESinCosCircle;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
      
     config.problemname = "ESinSin";
     
@@ -269,22 +269,25 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
 
     
     TPZCompMesh *cmesh_flux = CreateFluxHDivMesh(Conf);//CMeshFlux(gmesh,flux_order);
-    TPZCompMesh *cmesh_presure = CreatePressureMesh(Conf);//CMeshPressure(gmesh,p_order,Conf);
+    TPZCompMesh *cmesh_pressure = CreatePressureMesh(Conf);//CMeshPressure(gmesh,p_order,Conf);
     
     
     TPZVec<TPZCompMesh *> fmeshvec(2);
     fmeshvec[0]=cmesh_flux;
-    fmeshvec[1]=cmesh_presure;
+    fmeshvec[1]=cmesh_pressure;
     gmesh->ResetReference();
     
     TPZCompMesh *MixedMesh = CMeshMultphysics(gmesh,fmeshvec,Conf);
     
     {
-    std::ofstream file("MixedCMesh.vtk");
+    std::ofstream file("Mixed_CMesh.vtk");
     TPZVTKGeoMesh::PrintCMeshVTK(MixedMesh, file);
     
-    std::ofstream out("CMeshFlux.txt");
+    std::ofstream out("Mixed_CMeshFlux.txt");
     cmesh_flux->Print(out);
+        
+        std::ofstream out2("Mixed_CMeshPressure.txt");
+        cmesh_pressure->Print(out2);
     
     }
     
@@ -322,7 +325,7 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
 
     
     
-
+        an->Solution().Print("solutionMixed.txt");
     
     
     
@@ -356,7 +359,9 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
         //Erro
         
         int nequationHybrid = cmesh_m_Hybrid->NEquations();
-        int nequationMixes = cmesh_presure->NEquations() +cmesh_flux->NEquations();
+        int nequationMixes = cmesh_pressure->NEquations() +cmesh_flux->NEquations();
+        
+        std::cout<<"Number of equation for hybrid mixed method "<<nequationMixes<<std::endl;
         
         ofstream myfile;
         myfile.open("ArquivosErrosMixedHybrid.txt", ios::app);
@@ -661,6 +666,8 @@ int MHMTest(ProblemConfig &Conf){
     Configuration.pOrderSkeleton = Conf.porder;
     Configuration.numHDivisions = Conf.ndivisions;
     Configuration.hdivmaismais = Conf.hdivmais;
+
+    Configuration.dir_name = Conf.dir_name;
     
     // number of coarse elements in the x and y direction
     
@@ -711,13 +718,6 @@ int MHMTest(ProblemConfig &Conf){
         // insert the material objects in the multiphysics mesh
         InsertMaterialObjects(*mhm,Conf);
         
-#ifdef PZDEBUG
-        if(1)
-        {
-            std::ofstream out("MixedMeshControlHDiv.txt");
-            meshcontrol.Print(out);
-        }
-#endif
         meshcontrol.SetInternalPOrder(Configuration.pOrderInternal);
         meshcontrol.SetSkeletonPOrder(Configuration.pOrderSkeleton);
         meshcontrol.SetHdivmaismaisPOrder(Configuration.hdivmaismais);
@@ -727,16 +727,8 @@ int MHMTest(ProblemConfig &Conf){
 
         bool substructure = true;
         meshcontrol.BuildComputationalMesh(substructure);
-        
-        
 
-        
-        //--
-        
-        
-        
-        
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             std::ofstream file("GMeshControlHDiv.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
@@ -758,7 +750,7 @@ int MHMTest(ProblemConfig &Conf){
         }
 #endif
         
-        std::cout << "Number of equations MHMixed " << MHMixed->CMesh()->NEquations() << std::endl;
+        std::cout << "Number of equations MHMixed " << meshcontrol.CMesh()->NEquations() << std::endl;
         
         
     }
@@ -839,9 +831,9 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
     for (auto matid : config.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
-        val2.Zero();
+       // val2.Zero();
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-       // bc->TPZMaterial::SetForcingFunction(config.exact.Exact());
+        bc->TPZMaterial::SetForcingFunction(config.exact.Exact());
         MixedFluxPressureCmesh->InsertMaterialObject(bc);
     }
     

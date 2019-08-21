@@ -38,6 +38,9 @@ struct TRunConfig
     int n_threads = 0;
     bool MHM_HDiv_Elast = false;
     
+    /// directory where the files will be stored
+    std::string dir_name = ".";
+    
     /// number of equations when not condensing anything
     int64_t fGlobalSystemSize = -1;
     /// number of equations considering local condensation
