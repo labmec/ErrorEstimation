@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         config.makepressurecontinuous = true;
     
         config.exact.fExact = TLaplaceExample1::ESinSin;//EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
-        config.problemname = "EBubble k=1 n=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+       // config.problemname = "EBubble k=1 n=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
 
         bool RunMark = false;
         

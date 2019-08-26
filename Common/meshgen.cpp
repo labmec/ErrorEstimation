@@ -754,15 +754,30 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     an.Solve();
     std::cout << "Finished\n";
     
-    an.Solution().Print("SolutionBeforeLoadSol.txt");
+    //an.Solution().Print("SolutionBeforeLoadSol.txt");
     
     an.LoadSolution(); // compute internal dofs
     
-    an.Solution().Print("SolutionBeforeTransfer.txt");
+  //  an.Solution().Print("SolutionBeforeTransfer.txt");
     
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
     
-    an.Solution().Print("Solution.txt");
+  //  an.Solution().Print("Solution.txt");
+    
+#ifdef PZDEBUG2
+    
+    {
+
+        std::ofstream out_mhm("MeshSolution.txt");
+        cmesh->Print(out_mhm);
+        std::ofstream out_mhm2("CompMesh0.txt");
+        compmeshes[0]->Print(out_mhm2);
+        
+        std::ofstream out_mhm3("CompMesh1.txt");
+        compmeshes[1]->Print(out_mhm3);
+        
+    }
+#endif
     
 
     TPZStack<std::string> scalnames,vecnames;

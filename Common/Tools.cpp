@@ -8,6 +8,10 @@
 #include "Tools.h"
 #include "pzgengrid.h"
 
+#include "tpzarc3d.h"
+#include "tpzgeoblend.h"
+#include "TPZGeoLinear.h"
+
 #include <tuple>
 #include <memory>
 
@@ -175,6 +179,60 @@ TPZGeoMesh *CreateGeoMesh(int nel, TPZVec<int> &bcids) {
     
     
 
+    return gmesh;
+}
+
+TPZGeoMesh *CreateLCircleGeoMesh() {
+    
+    TPZGeoMesh *gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+    
+    TPZVec<REAL> coord(3, 0.);
+    
+    // Inserts node at origin
+    gmesh->NodeVec().AllocateNewElement();
+    gmesh->NodeVec()[0].Initialize(coord, *gmesh);
+    
+    // Inserts circumference nodes
+    for (int64_t i = 0; i < 13; i++) {
+        const REAL step = M_PI / 8;
+        coord[0] = cos(i * step);
+        coord[1] = sin(i * step);
+        const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+        gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+    }
+    
+    int matIdTriangle = 1, matIdArc = 2;
+    
+    // Inserts triangle elements
+    TPZManVector<int64_t, 3> nodesIdVec(3);
+    for (int64_t i = 0; i < 6; i++) {
+        nodesIdVec[0] = 0;
+        nodesIdVec[1] = 1 + 2 * i;
+        nodesIdVec[2] = 3 + 2 * i;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
+    }
+    // Inserts arc elements
+    for (int64_t i = 0; i < 6; i++) {
+        nodesIdVec[0] = 1 + 2 * i;
+        nodesIdVec[1] = 3 + 2 * i;
+        nodesIdVec[2] = 2 + 2 * i;
+        new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, matIdArc, *gmesh);
+    }
+    // Finally, inserts line elements to complete boundary
+    nodesIdVec.Resize(2);
+    nodesIdVec[0] = 0;
+    nodesIdVec[1] = 1;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+    
+    nodesIdVec[0] = 0;
+    nodesIdVec[1] = 13;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+    
+    gmesh->BuildConnectivity();
+    
+    UniformRefinement(1, gmesh);
+    
     return gmesh;
 }
 
@@ -769,7 +827,7 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
     
     int64_t nelem = postProcessMesh->ElementSolution().Rows();
     
-    postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
+//    postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
     
     // Iterates through element errors to get the maximum value
     REAL maxError = 0.;

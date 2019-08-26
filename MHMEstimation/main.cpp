@@ -145,7 +145,7 @@ bool IsgmeshReader = false;
 int main(){
     InitializePZLOG();
     
-    for(int ndiv=1 ; ndiv<2 ; ndiv++){
+    for(int ndiv=0 ; ndiv<5 ; ndiv++){
     ProblemConfig config;
     
     config.porder = 1;
@@ -156,9 +156,9 @@ int main(){
    
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.EX;//ESinSin;//ESinCosCircle;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+    config.exact.fExact = example.ESinSinDirNonHom;//ESinMark;//ESinSin;//ESinCosCircle;//EX;//EConst;//EArcTanSingular;//EArcTan;//
      
-    config.problemname = "ESinSin";
+    config.problemname = "ESinNonHomCoarseRef";
     
     config.dir_name= "MHM_Mixed";
     std::string command = "mkdir " + config.dir_name;
@@ -206,16 +206,16 @@ int main(){
         x1[2] = 0.;
 
 
-        int nx = 2;//pow(2, ndiv);
-        gmesh =CreateGeoMesh(nx, bcids);// MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);//CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
+        int nx = pow(2, ndiv+1);
+        gmesh =CreateGeoMesh(nx, bcids);//CreateLCircleGeoMesh();// MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);//CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
         config.gmesh = gmesh;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         config.bcmaterialids.insert(-2);
         config.bcmaterialids.insert(-3);
         config.bcmaterialids.insert(-4);
-//        config.bcmaterialids.insert(2);
-//        config.bcmaterialids.insert(3);
+      //  config.bcmaterialids.insert(2);
+//config.bcmaterialids.insert(3);
         gmesh->SetDimension(config.dimension);
         
         
@@ -232,24 +232,32 @@ int main(){
         }
 #endif
         
-        UniformRefinement(ndiv, gmesh);
-        DivideLowerDimensionalElements(gmesh);
+        
+    
+        
+//        UniformRefinement(ndiv, gmesh);
+//        DivideLowerDimensionalElements(gmesh);
         
 
         
-        TPZGeoMesh *gmesh2 = new TPZGeoMesh();
-        *gmesh2 = *gmesh;
+//        TPZGeoMesh *gmesh2 = new TPZGeoMesh();
+//        *gmesh2 = *gmesh;
    
     
     
   //  H1Test(config);
-    
-    
-    MixedTest(config);
-    
-    delete gmesh;
-
-    config.gmesh = gmesh2;
+        
+//        {
+//             MixedTest(config);
+//
+//        }
+//
+//
+//
+//
+//    delete gmesh;
+//
+//    config.gmesh = gmesh2;
   
     MHMTest(config);
         
@@ -325,7 +333,7 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
 
     
     
-        an->Solution().Print("solutionMixed.txt");
+     //   an->Solution().Print("solutionMixed.txt");
     
     
     
@@ -368,7 +376,7 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
         myfile << "\n\n Error for Hybrid Mixed formulation " ;
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Ndiv = " << Conf.ndivisions << " Order k = " << Conf.porder << " Order n = " << Conf.hdivmais << "\n";
-        myfile << "DOF Total = " << nequationMixes << "\n";
+        myfile << "DOF Total = " << nequationHybrid << "\n";
         myfile << "Energy norm (flux) = " << errors[0] << "\n";//norma energia
         myfile << "error norm L2 (pressure)= " << errors[1] << "\n";//norma L2
         myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
@@ -601,7 +609,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
-
+    
     TPZManVector<int> active(2,1);
     TPZManVector<TPZCompMesh *> meshvector(2,0);
     
@@ -762,26 +770,25 @@ int MHMTest(ProblemConfig &Conf){
     
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(),Conf.exact, prefix, Configuration);
     
- 
-    
+
     std::cout<<"Error Estimation processing for MHM-Hdiv problem "<<std::endl;
-    
+
     // Error estimation
     TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     if(!InputMesh) DebugStop();
     TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
-    
-    
+
+
     ErrorEstimator.PotentialReconstruction();
-    
+
     {
         ErrorEstimator.fProblemConfig.problemname = Conf.problemname;
         ErrorEstimator.fProblemConfig.dir_name = Conf.dir_name;
         std::string command = "mkdir " + Conf.dir_name;
         system(command.c_str());
-        
+
         ErrorEstimator.fProblemConfig.porder =Conf.porder;
         ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;
         ErrorEstimator.fProblemConfig.hdivmais = Conf.hdivmais;
@@ -789,7 +796,7 @@ int MHMTest(ProblemConfig &Conf){
     TPZManVector<REAL> errors;
 
     ErrorEstimator.ComputeErrors(errors);
-//    hAdaptivity(&ErrorEstimator.fPostProcMesh,gmeshcoarse);
+  //  hAdaptivity(&ErrorEstimator.fPostProcMesh,gmeshcoarse);
         
     }
     
