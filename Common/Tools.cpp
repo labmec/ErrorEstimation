@@ -769,7 +769,7 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
     
     int64_t nelem = postProcessMesh->ElementSolution().Rows();
     
-    postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
+   // postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
     
     // Iterates through element errors to get the maximum value
     REAL maxError = 0.;

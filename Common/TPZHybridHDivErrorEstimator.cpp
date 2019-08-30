@@ -59,10 +59,10 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         an.SetExact(fExact->ExactSolution());
     }
     
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
-        std::ofstream out("MeshToComputeError.txt");
-        fPostProcMesh.Print(out);
+        std::ofstream out("PressureMeshDenise.txt");
+        fPostProcMesh.MeshVector()[1]->Print(out);
         
     }
 #endif
@@ -244,7 +244,6 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
 
 /// create the post processed multiphysics mesh (which is necessarily hybridized)
 void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
-    
     if(!fOriginalIsHybridized && fPostProcesswithHDiv == false)
     {
         // we can not post process with H1 if the original mesh is not hybridized
@@ -269,10 +268,10 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
     }
     else {
-        mesh_vectors.Resize(3);
-        mesh_vectors[1] = fOriginal->MeshVector()[0];//flux
-        mesh_vectors[2] = fOriginal->MeshVector()[1];//potential
-        mesh_vectors[0] = CreatePressureMesh();//potential reconstructed
+      //with H1 resconstruction don't need the flux mesh
+        mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
+        mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
+        mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
     }
     
     if (!fOriginalIsHybridized) {
@@ -320,14 +319,9 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
 #endif
     
     
-    TPZManVector<int> active(3, 0);
-    if(fPostProcesswithHDiv)
-    {
-        active.Resize(4, 0);
-        // the flux mesh is active only if we postprocess with an H(div) approximation
-        active[1] = 1;
-    }
-    active[0] = 1;
+    TPZManVector<int> active(4, 0);
+    active[1] = 1;
+
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     {
         std::ofstream out("multiphysicsWithnoInterface.txt");
@@ -344,7 +338,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     else {
         PrepareElementsForH1Reconstruction();
     }
-
+    
 #ifdef PZDEBUG
     {
         std::ofstream out("multiphysicsgrouped.txt");
@@ -371,6 +365,7 @@ void TPZHybridHDivErrorEstimator::ComputeElementStiffnesses() {
         fPostProcMesh.Print(out);
     }
 #endif
+   
     
     for (auto cel:fPostProcMesh.ElementVec()) {
         if (!cel) continue;
@@ -743,7 +738,11 @@ void TPZHybridHDivErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *p
 
 /// return a pointer to the pressure mesh
 TPZCompMesh *TPZHybridHDivErrorEstimator::PressureMesh() {
-    return fPostProcMesh.MeshVector()[1];
+
+        return fPostProcMesh.MeshVector()[1];
+  
+    
+    
 }
 
 
@@ -1413,14 +1412,14 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     //PlotLagrangeMultiplier("AfterNodalAverage");
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
         fPostProcMesh.Print(out);
         std::ofstream out2("PressureMeshSmooth.txt");
         fPostProcMesh.MeshVector()[1]->Print(out2);
-        std::ofstream out3("FluxMeshSmooth.txt");
-        fPostProcMesh.MeshVector()[0]->Print(out3);
+      //  std::ofstream out3("FluxMeshSmooth.txt");
+       // fPostProcMesh.MeshVector()[0]->Print(out3);
     }
 #endif
     
@@ -1429,7 +1428,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     ComputeElementStiffnesses();
     
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream out("MeshBeforeLoadSol.txt");
         fPostProcMesh.Print(out);
@@ -1440,7 +1439,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream out("MeshAfterLoadSol.txt");
         fPostProcMesh.Print(out);
@@ -1449,34 +1448,35 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
 #endif
     
-    {
-        
-#ifdef PZDEBUG2
-        {
-            std::ofstream out("MeshPosDirichletProblem.txt");
-            fPostProcMesh.Print(out);
-            
-        }
-#endif
-     
-        
-     
-    }
     
     {
         TPZManVector<TPZCompMesh *,2> meshvec(2);
         // fPostProcMesh[0] is the H1 or Hdiv mesh
         // fPostProcMesh[1] is the L2 mesh
+ //       if(fPostProcesswithHDiv){
+            meshvec[0] = fPostProcMesh.MeshVector()[0];
+            meshvec[1] = fPostProcMesh.MeshVector()[1];
+  //      }
+//        else{
+//            meshvec[0] = fPostProcMesh.MeshVector()[1];
+//            meshvec[1] = fPostProcMesh.MeshVector()[0];
+//
+//        }
         
-        meshvec[0] = fPostProcMesh.MeshVector()[0];
-        meshvec[1] = fPostProcMesh.MeshVector()[1];
+       // fPostProcMesh.ElementSolution().Print("SolutionBefroreTranfer");
+        
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
-#ifdef PZDEBUG
+        
+       //  fPostProcMesh.ElementSolution().Print("SolutionAfterTranfer");
+        
+        
+        
+#ifdef PZDEBUG2
         {
             std::ofstream out("PressureAfterTransfer.txt");
             fPostProcMesh.MeshVector()[1]->Print(out);
             std::ofstream out2("FluxAfterTransfer.txt");
-            fPostProcMesh.MeshVector()[0]->Print(out2);
+            //fPostProcMesh.MeshVector()[0]->Print(out2);
             
         }
         VerifySolutionConsistency(PressureMesh());
@@ -1784,9 +1784,9 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         if (gel->Dimension() != fPostProcMesh.Dimension()) continue;
         TPZMultiphysicsElement *mcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
         if (!mcel) DebugStop();
-        TPZCompEl *subcel = mcel->Element(0);
+        TPZCompEl *subcel = mcel->Element(1);
         TPZInterpolatedElement *subintel = dynamic_cast<TPZInterpolatedElement *>(subcel);
-        if (!subintel) DebugStop();
+        if (!subintel) continue;//DebugStop();
         int nsides = gel->NSides();
         for (int side = 0; side < nsides - 1; side++) {
             if (subintel->NSideConnects(side) == 0) continue;

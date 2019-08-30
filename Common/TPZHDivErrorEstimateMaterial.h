@@ -37,6 +37,7 @@ public:
 
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     
+    
     virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
     
     bool fNeumannLocalProblem = true;
@@ -50,9 +51,13 @@ public:
     // error[3] - energy error computed with reconstructed solution
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
     
-    int VariableIndex(const std::string &name)override;
-    int NSolutionVariables(int var)override;
-    void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+    
+   virtual  int VariableIndex(const std::string &name)override;
+   virtual int NSolutionVariables(int var)override;
+   virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+    
+    //retur the first no n null material, this method is to identify de reconstruction with H1, with no uplift procedure
+    int IsH1Position(TPZVec<TPZMaterialData> &datavec);
  
 
     
