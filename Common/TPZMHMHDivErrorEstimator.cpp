@@ -565,3 +565,91 @@ void TPZMHMHDivErrorEstimator::SwitchMaterialObjects()
     }
     
 }
+
+
+void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
+
+    TPZCompMesh* cmesh = fOriginal;
+    TPZGeoMesh* gmesh = fOriginal->Reference();
+    gmesh->ResetReference();
+    cmesh->LoadReferences();
+
+#ifdef PZDEBUG
+    {
+        std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
+        std::ofstream fileTXT("GeoMeshBeforePressureSkeleton.txt");
+        gmesh->Print(fileTXT);
+    }
+#endif
+
+    int maxMatId = std::numeric_limits<int>::min();
+    int nel = gmesh->NElements();
+
+    for (int iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        if(gel) maxMatId = std::max(maxMatId, gel->MaterialId());
+    }
+
+    if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
+
+    fPressureSkeletonMatId = maxMatId + 1;
+
+    int dim = gmesh->Dimension();
+
+    int nskel = 0;
+    for (int iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+
+        if (gel->Dimension() != dim) continue;
+        if (gel->HasSubElement()) continue;
+
+        // Iterates through the sides of the element
+        int nsides = gel->NSides();
+
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+            if (gelside.Dimension() != dim - 1) continue;
+
+            TPZGeoElSide neighbour = gelside.Neighbour();
+
+            // Checks if a skeleton has already been created over gelside
+            bool hasSkeleton = false;
+            while (neighbour != gelside) {
+                int neighbourMatId = neighbour.Element()->MaterialId();
+                if (neighbourMatId == fPressureSkeletonMatId) {
+                    hasSkeleton = true;
+                    break;
+                }
+                neighbour = neighbour.Neighbour();
+            }
+
+            // Creates skeleton element with material ID
+            if (!hasSkeleton) {
+                neighbour = gelside.Neighbour();
+                while (neighbour != gelside) {
+                    int neighbourElDim = neighbour.Element()->Dimension();
+                    if (neighbourElDim == dim) {
+                        if (neighbour.Element()->Reference()->Mesh() != gel->Reference()->Mesh()) {
+
+                            TPZGeoElBC(gelside, fPressureSkeletonMatId);
+
+                            nskel++; std::cout << nskel << std::endl;
+                            break;
+                        }
+                    }
+                    neighbour = neighbour.Neighbour();
+                }
+            }
+        }
+    }
+#ifdef PZDEBUG
+    {
+        std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
+        std::ofstream fileTXT("GeoMeshAfterPressureSkeleton.txt");
+        gmesh->Print(fileTXT);
+    }
+#endif
+    DebugStop();
+}
