@@ -651,5 +651,4 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
         gmesh->Print(fileTXT);
     }
 #endif
-    DebugStop();
 }
