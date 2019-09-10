@@ -48,7 +48,7 @@
 
 
 
-bool IsgmeshReader = true;
+bool IsgmeshReader = false;
 bool neumann = true;
 
 bool mixedsolution = false;
@@ -65,8 +65,14 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
+    
+    ///
 
-    for(int ndiv=1; ndiv<2; ndiv++){
+    
+    ///
+    
+
+    for(int ndiv=1; ndiv<6; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
@@ -75,13 +81,14 @@ int main(int argc, char *argv[]) {
         config.dimension = 2;
         config.prefine=false;
         config.makepressurecontinuous = true;
+        config.adaptivityStep = ndiv;
     
-        config.exact.fExact = TLaplaceExample1::ESinSin;//EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
-        config.problemname = "EBubble k=1 n=1";//"ESinSinDirNonHom";//"ESinSin";//" ESinMark";////"EArcTanSingular_PRef";//""ArcTang";//
+        config.exact.fExact = TLaplaceExample1::ESinSin;//ESinSin;//EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
+        config.problemname = "SinSinReconstructionH1_k1n1Adapt";
 
         bool RunMark = false;
         
-        config.dir_name= "ESinSin";
+        config.dir_name= "ReconstructionH1";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     
@@ -141,10 +148,13 @@ int main(int argc, char *argv[]) {
         
         
     }
+        
+        TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
+        *hybridEstimatorMesh = *gmesh;
     
 
     
-    UniformRefinement(config.ndivisions, gmesh);
+  //  UniformRefinement(config.ndivisions, gmesh);
    // RandomRefine(config, config.ndivisions);
 
    #ifdef PZDEBUG
@@ -253,19 +263,22 @@ int main(int argc, char *argv[]) {
             HDivEstimate.SetAnalyticSolution(config.exact);
             HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
             
+            HDivEstimate.fPostProcesswithHDiv = false;
+            
             HDivEstimate.PotentialReconstruction();
             
             TPZManVector<REAL> elementerrors;
             HDivEstimate.ComputeErrors(elementerrors);
+            hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
         
         }
 
         
     }
     
-    delete cmesh_HDiv;
-    delete meshvec_HDiv[0];
-    delete meshvec_HDiv[1];
+//    delete cmesh_HDiv;
+//    delete meshvec_HDiv[0];
+//    delete meshvec_HDiv[1];
     //return 0;
     }
 }

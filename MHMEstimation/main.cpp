@@ -789,6 +789,7 @@ int MHMTest(ProblemConfig &Conf){
         ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;
         ErrorEstimator.fProblemConfig.hdivmais = Conf.hdivmais;
         ErrorEstimator.fProblemConfig.adaptivityStep = Conf.adaptivityStep;
+        
     TPZManVector<REAL> errors;
 
     ErrorEstimator.ComputeErrors(errors);
