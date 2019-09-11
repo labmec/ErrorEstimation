@@ -583,8 +583,9 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
     }
 #endif
 
+    // Assigns a material ID that has not been used yet
     int maxMatId = std::numeric_limits<int>::min();
-    int nel = gmesh->NElements();
+    const int nel = gmesh->NElements();
 
     for (int iel = 0; iel < nel; iel++) {
         TPZGeoEl *gel = gmesh->Element(iel);
@@ -599,50 +600,68 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
 
     int nskel = 0;
     for (int iel = 0; iel < nel; iel++) {
-        TPZGeoEl *gel = gmesh->Element(iel);
 
+        TPZGeoEl *gel = gmesh->Element(iel);
+        TPZCompEl* cel = gel->Reference();
+
+        if (!cel) continue;
         if (gel->Dimension() != dim) continue;
-        if (gel->HasSubElement()) continue;
 
         // Iterates through the sides of the element
         int nsides = gel->NSides();
-
         for (int iside = 0; iside < nsides; iside++) {
             TPZGeoElSide gelside(gel, iside);
+
+            // Filters boundary sides
             if (gelside.Dimension() != dim - 1) continue;
 
-            TPZGeoElSide neighbour = gelside.Neighbour();
+            // Gets compel sides of equal and lower (if existing) level linked to the gelside
+            TPZStack<TPZCompElSide> celstack;
+            gelside.EqualLevelCompElementList3(celstack, 1, 0);
 
-            // Checks if a skeleton has already been created over gelside
-            bool hasSkeleton = false;
-            while (neighbour != gelside) {
-                int neighbourMatId = neighbour.Element()->MaterialId();
-                if (neighbourMatId == fPressureSkeletonMatId) {
-                    hasSkeleton = true;
-                    break;
-                }
-                neighbour = neighbour.Neighbour();
-            }
+            TPZCompElSide large = gelside.LowerLevelCompElementList2(1);
+            if (large) celstack.Push(large);
 
-            // Creates skeleton element with material ID
-            if (!hasSkeleton) {
-                neighbour = gelside.Neighbour();
-                while (neighbour != gelside) {
-                    int neighbourElDim = neighbour.Element()->Dimension();
-                    if (neighbourElDim == dim) {
-                        if (neighbour.Element()->Reference()->Mesh() != gel->Reference()->Mesh()) {
+            int nstack = celstack.size();
+            if (nstack == 0) continue;
 
-                            TPZGeoElBC(gelside, fPressureSkeletonMatId);
+            for (int ist = 0; ist < nstack; ist++) {
+                TPZCompElSide cneighbour = celstack[ist];
+                if (!cneighbour) continue;
 
-                            nskel++; std::cout << nskel << std::endl;
-                            break;
+                TPZGeoElSide neighbour = cneighbour.Reference();
+
+                // Filters neighbour sides that belong to volume elements
+                if (neighbour.Element()->Dimension() != dim) continue;
+
+                // This lambda checks if a skeleton has already been created over gelside
+                auto hasSkeletonNeighbour = [&] () -> bool {
+                    neighbour = gelside.Neighbour();
+                    while (neighbour != gelside) {
+                        int neighbourMatId = neighbour.Element()->MaterialId();
+                        if (neighbourMatId == fPressureSkeletonMatId) {
+                            return true;
                         }
+                        neighbour = neighbour.Neighbour();
                     }
-                    neighbour = neighbour.Neighbour();
+                    return false;
+                };
+
+                if (!hasSkeletonNeighbour()) {
+                    if (cneighbour.Element()->Mesh() != gel->Reference()->Mesh()) {
+
+                        TPZGeoElBC(gelside, fPressureSkeletonMatId);
+
+                        nskel++; std::cout << nskel << std::endl;
+                       // std::cout << neighbour.Element()->MaterialId() << std::endl;
+                        break;
+                    }
                 }
+
             }
         }
     }
+
 #ifdef PZDEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
