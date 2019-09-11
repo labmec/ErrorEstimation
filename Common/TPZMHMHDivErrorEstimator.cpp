@@ -598,7 +598,6 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
 
     int dim = gmesh->Dimension();
 
-    int nskel = 0;
     for (int iel = 0; iel < nel; iel++) {
 
         TPZGeoEl *gel = gmesh->Element(iel);
@@ -649,15 +648,10 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
 
                 if (!hasSkeletonNeighbour()) {
                     if (cneighbour.Element()->Mesh() != gel->Reference()->Mesh()) {
-
                         TPZGeoElBC(gelside, fPressureSkeletonMatId);
-
-                        nskel++; std::cout << nskel << std::endl;
-                       // std::cout << neighbour.Element()->MaterialId() << std::endl;
                         break;
                     }
                 }
-
             }
         }
     }
