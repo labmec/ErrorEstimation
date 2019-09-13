@@ -633,21 +633,22 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
                 // Filters neighbour sides that belong to volume elements
                 if (neighbour.Element()->Dimension() != dim) continue;
 
-                // This lambda checks if a skeleton has already been created over gelside
-                auto hasSkeletonNeighbour = [&] () -> bool {
-                    neighbour = gelside.Neighbour();
-                    while (neighbour != gelside) {
-                        int neighbourMatId = neighbour.Element()->MaterialId();
-                        if (neighbourMatId == fPressureSkeletonMatId) {
-                            return true;
-                        }
-                        neighbour = neighbour.Neighbour();
-                    }
-                    return false;
-                };
+                if (cneighbour.Element()->Mesh() != gel->Reference()->Mesh()) {
 
-                if (!hasSkeletonNeighbour()) {
-                    if (cneighbour.Element()->Mesh() != gel->Reference()->Mesh()) {
+                    // This lambda checks if a skeleton has already been created over gelside
+                    auto hasSkeletonNeighbour = [&] () -> bool {
+                        neighbour = gelside.Neighbour();
+                        while (neighbour != gelside) {
+                            int neighbourMatId = neighbour.Element()->MaterialId();
+                            if (neighbourMatId == fPressureSkeletonMatId) {
+                                return true;
+                            }
+                            neighbour = neighbour.Neighbour();
+                        }
+                        return false;
+                    };
+
+                    if (!hasSkeletonNeighbour()) {
                         TPZGeoElBC(gelside, fPressureSkeletonMatId);
                         break;
                     }
