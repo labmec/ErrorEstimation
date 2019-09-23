@@ -285,7 +285,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
         }
     }
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     std::cout<<"potential fem "<<pressurefem<<std::endl;
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;

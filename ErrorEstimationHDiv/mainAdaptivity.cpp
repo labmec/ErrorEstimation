@@ -35,7 +35,9 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
 
     // Creates geometric mesh
-    TPZGeoMesh *gmeshOriginal = CreateGeoMesh();
+    TPZManVector<int,4> bcids(4,-1);
+    TPZGeoMesh *gmeshOriginal = CreateGeoMesh(2, bcids);//CreateGeoMesh();//CreateGeoMesh();
+    gmeshOriginal->SetDimension(2);
     
 #ifdef PZDEBUG
     {
@@ -47,7 +49,7 @@ int main(int argc, char *argv[]) {
     
     
 
-    int refinementSteps = 2;
+    int refinementSteps = 4;
 
     // Copies meshes to be used with each proposal
     TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
@@ -57,7 +59,7 @@ int main(int argc, char *argv[]) {
     
     
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("GmeshPosCopy.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(hybridEstimatorMesh, out);
@@ -69,15 +71,17 @@ int main(int argc, char *argv[]) {
     
     for (int i = 0; i < refinementSteps; i++) {
         ProblemConfig config;
-        config.dir_name = "AdaptivityHybridSinSin";
+        config.dir_name = "ReconstructionH1";
         config.adaptivityStep = i;
 
 //        config.gmesh = new TPZGeoMesh();
         config.gmesh = hybridEstimatorMesh;
 
         config.materialids.insert(1);
-        config.bcmaterialids.insert(2);
+//        config.bcmaterialids.insert(2);
         config.bcmaterialids.insert(3);
+        
+        config.bcmaterialids.insert(-1);
 
         config.porder = 1;
         config.hdivmais = 1;
@@ -86,7 +90,7 @@ int main(int argc, char *argv[]) {
         config.makepressurecontinuous = true;
 
         config.exact.fExact = TLaplaceExample1::ESinSin;
-        config.problemname = "AdaptivityTest";
+        config.problemname = "ReconstructionH1SinSin";
 
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
@@ -120,6 +124,7 @@ int main(int argc, char *argv[]) {
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
+        HDivEstimate.fPostProcesswithHDiv = false;
 
         HDivEstimate.PotentialReconstruction();
 
@@ -135,63 +140,63 @@ int main(int argc, char *argv[]) {
 
     
     // Run tests with Ainsworth's proposal
-    for (int i = 0; i < refinementSteps; i++) {
-
-        ProblemConfig config;
-        config.dir_name = "AdaptivityMarkSin";
-        config.adaptivityStep = i;
-
-//        config.gmesh = new TPZGeoMesh();
-        config.gmesh = markEstimatorMesh;
-
-        config.materialids.insert(1);
-        config.bcmaterialids.insert(2);
-        config.bcmaterialids.insert(3);
-
-        config.porder = 1;
-        config.hdivmais = 0;
-        config.dimension = 2;
-        config.prefine = false;
-        config.makepressurecontinuous = true;
-
-        config.exact.fExact = TLaplaceExample1::ESinMark;
-        config.problemname = "AdaptivityTest";
-
-        std::string command = "mkdir " + config.dir_name;
-        system(command.c_str());
-        
-//        std::string plotname;
-//        {
-//            std::stringstream out;
-//            out << config.dir_name << "/" << "GMeshT_" << i<<".vtk";
-//            plotname = out.str();
-//            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+//    for (int i = 0; i < refinementSteps; i++) {
 //
-//        }
-        TPZMultiphysicsCompMesh *mixedMesh = nullptr;
-
-        mixedMesh = CreateHDivMesh(config); // H(div) x L2
-        mixedMesh->InitializeBlock();
-
-        TPZMultiphysicsCompMesh *hybridmesh = HybridSolveProblem(mixedMesh, config);
-
-        // Reconstructs pressure and calculates error
-        TPZHDivErrorEstimatorH1 HDivEstimate(*hybridmesh);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-
-        HDivEstimate.SetAnalyticSolution(config.exact);
-
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 2;
-
-        HDivEstimate.PotentialReconstruction();
-
-        TPZManVector<REAL> elementErrors;
-        HDivEstimate.ComputeErrors(elementErrors);
-
-        hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh);
-    }
+//        ProblemConfig config;
+//        config.dir_name = "AdaptivityMarkSin";
+//        config.adaptivityStep = i;
+//
+////        config.gmesh = new TPZGeoMesh();
+//        config.gmesh = markEstimatorMesh;
+//
+//        config.materialids.insert(1);
+//        config.bcmaterialids.insert(2);
+//        config.bcmaterialids.insert(3);
+//
+//        config.porder = 1;
+//        config.hdivmais = 0;
+//        config.dimension = 2;
+//        config.prefine = false;
+//        config.makepressurecontinuous = true;
+//
+//        config.exact.fExact = TLaplaceExample1::ESinMark;
+//        config.problemname = "AdaptivityTest";
+//
+//        std::string command = "mkdir " + config.dir_name;
+//        system(command.c_str());
+//
+////        std::string plotname;
+////        {
+////            std::stringstream out;
+////            out << config.dir_name << "/" << "GMeshT_" << i<<".vtk";
+////            plotname = out.str();
+////            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+////
+////        }
+//        TPZMultiphysicsCompMesh *mixedMesh = nullptr;
+//
+//        mixedMesh = CreateHDivMesh(config); // H(div) x L2
+//        mixedMesh->InitializeBlock();
+//
+//        TPZMultiphysicsCompMesh *hybridmesh = HybridSolveProblem(mixedMesh, config);
+//
+//        // Reconstructs pressure and calculates error
+//        TPZHDivErrorEstimatorH1 HDivEstimate(*hybridmesh);
+//        HDivEstimate.fProblemConfig = config;
+//        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+//
+//        HDivEstimate.SetAnalyticSolution(config.exact);
+//
+//        HDivEstimate.fperformUplift = true;
+//        HDivEstimate.fUpliftOrder = 2;
+//
+//        HDivEstimate.PotentialReconstruction();
+//
+//        TPZManVector<REAL> elementErrors;
+//        HDivEstimate.ComputeErrors(elementErrors);
+//
+//        hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh);
+//    }
 
     return 0;
 }

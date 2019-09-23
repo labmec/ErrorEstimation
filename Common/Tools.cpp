@@ -501,7 +501,7 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     std::stringstream sout;
     sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
     an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-    int resolution = 2;
+    int resolution = 0;
     an.PostProcess(resolution,Hybridmesh->Dimension());
 
     

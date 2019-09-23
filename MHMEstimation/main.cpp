@@ -245,11 +245,11 @@ int main(){
   //  H1Test(config);
     
     
-    MixedTest(config);
-    
-    delete gmesh;
-
-    config.gmesh = gmesh2;
+//    MixedTest(config);
+//
+//    delete gmesh;
+//
+//    config.gmesh = gmesh2;
   
     MHMTest(config);
         
@@ -772,6 +772,7 @@ int MHMTest(ProblemConfig &Conf){
     // Error estimation
     TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     if(!InputMesh) DebugStop();
+    
     TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);

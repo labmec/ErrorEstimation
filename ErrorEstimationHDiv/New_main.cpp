@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     ///
     
 
-    for(int ndiv=1; ndiv<6; ndiv++){
+    for(int ndiv=2; ndiv<3; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
@@ -84,11 +84,11 @@ int main(int argc, char *argv[]) {
         config.adaptivityStep = ndiv;
     
         config.exact.fExact = TLaplaceExample1::ESinSin;//ESinSin;//EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
-        config.problemname = "SinSinReconstructionH1_k1n1Adapt";
+        config.problemname = "SinSinMarkk1n1Up1";
 
         bool RunMark = false;
         
-        config.dir_name= "ReconstructionH1";
+        config.dir_name= "TesteCNMAC";//"ReconstructionH1";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     
@@ -154,8 +154,8 @@ int main(int argc, char *argv[]) {
     
 
     
-  //  UniformRefinement(config.ndivisions, gmesh);
-   // RandomRefine(config, config.ndivisions);
+    UniformRefinement(config.ndivisions, gmesh);
+    RandomRefine(config, config.ndivisions);
 
    #ifdef PZDEBUG
     {
@@ -263,13 +263,13 @@ int main(int argc, char *argv[]) {
             HDivEstimate.SetAnalyticSolution(config.exact);
             HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
             
-            HDivEstimate.fPostProcesswithHDiv = false;
+          //  HDivEstimate.fPostProcesswithHDiv = false;
             
             HDivEstimate.PotentialReconstruction();
             
             TPZManVector<REAL> elementerrors;
             HDivEstimate.ComputeErrors(elementerrors);
-            hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+        //    hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
         
         }
 

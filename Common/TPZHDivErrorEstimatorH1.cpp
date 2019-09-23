@@ -74,8 +74,25 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         std::cout<<"Solving local Neumann problem"<<std::endl;
         // compute a higher order pressure solution: compute the Local Neumann problem
         UpliftPressure();
+        {
+            TPZAnalysis an(&fPostProcMesh,false);
+            
+            TPZStack<std::string> scalnames, vecnames;
+            scalnames.Push("PressureReconstructed");
+            
+            int dim = 2;
+            std::string plotname("PotentialUplifting.vtk");
+            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+            an.PostProcess(2, dim);
+            
+            
+            
+        }
         
     }
+    
+    
+
     
 
     // transfer the continuous pressures to the multiphysics space
