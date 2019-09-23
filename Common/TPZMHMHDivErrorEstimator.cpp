@@ -565,3 +565,104 @@ void TPZMHMHDivErrorEstimator::SwitchMaterialObjects()
     }
     
 }
+
+
+void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
+
+    TPZCompMesh* cmesh = fOriginal;
+    TPZGeoMesh* gmesh = fOriginal->Reference();
+    gmesh->ResetReference();
+    cmesh->LoadReferences();
+
+#ifdef PZDEBUG
+    {
+        std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
+        std::ofstream fileTXT("GeoMeshBeforePressureSkeleton.txt");
+        gmesh->Print(fileTXT);
+    }
+#endif
+
+    // Assigns a material ID that has not been used yet
+    int maxMatId = std::numeric_limits<int>::min();
+    const int nel = gmesh->NElements();
+
+    for (int iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        if(gel) maxMatId = std::max(maxMatId, gel->MaterialId());
+    }
+
+    if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
+
+    fPressureSkeletonMatId = maxMatId + 1;
+
+    int dim = gmesh->Dimension();
+
+    for (int iel = 0; iel < nel; iel++) {
+
+        TPZGeoEl *gel = gmesh->Element(iel);
+        TPZCompEl* cel = gel->Reference();
+
+        if (!cel) continue;
+        if (gel->Dimension() != dim) continue;
+
+        // Iterates through the sides of the element
+        int nsides = gel->NSides();
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+
+            // Filters boundary sides
+            if (gelside.Dimension() != dim - 1) continue;
+
+            // Gets compel sides of equal and lower (if existing) level linked to the gelside
+            TPZStack<TPZCompElSide> celstack;
+            gelside.EqualLevelCompElementList3(celstack, 1, 0);
+
+            TPZCompElSide large = gelside.LowerLevelCompElementList2(1);
+            if (large) celstack.Push(large);
+
+            int nstack = celstack.size();
+            if (nstack == 0) continue;
+
+            for (int ist = 0; ist < nstack; ist++) {
+                TPZCompElSide cneighbour = celstack[ist];
+                if (!cneighbour) continue;
+
+                TPZGeoElSide neighbour = cneighbour.Reference();
+
+                // Filters neighbour sides that belong to volume elements
+                if (neighbour.Element()->Dimension() != dim) continue;
+
+                if (cneighbour.Element()->Mesh() != gel->Reference()->Mesh()) {
+
+                    // This lambda checks if a skeleton has already been created over gelside
+                    auto hasSkeletonNeighbour = [&] () -> bool {
+                        neighbour = gelside.Neighbour();
+                        while (neighbour != gelside) {
+                            int neighbourMatId = neighbour.Element()->MaterialId();
+                            if (neighbourMatId == fPressureSkeletonMatId) {
+                                return true;
+                            }
+                            neighbour = neighbour.Neighbour();
+                        }
+                        return false;
+                    };
+
+                    if (!hasSkeletonNeighbour()) {
+                        TPZGeoElBC(gelside, fPressureSkeletonMatId);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+#ifdef PZDEBUG
+    {
+        std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
+        std::ofstream fileTXT("GeoMeshAfterPressureSkeleton.txt");
+        gmesh->Print(fileTXT);
+    }
+#endif
+}

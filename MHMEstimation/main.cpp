@@ -777,7 +777,7 @@ int MHMTest(ProblemConfig &Conf){
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
     
-    
+    ErrorEstimator.CreatePressureSkeleton();
     ErrorEstimator.PotentialReconstruction();
     
     {
