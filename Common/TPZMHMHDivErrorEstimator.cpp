@@ -5,7 +5,7 @@
 #include "pzsubcmesh.h"
 #include "TPZVTKGeoMesh.h"
 #include "TPZMHMHDivErrorEstimatorMaterial.h"
-
+#include "TPZNullMaterial.h"
 
 // a method for generating the hybridized multiphysics post processing mesh
 void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
@@ -665,4 +665,20 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
         gmesh->Print(fileTXT);
     }
 #endif
+}
+
+TPZCompMesh *TPZMHMHDivErrorEstimator::CreateSkeletonApproximationSpace() {
+    TPZCompMesh *cmesh = new TPZCompMesh(fOriginal->Reference());
+
+    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fSkeletonMatId);
+    cmesh->InsertMaterialObject(skeletonMat);
+
+    cmesh->SetDefaultOrder(fOriginal->GetDefaultOrder());
+
+    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    cmesh->ApproxSpace().CreateDisconnectedElements(true);
+
+    cmesh->AutoBuild();
+
+    return cmesh;
 }
