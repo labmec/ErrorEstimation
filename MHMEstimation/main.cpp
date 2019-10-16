@@ -139,28 +139,49 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf);
 int MHMTest(ProblemConfig &Conf);
 
 TPZGeoMesh *CreateCircleGeoMesh();
+TPZGeoMesh *NonConvexMesh(int ndiv);
 
-bool IsgmeshReader = false;
+
+bool IsgmeshReader = true;
 
 int main(){
     InitializePZLOG();
     
-    for(int ndiv=1 ; ndiv<2 ; ndiv++){
+//    int ndiv = 0;
+//    TPZGeoMesh *nonconvexMesh = NonConvexMesh(ndiv);
+//
+//
+//#ifdef PZDEBUG
+//    {
+//        std::ofstream out("NonConvexMesh.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(nonconvexMesh, out);
+//        std::ofstream out2("NonConvexMesh.txt");
+//        nonconvexMesh->Print(out2);
+//
+//    }
+//#endif
+//
+//
+//
+//    return EXIT_SUCCESS;
+    
+    
+    for(int ndiv=0 ; ndiv<5 ; ndiv++){
     ProblemConfig config;
     
     config.porder = 1;
     config.hdivmais = 1;
     config.ndivisions = ndiv;
-    config.dimension = 2;
+    config.dimension = 3;
     config.prefine=false;
    
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSin;//ESinCosCircle;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+    config.exact.fExact = example.EBubble;
      
-    config.problemname = "ESinSin";
+    config.problemname = "3DProblem";
     
-    config.dir_name= "MHM_Mixed";
+    config.dir_name= "MHM_Mixed3D";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
         
@@ -170,20 +191,22 @@ int main(){
     if(IsgmeshReader){
 
        // std::string meshfilename = "../Circular.msh";
-        std::string meshfilename = "../Quad.msh";
+       // std::string meshfilename = "../Quad.msh";
+        std::string meshfilename = "../Cube.msh";
 
         TPZGmshReader gmsh;
 
 
      //   gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
-        gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
+        gmsh.GetDimNamePhysical()[2]["dirichlet"] = 2;
 //        gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
 //        gmsh.GetDimNamePhysical()[1]["neumann"] = 10;
-        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+        gmsh.GetDimNamePhysical()[3]["domain"] = 1;
 
  
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
+        //config.bcmaterialids.insert(3);
 //        config.bcmaterialids.insert(10);
 
 
@@ -665,8 +688,8 @@ int MHMTest(ProblemConfig &Conf){
     // number of coarse elements in the x and y direction
     
     TPZGeoMesh *gmeshcoarse = Conf.gmesh;
-    std::ofstream file("FineMesh.vtk");
-    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+//    std::ofstream file("FineMesh.vtk");
+//    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
 
     
     TPZAutoPointer<TPZMHMixedMeshControl> MHMixed;
@@ -682,9 +705,9 @@ int MHMTest(ProblemConfig &Conf){
         TPZVec<int64_t> coarseindices;
         ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
         
-        for(int i =0; i < coarseindices.size(); i++){
-                    std::cout << "coarse index i = " << coarseindices[i] << std::endl;
-                }
+//        for(int i =0; i < coarseindices.size(); i++){
+//                    std::cout << "coarse index i = " << coarseindices[i] << std::endl;
+//                }
         
         
         // criam-se apenas elementos geometricos
@@ -731,7 +754,7 @@ int MHMTest(ProblemConfig &Conf){
         
         
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             std::ofstream file("GMeshControlHDiv.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
@@ -742,7 +765,7 @@ int MHMTest(ProblemConfig &Conf){
         
         
         std::cout << "MHM Hdiv Computational meshes created\n";
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
 
         {
             std::ofstream gfile("geometryMHMHdiv.txt");
@@ -821,8 +844,24 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
 //    mat->SetPermeability(1.);
     
     TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
-    K.Identity();
-    invK.Identity();
+//    K.Identity();
+//    invK.Identity();
+    for(int i=0;i<3;i++){
+        for(int j=0; j<3;j++){
+            if (i != j){
+                K(i,j)=1.;
+                invK(i,j) = -1./4.;
+            }
+            else{
+                K(i,j) = 2.;
+                invK(i,i) = 3./4.;
+                
+            }
+        }
+    }
+    
+    K.Print(std::cout);
+    invK.Print(std::cout);
     
     mat->SetForcingFunctionExact(config.exact.Exact());
     mat->SetForcingFunction(config.exact.ForcingFunction());
@@ -1082,6 +1121,121 @@ TPZGeoMesh *CreateCircleGeoMesh() {
 //    nodesIdVec[1] = 14;
 //    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
     
+    gmesh->BuildConnectivity();
+    
+    return gmesh;
+}
+
+
+TPZGeoMesh *NonConvexMesh(int ndiv) {
+    
+    int nx = 6*(ndiv+1);
+    int ny = 4*(ndiv+1);
+    REAL hx = 1./nx;
+    REAL hy = 1./ny;
+   
+    TPZGeoMesh *gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+    
+    TPZVec<REAL> coord(3, 0.);
+    //1o nivel de nos
+    std::cout<<"Ptos={";
+    for (int64_t ix = 0; ix <= nx; ix++) {
+        
+        for (int64_t iy = 0; iy <= ny; iy++) {
+            
+            coord[0] = hx*ix;
+            coord[1] = hy*iy;
+            const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+            gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+            
+            std::cout<<"{"<<coord[0]<<","<<coord[1]<<"},"<<std::endl;
+
+        }
+    }
+    
+    std::cout<<"};ListPlot[Ptos, PlotStyle -> {Red}]"<<std::endl;
+    
+    //2o nivel de nos
+    
+    std::cout<<"Ptos2={";
+    
+    for (int64_t ix = 1; ix < nx; ix++) {
+        
+        for (int64_t iy = 1; iy < ny; iy++) {
+            
+            coord[0] = (hx/2.)*ix ;
+            coord[1] = (hx/2.)*iy ;
+            std::cout<<"{"<<coord[0]<<","<<coord[1]<<"},"<<std::endl;
+            const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+            gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+            
+        }
+    }
+    
+    std::cout<<"};ListPlot[Ptos, PlotStyle -> {Blue}]"<<std::endl;
+    
+    
+    
+    
+    
+    
+//    // Inserts node at origin
+//    gmesh->NodeVec().AllocateNewElement();
+//    gmesh->NodeVec()[0].Initialize(coord, *gmesh);
+//
+//    // Inserts circumference nodes
+//    for (int64_t i = 0; i < 16; i++) {
+//        const REAL step = M_PI / 8;
+//        coord[0] = cos(i * step);
+//        coord[1] = sin(i * step);
+//        std::cout<<"{"<<coord[0]<<"," <<coord[1]<<"},"<<std::endl;
+//
+//
+//
+//        const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+//        gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+//    }
+//
+//    int matIdTriangle = 1, matIdArc = 2;
+//
+//    // Inserts triangle elements
+//    TPZManVector<int64_t, 3> nodesIdVec(3);
+//    for (int64_t i = 0; i < 7; i++) {
+//        nodesIdVec[0] = 0;
+//        nodesIdVec[1] = 1 + 2 * i;
+//        nodesIdVec[2] = 3 + 2 * i;
+//        std::cout<<"{"<<nodesIdVec[0] <<"," <<nodesIdVec[1] <<", "<<nodesIdVec[2] <<"},"<<std::endl;
+//        new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
+//    }
+//    nodesIdVec[0] = 0;
+//    nodesIdVec[1] = 15;
+//    nodesIdVec[2] = 1;
+//
+//    new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
+//    // Inserts arc elements
+//    for (int64_t i = 0; i < 7; i++) {
+//        nodesIdVec[0] = 1 + 2 * i;
+//        nodesIdVec[1] = 3 + 2 * i;
+//        nodesIdVec[2] = 2 + 2 * i;
+//        new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, matIdArc, *gmesh);
+//    }
+//
+//    nodesIdVec[0] = 15;
+//    nodesIdVec[1] = 1;
+//    nodesIdVec[2] = 16;
+//    //para o broblema do douglas matIdArc=3
+//    new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, 3, *gmesh);
+//    //    // Finally, inserts line elements to complete boundary
+//    //    nodesIdVec.Resize(2);
+//    //    nodesIdVec[0] = 0;
+//    //    nodesIdVec[1] = 1;
+//    //    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+//    //
+//    //    nodesIdVec[0] = 0;
+//    //    nodesIdVec[1] = 14;
+//    //    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+//
     gmesh->BuildConnectivity();
     
     return gmesh;

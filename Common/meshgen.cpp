@@ -742,14 +742,14 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     std::cout << "Assembling\n";
     an.Assemble();
 //    if(0)
-    {
-        std::string filename = prefix;
-        filename += "_Global.nb";
-        std::ofstream global(filename.c_str());
-        TPZAutoPointer<TPZStructMatrix> strmat = an.StructMatrix();
-        an.Solver().Matrix()->Print("Kg = ",global,EMathematicaInput);
-        an.Rhs().Print("Fg = ",global,EMathematicaInput);
-    }
+//    {
+//        std::string filename = prefix;
+//        filename += "_Global.nb";
+//        std::ofstream global(filename.c_str());
+//        TPZAutoPointer<TPZStructMatrix> strmat = an.StructMatrix();
+//        an.Solver().Matrix()->Print("Kg = ",global,EMathematicaInput);
+//        an.Rhs().Print("Fg = ",global,EMathematicaInput);
+//    }
     std::cout << "Solving\n";
     an.Solve();
     std::cout << "Finished\n";
@@ -790,7 +790,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     std::string plotname;
     {
         std::stringstream out;
-        out << "MHMProblem_POrder_" <<config.pOrderInternal << "_" << cmesh->Dimension() << "D_" << "Ndiv_ " << config.numHDivisions<< ".vtk";
+        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
         plotname = out.str();
         
     }

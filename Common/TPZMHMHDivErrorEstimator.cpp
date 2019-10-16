@@ -32,7 +32,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out1("fluxpostNH.txt");
         meshvec[0]->Print(out1);
@@ -45,7 +45,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     
     fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out1("fluxbeforeSub.txt");
         meshvec[0]->Print(out1);
@@ -58,7 +58,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 
     SubStructurePostProcessingMesh();
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out1("fluxbePostSub.txt");
         meshvec[0]->Print(out1);
@@ -657,7 +657,7 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
         }
     }
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);

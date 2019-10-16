@@ -59,13 +59,13 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         an.SetExact(fExact->ExactSolution());
     }
     
-#ifdef PZDEBUG
-    {
-        std::ofstream out("PressureMeshDenise.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
-        
-    }
-#endif
+//#ifdef PZDEBUG
+//    {
+//        std::ofstream out("PressureMeshDenise.txt");
+//        fPostProcMesh.MeshVector()[1]->Print(out);
+//
+//    }
+//#endif
     
     
     TPZManVector<REAL> errorvec(6, 0.);
@@ -102,9 +102,11 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
     //Erro global
+
+    
     
     ofstream myfile;
-    myfile.open("ArquivosEstimationErrors.txt", ios::app);
+    myfile.open("ArquivosEstimationErrorsMHM.txt", ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
@@ -1424,8 +1426,8 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
         }
     }
     
-    cmesh->ElementSolution().Print("ElSolution",std::cout);
-    ofstream out("IeffPerElement.nb");
+  //  cmesh->ElementSolution().Print("ElSolution",std::cout);
+    ofstream out("IeffPerElement3DEx.nb");
     dataIeff.Print("Ieff = ",out,EMathematicaInput);
     
     
@@ -1512,9 +1514,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
     
-    PlotLagrangeMultiplier("AfterNodalAverage");
+   // PlotLagrangeMultiplier("AfterNodalAverage");
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
         fPostProcMesh.Print(out);

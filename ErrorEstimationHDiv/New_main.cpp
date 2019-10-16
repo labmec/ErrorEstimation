@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
         config.makepressurecontinuous = true;
         config.adaptivityStep = ndiv;
     
-        config.exact.fExact = TLaplaceExample1::ESinSin;//ESinSin;//EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
+        config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;
         config.problemname = "SinSinMarkk1n1Up1";
 
         bool RunMark = false;
