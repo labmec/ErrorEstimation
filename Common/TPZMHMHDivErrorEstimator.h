@@ -65,6 +65,9 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     // Creates skeleton elements to calculate the average pressure between neighbours
     void CreatePressureSkeleton();
 
+    // Creates H1 discontinuous space on skeleton elements
+    TPZCompMesh *CreateSkeletonApproximationSpace();
+
     // a method for generating the hybridized multiphysics post processing mesh
     virtual void CreatePostProcessingMesh() override;
     // a method for transferring the multiphysics elements in submeshes
