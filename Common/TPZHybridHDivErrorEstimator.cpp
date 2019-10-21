@@ -109,7 +109,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     myfile.open("ArquivosEstimationErrorsMHM.txt", ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
+    myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order k= " << fProblemConfig.porder << " Order n= "<< fProblemConfig.hdivmais<<"\n";
     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     myfile << "Global estimator = " << errorvec[3] << "\n";
     myfile << "Global exact error = " << errorvec[2] << "\n";
@@ -308,19 +308,17 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     
     
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
+    mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
+    mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
+    mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
+    
+    
     if(fPostProcesswithHDiv)
     {
-        mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
-        mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
-        mesh_vectors[0] = CreateFluxMesh();//flux reconstruct
-        mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
+        //flux reconstructed just using Hdiv reconstruction
+        mesh_vectors[0] = CreateFluxMesh();
     }
-    else {
-      //with H1 resconstruction don't need the flux mesh
-        mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
-        mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
-        mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
-    }
+
     
     if (!fOriginalIsHybridized) {
         fHybridizer.ComputePeriferalMaterialIds(mesh_vectors);
@@ -369,6 +367,12 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     
     TPZManVector<int> active(4, 0);
     active[1] = 1;
+    
+    if(fPostProcesswithHDiv)
+    {
+        // the flux mesh is active only if we postprocess with an H(div) approximation
+        active[0] = 1;
+    }
 
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     {
@@ -493,7 +497,7 @@ void TPZHybridHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh)
         }
          TPZMaterial *mat=cel->Material();
         
-         std::cout<<"material "<<mat->Id()<<std::endl;
+       //  std::cout<<"material "<<mat->Id()<<std::endl;
         TPZGeoElSide gelside(gel, gel->NSides() - 1);
         TPZStack<TPZCompElSide> celstack;
         gelside.EqualLevelCompElementList(celstack, 1, 0);
@@ -935,7 +939,7 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
 void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel)
 {
     
-    std::cout<<"Computing average for iel "<<iel<<"\n";
+  //  std::cout<<"Computing average for iel "<<iel<<"\n";
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     int dim = gmesh->Dimension();
     TPZCompEl *cel = pressuremesh->Element(iel);
@@ -1272,12 +1276,13 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
         if (!intel1) DebugStop();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
-        std::cout << "connects contains:";
+        std::cout << "connects contains: \n";
         
         for (std::set<int64_t>::iterator it=connects.begin(); it!=connects.end(); it++){
-            std::cout << " " << *it;
+            std::cout << " connect " << *it;
             std::cout << "\n";
         }
+        
         
         if (connects.find(conindex) != connects.end()) DebugStop();//o que isso significa?
         connects.insert(conindex);//insere os conects associado a este no
