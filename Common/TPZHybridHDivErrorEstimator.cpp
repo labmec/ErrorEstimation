@@ -1171,8 +1171,8 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages() {
     gmesh->ResetReference();
     int dim = gmesh->Dimension();
     pressureHybrid->LoadReferences();
-    int lagrangematid = fHybridizer.fLagrangeInterface;
-    TPZMaterial *mat = pressureHybrid->FindMaterial(lagrangematid);
+   // int lagrangematid = fHybridizer.fLagrangeInterface;
+    TPZMaterial *mat = pressureHybrid->FindMaterial(fInterfaceMatid);
     if (!mat) DebugStop();
     int nstate = mat->NStateVariables();
     int64_t nel = pressureHybrid->NElements();
@@ -1282,8 +1282,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
             std::cout << " connect " << *it;
             std::cout << "\n";
         }
-        
-        
+      
         if (connects.find(conindex) != connects.end()) DebugStop();//o que isso significa?
         connects.insert(conindex);//insere os conects associado a este no
         TPZConnect &c = intel1->Connect(celside.Side());
@@ -1709,6 +1708,7 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
 void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
+
     if(fPostProcesswithHDiv) {
         for (auto matid : fPostProcMesh.MaterialVec()) {
             TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);

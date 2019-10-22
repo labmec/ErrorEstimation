@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     ///
     
 
-    for(int ndiv=1; ndiv<6; ndiv++){
+    for(int ndiv=0; ndiv<1; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     
     else{
         TPZManVector<int,4> bcids(4,-1);
-        gmesh = CreateGeoMesh(1, bcids);
+        gmesh = CreateGeoMesh(2, bcids);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         config.gmesh = gmesh;
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
         
     }
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             std::ofstream out("gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
     UniformRefinement(config.ndivisions, gmesh);
     RandomRefine(config, config.ndivisions);
 
-   #ifdef PZDEBUG
+   #ifdef PZDEBUG2
     {
         std::ofstream out("gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
