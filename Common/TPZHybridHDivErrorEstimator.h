@@ -128,6 +128,8 @@ protected:
     /// compute the average pressures of across faces of the H(div) mesh
     void ComputeAverageFacePressures();
     
+    void ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
+    
     /// compute the average pressures of across edges of the H(div) mesh
     virtual void ComputeAveragePressures(int target_dim);
     

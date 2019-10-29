@@ -548,7 +548,7 @@ void TPZMHMHDivErrorEstimator::SwitchMaterialObjects()
             
             if(fExact)
             {
-                newmat->SetForcingFunctionExact(fExact->Exact());
+                newmat->SetForcingFunction(fExact->Exact());
                 newmat->SetForcingFunction(fExact->ForcingFunction());
                 
             }

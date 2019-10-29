@@ -176,12 +176,12 @@ int main() {
     config.porder = 1;
     config.hdivmais = 1;
     config.ndivisions = ndiv;
-    config.dimension = 3;
+    config.dimension = 2;
     config.prefine=false;
    
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.EBubble;
+        config.exact.fExact = example.ESinSin;//example.EBubble;
      
     config.problemname = "3DProblem";
     
@@ -233,7 +233,7 @@ int main() {
 
 
         int nx = 2;//pow(2, ndiv);
-        gmesh =CreateGeoMesh(nx, bcids);// MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);//CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
+        gmesh = CreateGeoMesh(nx, bcids);//MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);// CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
         config.gmesh = gmesh;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
@@ -676,26 +676,26 @@ int MHMTest(ProblemConfig &Conf){
     // number of coarse elements in the x and y direction
     
     TPZGeoMesh *gmeshcoarse = Conf.gmesh;
-//    std::ofstream file("FineMesh.vtk");
-//    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+    std::ofstream file("FineMesh.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
 
     
     TPZAutoPointer<TPZMHMixedMeshControl> MHMixed;
     
     {
         TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
-//        {
-//            std::ofstream out("gmeshauto.txt");
-//            gmeshauto->Print(out);
-//        }
+        {
+            std::ofstream out("gmeshauto.txt");
+            gmeshauto->Print(out);
+        }
         TPZMHMixedMeshControl *mhm = new TPZMHMixedMeshControl(gmeshauto);
         // compute for each element the coarse index to which it will belong
         TPZVec<int64_t> coarseindices;
         ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
         
-//        for(int i =0; i < coarseindices.size(); i++){
-//                    std::cout << "coarse index i = " << coarseindices[i] << std::endl;
-//                }
+        for(int i =0; i < coarseindices.size(); i++){
+                    std::cout << "coarse index i = " << coarseindices[i] << std::endl;
+                }
         
         
         // criam-se apenas elementos geometricos
@@ -742,7 +742,7 @@ int MHMTest(ProblemConfig &Conf){
         
         
         
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
             std::ofstream file("GMeshControlHDiv.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
@@ -753,7 +753,7 @@ int MHMTest(ProblemConfig &Conf){
         
         
         std::cout << "MHM Hdiv Computational meshes created\n";
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
 
         {
             std::ofstream gfile("geometryMHMHdiv.txt");

@@ -83,12 +83,12 @@ int main(int argc, char *argv[]) {
         config.makepressurecontinuous = true;
         config.adaptivityStep = ndiv;
     
-        config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;
-        config.problemname = "SinNonHom_RecH1";
+        config.exact.fExact = TLaplaceExample1::ESinSin;//EArcTan;//ESinSin;
+        config.problemname = "L2BoundaryProjection";
 
         bool RunMark = false;
         
-        config.dir_name= "TestePaper";//"ReconstructionH1";
+        config.dir_name="ReconstructionH1";// "TestePaper";//
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
         
     }
         
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
             std::ofstream out("gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
