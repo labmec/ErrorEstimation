@@ -91,7 +91,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         
     }
 #endif
-    
+
     an.PostProcessError(errorvec,true);//calculo do erro com sol exata e aprox e armazena no elementsolution
     
     TPZCompMesh *cmesh = &fPostProcMesh;
@@ -101,10 +101,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
-    //Erro global
 
-    
-    
+    //Erro global
     ofstream myfile;
     myfile.open("ArquivosEstimationErrorsMHM.txt", ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
@@ -117,15 +115,12 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     myfile <<"|ufem-urec| = "<<errorvec[1] << "\n";
     myfile <<"Residual ErrorL2= "<<errorvec[4] << "\n";
     myfile.close();
-    
-    
+
     ComputeEffectivityIndices();
     
     PostProcessing(an);
- 
-    
-    
 }
+
 void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
     //rever codigo baseado no vetor de erros dos materiais
     
@@ -306,8 +301,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         // we can not post process with H1 if the original mesh is not hybridized
         DebugStop();
     }
-    
-    
+
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
@@ -320,8 +314,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
     mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
-    
-    
+
     if(fPostProcesswithHDiv)
     {
         //flux reconstructed just using Hdiv reconstruction
@@ -335,22 +328,12 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         fHybridizer.HybridizeInternalSides(mesh_vectors);
         int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
         fSkeletonMatId = lastmatid + 1;
-#ifdef PZDEBUG
-        {
-            std::ofstream out("OriginalFlux.txt");
-            mesh_vectors[2]->Print(out);
-            std::ofstream out2("OriginalPotential.txt");
-            mesh_vectors[3]->Print(out2);
-            std::ofstream out3("OriginalMeshHybrid.txt");
-            fPostProcMesh.Print(out3);
-        }
-#endif
     } else {
         IdentifyPeripheralMaterialIds();
         int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
         fSkeletonMatId = lastmatid + 1;
     }
-    
+
     // increase the order of the dim-1 elements to the maximum of both neighbouring elements
     IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao
     if(fPostProcesswithHDiv)
@@ -1260,58 +1243,9 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages() {
         for (int side = 0; side < ncorners; side++) {
             TPZGeoElSide gelside(gel, side);
             TPZCompElSide celside(intel,side);
-            if(IsDirichletCondition(gelside)){
-                std::cout<<"No nodal average for bc element"<<std::endl;
-                continue;
-            }//nao calcular media dos nos no contorno
             ComputeNodalAverage(celside);
         }
     }
-    
-    {
-        
-        
-    }
-    
-//    // force the pressure values on Dirichlet boundaries to be equal to the imposed value
-//    for (int64_t el = 0; el < nel; el++) {
-//        TPZCompEl *cel = pressureHybrid->Element(el);
-//        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
-//        if (!intel) {
-//            continue;
-//        }
-//        TPZGeoEl *gel = intel->Reference();
-//        if (gel->Dimension() != dim - 1 || gel->MaterialId() != fInterfaceMatid) {
-//            continue;
-//        }
-//        int nsides = gel->NCornerNodes();
-//        for (int side = 0; side < nsides; side++) {
-//            TPZGeoElSide gelside(gel, side);
-//            TPZGeoElSide neighbour = gelside.Neighbour();
-//            while (gelside != neighbour) {
-//                if (IsDirichletCondition(neighbour)) {
-//                    TPZConnect &c = intel->Connect(side);
-//                    int nstate = c.NState();
-//                    TPZManVector<STATE, 3> vals(nstate, 0.);
-//                    GetDirichletValue(neighbour, vals);
-//                    int64_t seqnum = c.SequenceNumber();
-//                    for (int ist = 0; ist < nstate; ist++) {
-//#ifdef LOG4CXX
-//                        if (logger->isDebugEnabled()) {
-//                            std::stringstream sout;
-//                            sout << "value before " << pressureHybrid->Block()(seqnum, 0, ist, 0) <<
-//                            " value after " << vals[ist];
-//                            //            res2.Print("Residual",sout);
-//                            LOGPZ_DEBUG(logger, sout.str())
-//                        }
-//#endif
-//                        pressureHybrid->Block()(seqnum, 0, ist, 0) = vals[ist];
-//                    }
-//                }
-//                neighbour = neighbour.Neighbour();
-//            }
-//        }
-//    }
 }
 
 /// compute the nodal average of all elements that share a point
@@ -1333,13 +1267,15 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
     int removeduplicates = 0;
     gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
     celstack.Push(gelside.Reference());
-    TPZManVector<STATE, 3> averageval(nstate, 0.);
-    std::set<int64_t> connects;
+    // This map stores the connects, boolean that checks if the connect belongs to a BC
+    // and the solution of that connect. This will be used later to impose the value of
+    // the BC in the connects when needed
+    std::map<int64_t, std::pair<bool, TPZVec<STATE>>> connects;
+    bool nodeIsAtDirichletBorder = false;
     //para cada elemento que tem este no procede como segue
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         TPZGeoElSide gelside0 = celside.Reference();
-
 
         if (gelside0.Element()->Dimension() != dim - 1) {
             continue;
@@ -1347,41 +1283,42 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
         if (!intel1) DebugStop();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
-//        std::cout << "connects contains: \n";
-//
-//        for (std::set<int64_t>::iterator it=connects.begin(); it!=connects.end(); it++){
-//            std::cout << " connect " << *it;
-//            std::cout << "\n";
-//        }
-        
-        
-      
+
+        bool isBC = IsDirichletCondition(gelside0);
+        if (isBC) nodeIsAtDirichletBorder = true;
         if (connects.find(conindex) != connects.end()) DebugStop();//nao pode inserir cnnects que já existem
-        connects.insert(conindex);//insere os conects associado a este no
         TPZConnect &c = intel1->Connect(celside.Side());
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         TPZManVector<REAL,3> pt(0), x(3);
         gelside0.X(pt, x);
         std::cout << "x = " << x << " seqnumber= "<< seqnum<<" sol " << pressureHybrid->Block().Get(seqnum, 0, 0, 0) << std::endl;
-        //soma a soluçao dos elementos que possuem este connect
+        TPZManVector<STATE, 3> sol(nstate, 0.);
         for (int istate = 0; istate < nstate; istate++) {
-            averageval[istate] += pressureHybrid->Block().Get(seqnum, 0, istate, 0);
-            
-        }//somou todas as medias de pressao nas interfaces??
+            sol[istate] = pressureHybrid->Block().Get(seqnum, 0, istate, 0);
+        }
+        connects.insert({conindex, {isBC, sol}});
     }
-    
-    //por fim divide pelo numero de connects
-    auto ncontr = connects.size();
-    
+
+    TPZManVector<STATE, 3> averageSol(nstate, 0);
+    int nconnects = 0;
+
+    for (auto it = connects.begin(); it != connects.end(); it++) {
+        bool isBC = it->second.first;
+        // If the node is located on the Dirichlet BC, internal sides don't contribute to the average of the connects
+        if (nodeIsAtDirichletBorder && !isBC) continue;
+        for (int istate = 0; istate < nstate; istate++) {
+            averageSol[istate] += it->second.second[istate];
+            nconnects++;
+        }
+    }
+
     for (int istate = 0; istate < nstate; istate++) {
-        averageval[istate] /= ncontr;
-        //   std::cout<<"valor nos vertices "<<averageval[istate]<<std::endl;
-    }//constroi o operador averaging
-//    std::cout << "average " << averageval << std::endl;
-    
-    
-    for (auto conindex : connects) {
+        averageSol[istate] /= nconnects;
+    }
+
+    for (auto it = connects.begin(); it != connects.end(); it++) {
+        int64_t conindex = it->first;
         TPZConnect &c = pressureHybrid->ConnectVec()[conindex];
         int64_t seqnum = c.SequenceNumber();
         std::cout<<"connect "<<seqnum<<std::endl;
@@ -1391,14 +1328,14 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
             if (logger->isDebugEnabled()) {
                 std::stringstream sout;
                 sout << "value before " << pressureHybrid->Block()(seqnum, 0, istate, 0) <<
-                " value after " << averageval[istate] << " diff "
-                << pressureHybrid->Block()(seqnum, 0, istate, 0) - averageval[istate] << " ncontr "
-                << ncontr;
+                " value after " << averageSol[istate] << " diff "
+                << pressureHybrid->Block()(seqnum, 0, istate, 0) - averageSol[istate] << " ncontributing connects "
+                << nconnects;
                 //            res2.Print("Residual",sout);
                 LOGPZ_DEBUG(logger, sout.str())
             }
 #endif
-            pressureHybrid->Block()(seqnum, 0, istate, 0) = averageval[istate];
+            pressureHybrid->Block()(seqnum, 0, istate, 0) = averageSol[istate];
         }
     }
     
@@ -1612,8 +1549,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         meshvec[1] = fPostProcMesh.MeshVector()[1];
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     }
-    
-    PlotLagrangeMultiplier("AfterNodalAverage");
 
 #ifdef PZDEBUG
     {
@@ -1647,7 +1582,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         std::ofstream out("MeshAfterLoadSol.txt");
         fPostProcMesh.Print(out);
          fPostProcMesh.Solution().Print("SolAfterLoadSolution");
-        
     }
 #endif
     
@@ -2037,49 +1971,47 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
     pressuremesh->LoadReferences();
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
-    for (int64_t el = 0; el<nel; el++) {
+    for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
-        if(!cel) continue;
+        if (!cel) continue;
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
-        if(!intel) DebugStop();
+        if (!intel) DebugStop();
         TPZGeoEl *gel = intel->Reference();
-        if(gel->Dimension() != dim) continue;
+        if (gel->Dimension() != dim) continue;
         int nsides = gel->NSides();
 
-        for (int is=0; is<nsides; is++) {
+        for (int is = 0; is < nsides; is++) {
             //
             TPZGeoElSide gelside(gel, is);
             TPZConnect &c = intel->Connect(is);
             int64_t c_seqnum = c.SequenceNumber();
-            int c_blocksize = c.NShape()*c.NState();
+            int c_blocksize = c.NShape() * c.NState();
             //TPZGeoElSide gelside(gel,is);
             TPZStack<TPZCompElSide> celstack;
             gelside.EqualLevelCompElementList(celstack, 1, 0);
             int nst = celstack.NElements();
-            for(int ist=0; ist<nst; ist++)
-            {
+            for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
-                if (gneigh.Element()->MaterialId() == this->fHybridizer.fLagrangeInterface || IsDirichletCondition(gneigh)) {
+                if (gneigh.Element()->MaterialId() == this->fHybridizer.fLagrangeInterface ||
+                    IsDirichletCondition(gneigh)) {
                     TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
-                    if(!intelneigh) DebugStop();
+                    if (!intelneigh) DebugStop();
                     TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
                     int64_t con_seqnum = con_neigh.SequenceNumber();
-                    int con_size = con_neigh.NState()*con_neigh.NShape();
-                    if(con_size != c_blocksize) DebugStop();
-                    for (int ibl = 0; ibl<con_size; ibl++) {
-                        pressuremesh->Block()(c_seqnum,0,ibl,0) = pressuremesh->Block()(con_seqnum,0,ibl,0);
+                    int con_size = con_neigh.NState() * con_neigh.NShape();
+                    if (con_size != c_blocksize) DebugStop();
+                    for (int ibl = 0; ibl < con_size; ibl++) {
+                        pressuremesh->Block()(c_seqnum, 0, ibl, 0) = pressuremesh->Block()(con_seqnum, 0, ibl, 0);
                     }
                     break;
                 }
                 // all elements must have at least one neighbour of type skeleton--> esta premissa nao vale para reconstrucao Hdiv-H1
-                if(ist == nst-1)
-                {
+                if (ist == nst - 1) {
                     std::cout << "Connect " << is << " from element el " << el << " was not updated \n";
                 }
-            
+            }
         }
-    }
     }
     {
         std::ofstream out("MeshAfterCopySkeleton.txt");
