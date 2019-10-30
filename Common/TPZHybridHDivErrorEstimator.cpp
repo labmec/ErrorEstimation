@@ -61,8 +61,14 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     
 #ifdef PZDEBUG
     {
-        std::ofstream out("PressureMeshComputeError.txt");
+        std::ofstream out("PressureRecMeshComputeError.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
+        std::ofstream out2("PressureMeshComputeError.txt");
+        fPostProcMesh.MeshVector()[3]->Print(out2);
+//        std::ofstream out3("FluxRecMeshComputeError.txt");
+//        fPostProcMesh.MeshVector()[0]->Print(out3);
+        std::ofstream out4("FluxMeshComputeError.txt");
+        fPostProcMesh.MeshVector()[2]->Print(out);
 
     }
 #endif
@@ -249,7 +255,7 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
  
     //For H1 reconstruction need to build material for bc condition
     else{
-        TPZCompMesh *pressure = fOriginal->MeshVector()[1];
+        TPZCompMesh *pressure = fOriginal->MeshVector()[1]->Clone();
         TPZGeoMesh  *gmesh = pressure->Reference();
         gmesh->ResetReference();
         pressure->LoadReferences();
@@ -307,6 +313,17 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         DebugStop();
     }
     
+#ifdef PZDEBUG
+    {
+        std::ofstream out("OriginalFlux.txt");
+        fOriginal->MeshVector()[0]->Print(out);
+        std::ofstream out2("OriginalPotential.txt");
+        fOriginal->MeshVector()[1]->Print(out2);
+        std::ofstream out3("OriginalMeshHybrid.txt");
+        fPostProcMesh.Print(out3);
+    }
+#endif
+    
     
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
@@ -335,21 +352,16 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         fHybridizer.HybridizeInternalSides(mesh_vectors);
         int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
         fSkeletonMatId = lastmatid + 1;
-#ifdef PZDEBUG
-        {
-            std::ofstream out("OriginalFlux.txt");
-            mesh_vectors[2]->Print(out);
-            std::ofstream out2("OriginalPotential.txt");
-            mesh_vectors[3]->Print(out2);
-            std::ofstream out3("OriginalMeshHybrid.txt");
-            fPostProcMesh.Print(out3);
-        }
-#endif
+
     } else {
         IdentifyPeripheralMaterialIds();
         int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
         fSkeletonMatId = lastmatid + 1;
     }
+    
+    
+    
+    
     
     // increase the order of the dim-1 elements to the maximum of both neighbouring elements
     IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao
@@ -361,7 +373,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     if (dim == 3) {
         CreateEdgeSkeletonMesh(mesh_vectors[1]);
     }
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         if(fPostProcesswithHDiv)
         {
@@ -1563,7 +1575,23 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     //Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
     // for the border fluxes
     // in the future we can opt to create an H(1) post processing mesh
+    {
+        
+        std::ofstream out("PressureOriginalBeforeProcessing.txt");
+        fOriginal->MeshVector()[1]->Print(out);
+        
+    }
+    
     CreatePostProcessingMesh();
+    
+    {
+        
+        std::ofstream out("PressureOriginalPostProcessing.txt");
+        fOriginal->MeshVector()[1]->Print(out);
+        std::ofstream out2("PressureRecPostProcessing.txt");
+        fPostProcMesh.MeshVector()[1]->Print(out2);
+        
+    }
     
     // L2 projection for Dirihlet boundary condition for H1 reconstruction
     if(!fPostProcesswithHDiv){
