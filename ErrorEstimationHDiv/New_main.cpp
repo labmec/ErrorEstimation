@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     ///
     
 
-    for(int ndiv=2; ndiv<3; ndiv++){
+    for(int ndiv=0; ndiv<1; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
@@ -83,12 +83,12 @@ int main(int argc, char *argv[]) {
         config.makepressurecontinuous = true;
         config.adaptivityStep = ndiv;
     
-        config.exact.fExact = TLaplaceExample1::ESinSin;//ESinSin;//EBubble;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EConst;//EX;//EArcTanSingular;//EArcTan;//
-        config.problemname = "SinSinMarkk1n1Up1";
+        config.exact.fExact = TLaplaceExample1::ESinSin;//EArcTan;//ESinSin;
+        config.problemname = "L2BoundaryProjection";
 
         bool RunMark = false;
         
-        config.dir_name= "TesteCNMAC";//"ReconstructionH1";
+        config.dir_name="ReconstructionH1";// "TestePaper";//
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     
@@ -149,6 +149,16 @@ int main(int argc, char *argv[]) {
         
     }
         
+#ifdef PZDEBUG
+        {
+            std::ofstream out("gmesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+            std::ofstream out2("gmeshInitial.txt");
+            gmesh->Print(out2);
+            
+        }
+#endif
+        
         TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
         *hybridEstimatorMesh = *gmesh;
     
@@ -157,7 +167,7 @@ int main(int argc, char *argv[]) {
     UniformRefinement(config.ndivisions, gmesh);
     RandomRefine(config, config.ndivisions);
 
-   #ifdef PZDEBUG
+   #ifdef PZDEBUG2
     {
         std::ofstream out("gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -175,7 +185,7 @@ int main(int argc, char *argv[]) {
     cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         
         std::ofstream out2("MalhaMista.txt");
@@ -212,7 +222,7 @@ int main(int argc, char *argv[]) {
     meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
     meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
 
-   #ifdef PZDEBUG
+   #ifdef PZDEBUG2
     {
         
         std::ofstream out2("OriginalFluxMesh.txt");
@@ -263,13 +273,13 @@ int main(int argc, char *argv[]) {
             HDivEstimate.SetAnalyticSolution(config.exact);
             HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
             
-          //  HDivEstimate.fPostProcesswithHDiv = false;
+            HDivEstimate.fPostProcesswithHDiv = false;
             
             HDivEstimate.PotentialReconstruction();
             
             TPZManVector<REAL> elementerrors;
             HDivEstimate.ComputeErrors(elementerrors);
-        //    hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+           // hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
         
         }
 

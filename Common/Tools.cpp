@@ -111,9 +111,9 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
-    std::set<int> matid;
-    matid.insert(1);
-    matid.insert(-1);
+   // std::set<int> matid;
+//    matid.insert(1);
+//    matid.insert(-1);
     TPZManVector<int> active(2,1);
     TPZManVector<TPZCompMesh *> meshvector(2,0);
     
@@ -495,13 +495,13 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     an.Solve();
 
     TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("Pressure");
-    vecnames.Push("Flux");
+    scalnames.Push("ExactPressure");
+    //vecnames.Push("Flux");
 
     std::stringstream sout;
     sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
     an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-    int resolution = 0;
+    int resolution = 2;
     an.PostProcess(resolution,Hybridmesh->Dimension());
 
     

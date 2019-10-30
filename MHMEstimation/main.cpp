@@ -136,6 +136,7 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf);
 int MHMTest(ProblemConfig &Conf);
 
 TPZGeoMesh *CreateCircleGeoMesh();
+TPZGeoMesh *NonConvexMesh(int ndiv);
 
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes);
 
@@ -144,6 +145,26 @@ bool IsgmeshReader = false;
 
 int main() {
     InitializePZLOG();
+
+
+//    int ndiv = 0;
+//    TPZGeoMesh *nonconvexMesh = NonConvexMesh(ndiv);
+//
+//
+//#ifdef PZDEBUG
+//    {
+//        std::ofstream out("NonConvexMesh.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(nonconvexMesh, out);
+//        std::ofstream out2("NonConvexMesh.txt");
+//        nonconvexMesh->Print(out2);
+//
+//    }
+//#endif
+//
+//
+//
+//    return EXIT_SUCCESS;
+
 
     for(int ndiv=1 ; ndiv<2 ; ndiv++) {
     ProblemConfig config;
@@ -158,9 +179,9 @@ int main() {
 
     config.exact.fExact = example.ESinSin;//ESinCosCircle;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
      
-    config.problemname = "ESinSin";
+    config.problemname = "3DProblem";
     
-    config.dir_name= "MHM_Mixed";
+    config.dir_name= "MHM_Mixed3D";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
         
@@ -169,20 +190,22 @@ int main() {
     if(IsgmeshReader){
 
        // std::string meshfilename = "../Circular.msh";
-        std::string meshfilename = "../Quad.msh";
+       // std::string meshfilename = "../Quad.msh";
+        std::string meshfilename = "../Cube.msh";
 
         TPZGmshReader gmsh;
 
 
      //   gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
-        gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
+        gmsh.GetDimNamePhysical()[2]["dirichlet"] = 2;
 //        gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
 //        gmsh.GetDimNamePhysical()[1]["neumann"] = 10;
-        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
+        gmsh.GetDimNamePhysical()[3]["domain"] = 1;
 
  
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
+        //config.bcmaterialids.insert(3);
 //        config.bcmaterialids.insert(10);
 
 
@@ -206,7 +229,7 @@ int main() {
 
 
         int nx = 2;//pow(2, ndiv);
-        gmesh =CreateGeoMesh(nx, bcids);// MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);//CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
+        gmesh = CreateGeoMesh(nx, bcids);//MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);// CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
         config.gmesh = gmesh;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
@@ -274,7 +297,7 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
     }
     
     std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
-    
+
     //Solving the system:
   
     MixedMesh->InitializeBlock();
@@ -658,7 +681,10 @@ int MHMTest(ProblemConfig &Conf) {
 
     {
         TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
-
+        {
+            std::ofstream out("gmeshauto.txt");
+            gmeshauto->Print(out);
+        }
         TPZMHMixedMeshControl *mhm = new TPZMHMixedMeshControl(gmeshauto);
 
 #ifdef LMESH
@@ -697,7 +723,7 @@ int MHMTest(ProblemConfig &Conf) {
         meshcontrol.SetInternalPOrder(Configuration.pOrderInternal);
         meshcontrol.SetSkeletonPOrder(Configuration.pOrderSkeleton);
        // meshcontrol.SetHdivmaismais(Configuration.hdivmaismais);
-        
+
         meshcontrol.DivideSkeletonElements(Configuration.numDivSkeleton);
         meshcontrol.DivideBoundarySkeletonElements();
 
@@ -706,8 +732,6 @@ int MHMTest(ProblemConfig &Conf) {
         {
             std::ofstream out("MixedMeshControlHDiv.txt");
             meshcontrol.Print(out);
-            std::ofstream file("MeshControl2.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
         }
 #endif
         bool substructure = true;
@@ -804,8 +828,24 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
 //    mat->SetPermeability(1.);
     
     TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
-    K.Identity();
-    invK.Identity();
+//    K.Identity();
+//    invK.Identity();
+    for(int i=0;i<3;i++){
+        for(int j=0; j<3;j++){
+            if (i != j){
+                K(i,j)=1.;
+                invK(i,j) = -1./4.;
+            }
+            else{
+                K(i,j) = 2.;
+                invK(i,i) = 3./4.;
+
+            }
+        }
+    }
+
+    K.Print(std::cout);
+    invK.Print(std::cout);
     
     mat->SetForcingFunctionExact(config.exact.Exact());
     mat->SetForcingFunction(config.exact.ForcingFunction());
@@ -1069,6 +1109,58 @@ TPZGeoMesh *CreateCircleGeoMesh() {
     
     return gmesh;
 }
+
+TPZGeoMesh *NonConvexMesh(int ndiv) {
+
+    int nx = 6*(ndiv+1);
+    int ny = 4*(ndiv+1);
+    REAL hx = 1./nx;
+    REAL hy = 1./ny;
+
+    TPZGeoMesh *gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+
+    TPZVec<REAL> coord(3, 0.);
+    //1o nivel de nos
+    std::cout<<"Ptos={";
+    for (int64_t ix = 0; ix <= nx; ix++) {
+
+        for (int64_t iy = 0; iy <= ny; iy++) {
+
+            coord[0] = hx*ix;
+            coord[1] = hy*iy;
+            const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+            gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+
+            std::cout<<"{"<<coord[0]<<","<<coord[1]<<"},"<<std::endl;
+
+        }
+    }
+
+    std::cout<<"};ListPlot[Ptos, PlotStyle -> {Red}]"<<std::endl;
+
+    //2o nivel de nos
+
+    std::cout<<"Ptos2={";
+
+    for (int64_t ix = 1; ix < nx; ix++) {
+
+        for (int64_t iy = 1; iy < ny; iy++) {
+
+            coord[0] = (hx/2.)*ix ;
+            coord[1] = (hx/2.)*iy ;
+            std::cout<<"{"<<coord[0]<<","<<coord[1]<<"},"<<std::endl;
+            const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+            gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+
+        }
+    }
+
+    std::cout<<"};ListPlot[Ptos, PlotStyle -> {Blue}]"<<std::endl;
+    gmesh->BuildConnectivity();
+    return gmesh;
+}
+
 
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
 
