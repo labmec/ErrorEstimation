@@ -51,7 +51,6 @@
 #include "TPZMatLaplacianHybrid.h"
 #include "TPZLagrangeMultiplier.h"
 
-
 #include "pzbuildmultiphysicsmesh.h"
 #include "pzelementgroup.h"
 #include "TPZCompMeshTools.h"
@@ -88,11 +87,9 @@
 #include "TPZMHMHDivErrorEstimator.h"
 #include "Tools.h"
 
-#define new_identifier
-
-
 using namespace std;
-//using namespace cv;
+
+#define LMESH
 
 // Creating the computational H1 mesh
 TPZCompMesh *CMeshH1(TPZGeoMesh *gmesh, int p_order, ProblemConfig &Conf);
@@ -146,11 +143,10 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes);
 
 bool IsgmeshReader = false;
 
-
 int main() {
     InitializePZLOG();
 
-    
+
 //    int ndiv = 0;
 //    TPZGeoMesh *nonconvexMesh = NonConvexMesh(ndiv);
 //
@@ -168,8 +164,8 @@ int main() {
 //
 //
 //    return EXIT_SUCCESS;
-    
-    
+
+
     for(int ndiv=1 ; ndiv<2 ; ndiv++) {
     ProblemConfig config;
     
@@ -181,7 +177,7 @@ int main() {
    
     TLaplaceExample1 example;
 
-        config.exact.fExact = example.ESinSin;//example.EBubble;
+    config.exact.fExact = example.ESinSin;//ESinCosCircle;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
      
     config.problemname = "3DProblem";
     
@@ -221,7 +217,7 @@ int main() {
 
     }
         
-    else{
+    else {
 
         TPZManVector<int,4> bcids(4,-1);
 
@@ -291,18 +287,17 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
     TPZCompMesh *MixedMesh = CMeshMultphysics(gmesh,fmeshvec,Conf);
     
     {
+
     std::ofstream file("MixedCMesh.vtk");
     TPZVTKGeoMesh::PrintCMeshVTK(MixedMesh, file);
     
     std::ofstream out("CMeshFlux.txt");
     cmesh_flux->Print(out);
-    
+
     }
     
     std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
-    
-    
-    
+
     //Solving the system:
   
     MixedMesh->InitializeBlock();
@@ -664,7 +659,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     
 }
 
-int MHMTest(ProblemConfig &Conf){
+int MHMTest(ProblemConfig &Conf) {
     
     TRunConfig Configuration;
     
@@ -672,16 +667,18 @@ int MHMTest(ProblemConfig &Conf){
     Configuration.pOrderSkeleton = Conf.porder;
     Configuration.numHDivisions = Conf.ndivisions;
     Configuration.hdivmaismais = Conf.hdivmais;
-    
-    // number of coarse elements in the x and y direction
-    
-    TPZGeoMesh *gmeshcoarse = Conf.gmesh;
-    std::ofstream file("FineMesh.vtk");
-    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
 
-    
+#ifdef NORMAL
+    TPZGeoMesh *gmeshcoarse = Conf.gmesh;
+#endif
+
+#ifdef LMESH
+    TPZVec<int64_t> elementIndexes;
+    TPZGeoMesh *gmeshcoarse = CreateLMHMMesh(1, elementIndexes);
+#endif
+
     TPZAutoPointer<TPZMHMixedMeshControl> MHMixed;
-    
+
     {
         TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
         {
@@ -689,30 +686,31 @@ int MHMTest(ProblemConfig &Conf){
             gmeshauto->Print(out);
         }
         TPZMHMixedMeshControl *mhm = new TPZMHMixedMeshControl(gmeshauto);
+
+#ifdef LMESH
+        mhm->DefinePartition(elementIndexes);
+#endif
+#ifdef NORMAL
         // compute for each element the coarse index to which it will belong
-        TPZVec<int64_t> coarseindices;
-        ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
-        
-        for(int i =0; i < coarseindices.size(); i++){
-                    std::cout << "coarse index i = " << coarseindices[i] << std::endl;
-                }
-        
-        
+        TPZVec<int64_t> elementIndexes;
+        ComputeCoarseIndices(gmeshauto.operator->(), elementIndexes);
         // criam-se apenas elementos geometricos
-        mhm->DefinePartitionbyCoarseIndices(coarseindices);
-        //        MHMMixedPref << "MHMixed";
+        mhm->DefinePartitionbyCoarseIndices(elementIndexes);
+#endif
+        TPZManVector<int64_t> geoToMHM = mhm->GetGeoToMHMDomain();
+
         MHMixed = mhm;
-        
+
         // indicate the boundary material indices to  the MHM control structure
         TPZMHMixedMeshControl &meshcontrol = *mhm;
         std::set<int> matids;
-       for (auto matid : Conf.materialids) {
-           matids.insert(matid);
-           
-       }
+        for (auto matid : Conf.materialids) {
+            matids.insert(matid);
+
+        }
         mhm->fMaterialIds = matids;
         matids.clear();
-        
+
         for (auto matid : Conf.bcmaterialids) {
             matids.insert(matid);
        
@@ -721,7 +719,14 @@ int MHMTest(ProblemConfig &Conf){
         
         // insert the material objects in the multiphysics mesh
         InsertMaterialObjects(*mhm,Conf);
-        
+
+        meshcontrol.SetInternalPOrder(Configuration.pOrderInternal);
+        meshcontrol.SetSkeletonPOrder(Configuration.pOrderSkeleton);
+       // meshcontrol.SetHdivmaismais(Configuration.hdivmaismais);
+
+        meshcontrol.DivideSkeletonElements(Configuration.numDivSkeleton);
+        meshcontrol.DivideBoundarySkeletonElements();
+
 #ifdef PZDEBUG
         if(1)
         {
@@ -729,19 +734,9 @@ int MHMTest(ProblemConfig &Conf){
             meshcontrol.Print(out);
         }
 #endif
-        meshcontrol.SetInternalPOrder(Configuration.pOrderInternal);
-        meshcontrol.SetSkeletonPOrder(Configuration.pOrderSkeleton);
-       // meshcontrol.SetHdivmaismais(Configuration.hdivmaismais);
-        
-        meshcontrol.DivideSkeletonElements(Configuration.numDivSkeleton);
-        meshcontrol.DivideBoundarySkeletonElements();
-
         bool substructure = true;
         meshcontrol.BuildComputationalMesh(substructure);
-        
-        
-        
-        
+
 #ifdef PZDEBUG
         {
             std::ofstream file("GMeshControlHDiv.vtk");
@@ -789,6 +784,7 @@ int MHMTest(ProblemConfig &Conf){
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
     
     ErrorEstimator.CreatePressureSkeleton();
+    ErrorEstimator.CreateSkeletonApproximationSpace();
     ErrorEstimator.PotentialReconstruction();
     
     {
@@ -843,11 +839,11 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
             else{
                 K(i,j) = 2.;
                 invK(i,i) = 3./4.;
-                
+
             }
         }
     }
-    
+
     K.Print(std::cout);
     invK.Print(std::cout);
     
@@ -1115,56 +1111,56 @@ TPZGeoMesh *CreateCircleGeoMesh() {
 }
 
 TPZGeoMesh *NonConvexMesh(int ndiv) {
-    
+
     int nx = 6*(ndiv+1);
     int ny = 4*(ndiv+1);
     REAL hx = 1./nx;
     REAL hy = 1./ny;
-   
+
     TPZGeoMesh *gmesh = new TPZGeoMesh();
     gmesh->SetDimension(2);
-    
+
     TPZVec<REAL> coord(3, 0.);
     //1o nivel de nos
     std::cout<<"Ptos={";
     for (int64_t ix = 0; ix <= nx; ix++) {
-        
+
         for (int64_t iy = 0; iy <= ny; iy++) {
-            
+
             coord[0] = hx*ix;
             coord[1] = hy*iy;
             const int64_t newID = gmesh->NodeVec().AllocateNewElement();
             gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
-            
+
             std::cout<<"{"<<coord[0]<<","<<coord[1]<<"},"<<std::endl;
 
         }
     }
-    
+
     std::cout<<"};ListPlot[Ptos, PlotStyle -> {Red}]"<<std::endl;
-    
+
     //2o nivel de nos
-    
+
     std::cout<<"Ptos2={";
-    
+
     for (int64_t ix = 1; ix < nx; ix++) {
-        
+
         for (int64_t iy = 1; iy < ny; iy++) {
-            
+
             coord[0] = (hx/2.)*ix ;
             coord[1] = (hx/2.)*iy ;
             std::cout<<"{"<<coord[0]<<","<<coord[1]<<"},"<<std::endl;
             const int64_t newID = gmesh->NodeVec().AllocateNewElement();
             gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
-            
+
         }
     }
-    
+
     std::cout<<"};ListPlot[Ptos, PlotStyle -> {Blue}]"<<std::endl;
     gmesh->BuildConnectivity();
     return gmesh;
 }
-    
+
 
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
 
@@ -1195,7 +1191,10 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
     // Assigns matIDs to create L elements
     {
         int coarseIndex = 0;
+
+        // Get number of 2D elements
         int64_t nelem = gmesh->NElements();
+
         coarseIndexes.Resize(nelem, -1);
         for (int64_t elem = 0; elem < nelem; elem++) {
             TPZGeoEl *gel = gmesh->ElementVec()[elem];
@@ -1243,10 +1242,7 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
                 }
             }
         }
-
-        for(int64_t elem = 0; elem < nelem; elem++) {
-            gmesh->ElementVec()[elem]->SetMaterialId(coarseIndexes[elem]);
-        }
     }
+
     return gmesh;
 }
