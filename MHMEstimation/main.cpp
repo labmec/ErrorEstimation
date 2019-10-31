@@ -1193,12 +1193,12 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
         int coarseIndex = 0;
 
         // Get number of 2D elements
-        int64_t nelem = gmesh->NElements();
+        int64_t nelem = xElements * yElements;
 
         coarseIndexes.Resize(nelem, -1);
         for (int64_t elem = 0; elem < nelem; elem++) {
             TPZGeoEl *gel = gmesh->ElementVec()[elem];
-            if (gel->Dimension() != 2) continue;
+            if (gel->Dimension() != 2) DebugStop();
 
             int lineInPattern = elem / nx[0] % 4;
             int colInPattern = elem % nx[0] % 6;
