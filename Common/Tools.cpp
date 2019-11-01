@@ -91,7 +91,25 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     TPZFMatrix<REAL> K(3,3,0),invK(3,3,0);
     K.Identity();
     invK.Identity();
+    
+    if(problem.TensorNonConst && problem.gmesh->Dimension()==3){
+        for(int i=0;i<3;i++){
+            for(int j=0; j< 3;j++){
+                if(i==j){
+                    K(i,j) = 2.;
+                    invK(i,j) = 3./4.;
+                }
+                else{
+                    K(i,j) = 1.;
+                    invK(i,j) = (-1.)/4.;
+                }
+            }
+        }
+        
+    }
 
+    K.Print(std::cout);
+    invK.Print(std::cout);
     
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
@@ -494,15 +512,18 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     an.Assemble();
     an.Solve();
 
+//    if(PostProcessingFEM){
+//
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("ExactPressure");
-    //vecnames.Push("Flux");
+    vecnames.Push("Flux");
 
     std::stringstream sout;
     sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
     an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
     int resolution = 2;
     an.PostProcess(resolution,Hybridmesh->Dimension());
+//    }
 
     
 }

@@ -48,11 +48,12 @@
 
 
 
-bool IsgmeshReader = false;
-bool neumann = true;
+bool IsgmeshReader = true;//para ler a malha
+bool neumann = true; //para o problema local de neumann da forlmulacao Mark
 
-bool mixedsolution = false;
+bool mixedsolution = true;//se quiser rodar o prolbema misto
 
+bool PostProcessingFEM = true;//para graficos da solucao FEM
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -64,6 +65,7 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EOned);
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
+    gRefDBase.InitializeUniformRefPattern(ECube);
     
     
     ///
@@ -72,23 +74,24 @@ int main(int argc, char *argv[]) {
     ///
     
 
-    for(int ndiv=0; ndiv<1; ndiv++){
+    for(int ndiv=0; ndiv<5; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
         config.hdivmais = 1;
         config.ndivisions = ndiv;
-        config.dimension = 2;
+        config.dimension = 3;
         config.prefine=false;
         config.makepressurecontinuous = true;
         config.adaptivityStep = ndiv;
+        config.TensorNonConst = true;//para problem 3d com tensor nao constante
     
-        config.exact.fExact = TLaplaceExample1::ESinSin;//EArcTan;//ESinSin;
-        config.problemname = "L2BoundaryProjection";
+        config.exact.fExact = TLaplaceExample1::EBubble;//ESinSinDirNonHom;//EArcTan;//ESinSin;
+        config.problemname = "EBubblePermNonConst";
 
         bool RunMark = false;
         
-        config.dir_name="ReconstructionH1";// "TestePaper";//
+        config.dir_name= "TestePaper";//"ReconstructionH1";//
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
     
@@ -126,7 +129,7 @@ int main(int argc, char *argv[]) {
         }
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
-        config.bcmaterialids.insert(3);
+        //config.bcmaterialids.insert(3);
     
         
         gmsh.SetFormatVersion("4.1");
@@ -222,7 +225,7 @@ int main(int argc, char *argv[]) {
     meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
     meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
 
-   #ifdef PZDEBUG2
+   #ifdef PZDEBUG
     {
         
         std::ofstream out2("OriginalFluxMesh.txt");
@@ -237,7 +240,7 @@ int main(int argc, char *argv[]) {
     
     SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config);
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("OriginalHybridMesh.txt");
         (HybridMesh)->Print(out);
@@ -273,7 +276,7 @@ int main(int argc, char *argv[]) {
             HDivEstimate.SetAnalyticSolution(config.exact);
             HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
             
-            HDivEstimate.fPostProcesswithHDiv = false;
+            HDivEstimate.fPostProcesswithHDiv = true;
             
             HDivEstimate.PotentialReconstruction();
             

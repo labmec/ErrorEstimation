@@ -233,13 +233,13 @@ int main() {
 
 
         int nx = 2;//pow(2, ndiv);
-        gmesh = CreateGeoMesh(nx, bcids);//MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);// CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
+        gmesh = CreateLMHMMesh(ndiv,coarseindices);//CreateGeoMesh(nx, bcids);//MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);// CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
         config.gmesh = gmesh;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
-        config.bcmaterialids.insert(-2);
-        config.bcmaterialids.insert(-3);
-        config.bcmaterialids.insert(-4);
+//        config.bcmaterialids.insert(-2);
+//        config.bcmaterialids.insert(-3);
+//        config.bcmaterialids.insert(-4);
 //        config.bcmaterialids.insert(2);
 //        config.bcmaterialids.insert(3);
         gmesh->SetDimension(config.dimension);
@@ -674,8 +674,9 @@ int MHMTest(ProblemConfig &Conf){
     Configuration.hdivmaismais = Conf.hdivmais;
     
     // number of coarse elements in the x and y direction
-    
-    TPZGeoMesh *gmeshcoarse = Conf.gmesh;
+    //TPZGeoMesh *gmeshcoarse = Conf.gmesh;
+    TPZVec<int64_t> coarseindices;
+    TPZGeoMesh *gmeshcoarse = CreateLMHMMesh(2, coarseindices);
     std::ofstream file("FineMesh.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
 
@@ -690,16 +691,17 @@ int MHMTest(ProblemConfig &Conf){
         }
         TPZMHMixedMeshControl *mhm = new TPZMHMixedMeshControl(gmeshauto);
         // compute for each element the coarse index to which it will belong
-        TPZVec<int64_t> coarseindices;
-        ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
+        //TPZVec<int64_t> coarseindices;
+        //ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
         
         for(int i =0; i < coarseindices.size(); i++){
                     std::cout << "coarse index i = " << coarseindices[i] << std::endl;
-                }
+            }
         
         
         // criam-se apenas elementos geometricos
-        mhm->DefinePartitionbyCoarseIndices(coarseindices);
+        //mhm->DefinePartitionbyCoarseIndices(coarseindices);
+        mhm->DefinePartition(coarseindices);
         //        MHMMixedPref << "MHMixed";
         MHMixed = mhm;
         
@@ -848,8 +850,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
         }
     }
     
-    K.Print(std::cout);
-    invK.Print(std::cout);
+  //  K.Print(std::cout);
+  //  invK.Print(std::cout);
     
     mat->SetForcingFunctionExact(config.exact.Exact());
     mat->SetForcingFunction(config.exact.ForcingFunction());

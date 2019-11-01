@@ -31,6 +31,7 @@ struct ProblemConfig
     bool prefine = false;
     bool steklovexample = false;
     bool GalvisExample;
+    bool TensorNonConst = false;
     STATE alpha=1;
     /// directory where the files will be stored
     std::string dir_name = ".";
@@ -61,7 +62,8 @@ struct ProblemConfig
                                              steklovexample(cp.steklovexample),
                                              GalvisExample(cp.GalvisExample),
                                              dimension(cp.dimension),
-                                             adaptivityStep(cp.adaptivityStep)
+                                             adaptivityStep(cp.adaptivityStep),
+                                            TensorNonConst(cp.TensorNonConst)
     {
     }
 
@@ -84,6 +86,7 @@ struct ProblemConfig
         dir_name = cp.dir_name;
         steklovexample = cp.steklovexample;
         GalvisExample = cp.GalvisExample;
+        TensorNonConst = cp.TensorNonConst;
 
 
         return *this;
