@@ -30,8 +30,9 @@ struct ProblemConfig
     int dimension = 0;
     bool prefine = false;
     bool steklovexample = false;
-    bool GalvisExample;
+    bool GalvisExample = false;
     bool TensorNonConst = false;
+    bool MeshNonConvex = false;
     STATE alpha=1;
     /// directory where the files will be stored
     std::string dir_name = ".";
@@ -63,7 +64,8 @@ struct ProblemConfig
                                              GalvisExample(cp.GalvisExample),
                                              dimension(cp.dimension),
                                              adaptivityStep(cp.adaptivityStep),
-                                            TensorNonConst(cp.TensorNonConst)
+                                            TensorNonConst(cp.TensorNonConst),
+                                            MeshNonConvex(cp.MeshNonConvex)
     {
     }
 
@@ -87,6 +89,7 @@ struct ProblemConfig
         steklovexample = cp.steklovexample;
         GalvisExample = cp.GalvisExample;
         TensorNonConst = cp.TensorNonConst;
+        MeshNonConvex = cp.MeshNonConvex;
 
 
         return *this;

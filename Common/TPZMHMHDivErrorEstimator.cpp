@@ -18,15 +18,25 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         // switch the material from mixed to TPZMHMHDivErrorEstimationMaterial...
     SwitchMaterialObjects();
     
+    
 
     TPZManVector<TPZCompMesh *> meshvec(4);
-    meshvec[0] = CreateFluxMesh();
+    
     meshvec[1] = CreatePressureMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
     meshvec[3] = fOriginal->MeshVector()[1];
     
+    if(fPostProcesswithHDiv){
+        meshvec[0] = CreateFluxMesh();
+        
+    }
+    
+    
     TPZManVector<int,4> active(4,0);
-    active[0] = 1;
+    if(fPostProcesswithHDiv){
+        active[0] = 1;
+    }
+
     active[1] = 1;
  
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
@@ -232,10 +242,11 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
 {
-    if(fPostProcesswithHDiv == false)
-    {
-        return 0;
-    }
+//    if(fPostProcesswithHDiv == false)
+//    {
+//        return 0;
+//    }
+    
     TPZCompMesh *OrigFlux = fOriginal->MeshVector()[0];
     TPZGeoMesh *gmesh = OrigFlux->Reference();
     gmesh->ResetReference();
@@ -484,6 +495,14 @@ void TPZMHMHDivErrorEstimator::ComputeAveragePressures(int target_dim)
         {
             TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
             if(!mphys) DebugStop();
+            
+            TPZMaterial *mat = fPostProcMesh.FindMaterial(mphys->Material()->Id());
+            TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
+            if(bc){
+                continue;
+                
+            }
+            
             TPZCompEl *pressel = mphys->Element(1);
             int64_t index = pressel->Index();
             ComputeAverage(pressel->Mesh(),index);
@@ -510,6 +529,16 @@ void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
         if (gel->Dimension() == dim-1) {
             TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
             if(!mphys) DebugStop();
+            
+            TPZMaterial *mat = fPostProcMesh.FindMaterial(mphys->Material()->Id());
+            TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
+            if(bc){
+                continue;
+                
+            }
+            
+            
+            
             TPZCompEl *pressel = mphys->Element(1);
             pressel->LoadElementReference();
         }
