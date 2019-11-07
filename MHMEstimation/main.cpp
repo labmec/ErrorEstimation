@@ -177,6 +177,7 @@ int main() {
 
     }
 
+
 #ifdef PZDEBUG
         {
             std::ofstream out("GmeshMHM.vtk");
@@ -189,39 +190,15 @@ int main() {
 
         UniformRefinement(ndiv, gmesh);
         DivideLowerDimensionalElements(gmesh);
-
-        TPZGeoMesh *gmesh2 = new TPZGeoMesh();
-        *gmesh2 = *gmesh;
+        
+        
+        MHMTest(config);
         
         
         
-        TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-        
-        TPZMultiphysicsCompMesh *cmesh_HDiv=nullptr;
-        
-        
-        cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
-        cmesh_HDiv->InitializeBlock();
-        
-        std::ofstream out2("MixedMeshTest.txt");
-        cmesh_HDiv->Print(out2);
-        
-        
-        
-        
-  //    SolveMixedProblem(cmesh_HDiv,config);
-        
-        
-
-    MHMTest(config);
-
-
-
     }
-
-   // return 0;
-
-
+    
+    // return 0;
+    
+    
 }
-
-

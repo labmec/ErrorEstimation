@@ -1285,6 +1285,10 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
     TPZStack<TPZCompElSide> celstack;
     int onlyinterpolated = 1;
     int removeduplicates = 0;
+//    std::cout << "Starting element side " << side << std::endl;
+//    std::cout << "Starting element \n";
+//    celside.Element()->Print();
+    
     gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
     celstack.Push(gelside.Reference());
     // This map stores the connects, boolean that checks if the connect belongs to a BC
@@ -1302,6 +1306,8 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         }
         TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
         if (!intel1) DebugStop();
+//        std::cout << "Side " << celside.Side() << std::endl;
+//        intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
 
         bool isBC = IsDirichletCondition(gelside0);
