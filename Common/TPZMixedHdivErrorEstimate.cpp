@@ -275,4 +275,6 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
 
 
 
+
+
 template class TPZMixedHDivErrorEstimate<TPZMixedPoisson>;

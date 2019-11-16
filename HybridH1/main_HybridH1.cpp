@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 #endif
     
     
-    for (int ndiv=1 ; ndiv<6;ndiv++){
+    for (int ndiv=1 ; ndiv<2;ndiv++){
 
     ProblemConfig config;
     

@@ -28,7 +28,7 @@ class TPZMixedHDivErrorEstimate : public MixedMat
 public:
     
     TPZMixedHDivErrorEstimate();
-    
+
     TPZMixedHDivErrorEstimate(int matid, int dim);
     
     virtual ~TPZMixedHDivErrorEstimate();
@@ -65,8 +65,9 @@ public:
      * @param Solout [out] is the solution vector
      */
     virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
-    
 
+    /// whether the post processing mesh will be H(div) or H1
+    bool fPostProcesswithHDiv = true;
 };
 
 

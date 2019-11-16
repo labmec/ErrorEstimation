@@ -41,11 +41,27 @@ TPZHDivErrorEstimateMaterial &TPZHDivErrorEstimateMaterial::operator=(const TPZH
     return *this;
 }
 
+int TPZHDivErrorEstimateMaterial::IsH1Position(TPZVec<TPZMaterialData> &datavec){
+    
+    int nvec = datavec.NElements();
+    int firstNoNullposition =0;
+ 
+    for(int ivec = 0; ivec < nvec ; ivec++){
+        TPZMaterialData::MShapeFunctionType shapetype = datavec[ivec].fShapeType;
+        if(shapetype != TPZMaterialData::EEmpty){
+            firstNoNullposition = ivec;
+        return firstNoNullposition;
+        }
+        
+    }
+    
+}
 
 void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     /**
-     datavec[0] H1 mesh, local uk/grad v
+   
+     datavec[0] H1 mesh, local uk/grad v for Mark reconstruction and Empty for H1 reconstruction
      datavec[1] L2 mesh, restriction of local uk
      datavec[2] Hdiv mesh, sigmakE
      datavec[3] L2 mesh, ukE
@@ -60,13 +76,19 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
    
      **/
     
-    int dim = datavec[0].axes.Rows();
+    int H1functionposition = 0;
+    H1functionposition = IsH1Position(datavec);
+
+    
+
+    
+    int dim = datavec[H1functionposition].axes.Rows();
     //defining test functions
     // Setting the phis
-    TPZFMatrix<REAL> &phiuk = datavec[0].phi;
-    TPZFMatrix<REAL> &dphiukaxes = datavec[0].dphix;
+    TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
+    TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
     TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
-    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[0].axes);
+    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
     
     
     int nphiuk = phiuk.Rows();
@@ -75,15 +97,18 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     solsigmafem.Zero();
     solukfem.Zero();
     
-    //potetial fem
-    solukfem(0,0) = datavec[3].sol[0][0];
-    //flux fem
-    for (int ip = 0; ip<3; ip++)
-    {
-        solsigmafem(ip,0) = datavec[2].sol[0][ip];
-    }
     
-   
+
+
+        //potetial fem
+        solukfem(0,0) = datavec[3].sol[0][0];
+        //flux fem
+        for (int ip = 0; ip<3; ip++){
+
+            solsigmafem(ip,0) = datavec[2].sol[0][ip];
+        }
+
+    
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
     
@@ -124,17 +149,21 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
         }
         
     }
-    if(!fNeumannLocalProblem)
-    {
-        ek(nphiuk,nphiuk) += weight;
-        ef(nphiuk,0)+= weight;
-    }
+    if(H1functionposition ==0){
     
-    //muk = int_k ukfem
-    
-    else{
-    
-        ef(nphiuk,0)+= weight*solukfem(0,0);
+        if(!fNeumannLocalProblem )
+        {
+            ek(nphiuk,nphiuk) += weight;
+            ef(nphiuk,0)+= weight;
+        }
+        
+        //muk = int_k ukfem
+        
+        else{
+            
+            ef(nphiuk,0)+= weight*solukfem(0,0);
+        
+        }
     }
 
     
@@ -143,19 +172,20 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     
 }
 
-
 void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData > &datavec) {
-    
-    //fem solution for flux and potential
-    datavec[2].SetAllRequirements(false);
-    datavec[2].fNeedsSol = true;
-    
-    datavec[3].SetAllRequirements(false);
-    datavec[3].fNeedsSol = true;
+
+        //fem solution for flux and potential
+        datavec[2].SetAllRequirements(false);
+        datavec[2].fNeedsSol = true;
+        
+        datavec[3].SetAllRequirements(false);
+        datavec[3].fNeedsSol = true;
+  
+
 }
 
 void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
-{
+{    
     /**
      datavec[0] H1 mesh, uh_reconstructed
      datavec[1] L2 mesh,
@@ -173,21 +203,25 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     errors.Fill(0.0);
     
     
-    TPZManVector<STATE,3> fluxfem(3),pressurefem(1), pressurereconstructed(1);
+    TPZManVector<STATE,3> fluxfem(3);
+    STATE divsigmafem, pressurefem, pressurereconstructed;
     
     TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
     
-//    for (int i=0; i<3; i++) {
-//        fluxfem[i] = data[2].sol[0][i];
-//
-//    }
-    
+
+ 
     fluxfem=data[2].sol[0];
-    STATE divsigmafem=data[2].divsol[0][0];
+    divsigmafem=data[2].divsol[0][0];
+    
+ 
+
+    int H1functionposition = 0;
+    H1functionposition = IsH1Position(data);
+
    
-    TPZFMatrix<REAL> &dsolaxes = data[0].dsol[0];
+    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
     TPZFNMatrix<9,REAL> fluxrec(3,0);
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[0].axes);
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
     
     for(int id=0 ; id<3; id++) {
         fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
@@ -198,19 +232,20 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     
     if(this->fForcingFunctionExact){
         
-        this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
+        this->fForcingFunctionExact->Execute(data[H1functionposition].x,u_exact,du_exact);
     
-        this->fForcingFunction->Execute(data[0].x,divsigma);
+        this->fForcingFunction->Execute(data[H1functionposition].x,divsigma);
     }
     
-    REAL oscilatory = 0.;
+    REAL residual = 0.;
     
-    oscilatory = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
+    residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
    
     
-    pressurereconstructed[0] = data[0].sol[0][0];
+    pressurereconstructed = data[H1functionposition].sol[0][0];
   
-    pressurefem[0] = data[3].sol[0][0];
+ 
+        pressurefem = data[3].sol[0][0];
     
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
@@ -255,11 +290,11 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
 #endif
-    errors[0] = (pressurefem[0]-u_exact[0])*(pressurefem[0]-u_exact[0]);//exact error pressure
-    errors[1] = (pressurefem[0]-pressurereconstructed[0])*(pressurefem[0]-pressurereconstructed[0]);//error pressure reconstructed
+    errors[0] = (pressurefem-u_exact[0])*(pressurefem-u_exact[0]);//exact error pressure
+    errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
-    errors[4] = oscilatory; //||f - Proj_divsigma||
+    errors[4] = residual; //||f - Proj_divsigma||
 
     
     
@@ -324,12 +359,16 @@ int TPZHDivErrorEstimateMaterial::NSolutionVariables(int var)
 
 void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
 {
+
     /**
-     datavec[0] H1 mesh, uh_reconstructed
+     datavec[0] H1 mesh, uh_reconstructed for Mark reconstruction and Empty for H1 reconstruction
      datavec[1] L2 mesh,
      datavec[2] Hdiv fem mesh, sigma_h
      datavec[3] L2 mesh fem, u_h
      **/
+    
+    int H1functionposition = 0;
+    H1functionposition = IsH1Position(datavec);
     
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
@@ -340,7 +379,7 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     
     if(fForcingFunctionExact)
     {
-        this->fForcingFunctionExact->Execute(datavec[0].x, pressexact,gradu);
+        this->fForcingFunctionExact->Execute(datavec[H1functionposition].x, pressexact,gradu);
        
     }
     
@@ -350,18 +389,24 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     switch (var)
     {
         case 40://FluxFem
+  
             for(int i=0; i<dim; i++) Solout[i] = datavec[2].sol[0][i];
+
             break;
-        case 41:{//FluxReconstructed(???)
-            
-            TPZFMatrix<REAL> &dsolaxes = datavec[0].dsol[0];
+        case 41:{//FluxReconstructed is grad U
+            TPZFMatrix<REAL> &dsolaxes = datavec[H1functionposition].dsol[0];
             TPZFNMatrix<9,REAL> dsol(3,0);
-            TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[0].axes);
+             TPZFNMatrix<9,REAL> KGradsol(3,0);
+            TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
+            
+            PermTensor.Multiply(dsol,KGradsol);
             
             for(int id=0 ; id<fDim; id++) {
-                Solout[id] = dsol(id,0);//derivate
+                Solout[id] = KGradsol(id,0);//dsol(id,0);//derivate
             }
-            //for (int i=0; i<dim; i++) Solout[i] = datavec[0].dsol[0][i];
+            
+            
+ 
         }
            
             
@@ -369,22 +414,25 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
         case 42://flux exact
             for(int i=0; i<dim; i++) Solout[i] = -fluxinv(i);
             break;
-        case 43://PressureFem
+        case 43://Pressure fem
             Solout[0] = datavec[3].sol[0][0];
+       
             break;
         case 44://PressureReconstructed
-            Solout[0] = datavec[0].sol[0][0];
+            Solout[0] = datavec[H1functionposition].sol[0][0];
+
             break;
-        case 45:
+        case 45://pressureexact
             Solout[0] = pressexact[0];
             break;
-        case 46:
+        case 46://order p
             Solout[0] = datavec[1].p;
             break;
-        case 47://Uplifing
-            Solout[0] = datavec[0].sol[0][0];
-            break;
+
         default:
             DebugStop();
     }
 }
+
+
+

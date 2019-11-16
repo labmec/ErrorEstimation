@@ -127,7 +127,6 @@ endif()
 add_subdirectory(Common)
 include_directories(Common)
 
-add_subdirectory(AinsworthProposal)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(HybridH1)

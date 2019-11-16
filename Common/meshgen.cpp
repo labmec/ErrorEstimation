@@ -742,42 +742,22 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     std::cout << "Assembling\n";
     an.Assemble();
 //    if(0)
-    {
-        std::string filename = prefix;
-        filename += "_Global.nb";
-        std::ofstream global(filename.c_str());
-        TPZAutoPointer<TPZStructMatrix> strmat = an.StructMatrix();
-        an.Solver().Matrix()->Print("Kg = ",global,EMathematicaInput);
-        an.Rhs().Print("Fg = ",global,EMathematicaInput);
-    }
+//    {
+//        std::string filename = prefix;
+//        filename += "_Global.nb";
+//        std::ofstream global(filename.c_str());
+//        TPZAutoPointer<TPZStructMatrix> strmat = an.StructMatrix();
+//        an.Solver().Matrix()->Print("Kg = ",global,EMathematicaInput);
+//        an.Rhs().Print("Fg = ",global,EMathematicaInput);
+//    }
     std::cout << "Solving\n";
     an.Solve();
     std::cout << "Finished\n";
-    
-    //an.Solution().Print("SolutionBeforeLoadSol.txt");
-    
     an.LoadSolution(); // compute internal dofs
     
-  //  an.Solution().Print("SolutionBeforeTransfer.txt");
+    
     
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
-    
-  //  an.Solution().Print("Solution.txt");
-    
-#ifdef PZDEBUG2
-    
-    {
-
-        std::ofstream out_mhm("MeshSolution.txt");
-        cmesh->Print(out_mhm);
-        std::ofstream out_mhm2("CompMesh0.txt");
-        compmeshes[0]->Print(out_mhm2);
-        
-        std::ofstream out_mhm3("CompMesh1.txt");
-        compmeshes[1]->Print(out_mhm3);
-        
-    }
-#endif
     
 
     TPZStack<std::string> scalnames,vecnames;
@@ -810,7 +790,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     std::string plotname;
     {
         std::stringstream out;
-        out << config.dir_name <<"MHMProblem_POrder_" <<config.pOrderInternal << "_" << cmesh->Dimension() << "D_" << "Ndiv_ " << config.numHDivisions<< ".vtk";
+        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
         plotname = out.str();
         
     }
@@ -834,8 +814,8 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";
         myfile << "DOF Total = " << cmesh->NEquations() << "\n";
-        myfile << "Energy norm (flux)= " << errors[0] << "\n";//norma energia
-        myfile << "error norm L2 (pressure)= " << errors[1] << "\n";//norma L2
+        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
+        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
         myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
         myfile.close();
 

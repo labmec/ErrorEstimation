@@ -74,8 +74,25 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
         std::cout<<"Solving local Neumann problem"<<std::endl;
         // compute a higher order pressure solution: compute the Local Neumann problem
         UpliftPressure();
+        {
+            TPZAnalysis an(&fPostProcMesh,false);
+            
+            TPZStack<std::string> scalnames, vecnames;
+            scalnames.Push("PressureReconstructed");
+            
+            int dim = 2;
+            std::string plotname("PotentialUplifting.vtk");
+            an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+            an.PostProcess(2, dim);
+            
+            
+            
+        }
         
     }
+    
+    
+
     
 
     // transfer the continuous pressures to the multiphysics space
@@ -237,7 +254,7 @@ void TPZHDivErrorEstimatorH1::SwitchMaterialObjects()
             
             if(fExact)
             {
-                newmat->SetForcingFunctionExact(fExact->Exact());
+                newmat->SetForcingFunction(fExact->Exact());
                 newmat->SetForcingFunction(fExact->ForcingFunction());
     
             }
@@ -332,10 +349,18 @@ void TPZHDivErrorEstimatorH1::CopySolutionFromSkeleton()
         if(gel->Dimension() != dim) continue;
         int nsides = gel->NSides();
         for (int is=0; is<nsides; is++) {
+            TPZGeoElSide gelside(gel,is);
+            if(IsDirichletCondition(gelside)){
+                std::cout<<"bc side em copyskeleton \n";
+                continue;
+                
+            }
+            
+            
             TPZConnect &c = intel->Connect(is);
             int64_t c_seqnum = c.SequenceNumber();
             int c_blocksize = c.NShape()*c.NState();
-            TPZGeoElSide gelside(gel,is);
+            //TPZGeoElSide gelside(gel,is);
             TPZStack<TPZCompElSide> celstack;
             gelside.EqualLevelCompElementList(celstack, 1, 0);
             int nst = celstack.NElements();

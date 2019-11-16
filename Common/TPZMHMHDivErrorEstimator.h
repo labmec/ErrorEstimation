@@ -24,7 +24,9 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     
     /// a pointer to the datastructure used to generate the MHM mesh
     TPZMHMixedMeshControl *fMHM = 0;
-    
+
+    int fPressureSkeletonMatId;
+
     TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, TPZMHMixedMeshControl *mhm) : TPZHybridHDivErrorEstimator(InputMesh,true),
         fMHM(mhm)
     {
@@ -59,6 +61,13 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     TPZCompMesh *CreateDiscontinuousPressureMesh();
     // method for creating a continuous pressure mesh
     TPZCompMesh *CreateContinousPressureMesh();
+
+    // Creates skeleton elements to calculate the average pressure between neighbours
+    void CreatePressureSkeleton();
+
+    // Creates H1 discontinuous space on skeleton elements
+    TPZCompMesh *CreateSkeletonApproximationSpace();
+
     // a method for generating the hybridized multiphysics post processing mesh
     virtual void CreatePostProcessingMesh() override;
     // a method for transferring the multiphysics elements in submeshes
