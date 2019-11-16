@@ -1,30 +1,18 @@
-# Project to apply error estimation for Hdiv reconstrcuction
+# Project to apply error estimation for Hdiv reconstruction
+add_executable(HeteroPermeability main_HeteroPermeability.cpp)
+target_link_libraries(HeteroPermeability Common)
 
-add_executable(HeteroPermeability ${common_SRC} main_HeteroPermeability.cpp)
+add_executable(HybridHDiv New_main.cpp)
+target_link_libraries(HybridHDiv Common)
 
-target_link_libraries(HeteroPermeability pz)
+add_executable(NoHybridMain main.cpp)
+target_link_libraries(NoHybridMain Common)
 
+add_executable(H1Reconstruction main_H1.cpp)
+target_link_libraries(H1Reconstruction Common)
 
-add_executable(HybridHDiv ${common_SRC} New_main.cpp)
-
-target_link_libraries(HybridHDiv pz)
-
-
-add_executable(NoHybridMain ${common_SRC} main.cpp)
-
-target_link_libraries(NoHybridMain pz)
-
-add_executable(H1Reconstruction ${common_SRC} main_H1.cpp)
-
-target_link_libraries(H1Reconstruction pz)
-
-add_executable(AdaptivityTest ${common_SRC} mainAdaptivity.cpp)
-
-target_link_libraries(AdaptivityTest pz)
-
-#add_executable(MHMMethod ${common_SRC} mainMHM.cpp)
-
-#target_link_libraries(MHMMethod pz)
+add_executable(AdaptivityTest mainAdaptivity.cpp)
+target_link_libraries(AdaptivityTest Common)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)

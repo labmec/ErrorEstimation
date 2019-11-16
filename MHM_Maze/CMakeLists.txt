@@ -1,4 +1,4 @@
-
+find_package(OpenCV REQUIRED)
 
 set(MHMMAZE mainMaze.cpp ConfigCasesMaze.h )
 

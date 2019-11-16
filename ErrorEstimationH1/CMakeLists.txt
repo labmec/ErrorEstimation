@@ -1,11 +1,9 @@
 # This project works with error estimation on H1 and H(div) spaces.
-
 set(ErrorEstimateSRCGmesh main.cpp TPZMixedErrorEstimate.h TPZMixedErrorEstimate.cpp TPZPostProcessError.h
-        TPZPostProcessError.cpp ProblemConfig.h)
+        TPZPostProcessError.cpp ProblemConfig.h ../python-bindings/src/bindings.cpp)
 
 add_executable(ErrorEstimateH1GMsh ${ErrorEstimateSRCGmesh})
-target_link_libraries(ErrorEstimateH1GMsh pz)
-
+target_link_libraries(ErrorEstimateH1GMsh Common)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
