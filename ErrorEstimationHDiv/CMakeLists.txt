@@ -2,11 +2,11 @@
 add_executable(HeteroPermeability main_HeteroPermeability.cpp)
 target_link_libraries(HeteroPermeability Common)
 
-add_executable(HybridHDiv New_main.cpp)
+add_executable(HybridHDiv mainHybridHDiv.cpp)
 target_link_libraries(HybridHDiv Common)
 
-add_executable(NoHybridMain main.cpp)
-target_link_libraries(NoHybridMain Common)
+add_executable(NoHybrid mainNoHybrid.cpp)
+target_link_libraries(NoHybrid Common)
 
 add_executable(H1Reconstruction main_H1.cpp)
 target_link_libraries(H1Reconstruction Common)
