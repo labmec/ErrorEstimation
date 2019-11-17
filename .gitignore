@@ -1,3 +1,10 @@
 # os finder
 .DS_Store
+*.egg
+*.so
+.idea
+python-bindings/build
+python-bindings/errorestimation.egg-info
+cmake-build-*/
+venv
 
