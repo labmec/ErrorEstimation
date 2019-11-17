@@ -16,6 +16,7 @@ PYBIND11_MODULE(errorestimation, m) {
 
     py::class_<TPZMultiphysicsCompMesh>(m, "TPZMultiphysicsCompMesh")
             .def(py::init<>())
+            .def("AutoBuild", &TPZMultiphysicsCompMesh::AutoBuild)
             .def("__repr__",
                  [](const TPZMultiphysicsCompMesh &obj) {
                      return "It works, go home.";

@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
             
             if(dim==3)
             {
-                meshfilename = "../Cube.msh";
+                meshfilename = "Cube.msh";
                 
             }
             TPZGmshReader gmsh;

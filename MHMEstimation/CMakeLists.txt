@@ -2,11 +2,11 @@
 file(GLOB header *.h)
 file(GLOB source *.cpp)
 
-set(ErrorEstimateSRC  ${common_SRC} ${header} ${source})
+set(ErrorEstimateSRC ${header} ${source})
 
 add_executable(MHMEstimation ${ErrorEstimateSRC})
 
-target_link_libraries(MHMEstimation pz)
+target_link_libraries(MHMEstimation Common)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
