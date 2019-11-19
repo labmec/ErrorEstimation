@@ -187,11 +187,6 @@ TPZGeoMesh *CreateGeoMesh(int nel, TPZVec<int> &bcids) {
     gen.SetBC(gmesh, 5, bcids[1]);
     gen.SetBC(gmesh, 6, bcids[2]);
     gen.SetBC(gmesh, 7, bcids[3]);
-    
-  //  UniformRefinement(1, gmesh);
-
-    
-    
 
     return gmesh;
 }
@@ -599,7 +594,7 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
     if(IsgmeshReader){
 
 
-        std::string meshfilename = "../LCircle.msh";
+        std::string meshfilename = "BasicMesh.msh";
 
         if(dim==3)
         {

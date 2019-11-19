@@ -36,8 +36,8 @@ class CMakeBuild(build_ext):
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
                       '-DBUILD_ESTIMATION_PROJECTS=OFF',
-                      '-DBUILD_PYTHON_BINDINGS=ON'
-                      ]
+                      '-DBUILD_OPENCV_PROJECTS=OFF',
+                      '-DBUILD_PYTHON_BINDINGS=ON']
 
         cfg = 'Debug' if self.debug else 'Release'
         build_args = ['--config', cfg]
