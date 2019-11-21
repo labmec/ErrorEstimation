@@ -152,15 +152,6 @@ PYBIND11_MODULE(errorestimation, m) {
     py::class_<ProblemConfig>(m, "ProblemConfig")
             .def(py::init<>());
 
-    py::class_<TPZMultiphysicsCompMesh>(m, "TPZMultiphysicsCompMesh")
-        .def(py::init<>())
-        .def("AutoBuild", &TPZMultiphysicsCompMesh::AutoBuild)
-        .def("__repr__",
-             [](const TPZMultiphysicsCompMesh &obj) {
-                 return "It works, go home.";
-             }
-        );
-
     m.def("add", &add, "A function which adds two numbers");
 
     m.def("Create2DGridMesh",
