@@ -735,21 +735,21 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
 #endif
     
     
+#ifdef PZDEBUG
+    {
+        std::ofstream file("MeshToSolveProblem.txt");
+        cmesh->Print(file);
+    }
+#endif
+    
+    
     an.SetStructuralMatrix(strmat);
     TPZStepSolver<STATE> step;
     step.SetDirect(ELDLt);
     an.SetSolver(step);
     std::cout << "Assembling\n";
     an.Assemble();
-//    if(0)
-//    {
-//        std::string filename = prefix;
-//        filename += "_Global.nb";
-//        std::ofstream global(filename.c_str());
-//        TPZAutoPointer<TPZStructMatrix> strmat = an.StructMatrix();
-//        an.Solver().Matrix()->Print("Kg = ",global,EMathematicaInput);
-//        an.Rhs().Print("Fg = ",global,EMathematicaInput);
-//    }
+
     std::cout << "Solving\n";
     an.Solve();
     std::cout << "Finished\n";

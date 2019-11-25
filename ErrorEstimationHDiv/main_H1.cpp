@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
-    for(int ndiv=0; ndiv<5; ndiv++){
+    for(int ndiv=1; ndiv<2; ndiv++){
     ProblemConfig config;
     
     config.porder = 1;

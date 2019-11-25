@@ -1551,7 +1551,12 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         ComputeBoundaryL2Projection(pressuremesh, target_dim );
     }
     
-    
+    {
+        
+        std::ofstream out("PressureAverageMesh.txt");
+        fPostProcMesh.MeshVector()[1]->Print(out);
+        PlotLagrangeMultiplier("BeforeAverage");
+    }
     
     //calculando media das pressoes internas e valor nos vertices
     int dim = fPostProcMesh.Dimension();
@@ -1686,21 +1691,21 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(2, dim);
     }
-    {
-        TPZAnalysis an(pressure, false);
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("State");
-        
-        int dim = pressure->Reference()->Dimension();
-        std::string plotname;
-        {
-            std::stringstream out;
-            out << filename << dim << ".vtk";
-            plotname = out.str();
-        }
-        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(2, dim);
-    }
+//    {
+//        TPZAnalysis an(pressure, false);
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("State");
+//
+//        int dim = pressure->Reference()->Dimension();
+//        std::string plotname;
+//        {
+//            std::stringstream out;
+//            out << filename << dim << ".vtk";
+//            plotname = out.str();
+//        }
+//        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+//        an.PostProcess(2, dim);
+//    }
     
 }
 

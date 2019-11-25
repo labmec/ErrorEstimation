@@ -99,10 +99,10 @@ int main() {
     InitializePZLOG();
 
 
-    for(int ndiv=0; ndiv<1 ; ndiv++) {
+    for(int ndiv=1; ndiv<2 ; ndiv++) {
     ProblemConfig config;
 
-    config.porder = 1;
+    config.porder = 2;
     config.hdivmais = 1;
     config.ndivisions = ndiv;
     config.dimension = 2;
@@ -123,25 +123,15 @@ int main() {
     TPZGeoMesh *gmesh = nullptr;
 
     if(IsgmeshReader){
-
-       // std::string meshfilename = "../Circular.msh";
-       // std::string meshfilename = "../Quad.msh";
         std::string meshfilename = "../Cube.msh";
 
         TPZGmshReader gmsh;
-
-
-     //   gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
         gmsh.GetDimNamePhysical()[2]["dirichlet"] = 2;
-//        gmsh.GetDimNamePhysical()[1]["boundary"] = 2;
-//        gmsh.GetDimNamePhysical()[1]["neumann"] = 10;
         gmsh.GetDimNamePhysical()[3]["domain"] = 1;
 
 
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
-        //config.bcmaterialids.insert(3);
-//        config.bcmaterialids.insert(10);
 
 
         gmsh.SetFormatVersion("4.1");
@@ -163,22 +153,17 @@ int main() {
         x1[2] = 0.;
 
 
-        int nx = 2;//pow(2, ndiv);
+        int nx = pow(2, ndiv);
         gmesh = CreateGeoMesh(nx, bcids);//MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);// CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
         config.gmesh = gmesh;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
-//        config.bcmaterialids.insert(-2);
-//        config.bcmaterialids.insert(-3);
-//        config.bcmaterialids.insert(-4);
-//        config.bcmaterialids.insert(2);
-//        config.bcmaterialids.insert(3);
         gmesh->SetDimension(config.dimension);
 
     }
 
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             std::ofstream out("GmeshMHM.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);

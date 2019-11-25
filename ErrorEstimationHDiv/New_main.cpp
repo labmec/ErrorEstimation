@@ -48,7 +48,7 @@
 
 
 
-bool IsgmeshReader = true;//para ler a malha
+bool IsgmeshReader = false;//para ler a malha
 bool neumann = true; //para o problema local de neumann da forlmulacao Mark
 
 bool mixedsolution = true;//se quiser rodar o prolbema misto
@@ -68,30 +68,25 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ECube);
     
     
-    ///
     
-    
-    ///
-    
-    
-    for(int ndiv=0; ndiv<5; ndiv++){
+    for(int ndiv=1; ndiv<6; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
         config.hdivmais = 1;
         config.ndivisions = ndiv;
-        config.dimension = 3;
+        config.dimension = 2;
         config.prefine=false;
         config.makepressurecontinuous = true;
         config.adaptivityStep = ndiv;
-        config.TensorNonConst = true;//para problem 3d com tensor nao constante
+        config.TensorNonConst = false;//para problem 3d com tensor nao constante
         
-        config.exact.fExact = TLaplaceExample1::EBubble;//ESinSinDirNonHom;//EArcTan;//ESinSin;
-        config.problemname = "EBubblePermNonConst";
+        config.exact.fExact = TLaplaceExample1::ESinSin;//ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
+        config.problemname = "ESinSinRecHdiv";
         
         bool RunMark = false;
         
-        config.dir_name= "TestePaper";//"ReconstructionH1";//
+        config.dir_name= "TesteSinPhil";//"ReconstructionH1";//
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
         
@@ -188,7 +183,7 @@ int main(int argc, char *argv[]) {
         cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
         cmesh_HDiv->InitializeBlock();
         
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
             
             std::ofstream out2("MalhaMista.txt");
@@ -225,7 +220,7 @@ int main(int argc, char *argv[]) {
         meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
         meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             
             std::ofstream out2("OriginalFluxMesh.txt");

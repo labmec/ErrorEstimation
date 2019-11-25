@@ -496,11 +496,20 @@ int MHMTest(ProblemConfig &Conf) {
     TPZVec<int64_t> elementIndexes;
     if(Conf.MeshNonConvex){
         
-        gmeshcoarse = CreateLMHMMesh(1, elementIndexes);
-        {
-            std::ofstream file("GMeshAutoL_1.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+        int nsizeH = 0;
+        
+        if(Conf.ndivisions==0){
+            nsizeH = 1;
         }
+        else{
+            nsizeH =Conf.ndivisions;
+        }
+        
+        gmeshcoarse = CreateLMHMMesh(nsizeH, elementIndexes);
+//        {
+//            std::ofstream file("GMeshAutoL_1.vtk");
+//            TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+//        }
         
     }
     else{
@@ -512,11 +521,11 @@ int MHMTest(ProblemConfig &Conf) {
     
     {
         TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
-        {
-            std::ofstream out("gmeshauto.txt");
-            gmeshauto->Print(out);
-  
-        }
+//        {
+//            std::ofstream out("gmeshauto.txt");
+//            gmeshauto->Print(out);
+//
+//        }
         TPZMHMixedMeshControl *mhm = new TPZMHMixedMeshControl(gmeshauto);
         MHMixed = mhm;
         
@@ -528,9 +537,9 @@ int MHMTest(ProblemConfig &Conf) {
             ComputeCoarseIndices(gmeshauto.operator->(), elementIndexes);
             
         
-        for(int i =0; i < elementIndexes.size(); i++){
-            std::cout << "coarse index i = " << elementIndexes[i] << std::endl;
-        }
+//        for(int i =0; i < elementIndexes.size(); i++){
+//            std::cout << "coarse index i = " << elementIndexes[i] << std::endl;
+//        }
 
         mhm->DefinePartitionbyCoarseIndices(elementIndexes);
 
@@ -559,11 +568,6 @@ int MHMTest(ProblemConfig &Conf) {
         
         // insert the material objects in the multiphysics mesh
         InsertMaterialObjects(*mhm,Conf);
-        
-
-    
-        
-        
         mhm->SetInternalPOrder(Configuration.pOrderInternal);
         mhm->SetSkeletonPOrder(Configuration.pOrderSkeleton);
         mhm->SetHdivmaismaisPOrder(Configuration.hdivmaismais);
@@ -636,41 +640,41 @@ int MHMTest(ProblemConfig &Conf) {
     
     
     std::cout<<"Error Estimation processing for MHM-Hdiv problem "<<std::endl;
-    
+
     // Error estimation
     TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     if(!InputMesh) DebugStop();
-    
+
     TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
-    
-    ErrorEstimator.fPostProcesswithHDiv = false;
-    
+
+    ErrorEstimator.fPostProcesswithHDiv = true;
+
     ErrorEstimator.CreatePressureSkeleton();
     ErrorEstimator.CreateSkeletonApproximationSpace();
     ErrorEstimator.PotentialReconstruction();
-    
+
     {
         ErrorEstimator.fProblemConfig.problemname = Conf.problemname;
         ErrorEstimator.fProblemConfig.dir_name = Conf.dir_name;
         std::string command = "mkdir " + Conf.dir_name;
         system(command.c_str());
-        
+
         ErrorEstimator.fProblemConfig.porder =Conf.porder;
         ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;
         ErrorEstimator.fProblemConfig.hdivmais = Conf.hdivmais;
         ErrorEstimator.fProblemConfig.adaptivityStep = Conf.adaptivityStep;
-        
-       
-        
+
+
+
         TPZManVector<REAL> errors;
-        
+
         ErrorEstimator.ComputeErrors(errors);
-        
-        
+
+
     }
-    
+
     return 0;
 }
 
@@ -680,12 +684,12 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
     
     TPZGeoMesh &gmesh = control.GMesh();
     
-    {
-        
-        std::ofstream out("GmeshToInsertMaterial.txt");
-        gmesh.Print(out);
-        
-    }
+//    {
+//
+//        std::ofstream out("GmeshToInsertMaterial.txt");
+//        gmesh.Print(out);
+//
+//    }
     
     
     
