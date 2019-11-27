@@ -149,9 +149,6 @@ PYBIND11_MODULE(errorestimation, m) {
         --------------------------------------------------
     )pbdoc";
 
-    py::class_<ProblemConfig>(m, "ProblemConfig")
-            .def(py::init<>());
-
     m.def("add", &add, "A function which adds two numbers");
 
     m.def("Create2DGridMesh",
@@ -180,4 +177,26 @@ PYBIND11_MODULE(errorestimation, m) {
             std::ofstream out(fileName);
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
           }, "Prints a VTK file with the TPZGeoMesh information");
+
+    // ProblemConfig
+    py::class_<ProblemConfig>(m, "ProblemConfig")
+            .def(py::init())
+            .def_property("gmesh", &ProblemConfig::getGmesh, &ProblemConfig::setGmesh)
+            .def_property("Porder", &ProblemConfig::getPorder, &ProblemConfig::setPorder)
+            .def_property("Hdivmais", &ProblemConfig::getHdivmais, &ProblemConfig::setHdivmais)
+            .def_property("Makepressurecontinuous", &ProblemConfig::isMakepressurecontinuous, &ProblemConfig::setMakepressurecontinuous)
+            .def_property("NDivisions", &ProblemConfig::getNdivisions, &ProblemConfig::setNdivisions)
+            .def_property("AdaptivityStep", &ProblemConfig::getAdaptivityStep, &ProblemConfig::setAdaptivityStep)
+            .def_property("Dimension", &ProblemConfig::getDimension, &ProblemConfig::setDimension)
+            .def_property("Prefine", &ProblemConfig::isPrefine, &ProblemConfig::setPrefine)
+            .def_property("Steklovexample", &ProblemConfig::isSteklovexample, &ProblemConfig::setSteklovexample)
+            .def_property("GalvisExample", &ProblemConfig::isGalvisExample, &ProblemConfig::setGalvisExample)
+            .def_property("TensorNonConst", &ProblemConfig::isTensorNonConst, &ProblemConfig::setTensorNonConst)
+            .def_property("MeshNonConvex", &ProblemConfig::isMeshNonConvex, &ProblemConfig::setMeshNonConvex)
+            .def_property("Alpha", &ProblemConfig::getAlpha, &ProblemConfig::setAlpha)
+            .def_property("DirName", &ProblemConfig::getDirName, &ProblemConfig::setDirName)
+            .def_property("Problemname", &ProblemConfig::getProblemname, &ProblemConfig::setProblemname)
+            .def_property("Materialids", &ProblemConfig::getMaterialids, &ProblemConfig::setMaterialids)
+            .def_property("Bcmaterialids", &ProblemConfig::getBcmaterialids, &ProblemConfig::setBcmaterialids)
+            .def_property("Exact", &ProblemConfig::getExact, &ProblemConfig::setExact);
 }
