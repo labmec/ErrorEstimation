@@ -1,11 +1,11 @@
 from neopz import *
 from errorestimation import *
 
-coord0 = TPZVecDouble(3, 0.);
-coord1 = TPZVecDouble(3, 1.);
+coord0 = TPZManVectorReal(3, 0.);
+coord1 = TPZManVectorReal(3, 1.);
 coord1[2] = 0.;
 
-bcIDs = TPZVecInt(4);
+bcIDs = TPZManVectorInt(4);
 bcIDs[0] = 1;
 bcIDs[1] = 2;
 bcIDs[2] = 3;
