@@ -93,6 +93,61 @@ struct ProblemConfig
 
         return *this;
     }
+
+    // Getters and Setters
+    TPZGeoMesh* getGmesh() const { return gmesh; }
+    void setGmesh(TPZGeoMesh* Gmesh) { gmesh = Gmesh; }
+
+    int getPorder() const { return porder; }
+    void setPorder(int pOrder) { porder = pOrder; }
+
+    int getHdivmais() const { return hdivmais; }
+    void setHdivmais(int hDivMais) { hdivmais = hDivMais; }
+
+    bool isMakepressurecontinuous() const { return makepressurecontinuous; }
+    void setMakepressurecontinuous(bool makePressureContinuous) { makepressurecontinuous = makePressureContinuous; }
+
+    int getNdivisions() const { return ndivisions; }
+    void setNdivisions(int nDivisions) { ndivisions = nDivisions; }
+
+    int getAdaptivityStep() const { return adaptivityStep; }
+    void setAdaptivityStep(int adaptivitystep) { adaptivityStep = adaptivitystep; }
+
+    int getDimension() const { return dimension; }
+    void setDimension(int Dimension) { dimension = Dimension; }
+
+    bool isPrefine() const { return prefine; }
+    void setPrefine(bool pRefine) { prefine = pRefine; }
+
+    bool isSteklovexample() const { return steklovexample; }
+    void setSteklovexample(bool steklovExample) { steklovexample = steklovExample; }
+
+    bool isGalvisExample() const { return GalvisExample; }
+    void setGalvisExample(bool galvisExample) { GalvisExample = galvisExample; }
+
+    bool isTensorNonConst() const { return TensorNonConst; }
+    void setTensorNonConst(bool tensorNonConst) { TensorNonConst = tensorNonConst; }
+
+    bool isMeshNonConvex() const { return MeshNonConvex; }
+    void setMeshNonConvex(bool meshNonConvex) { MeshNonConvex = meshNonConvex; }
+
+    STATE getAlpha() const { return alpha; }
+    void setAlpha(STATE Alpha) { alpha = Alpha; }
+
+    const string& getDirName() const { return dir_name; }
+    void setDirName(const string& dirName) { dir_name = dirName; }
+
+    const string& getProblemname() const { return problemname; }
+    void setProblemname(const string& problemName) { problemname = problemName; }
+
+    const set<int>& getMaterialids() const { return materialids; }
+    void setMaterialids(const set<int>& materialIDs) { materialids = materialIDs; }
+
+    const set<int>& getBcmaterialids() const { return bcmaterialids; }
+    void setBcmaterialids(const set<int>& bcmaterialIDs) { bcmaterialids = bcmaterialIDs; }
+
+    const TLaplaceExample1& getExact() const { return exact; }
+    void setExact(const TLaplaceExample1& Exact) { exact = Exact; }
 };
 
 #endif /* ProblemConfig_h */
