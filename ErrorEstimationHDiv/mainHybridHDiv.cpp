@@ -180,8 +180,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
         
-        TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-        
+
         TPZMultiphysicsCompMesh *cmesh_HDiv=nullptr;
         
         
@@ -200,8 +199,9 @@ int main(int argc, char *argv[]) {
         
         
         if(mixedsolution) SolveMixedProblem(cmesh_HDiv,config);
-        
-        
+
+        TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
+
         meshvec_HDiv = cmesh_HDiv->MeshVector();
         
         //cria malha hibrida

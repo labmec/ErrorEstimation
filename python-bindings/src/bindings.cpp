@@ -10,6 +10,7 @@
 namespace py = pybind11;
 
 // ---------------------------------------------------
+#include "pzlog.h"
 #include "TPZRefPatternDataBase.h"
 #include "pzgengrid.h"
 #include "TPZVTKGeoMesh.h"
@@ -150,25 +151,25 @@ PYBIND11_MODULE(errorestimation, m) {
     )pbdoc";
 
     m.def("add", &add, "A function which adds two numbers");
-
+    m.def("InitializePZLog", py::overload_cast<>(&InitializePZLOG), "Initializes log file for log4cxx with common name log4cxx.cfg");
     m.def("Create2DGridMesh",
-        [] (const int x_nel, const int y_nel, TPZManVector<REAL> x0, TPZManVector<REAL> x1, const TPZManVector<int> bcIDs) {
+    [] (const int x_nel, const int y_nel, TPZManVector<REAL> x0, TPZManVector<REAL> x1, const TPZManVector<int> bcIDs) {
 
-            TPZManVector<int> nel(2);
-            nel[0] = x_nel;
-            nel[1] = y_nel;
+        TPZManVector<int> nel(2);
+        nel[0] = x_nel;
+        nel[1] = y_nel;
 
-            TPZGenGrid gen(nel, x0, x1);
-            gen.SetRefpatternElements(true);
-            TPZGeoMesh* gmesh = new TPZGeoMesh;
-            gen.Read(gmesh);
-            gen.SetBC(gmesh, 4, bcIDs[0]);
-            gen.SetBC(gmesh, 5, bcIDs[1]);
-            gen.SetBC(gmesh, 6, bcIDs[2]);
-            gen.SetBC(gmesh, 7, bcIDs[3]);
+        TPZGenGrid gen(nel, x0, x1);
+        gen.SetRefpatternElements(true);
+        TPZGeoMesh* gmesh = new TPZGeoMesh;
+        gen.Read(gmesh);
+        gen.SetBC(gmesh, 4, bcIDs[0]);
+        gen.SetBC(gmesh, 5, bcIDs[1]);
+        gen.SetBC(gmesh, 6, bcIDs[2]);
+        gen.SetBC(gmesh, 7, bcIDs[3]);
 
-            return gmesh;
-        }, py::return_value_policy::reference, "A function that creates a 2D grid mesh");
+        return gmesh;
+    }, py::return_value_policy::reference, "A function that creates a 2D grid mesh");
 
     m.def("UniformRefinement", &UniformRefinement, "A function that refines a Geometric Mesh uniformly");
 
@@ -199,4 +200,31 @@ PYBIND11_MODULE(errorestimation, m) {
             .def_property("Materialids", &ProblemConfig::getMaterialids, &ProblemConfig::setMaterialids)
             .def_property("Bcmaterialids", &ProblemConfig::getBcmaterialids, &ProblemConfig::setBcmaterialids)
             .def_property("Exact", &ProblemConfig::getExact, &ProblemConfig::setExact);
+
+    m.def("CreateHDivMesh", &CreateHDivMesh, py::return_value_policy::reference,
+          "A function that creates the mixed computational mesh");
+
+    m.def("HybridizeCompMesh", [](TPZMultiphysicsCompMesh* cmeshHDiv) {
+
+              TPZManVector<TPZCompMesh*, 2> meshVec(2, 0);
+              meshVec = cmeshHDiv->MeshVector();
+
+              TPZHybridizeHDiv hybrid;
+              auto HybridMesh = hybrid.Hybridize(cmeshHDiv);
+              HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
+              HybridMesh->AdjustBoundaryElements();
+              delete cmeshHDiv;
+              delete meshVec[0];
+              delete meshVec[1];
+
+              std::cout << "---Original PerifericalMaterialId --- " << std::endl;
+              std::cout << " LagrangeInterface = " << hybrid.fLagrangeInterface << std::endl;
+              std::cout << " HDivWrapMatid = " << hybrid.fHDivWrapMatid << std::endl;
+              std::cout << " InterfaceMatid = " << hybrid.fInterfaceMatid << std::endl;
+
+              cmeshHDiv = HybridMesh;
+              meshVec[0] = HybridMesh->MeshVector()[0];
+              meshVec[1] = HybridMesh->MeshVector()[1];
+          }
+    );
 }

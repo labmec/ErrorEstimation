@@ -1,6 +1,6 @@
 from neopz import *
 from errorestimation import *
-
+InitializePZLog()
 gmesh = TPZGeoMesh()
 read = TPZGmshReader()
 gmesh = read.GeometricGmshMesh4("basic2DMesh.msh", gmesh)
