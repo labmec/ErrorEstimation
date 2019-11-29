@@ -22,7 +22,6 @@ bool readGeoMeshFromFile = false;
 TPZGeoMesh *CreateGeoMesh();
 TPZGeoMesh *CreateLCircleGeoMesh();
 
-
 int main(int argc, char *argv[]) {
 
 #ifdef LOG4CXX
@@ -43,11 +42,8 @@ int main(int argc, char *argv[]) {
     {
         std::ofstream out("Gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
-        
     }
 #endif
-    
-    
 
     int refinementSteps = 4;
 
@@ -57,33 +53,15 @@ int main(int argc, char *argv[]) {
     TPZGeoMesh *markEstimatorMesh = new TPZGeoMesh();
     *markEstimatorMesh = *gmeshOriginal;
     
-    
-    
-#ifdef PZDEBUG2
-    {
-        std::ofstream out("GmeshPosCopy.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(hybridEstimatorMesh, out);
-        
-    }
-#endif
-
     // Run tests with hdiv++ proposal
-    
     for (int i = 0; i < refinementSteps; i++) {
         ProblemConfig config;
         config.dir_name = "ReconstructionH1";
         config.adaptivityStep = i;
-
-//        config.gmesh = new TPZGeoMesh();
         config.gmesh = hybridEstimatorMesh;
-
         config.materialids.insert(1);
-//        config.bcmaterialids.insert(2);
-        config.bcmaterialids.insert(3);
-        
         config.bcmaterialids.insert(-1);
-
-        config.porder = 1;
+        config.porder = 2;
         config.hdivmais = 1;
         config.dimension = 2;
         config.prefine = false;
@@ -112,9 +90,9 @@ int main(int argc, char *argv[]) {
         delete mixedMeshVector[0];
         delete mixedMeshVector[1];
 
-        mixedMesh = (HybridMesh); // Substitute mixed by hybrid mesh
-        mixedMeshVector[0] = (HybridMesh)->MeshVector()[0]; // Hdiv mesh
-        mixedMeshVector[1] = (HybridMesh)->MeshVector()[1]; // L2 mesh
+        mixedMesh = HybridMesh; // Substitute mixed by hybrid mesh
+        mixedMeshVector[0] = HybridMesh->MeshVector()[0]; // Hdiv mesh
+        mixedMeshVector[1] = HybridMesh->MeshVector()[1]; // L2 mesh
 
         // Solves problem
         SolveHybridProblem(mixedMesh, hybrid.fInterfaceMatid, config);
@@ -124,16 +102,12 @@ int main(int argc, char *argv[]) {
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
-        HDivEstimate.fPostProcesswithHDiv = false;
+        HDivEstimate.fPostProcesswithHDiv = true;
 
         HDivEstimate.PotentialReconstruction();
 
         TPZManVector<REAL> elementErrors;
         HDivEstimate.ComputeErrors(elementErrors);
-
-//        delete mixedMesh;
-//        delete mixedMeshVector[0];
-//        delete mixedMeshVector[1];
 
         hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
     }

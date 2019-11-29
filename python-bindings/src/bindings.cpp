@@ -3,6 +3,7 @@
 //
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include "TPZHDivErrorEstimatorH1.h"
 #include "Tools.h"
@@ -135,8 +136,6 @@ int add() {
             // hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
 
         }
-
-
     }
 
     return 0;
@@ -177,7 +176,7 @@ PYBIND11_MODULE(errorestimation, m) {
         [] (TPZGeoMesh* gmesh, std::string fileName) {
             std::ofstream out(fileName);
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-          }, "Prints a VTK file with the TPZGeoMesh information");
+        }, "Prints a VTK file with the TPZGeoMesh information");
 
     // ProblemConfig
     py::class_<ProblemConfig>(m, "ProblemConfig")
@@ -225,6 +224,10 @@ PYBIND11_MODULE(errorestimation, m) {
               cmeshHDiv = HybridMesh;
               meshVec[0] = HybridMesh->MeshVector()[0];
               meshVec[1] = HybridMesh->MeshVector()[1];
-          }
+        }
+    );
+    m.def("SolveHybridProblem", [](TPZMultiphysicsCompMesh* cmeshHDiv, ProblemConfig config) {
+            SolveHybridProblem(cmeshHDiv, 7, config);
+        }
     );
 }

@@ -48,7 +48,7 @@
 
 
 
-bool IsgmeshReader = true;//para ler a malha
+bool IsgmeshReader = false;//para ler a malha
 bool neumann = true; //para o problema local de neumann da forlmulacao Mark
 
 bool mixedsolution = true;//se quiser rodar o prolbema misto
@@ -80,18 +80,18 @@ int main(int argc, char *argv[]) {
         config.porder = 1;
         config.hdivmais = 1;
         config.ndivisions = ndiv;
-        config.dimension = 3;
+        config.dimension = 2;
         config.prefine=false;
         config.makepressurecontinuous = true;
         config.adaptivityStep = ndiv;
         config.TensorNonConst = true;//para problem 3d com tensor nao constante
         
-        config.exact.fExact = TLaplaceExample1::EBubble;//ESinSinDirNonHom;//EArcTan;//ESinSin;
+        config.exact.fExact = TLaplaceExample1::ESinSin;//ESinSinDirNonHom;//EArcTan;//ESinSin;
         config.problemname = "EBubblePermNonConst";
         
         bool RunMark = false;
         
-        config.dir_name= "TestePaper";//"ReconstructionH1";//
+        config.dir_name= "Testepython";//"ReconstructionH1";//
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
         
@@ -164,8 +164,6 @@ int main(int argc, char *argv[]) {
         
         TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
         *hybridEstimatorMesh = *gmesh;
-        
-        
         
         UniformRefinement(config.ndivisions, gmesh);
         RandomRefine(config, config.ndivisions);

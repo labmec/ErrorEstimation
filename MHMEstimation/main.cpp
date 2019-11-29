@@ -99,7 +99,7 @@ int main() {
     InitializePZLOG();
 
 
-    for(int ndiv=0; ndiv<1 ; ndiv++) {
+    for(int ndiv=1; ndiv<2 ; ndiv++) {
     ProblemConfig config;
 
     config.porder = 1;
@@ -112,9 +112,9 @@ int main() {
 
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSinDirNonHom;//EArcTanSingular;//ESinMark;//EX;//EConst;//EArcTan;//
+    config.exact.fExact = example.EX;//SinSinDirNonHom;//EArcTanSingular;//ESinMark;//EX;//EConst;//EArcTan;//
 
-    config.problemname = "SinSinNonHom";
+    config.problemname = "EX";
 
     config.dir_name= "MHMMeshNonConvex";
     std::string command = "mkdir " + config.dir_name;

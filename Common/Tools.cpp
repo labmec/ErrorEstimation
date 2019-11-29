@@ -461,34 +461,25 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
 }
 
 void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem){
-    
 
     TPZAnalysis an(Hybridmesh);
     
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(Hybridmesh);
     strmat.SetNumThreads(0);
-    //        strmat.SetDecomposeType(ELDLt);
 #else
-    //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
-    //    strmat.SetNumThreads(2);
-    //    strmat.SetDecomposeType(ELDLt);
     TPZSkylineStructMatrix strmat(Hybridmesh);
     strmat.SetNumThreads(0);
 #endif
-    
-    
+
     std::set<int> matIds;
   
-    
     for (auto matid : problem.materialids) {
-        
         matIds.insert(matid);
     }
     
     
     for (auto matidbc : problem.bcmaterialids) {
-        
         matIds.insert(matidbc);
     }
     
@@ -498,7 +489,6 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     
     an.SetStructuralMatrix(strmat);
     
-    
     TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
     direct->SetDirect(ELDLt);
     an.SetSolver(*direct);
@@ -507,20 +497,18 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     an.Assemble();
     an.Solve();
 
-//    if(PostProcessingFEM){
-//
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("ExactPressure");
+    scalnames.Push("Pressure");
     vecnames.Push("Flux");
+    vecnames.Push("ExactFlux");
 
     std::stringstream sout;
-    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
+    sout << problem.dir_name << "/" << "OriginalHybrid-pOrder-" << problem.porder << "Nref_" << problem.ndivisions
+         << ".vtk";
     an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
     int resolution = 2;
-    an.PostProcess(resolution,Hybridmesh->Dimension());
-//    }
-
-    
+    an.PostProcess(resolution, Hybridmesh->Dimension());
 }
 void PlotLagrangeMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
     
@@ -664,9 +652,7 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
     std::cout <<" LagrangeInterface = "<<hybrid.fLagrangeInterface<<std::endl;
     std::cout <<" HDivWrapMatid = "<<hybrid.fHDivWrapMatid<<std::endl;
     std::cout <<" InterfaceMatid = "<<hybrid.fInterfaceMatid<<std::endl;
-    
-    
-    
+
        #ifdef PZDEBUG
         {
     
@@ -677,9 +663,8 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
             HybridMesh->MeshVector()[1]->Print(out3);
     
         }
-    #endif
-    
-    
+       #endif
+
         SolveHybridProblem(HybridMesh,hybrid.fInterfaceMatid,config);
     
     #ifdef PZDEBUG
@@ -774,8 +759,7 @@ TPZCompMesh *CMeshH1( ProblemConfig problem){
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     
     cmesh->AutoBuild();
-    
-    
+
     return cmesh;
 }
 void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
@@ -784,8 +768,6 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
     const int fluxErrorEstimateCol = 3;
     
     int64_t nelem = postProcessMesh->ElementSolution().Rows();
-    
-   // postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
     
     // Iterates through element errors to get the maximum value
     REAL maxError = 0.;
@@ -811,15 +793,15 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
         REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
         if (elementError > threshold) {
             TPZGeoEl *gel = cel->Reference();
-            int iel = gel->Id();
+            int id = gel->Id();
             
             TPZVec<TPZGeoEl *> sons;
-            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[iel];
+            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[id];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
 #ifdef LOG4CXX
                 int nsides = gelToRefine->NSides();
-                TPZVec<REAL> loccenter(3);
+                TPZVec<REAL> loccenter(2);
                 TPZVec<REAL> center(3);
                 gelToRefine->CenterPoint(nsides - 1, loccenter);
                 

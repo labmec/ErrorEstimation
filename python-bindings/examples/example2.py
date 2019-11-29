@@ -26,7 +26,10 @@ cfg = ProblemConfig()
 cfg.gmesh = gmesh
 cfg.Porder = 1
 cfg.Hdivmais = 1
+cfg.Materialids = {1, 2}
+cfg.Bcmaterialids = {-1, -2}
 multiphysicsCMesh = CreateHDivMesh(cfg)
 
 HybridizeCompMesh(multiphysicsCMesh)
+SolveHybridProblem(multiphysicsCMesh, cfg)
 

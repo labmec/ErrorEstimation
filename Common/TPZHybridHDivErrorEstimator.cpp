@@ -195,10 +195,6 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         
         int dim = fPostProcMesh.Reference()->Dimension();
         std::string plotname;
-//        std::stringstream out;
-//        out << "PostProcessEstimation_POrder" << fPostProcMesh.GetDefaultOrder() <<".vtk";
-//        plotname = out.str();
-
 
             std::stringstream out;
             out << fProblemConfig.dir_name << "/" << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
