@@ -18,13 +18,16 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         // switch the material from mixed to TPZMHMHDivErrorEstimationMaterial...
     SwitchMaterialObjects();
     
+    if(!fPostProcesswithHDiv){
+        CreatePressureSkeleton();
+    }
     
-
     TPZManVector<TPZCompMesh *> meshvec(4);
     
     meshvec[1] = CreatePressureMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
     meshvec[3] = fOriginal->MeshVector()[1];
+
     
     if(fPostProcesswithHDiv){
         meshvec[0] = CreateFluxMesh();
@@ -53,7 +56,11 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     }
 #endif
     
+    //for reconstruction on H1 hybridezed mesh is not applied
+    //just for Hdiv reconstruction the hybridizer will be use
+    if(fPostProcesswithHDiv){
     fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
+    }
 
 #ifdef PZDEBUG2
     {
@@ -132,6 +139,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         if (iter == submeshmap.end()) {
             int64_t index;
             TPZSubCompMesh *subcmesh = new TPZSubCompMesh(fPostProcMesh,index);
+            if(!submesh) continue;
             submeshmap[submesh] = subcmesh;
             ElementMesh[el] = subcmesh;
         }
@@ -144,56 +152,95 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     // the value of elementgroup is the index of the computational element that
     // will nucleate the group
     // this only works if the post processing mesh is H(div) hybridized
-    TPZVec<int64_t> elementgroup;
-    fHybridizer.AssociateElements(&fPostProcMesh, elementgroup);
-    // transfer the elements in the submesh indicated by elementgroup
-    // associate the submesh with the volumetric elements
-    for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel = fPostProcMesh.Element(el);
-        if(!cel) continue;
-        TPZGeoEl *gel = cel->Reference();
-        if(!gel) DebugStop();
-        if(elementgroup[el] == -1)
-        {
-            // this element is not assocated with a volumetric element
-            continue;
-        }
-        int64_t volume_element = elementgroup[el];
-        if(ElementMesh[volume_element] == 0) DebugStop();
-        TPZSubCompMesh *submesh = ElementMesh[volume_element];
-        submesh->TransferElement(&fPostProcMesh, el);
-    }
-    fPostProcMesh.ComputeNodElCon();
-    for(auto iter : submeshmap)
-    {
-        iter.second->MakeAllInternal();
-    }
-#ifdef PZDEBUG2
-    {
-        int64_t nel = fPostProcMesh.NElements();
-        for(int64_t el = 0; el<nel; el++)
-        {
+    
+    if(fPostProcesswithHDiv){
+    
+        TPZVec<int64_t> elementgroup;
+        fHybridizer.AssociateElements(&fPostProcMesh, elementgroup);
+        // transfer the elements in the submesh indicated by elementgroup
+        // associate the submesh with the volumetric elements
+        for (int64_t el = 0; el<nel; el++) {
             TPZCompEl *cel = fPostProcMesh.Element(el);
-            TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
-            if(sub)
+            if(!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            if(!gel) DebugStop();
+            if(elementgroup[el] == -1)
             {
-                std::stringstream sout;
-                sout << "postproc_part_submesh_" << el << ".vtk";
-                std::ofstream file(sout.str());
-                TPZVTKGeoMesh::PrintCMeshVTK(sub, file,true);
+                // this element is not assocated with a volumetric element
+                continue;
             }
+            int64_t volume_element = elementgroup[el];
+            if(ElementMesh[volume_element] == 0) DebugStop();
+            TPZSubCompMesh *submesh = ElementMesh[volume_element];
+            submesh->TransferElement(&fPostProcMesh, el);
         }
+        fPostProcMesh.ComputeNodElCon();
+        for(auto iter : submeshmap)
+        {
+            iter.second->MakeAllInternal();
+        }
+    #ifdef PZDEBUG2
+        {
+            int64_t nel = fPostProcMesh.NElements();
+            for(int64_t el = 0; el<nel; el++)
+            {
+                TPZCompEl *cel = fPostProcMesh.Element(el);
+                TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+                if(sub)
+                {
+                    std::stringstream sout;
+                    sout << "postproc_part_submesh_" << el << ".vtk";
+                    std::ofstream file(sout.str());
+                    TPZVTKGeoMesh::PrintCMeshVTK(sub, file,true);
+                }
+            }
+
+        }
+    #endif
+        
+    }
+    else{
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = fPostProcMesh.Element(el);
+            if(!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            if(!gel) DebugStop();
+            TPZSubCompMesh *submesh = ElementMesh[el];
+            if(!submesh)continue;
+            
+            submesh->TransferElement(&fPostProcMesh, el);
+        }
+        fPostProcMesh.ComputeNodElCon();
+        for(auto iter : submeshmap)
+        {
+            iter.second->MakeAllInternal();
+        }
+  
+    }
+    
+    
+    
+    {
         fPostProcMesh.LoadReferences();
         std::ofstream out("postproc_part_cmesh_substruct.vtk");
         TPZVTKGeoMesh::PrintCMeshVTK(&fPostProcMesh, out,true);
     }
-#endif
+    {
+        std::ofstream out("postproc_part_cmesh_substruct.txt");
+        fPostProcMesh.Print(out);
+    }
+    
+    
     // transfer the elements this procedure didn't recognize
     // this will transfer the wrappers, interface elements and lagrange multipliers
     // transfer the elements whose connects belong to a unique submesh
     TransferEmbeddedElements();
     fPostProcMesh.ComputeNodElCon();
     fPostProcMesh.CleanUpUnconnectedNodes();
+    {
+        std::ofstream out("postproc_part_cmesh_substruct.txt");
+        fPostProcMesh.Print(out);
+    }
     // set an analysis type for the submeshes
     {
         int64_t nel = fPostProcMesh.NElements();
@@ -203,8 +250,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
             if(sub)
             {
-                fHybridizer.GroupandCondenseElements(sub);
-                sub->CleanUpUnconnectedNodes();
+                if(fPostProcesswithHDiv){
+                    fHybridizer.GroupandCondenseElements(sub);
+                    sub->CleanUpUnconnectedNodes();
+                }
                 int numthreads = 0;
                 int preconditioned = 0;
                 TPZAutoPointer<TPZGuiInterface> guiInterface;
@@ -214,7 +263,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     }
     
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         int64_t nel = fPostProcMesh.NElements();
         for(int64_t el = 0; el<nel; el++)
@@ -234,6 +283,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         TPZVTKGeoMesh::PrintCMeshVTK(&fPostProcMesh, out,true);
     }
 #endif
+    
 
 }
 
@@ -299,6 +349,9 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh()
     else
     {
         return CreateContinousPressureMesh();
+        
+        
+        
     }
 }
 
@@ -314,6 +367,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
     pressmesh->SetDefaultOrder(OrigPressure->GetDefaultOrder());
     pressmesh->SetAllCreateFunctionsContinuous();
     int64_t nel = OrigPressure->NElements();
+    
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = OrigPressure->Element(el);
         if(!cel) continue;
@@ -332,7 +386,56 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
         int order = cel->Connect(nc-1).Order();
         newcel->PRefine(order);
     }
+    
+    pressmesh->Reference()->ResetReference();
+    
+    // creating BC conditions for H1 mesh
+    TPZCompMesh *mult = fOriginal;
+    
+    set<int> matIdsbc;
+    for(auto it : mult->MaterialVec()){
+        TPZMaterial *mat = it.second;
+        TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
+        if(bc){
+            int matbcid = bc->Material()->Id();
+            TPZMaterial *pressuremat = pressmesh->FindMaterial(matbcid);
+            TPZMaterial *bcmat =  pressuremat->CreateBC(pressuremat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            if(fExact){
+                bcmat->SetForcingFunction(fExact->Exact());
+            }
+            pressmesh->InsertMaterialObject(bcmat);
+            matIdsbc.insert(mat->Id());
+            
+        }
+        
+    }
+    
+    gmesh->ResetReference();
+    pressmesh->AutoBuild(matIdsbc);
+    
+    //
+    
+    // creating discontinuous skeleton on H1 mesh
+    
+    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    pressmesh->InsertMaterialObject(skeletonMat);
+    
+    pressmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    pressmesh->ApproxSpace().CreateDisconnectedElements(true);
+    
+    pressmesh->AutoBuild();
     pressmesh->ExpandSolution();
+    
+    {
+        std::ofstream out1("PressureWithSkeleton.txt");
+        pressmesh->Print(out1);
+        
+    }
+    
+    
+    //
+    
+    //pressmesh->ExpandSolution();
     return pressmesh;
 
 }
@@ -473,11 +576,14 @@ void TPZMHMHDivErrorEstimator::ComputeAveragePressures(int target_dim)
     TPZGeoMesh *gmesh = OrigPressure->Reference();
     gmesh->ResetReference();
     int dim = fPostProcMesh.Dimension();
-    if(target_dim < dim-1) OrigPressure = fPostProcMesh.MeshVector()[1];
-    int64_t nel = OrigPressure->NElements();
+    
+    TPZCompMesh *postpressuremesh =  fPostProcMesh.MeshVector()[1];
+    TPZCompMesh *loadmesh = OrigPressure;
+    if(target_dim < dim-1) loadmesh = postpressuremesh ;
+    int64_t nel = loadmesh->NElements();
     // load all elements of dimension target_dim+1
     for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel = OrigPressure->Element(el);
+        TPZCompEl *cel = loadmesh->Element(el);
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if (gel->Dimension() == target_dim+1) {
@@ -485,27 +591,21 @@ void TPZMHMHDivErrorEstimator::ComputeAveragePressures(int target_dim)
         }
     }
     // compute the averages one element at a time
-    nel = fPostProcMesh.NElements();
+    nel = postpressuremesh->NElements();//fPostProcMesh.NElements();
     for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZCompEl *cel = postpressuremesh->Element(el);
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if(!gel) continue;
         if(gel->Dimension() == target_dim)
         {
-            TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
-            if(!mphys) DebugStop();
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            if(!intel) DebugStop();
             
-            TPZMaterial *mat = fPostProcMesh.FindMaterial(mphys->Material()->Id());
-            TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
-            if(bc){
-                continue;
-                
-            }
-            
-            TPZCompEl *pressel = mphys->Element(1);
-            int64_t index = pressel->Index();
-            ComputeAverage(pressel->Mesh(),index);
+            int matId = gel->MaterialId();
+            if(matId != fPressureSkeletonMatId) continue;
+            int64_t index = intel->Index();
+            ComputeAverage(postpressuremesh,index);
         }
     }
     
@@ -686,7 +786,7 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
         }
     }
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
@@ -696,18 +796,20 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
 #endif
 }
 
-TPZCompMesh *TPZMHMHDivErrorEstimator::CreateSkeletonApproximationSpace() {
-    TPZCompMesh *cmesh = new TPZCompMesh(fOriginal->Reference());
+//TPZCompMesh *TPZMHMHDivErrorEstimator::CreateSkeletonApproximationSpace() {
+//    TPZCompMesh *cmesh = new TPZCompMesh(fOriginal->Reference());
+//
+//    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+//    cmesh->InsertMaterialObject(skeletonMat);
+//
+//    cmesh->SetDefaultOrder(fOriginal->GetDefaultOrder());
+//
+//    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+//    cmesh->ApproxSpace().CreateDisconnectedElements(true);
+//
+//    cmesh->AutoBuild();
+//
+//    return cmesh;
+//}
 
-    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fSkeletonMatId);
-    cmesh->InsertMaterialObject(skeletonMat);
 
-    cmesh->SetDefaultOrder(fOriginal->GetDefaultOrder());
-
-    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
-    cmesh->ApproxSpace().CreateDisconnectedElements(true);
-
-    cmesh->AutoBuild();
-
-    return cmesh;
-}

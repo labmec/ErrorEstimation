@@ -585,6 +585,27 @@ void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
     an.DefineGraphMesh(dim, scalnames, vecnames, sout.str());
     int resolution=2;
     an.PostProcess(resolution,dim);
+    
+    if(config.exact.Exact())
+    {
+        TPZManVector<REAL> errors(4,0.);
+        an.SetThreadsForError(0);
+        an.SetExact(config.exact.ExactSolution());
+        an.PostProcessError(errors,false);
+        
+        //Erro
+        
+        ofstream myfile;
+        myfile.open("MixedError.txt", ios::app);
+        myfile << "\n\n Error for Mixed formulation " ;
+        myfile << "\n-------------------------------------------------- \n";
+        myfile << "Ndiv = " << config.ndivisions << " Order k = " << config.porder <<"\n";
+        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
+        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
+        myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
+        myfile.close();
+        
+    }
 }
 
 

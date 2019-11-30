@@ -51,6 +51,121 @@ void TPZMHMHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialDat
     datavec[3].fNeedsSol = true;
 }
 
+int TPZMHMHDivErrorEstimateMaterial::IsH1Position(TPZVec<TPZMaterialData> &datavec){
+    
+    int nvec = datavec.NElements();
+    int firstNoNullposition =0;
+    
+    for(int ivec = 0; ivec < nvec ; ivec++){
+        TPZMaterialData::MShapeFunctionType shapetype = datavec[ivec].fShapeType;
+        if(shapetype != TPZMaterialData::EEmpty){
+            firstNoNullposition = ivec;
+            return firstNoNullposition;
+        }
+        
+    }
+    
+}
+
+void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+{
+    /**
+     
+     datavec[0] empty data
+     datavec[1] H1 mesh, restriction of local uk
+     datavec[2] Hdiv mesh, sigma_h
+     datavec[3] L2 mesh, u_h
+     
+     Implement the matrix
+     |Ak  |  = |bk|
+     
+     Ak = int_K K grads_i.gradv dx = int_K gradphi_i.gradphi_j dx
+     bk = int_K K gradu_h.gradv dx = int_K K gradphi_i. gradu_h dx
+     
+     **/
+    
+    int H1functionposition = IsH1Position(datavec);
+    
+    int dim = datavec[H1functionposition].axes.Rows();
+    //defining test functions
+    // Setting the phis
+    TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
+    TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
+    TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
+    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
+    
+    
+    
+    int nphiuk = phiuk.Rows();
+    
+    TPZFMatrix<STATE> solsigmafem(3,nphiuk),solukfem(1,1);
+    solsigmafem.Zero();
+    solukfem.Zero();
+    
+    //potetial fem
+    solukfem(0,0) = datavec[3].sol[0][0];
+    TPZFMatrix<REAL> dsolukfem(3,1,0),Kgradukfem(3,1,0);
+    
+    for(int i=0; i<3 ;i++){
+        dsolukfem(i,0) = datavec[H1functionposition].dsol[0][i];
+    }
+    
+   // dsolukfem = datavec[H1functionposition].dsol[0];
+    
+    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
+    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
+    
+    TPZFMatrix<STATE> kgraduk(3,nphiuk,0.);
+    
+    for(int i=0; i< dim; i++){
+        
+        for(int jd=0; jd< dim;jd++){
+            Kgradukfem(i,0) += PermTensor(i,jd)*dsolukfem(jd,0);
+           
+            
+        }
+    }
+    
+    
+    
+    
+    for(int irow=0 ; irow<nphiuk; irow++){
+        
+        //K graduk
+        //REAL Kgradukfem = 0;
+        for(int id=0; id< dim; id++){
+            
+            for(int jd=0; jd< dim;jd++){
+                kgraduk(id,irow) += PermTensor(id,jd)*dphiuk(jd,irow);
+                ef(irow,0) += weight*Kgradukfem(jd,0)*dphiuk(jd,irow);
+                
+            }
+        }
+        
+       // ef(irow,0) += weight* Kgradukfem ;
+        
+        
+        //matrix Sk= int_{K} K grads_i.gradv
+        for(int jcol=0; jcol<nphiuk;jcol++){
+            
+            for(int jd=0;  jd< dim; jd++)
+            {
+                ek(irow,jcol) += weight*kgraduk(jd,irow)*dphiuk(jd,jcol);
+                //ef(irow,0) += weight*Kgradukfem(jd,irow)*dphiuk(jd,jcol);
+            }
+            
+        }
+        
+    }
+    
+    
+    
+    
+    
+}
+
+
+
 void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**
@@ -64,6 +179,8 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
       error[2] - energy error computed with exact solution
       error[3] - energy error computed with reconstructed solution
       error[4] - residual data error
+     
+     If the resconstructionis done using H1, the errors are: ||gradufem-gradurec||, ||gradufem-gradex|| and ||f- Proj divfem||
      **/
     
     errors.Resize(NEvalErrors());
@@ -71,8 +188,25 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     
     
     TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
+
+
+    int H1functionposition = 0;
     
-    fluxreconstructed = data[0].sol[0];
+    H1functionposition = IsH1Position(data);
+    
+    if(H1functionposition==0){
+    
+        fluxreconstructed = data[0].sol[0];
+    }
+    else{
+
+        for(int i=0; i< 3;i++){
+        fluxreconstructed[i] = data[1].dsol[0][i];
+        }
+        
+        
+    }
+    
     fluxfem = data[2].sol[0];
     STATE divsigmafem=data[2].divsol[0][0];
     
@@ -81,8 +215,8 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     
     if(this->fForcingFunctionExact){
         
-        this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
-        this->fForcingFunction->Execute(data[0].x,divsigma);
+        this->fForcingFunctionExact->Execute(data[H1functionposition].x,u_exact,du_exact);
+        this->fForcingFunction->Execute(data[H1functionposition].x,divsigma);
     }
     
     
@@ -90,13 +224,15 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     REAL residual = 0.;
     residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
     
+
     
     pressurereconstructed[0] = data[1].sol[0][0];
     pressurefem[0] = data[3].sol[0][0];
+
     
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
-    //int rtens = 2*fDim;
+    
     
     
     TPZFNMatrix<3,REAL> fluxexactneg;
@@ -105,6 +241,8 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     
     {
         TPZFNMatrix<9,REAL> gradpressure(3,1);
+       
+        
         for (int i=0; i<fDim; i++) {
             gradpressure(i,0) = du_exact[i];
         }
@@ -206,9 +344,12 @@ void TPZMHMHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec,
     TPZManVector<STATE,2> pressexact(1,0.);
     TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
     
+    int IsH1position = IsH1Position(datavec);
+    
+    
     if(fForcingFunctionExact)
     {
-        this->fForcingFunctionExact->Execute(datavec[0].x, pressexact,gradu);
+        this->fForcingFunctionExact->Execute(datavec[IsH1position].x, pressexact,gradu);
        
     }
     
@@ -220,7 +361,25 @@ void TPZMHMHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec,
             for(int i=0; i<fDim; i++) Solout[i] = datavec[2].sol[0][i];
             break;
         case 41://FluxReconstructed
-            for (int i=0; i<fDim; i++) Solout[i] = datavec[0].sol[0][i];
+            
+            if(IsH1position == 0){
+                for (int i=0; i<fDim; i++) Solout[i] = datavec[0].sol[0][i];
+            }
+            else{
+                
+                //FluxReconstructed is grad U
+                TPZFMatrix<REAL> &dsolaxes = datavec[IsH1position].dsol[0];
+                TPZFNMatrix<9,REAL> dsol(3,0);
+                TPZFNMatrix<9,REAL> KGradsol(3,0);
+                TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[IsH1position].axes);
+                
+                PermTensor.Multiply(dsol,KGradsol);
+                
+                for(int id=0 ; id<fDim; id++) {
+                    Solout[id] = KGradsol(id,0);
+                }
+                
+            }
             break;
         case 42:
             for(int i=0; i<fDim; i++) Solout[i] = -fluxinv(i);

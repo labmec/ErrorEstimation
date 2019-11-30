@@ -48,7 +48,8 @@ struct TPZHybridHDivErrorEstimator
     TPZHybridizeHDiv fHybridizer;
     
     // material id of the dim-2 skeleton elements
-    int fSkeletonMatId = 6;
+//    int fSkeletonMatId = 6;
+    int fPressureSkeletonMatId;
     
     TPZAnalyticSolution *fExact;
     
@@ -57,12 +58,12 @@ struct TPZHybridHDivErrorEstimator
     TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, bool InputisHybridized = true) : fOriginal(&InputMesh),
     fOriginalIsHybridized(InputisHybridized), fPostProcMesh(0),fExact(NULL)
     {
-        
+        fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
     }
     
     TPZHybridHDivErrorEstimator(const TPZHybridHDivErrorEstimator &copy) : fOriginal(copy.fOriginal),
         fOriginalIsHybridized(copy.fOriginalIsHybridized),fUpliftPostProcessMesh(copy.fUpliftPostProcessMesh),
-        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig)
+        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig),fPressureSkeletonMatId(copy.fPressureSkeletonMatId)
     {
         // this method wont work because multiphysics meshes have no copy constructor (yet)
         DebugStop();
@@ -79,6 +80,7 @@ struct TPZHybridHDivErrorEstimator
         fPostProcMesh = cp.fPostProcMesh;
         fExact = cp.fExact;
         fProblemConfig = cp.fProblemConfig;
+        fPressureSkeletonMatId = cp.fPressureSkeletonMatId;
         return *this;
     }
     
@@ -161,6 +163,7 @@ protected:
 
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
     virtual void SwitchMaterialObjects();
+
     
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();
@@ -184,6 +187,10 @@ protected:
 
     // Checks if the solution is in fact continuous
     void VerifySolutionConsistency(TPZCompMesh* cmesh);
+    
+  //  int IsH1Position(TPZVec<TPZMaterialData> &datavec);
+    
+    
     
     
 protected:

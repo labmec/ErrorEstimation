@@ -639,6 +639,8 @@ int MHMTest(ProblemConfig &Conf) {
     
     
     
+    
+    
     std::cout<<"Error Estimation processing for MHM-Hdiv problem "<<std::endl;
 
     // Error estimation
@@ -649,10 +651,7 @@ int MHMTest(ProblemConfig &Conf) {
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
 
-    ErrorEstimator.fPostProcesswithHDiv = true;
-
-    ErrorEstimator.CreatePressureSkeleton();
-    ErrorEstimator.CreateSkeletonApproximationSpace();
+    ErrorEstimator.fPostProcesswithHDiv = false;
     ErrorEstimator.PotentialReconstruction();
 
     {
@@ -727,8 +726,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
     
     
     
-    K.Print(std::cout);
-    invK.Print(std::cout);
+//    K.Print(std::cout);
+//    invK.Print(std::cout);
     
     mat->SetForcingFunctionExact(config.exact.Exact());
     mat->SetForcingFunction(config.exact.ForcingFunction());

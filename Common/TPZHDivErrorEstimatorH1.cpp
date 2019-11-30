@@ -39,8 +39,7 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     
     IncreasePressureOrders(mesh_vectors[0]);
     IdentifyPeripheralMaterialIds();
-    int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
-    fSkeletonMatId = lastmatid+1;
+   
     // increase the order of the dim-1 elements to the maximum of both neighbouring elements
     IncreasePressureSideOrders(mesh_vectors[0]);//malha da pressao
 

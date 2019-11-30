@@ -45,6 +45,8 @@ public:
     int VariableIndex(const std::string &name)override;
     int NSolutionVariables(int var)override;
     void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+    virtual void  Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
+    virtual int IsH1Position(TPZVec<TPZMaterialData> &datavec);
  
 
     

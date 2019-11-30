@@ -102,7 +102,7 @@ int main() {
     for(int ndiv=1; ndiv<2 ; ndiv++) {
     ProblemConfig config;
 
-    config.porder = 2;
+    config.porder = 1;
     config.hdivmais = 1;
     config.ndivisions = ndiv;
     config.dimension = 2;
@@ -112,7 +112,7 @@ int main() {
 
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSinDirNonHom;//EArcTanSingular;//ESinMark;//EX;//EConst;//EArcTan;//
+        config.exact.fExact = example.EX;//ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//ESinMark;//EConst;//EArcTan;//
 
     config.problemname = "SinSinNonHom";
 
@@ -163,9 +163,9 @@ int main() {
     }
 
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
-            std::ofstream out("GmeshMHM.vtk");
+            std::ofstream out("GmeshMHM_Coarse.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
             std::ofstream out2("gmeshInitial.txt");
             gmesh->Print(out2);
@@ -175,6 +175,28 @@ int main() {
 
         UniformRefinement(ndiv, gmesh);
         DivideLowerDimensionalElements(gmesh);
+        
+        TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
+        
+        TPZMultiphysicsCompMesh *cmesh_HDiv=nullptr;
+        
+        
+        cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
+        cmesh_HDiv->InitializeBlock();
+        
+#ifdef PZDEBUG
+        {
+            
+            std::ofstream out2("MalhaMista.txt");
+            cmesh_HDiv->Print(out2);
+            
+        }
+#endif
+        
+        
+        
+       // SolveMixedProblem(cmesh_HDiv,config);
+        
         
         
         MHMTest(config);
