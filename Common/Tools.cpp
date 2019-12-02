@@ -156,7 +156,12 @@ void CloneMeshVec(TPZVec<TPZCompMesh *> &meshvec, TPZVec<TPZCompMesh *> &meshvec
 
 
 void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
-    
+
+    // Initializing uniform refinements for reference elements
+    gRefDBase.InitializeUniformRefPattern(EOned);
+    gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
+    gRefDBase.InitializeUniformRefPattern(ETriangle);
+
     TPZManVector<TPZGeoEl*> children;
     for(int division = 0; division < nDiv; division++) {
         
@@ -462,6 +467,7 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
 
 void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem){
 
+    std::cout << "AAAA" << std::endl;
     TPZAnalysis an(Hybridmesh);
     
 #ifdef USING_MKL

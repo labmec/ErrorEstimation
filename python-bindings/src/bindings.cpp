@@ -166,7 +166,7 @@ PYBIND11_MODULE(errorestimation, m) {
         gen.SetBC(gmesh, 5, bcIDs[1]);
         gen.SetBC(gmesh, 6, bcIDs[2]);
         gen.SetBC(gmesh, 7, bcIDs[3]);
-
+        gmesh->SetDimension(2);
         return gmesh;
     }, py::return_value_policy::reference, "A function that creates a 2D grid mesh");
 
@@ -209,12 +209,12 @@ PYBIND11_MODULE(errorestimation, m) {
               meshVec = cmeshHDiv->MeshVector();
 
               TPZHybridizeHDiv hybrid;
-              auto HybridMesh = hybrid.Hybridize(cmeshHDiv);
+              TPZMultiphysicsCompMesh* HybridMesh = hybrid.Hybridize(cmeshHDiv);
               HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
               HybridMesh->AdjustBoundaryElements();
-              delete cmeshHDiv;
-              delete meshVec[0];
-              delete meshVec[1];
+//              delete cmeshHDiv;
+//              delete meshVec[0];
+//              delete meshVec[1];
 
               std::cout << "---Original PerifericalMaterialId --- " << std::endl;
               std::cout << " LagrangeInterface = " << hybrid.fLagrangeInterface << std::endl;
@@ -224,9 +224,24 @@ PYBIND11_MODULE(errorestimation, m) {
               cmeshHDiv = HybridMesh;
               meshVec[0] = HybridMesh->MeshVector()[0];
               meshVec[1] = HybridMesh->MeshVector()[1];
+
+#ifdef LOG4CXX
+              static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+              std::stringstream sout;
+              HybridMesh->MeshVector()[0]->Print(sout);
+              HybridMesh->MeshVector()[1]->Print(sout);
+              LOGPZ_ERROR(logger, sout.str())
+#endif
         }
     );
     m.def("SolveHybridProblem", [](TPZMultiphysicsCompMesh* cmeshHDiv, ProblemConfig config) {
+
+#ifdef LOG4CXX
+              static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+              std::stringstream sout;
+              cmeshHDiv->Print(sout);
+              LOGPZ_ERROR(logger, sout.str())
+#endif
             SolveHybridProblem(cmeshHDiv, 7, config);
         }
     );
