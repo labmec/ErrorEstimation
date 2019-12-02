@@ -203,7 +203,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
             plotname = out.str();
         
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(2, dim);
+        an.PostProcess(0, dim);
     }
     else
     {
@@ -1518,7 +1518,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     if (fPostProcMesh.MeshVector().size()) {
         DebugStop();
     }
-    
+
+    std::cout << "Checkpoint\n";
     //Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
     // for the border fluxes
     // in the future we can opt to create an H(1) post processing mesh
@@ -1528,7 +1529,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         fOriginal->MeshVector()[1]->Print(out);
         
     }
-    
+
+    std::cout << "Checkpoint\n";
     CreatePostProcessingMesh();
     
     {
@@ -1539,16 +1541,18 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         fPostProcMesh.MeshVector()[1]->Print(out2);
         
     }
-    
+
+    std::cout << "Checkpointc\n";
     // L2 projection for Dirihlet boundary condition for H1 reconstruction
     if(!fPostProcesswithHDiv){
         TPZCompMesh *pressuremesh = PressureMesh();
         int target_dim = 1;//ver se fica igual para dimensao maior
         ComputeBoundaryL2Projection(pressuremesh, target_dim );
     }
-    
-    
-    
+
+    std::cout << "Checkpoint\n";
+
+
     //calculando media das pressoes internas e valor nos vertices
     int dim = fPostProcMesh.Dimension();
     if (fProblemConfig.makepressurecontinuous) {
@@ -1558,14 +1562,16 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             ComputeAveragePressures(1);
         }
     }
-    
-    {
-        
-        std::ofstream out("PressureAverageMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
-        PlotLagrangeMultiplier("BeforeNodalAverage");
-    }
-    
+
+    std::cout << "Checkpointa\n";
+   // {
+
+   //     std::ofstream out("PressureAverageMesh.txt");
+   //     fPostProcMesh.MeshVector()[1]->Print(out);
+   //     PlotLagrangeMultiplier("BeforeNodalAverage");
+   // }
+
+    std::cout << "Checkpoint\n";
     ComputeNodalAverages();
     
     {
@@ -1574,8 +1580,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier("AfterNodalAverage");
     }
-    
-    
+
+    std::cout << "Checkpoint\n";
+
     // in the case of hybrid hdiv, computing the error using h(div) spaces, nothing will be done
     if (!fPostProcesswithHDiv) {
         CopySolutionFromSkeleton();
@@ -1614,7 +1621,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 #endif
     
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
-    
+
+    std::cout << "Checkpointsadsadasd\n";
 #ifdef PZDEBUG2
     {
         std::ofstream out("MeshAfterLoadSol.txt");

@@ -465,9 +465,56 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
 
 }
 
+void SolveHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &problem){
+
+    TPZAnalysis an(Hybridmesh);
+
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(Hybridmesh);
+    strmat.SetNumThreads(0);
+#else
+    TPZSkylineStructMatrix strmat(Hybridmesh);
+    strmat.SetNumThreads(0);
+#endif
+
+    std::set<int> matIds;
+
+    for (auto matid : problem.materialids) {
+        matIds.insert(matid);
+    }
+
+    for (auto matidbc : problem.bcmaterialids) {
+        matIds.insert(matidbc);
+    }
+
+    strmat.SetMaterialIds(matIds);
+
+    an.SetStructuralMatrix(strmat);
+
+    TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
+    direct->SetDirect(ELDLt);
+    an.SetSolver(*direct);
+    delete direct;
+    direct = 0;
+    an.Assemble();
+    an.Solve();
+
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("ExactPressure");
+    scalnames.Push("Pressure");
+    vecnames.Push("Flux");
+    vecnames.Push("ExactFlux");
+
+    std::stringstream sout;
+    sout << problem.dir_name << "/" << "OriginalHybrid-pOrder-" << problem.porder << "Nref_" << problem.ndivisions
+         << ".vtk";
+    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+    int resolution = 2;
+    an.PostProcess(resolution, Hybridmesh->Dimension());
+}
+
 void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem){
 
-    std::cout << "AAAA" << std::endl;
     TPZAnalysis an(Hybridmesh);
     
 #ifdef USING_MKL
@@ -483,8 +530,7 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     for (auto matid : problem.materialids) {
         matIds.insert(matid);
     }
-    
-    
+
     for (auto matidbc : problem.bcmaterialids) {
         matIds.insert(matidbc);
     }

@@ -24,12 +24,19 @@ PrintGMeshToVTK(gmesh, "GMeshBeforeRefinement.vtk")
 cfg = ProblemConfig()
 cfg.gmesh = gmesh
 cfg.Porder = 1
+cfg.Dimension = 2
+cfg.Prefine = 0
+cfg.Makepressurecontinuous = 1
+cfg.TensorNonConst = 0
 cfg.Hdivmais = 1
-cfg.Materialids = {1, 2}
-cfg.Bcmaterialids = {-1, -2}
+cfg.Materialids = {1}
+cfg.Bcmaterialids = {-1}
+cfg.Problemname = "EPython"
+
 multiphysicsCMesh = CreateHDivMesh(cfg)
+multiphysicsCMesh.InitializeBlock()
 
 HybridizeCompMesh(multiphysicsCMesh)
-multiphysicsCMesh.InitializeBlock()
 SolveHybridProblem(multiphysicsCMesh, cfg)
+#EstimateErrorsWithH1Reconstruction(multiphysicsCMesh, cfg)
 
