@@ -108,8 +108,8 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
         
     }
 
-    K.Print(std::cout);
-    invK.Print(std::cout);
+//    K.Print(std::cout);
+//    invK.Print(std::cout);
     
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
