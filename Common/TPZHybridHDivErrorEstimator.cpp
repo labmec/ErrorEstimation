@@ -241,13 +241,11 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreateFluxMesh()
 TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
 {
     
-    TPZCompMesh * pressure = fOriginal->MeshVector()[1]->Clone();
     
     if(fPostProcesswithHDiv) {
+        TPZCompMesh * pressure = fOriginal->MeshVector()[1]->Clone();
         return pressure;
     }
-    
- 
     //For H1 reconstruction need to build material for bc condition
     else{
         TPZCompMesh *pressure = fOriginal->MeshVector()[1]->Clone();
@@ -334,6 +332,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
     mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
 
+    
     if(fPostProcesswithHDiv)
     {
         //flux reconstructed just using Hdiv reconstruction
@@ -406,6 +405,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         PrepareElementsForH1Reconstruction();
     }
     
+    ComputePressureWeights();
 #ifdef PZDEBUG2
     {
         std::ofstream out("multiphysicsgrouped.txt");
@@ -1076,6 +1076,18 @@ void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int6
         DebugStop();
     }
     
+    TPZManVector<REAL> el_weights(nequal);
+    REAL sum_weights = 0.;
+    REAL max_weight = 0.;
+    for (int ieq = 0; ieq < nequal; ieq++) {
+        REAL index = celstack[ieq].Element()->Index();
+        el_weights[ieq] = fPressureweights[index];
+        sum_weights += el_weights[ieq];
+        max_weight = max_weight < el_weights[ieq] ? el_weights[ieq] : max_weight;
+        if(el_weights[ieq] <= 0.) DebugStop();
+    }
+    fPressureweights[iel] = max_weight;
+    
     std::unique_ptr<TPZIntPoints> intp(gel->CreateSideIntegrationRule(gel->NSides() - 1, 2 * order));
     int nshape = intel->NShapeF();
     TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
@@ -1099,7 +1111,7 @@ void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int6
       //      std::cout << "xref " << xref << " ieq " << ieq << " xeq " << xeq << " sol " << sol1 << std::endl;
             for (int ishape = 0; ishape < nshape; ishape++)
             {
-                L2Rhs(ishape, 0) += weight * phi(ishape, 0) * sol1[0] / nequal;
+                L2Rhs(ishape, 0) += weight * phi(ishape, 0) * sol1[0] * el_weights[ieq] / (sum_weights);
             }
         }
         for (int ishape = 0; ishape < nshape; ishape++) {
@@ -1293,11 +1305,10 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
     
     gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
     celstack.Push(gelside.Reference());
-    // This map stores the connects, boolean that checks if the connect belongs to a BC
-    // and the solution of that connect. This will be used later to impose the value of
+    // This map stores the connects, the weight associated with the element
+    // and the solution of that connect. The weight of Dirichlet condition is higher and will be used later to impose the value of
     // the BC in the connects when needed
-    std::map<int64_t, std::pair<bool, TPZVec<STATE>>> connects;
-    bool nodeIsAtDirichletBorder = false;
+    std::map<int64_t, std::pair<REAL, TPZVec<STATE>>> connects;
     //para cada elemento que tem este no procede como segue
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
@@ -1308,12 +1319,13 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         }
         TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
         if (!intel1) DebugStop();
+        int64_t index = intel1->Index();
+        REAL weight = fPressureweights[index];
+        if(IsZero(weight)) DebugStop();
 //        std::cout << "Side " << celside.Side() << std::endl;
 //        intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
 
-        bool isBC = IsDirichletCondition(gelside0);
-        if (isBC) nodeIsAtDirichletBorder = true;
         if (connects.find(conindex) != connects.end()) DebugStop();//nao pode inserir cnnects que já existem
         TPZConnect &c = intel1->Connect(celside.Side());
         int64_t seqnum = c.SequenceNumber();
@@ -1325,24 +1337,25 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         for (int istate = 0; istate < nstate; istate++) {
             sol[istate] = pressureHybrid->Block().Get(seqnum, 0, istate, 0);
         }
-        connects.insert({conindex, {isBC, sol}});
+        connects.insert({conindex, {weight, sol}});
     }
 
     TPZManVector<STATE, 3> averageSol(nstate, 0);
     int nconnects = 0;
 
+    REAL sum_weight = 0.;
     for (auto it = connects.begin(); it != connects.end(); it++) {
-        bool isBC = it->second.first;
+        REAL weight = it->second.first;
+        sum_weight += weight;
         // If the node is located on the Dirichlet BC, internal sides don't contribute to the average of the connects
-        if (nodeIsAtDirichletBorder && !isBC) continue;
         for (int istate = 0; istate < nstate; istate++) {
-            averageSol[istate] += it->second.second[istate];
+            averageSol[istate] += it->second.second[istate]*weight;
             nconnects++;
         }
     }
 
     for (int istate = 0; istate < nstate; istate++) {
-        averageSol[istate] /= nconnects;
+        averageSol[istate] /= sum_weight;
     }
 
     for (auto it = connects.begin(); it != connects.end(); it++) {
@@ -2069,3 +2082,40 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
     }
 }
 
+//    }
+}
+
+/// compute the pressure weights and material weights
+// fills in the data structure pressureweights and matid_weights
+void TPZHybridHDivErrorEstimator::ComputePressureWeights()
+{
+    TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[1];
+    int dim = pressuremesh->Dimension();
+    int64_t nel = pressuremesh->NElements();
+    fPressureweights.Resize(nel, 0);
+    fMatid_weights.clear();
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = pressuremesh->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        int matid = gel->MaterialId();
+        TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
+        if(!mat) DebugStop();
+        TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
+        if(gel->Dimension() != dim && !bcmat) continue;
+        if(bcmat && bcmat->Type() == 0)
+        {
+            this->fPressureweights[el] = 1.e12;
+            fMatid_weights[matid] = 1.e12;
+            continue;
+        }
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat);
+
+        if(!mixpoisson) DebugStop();
+        REAL perm;
+        mixpoisson->GetMaxPermeability(perm);
+        if(IsZero(perm)) DebugStop();
+        this->fPressureweights[el] = perm;
+        fMatid_weights[matid] = perm;
+    }
+}

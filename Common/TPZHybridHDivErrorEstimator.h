@@ -44,6 +44,13 @@ struct TPZHybridHDivErrorEstimator
     TPZMultiphysicsCompMesh fPostProcMesh;
 //    TPZManVector<TPZCompMesh *,7> fPostProcMesh;
     
+    /// weights associated with the dim-1 pressure elements to compute the averages
+    TPZVec<REAL> fPressureweights;
+    /// weights associated with material ids
+    std::map<int,REAL> fMatid_weights;
+    /// compute the pressure weights and material weights
+    // fills in the data structure pressureweights and matid_weights
+    void ComputePressureWeights();
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
     
