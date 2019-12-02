@@ -16,6 +16,7 @@
 
 #include "TPZSSpStructMatrix.h"
 #include "pzskylstrmatrix.h"
+#include "TPZMFSolutionTransfer.h"
 //
 //#ifndef USING_MKL
 //#include "pzskylstrmatrix.h"
@@ -756,27 +757,22 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     an.LoadSolution(); // compute internal dofs
     
     
-    
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
-    
-#ifdef PZDEBUG
-    {
-        std::ofstream file("SolvedProblem.txt");
-        cmesh->Print(file);
-        
-        std::ofstream file2("SolvedFlux.txt");
-        compmeshes[0]->Print(file2);
-        
-        std::ofstream file3("SolvedPressure.txt");
-        compmeshes[1]->Print(file3);
-        
-    }
-#endif
-    
-    
-    
-    
+    TPZMFSolutionTransfer transfer;
+    transfer.BuildTransferData(cmesh.operator->());
+//    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
+    transfer.TransferFromMultiphysics();
 
+    {
+        std::ofstream out1("mfmesh.txt");
+        cmesh->Print(out1);
+        std::ofstream out2("flux.txt");
+        compmeshes[0]->Print(out2);
+        std::ofstream out3("pressure.txt");
+        compmeshes[1]->Print(out3);
+        std::ofstream out4("transfer.txt");
+        transfer.Print(out4);
+    }
+    
     TPZStack<std::string> scalnames,vecnames;
     TPZMaterial *mat = cmesh->FindMaterial(1);
     if (!mat) {
