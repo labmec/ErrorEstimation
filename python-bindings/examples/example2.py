@@ -60,8 +60,3 @@ EstimateErrorWithH1Reconstruction(multiphysicsCMesh, cfg, resultsFileH1)
 
 resultsFileHdiv = cfg.DirName + "/HdivReconstructionErrors.vtk"
 EstimateErrorWithHdivReconstruction(multiphysicsCMesh, cfg, resultsFileHdiv)
-
-
-
-
-
