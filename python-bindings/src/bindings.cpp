@@ -223,5 +223,25 @@ PYBIND11_MODULE(errorestimation, m) {
             .def_property("Bcmaterialids", &ProblemConfig::getBcmaterialids, &ProblemConfig::setBcmaterialids)
             .def_property("Exact", &ProblemConfig::getExact, &ProblemConfig::setExact);
 
+    py::class_<TLaplaceExample1> laplaceExample (m, "TLaplaceExample");
+    laplaceExample.def_readwrite("Exact", &TLaplaceExample1::fExact);
 
+    py::enum_<TLaplaceExample1::EExactSol>(laplaceExample, "ExactSol")
+            .value("ENone", TLaplaceExample1::EExactSol::ENone)
+            .value("EConst", TLaplaceExample1::EExactSol::EConst)
+            .value("EX", TLaplaceExample1::EExactSol::EX)
+            .value("ESinSin", TLaplaceExample1::EExactSol::ESinSin)
+            .value("ECosCos", TLaplaceExample1::EExactSol::ECosCos)
+            .value("EArcTan", TLaplaceExample1::EExactSol::EArcTan)
+            .value("EArcTanSingular", TLaplaceExample1::EExactSol::EArcTanSingular)
+            .value("ESinDist", TLaplaceExample1::EExactSol::ESinDist)
+            .value("E10SinSin", TLaplaceExample1::EExactSol::E10SinSin)
+            .value("ESinSinDirNonHom", TLaplaceExample1::EExactSol::ESinSinDirNonHom)
+            .value("ESinMark", TLaplaceExample1::EExactSol::ESinMark)
+            .value("ESteklovNonConst", TLaplaceExample1::EExactSol::ESteklovNonConst)
+            .value("EGalvisNonConst", TLaplaceExample1::EExactSol::EGalvisNonConst)
+            .value("EBoundaryLayer", TLaplaceExample1::EExactSol::EBoundaryLayer)
+            .value("EBubble", TLaplaceExample1::EExactSol::EBubble)
+            .value("ESinCosCircle", TLaplaceExample1::EExactSol::ESinCosCircle)
+            .export_values();
 }

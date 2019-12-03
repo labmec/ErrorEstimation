@@ -39,6 +39,7 @@ cfg.TensorNonConst = False
 cfg.Materialids = {1}
 cfg.Bcmaterialids = {-1}
 cfg.Problemname = "EPython"
+cfg.Exact.Exact = TLaplaceExample.ExactSol.ESinSin
 
 multiphysicsCMesh = CreateHybridMultiphysicsMesh(cfg)
 
