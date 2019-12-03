@@ -52,7 +52,7 @@ TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator() {
 
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
-void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, bool store) {
+void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, std::string outputFileName) {
     TPZAnalysis an(&fPostProcMesh, false);
     
     if (fExact) {
@@ -124,7 +124,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 
     ComputeEffectivityIndices();
     
-    PostProcessing(an);
+    PostProcessing(an, outputFileName);
 }
 
 void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
@@ -171,7 +171,7 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
     
 }
 
-void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
+void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string outputFileName) {
     
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
     int varindex = -1;
@@ -194,15 +194,8 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         
         
         int dim = fPostProcMesh.Reference()->Dimension();
-        std::string plotname;
 
-            std::stringstream out;
-            out << fProblemConfig.dir_name << "/" << "PostProcessEstimation_POrder" << fProblemConfig.porder << "_" << dim
-            << "D_" << fProblemConfig.problemname << "Ndiv_ " << fProblemConfig.ndivisions << "HdivMais"
-            << fProblemConfig.hdivmais << "AdaptivityStep" << fProblemConfig.adaptivityStep << ".vtk";
-            plotname = out.str();
-        
-        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+        an.DefineGraphMesh(dim, scalnames, vecnames, outputFileName);
         an.PostProcess(0, dim);
     }
     else

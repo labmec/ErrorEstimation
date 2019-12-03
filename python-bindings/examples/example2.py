@@ -1,3 +1,5 @@
+import os
+
 from neopz import *
 from errorestimation import *
 
@@ -39,11 +41,27 @@ cfg.TensorNonConst = False
 cfg.Materialids = {1}
 cfg.Bcmaterialids = {-1}
 cfg.Problemname = "EPython"
+cfg.DirName = "TestePythonSinSin"
 cfg.Exact.Exact = TLaplaceExample.ExactSol.ESinSin
 
 multiphysicsCMesh = CreateHybridMultiphysicsMesh(cfg)
 
 SolveHybridProblem(multiphysicsCMesh, cfg)
 
-EstimateErrorWithH1Reconstruction(multiphysicsCMesh, cfg)
+try:
+    os.mkdir(cfg.DirName)
+except OSError:
+    print ("Creation of the directory %s failed. The directory already exists!" % cfg.DirName)
+else:
+    print ("Successfully created the directory %s" % cfg.DirName)
+
+resultsFileH1 = cfg.DirName + "/H1ReconstructionErrors.vtk"
+EstimateErrorWithH1Reconstruction(multiphysicsCMesh, cfg, resultsFileH1)
+
+resultsFileHdiv = cfg.DirName + "/HdivReconstructionErrors.vtk"
+EstimateErrorWithHdivReconstruction(multiphysicsCMesh, cfg, resultsFileHdiv)
+
+
+
+
 

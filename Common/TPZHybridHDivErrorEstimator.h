@@ -92,13 +92,13 @@ struct TPZHybridHDivErrorEstimator
     
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
-    virtual void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);
+    virtual void ComputeErrors(TPZVec<REAL> &elementerrors, std::string outputFileName = "HdivReconstructionResults.vtk");
     
     //reconstruction of potential using hybrid solution on enrichement space
     virtual void PotentialReconstruction();
     
     /// create graphical output of estimated and true errors using the analysis
-    void PostProcessing(TPZAnalysis &an);
+    void PostProcessing(TPZAnalysis &an, std::string outputFileName);
     
     
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);

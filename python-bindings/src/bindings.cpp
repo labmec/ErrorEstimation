@@ -17,7 +17,7 @@ namespace py = pybind11;
 #include "TPZVTKGeoMesh.h"
 // ---------------------------------------------------
 
-void EstimateErrorWithH1Reconstruction(TPZMultiphysicsCompMesh* cmesh_HDiv, ProblemConfig& config) {
+void EstimateErrorWithH1Reconstruction(TPZMultiphysicsCompMesh* cmesh_HDiv, ProblemConfig& config, std::string outputFileName = "H1ReconstructionResults.vtk") {
     TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
     HDivEstimate.fProblemConfig = config;
     HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
@@ -28,10 +28,10 @@ void EstimateErrorWithH1Reconstruction(TPZMultiphysicsCompMesh* cmesh_HDiv, Prob
     HDivEstimate.PotentialReconstruction();
 
     TPZManVector<REAL> elementErrors;
-    HDivEstimate.ComputeErrors(elementErrors);
+    HDivEstimate.ComputeErrors(elementErrors, outputFileName);
 }
 
-void EstimateErrorWithHdivReconstruction(TPZMultiphysicsCompMesh* cmeshHDiv, ProblemConfig& config) {
+void EstimateErrorWithHdivReconstruction(TPZMultiphysicsCompMesh* cmeshHDiv, ProblemConfig& config, std::string outputFileName = "HdivReconstructionResults.vtk") {
     TPZHybridHDivErrorEstimator HDivEstimate(*cmeshHDiv);
     HDivEstimate.fProblemConfig = config;
     HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
@@ -43,7 +43,7 @@ void EstimateErrorWithHdivReconstruction(TPZMultiphysicsCompMesh* cmeshHDiv, Pro
     HDivEstimate.PotentialReconstruction();
 
     TPZManVector<REAL> elementErrors;
-    HDivEstimate.ComputeErrors(elementErrors);
+    HDivEstimate.ComputeErrors(elementErrors, outputFileName);
 }
 
 TPZGeoMesh* Create2DGridMesh(const int x_nel, const int y_nel, TPZManVector<REAL> x0, TPZManVector<REAL> x1,
