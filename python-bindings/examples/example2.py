@@ -2,6 +2,7 @@ from neopz import *
 from errorestimation import *
 
 InitializePZLog()
+Initialize2DUniformRefPatterns()
 
 coord0 = TPZManVectorReal(3, 0.)
 coord1 = TPZManVectorReal(3, 1.)
@@ -14,29 +15,34 @@ bcIDs[2] = -1
 bcIDs[3] = -1
 
 x_nel = 2
-y_nel = 3
+y_nel = 2
 
 gmesh = Create2DGridMesh(x_nel, y_nel, coord0, coord1, bcIDs)
-PrintGMeshToVTK(gmesh, "GMeshBeforeRefinement.vtk")
-
-#UniformRefinement(2, gmesh)
 
 cfg = ProblemConfig()
+cfg.NDivisions = 2
+
+UniformRefinement(cfg.NDivisions, gmesh)
+
+PrintGMeshToVTK(gmesh, "GMeshAfterRefinement.vtk")
+PrintGMeshToTXT(gmesh, "GMeshAfterRefinementPython.txt")
+
 cfg.gmesh = gmesh
 cfg.Porder = 1
+cfg.Hdivmais = 0
 cfg.Dimension = 2
-cfg.Prefine = 0
-cfg.Makepressurecontinuous = 1
-cfg.TensorNonConst = 0
-cfg.Hdivmais = 1
+cfg.Prefine = False
+cfg.Makepressurecontinuous = True
+cfg.AdaptivityStep = 2
+cfg.TensorNonConst = False
+
 cfg.Materialids = {1}
 cfg.Bcmaterialids = {-1}
 cfg.Problemname = "EPython"
 
-multiphysicsCMesh = CreateHDivMesh(cfg)
-multiphysicsCMesh.InitializeBlock()
+multiphysicsCMesh = CreateHybridMultiphysicsMesh(cfg)
 
-HybridizeCompMesh(multiphysicsCMesh)
 SolveHybridProblem(multiphysicsCMesh, cfg)
-#EstimateErrorsWithH1Reconstruction(multiphysicsCMesh, cfg)
+
+EstimateErrorWithH1Reconstruction(multiphysicsCMesh, cfg)
 

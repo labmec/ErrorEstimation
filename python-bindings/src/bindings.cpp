@@ -17,6 +17,35 @@ namespace py = pybind11;
 #include "TPZVTKGeoMesh.h"
 // ---------------------------------------------------
 
+void EstimateErrorWithH1Reconstruction(TPZMultiphysicsCompMesh* cmesh_HDiv, ProblemConfig& config) {
+    TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
+    HDivEstimate.fProblemConfig = config;
+    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.SetAnalyticSolution(config.exact);
+    HDivEstimate.fperformUplift = true;
+    HDivEstimate.fUpliftOrder = 1;
+
+    HDivEstimate.PotentialReconstruction();
+
+    TPZManVector<REAL> elementErrors;
+    HDivEstimate.ComputeErrors(elementErrors);
+}
+
+void EstimateErrorWithHdivReconstruction(TPZMultiphysicsCompMesh* cmeshHDiv, ProblemConfig& config) {
+    TPZHybridHDivErrorEstimator HDivEstimate(*cmeshHDiv);
+    HDivEstimate.fProblemConfig = config;
+    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.SetAnalyticSolution(config.exact);
+    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+
+    HDivEstimate.fPostProcesswithHDiv = true;
+
+    HDivEstimate.PotentialReconstruction();
+
+    TPZManVector<REAL> elementErrors;
+    HDivEstimate.ComputeErrors(elementErrors);
+}
+
 TPZGeoMesh* Create2DGridMesh(const int x_nel, const int y_nel, TPZManVector<REAL> x0, TPZManVector<REAL> x1,
                              const TPZManVector<int> bcIDs) {
 
@@ -76,28 +105,30 @@ int add() {
     gmesh = Create2DGridMesh(2, 2, coord1, coord2, bcids);
     gmesh->SetDimension(2);
 
-    {
-        std::ofstream out("gmesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        std::ofstream out2("gmeshInitial.txt");
-        gmesh->Print(out2);
-    }
 
 // ===============================================================
 
     ProblemConfig config;
 
+    config.ndivisions = 2;
+    UniformRefinement(config.ndivisions, gmesh);
+    {
+        std::ofstream out("gmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+        std::ofstream out2("gmeshAfterAdd.txt");
+        gmesh->Print(out2);
+    }
+
+
     config.gmesh = gmesh;
     config.porder = 1;
     config.hdivmais = 0;
-    config.ndivisions = 2;
     config.dimension = gmesh->Dimension();
     config.prefine = false;
     config.makepressurecontinuous = true;
     config.adaptivityStep = 2;
     config.TensorNonConst = false;//para problem 3d com tensor nao constante
 
-    UniformRefinement(config.ndivisions, gmesh);
     config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSinDirNonHom;//ESinSin;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
     config.problemname = "ESinSinDirNomHom";//"EConst";//"ESinSinDirNonHom";//"ESinSin";//" //"EArcTanSingular_PRef";//""ArcTang";//
 
@@ -113,39 +144,13 @@ int add() {
 // ===============================================================
     SolveHybridProblem(cmesh_HDiv, config);
 // ===============================================================
-    //reconstroi potencial e calcula o erro
-    {
-        bool RunMark = 0;
-        if (RunMark) {
-            TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-            HDivEstimate.fProblemConfig = config;
-            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-            HDivEstimate.SetAnalyticSolution(config.exact);
-            HDivEstimate.fperformUplift = true;
-            HDivEstimate.fUpliftOrder = 1;
 
-            HDivEstimate.PotentialReconstruction();
-
-            TPZManVector<REAL> elementerrors;
-            HDivEstimate.ComputeErrors(elementerrors);
-
-        } else {
-
-            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-            HDivEstimate.fProblemConfig = config;
-            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-            HDivEstimate.SetAnalyticSolution(config.exact);
-            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-
-            HDivEstimate.fPostProcesswithHDiv = true;
-
-            HDivEstimate.PotentialReconstruction();
-
-            TPZManVector<REAL> elementerrors;
-            HDivEstimate.ComputeErrors(elementerrors);
-            // hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
-
-        }
+    // Reconstructs the potential and calculate errors
+    bool RunMark = 1;
+    if (RunMark) {
+        EstimateErrorWithH1Reconstruction(cmesh_HDiv, config);
+    } else {
+        EstimateErrorWithHdivReconstruction(cmesh_HDiv, config);
     }
 
     return 0;
@@ -160,8 +165,13 @@ PYBIND11_MODULE(errorestimation, m) {
     )pbdoc";
 
     m.def("add", &add, "A function which adds two numbers");
+
     m.def("InitializePZLog", py::overload_cast<>(&InitializePZLOG),
           "Initializes log file for log4cxx with common name log4cxx.cfg");
+
+    m.def("Initialize2DUniformRefPatterns", &Initialize2DUniformRefPatterns,
+          "Initializes refinement patterns for topologies up to 2 dimensions");
+
     m.def("Create2DGridMesh", &Create2DGridMesh, "A function that creates a 2D grid mesh");
 
     m.def("UniformRefinement", &UniformRefinement, "A function that refines a Geometric Mesh uniformly");
@@ -171,6 +181,24 @@ PYBIND11_MODULE(errorestimation, m) {
               std::ofstream out(fileName);
               TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
           }, "Prints a VTK file with the TPZGeoMesh information");
+
+    m.def("PrintGMeshToTXT",
+          [](TPZGeoMesh* gmesh, std::string fileName) {
+              std::ofstream out(fileName);
+              gmesh->Print(out);
+          }, "Prints a text file with the TPZGeoMesh information");
+
+    m.def("CreateHybridMultiphysicsMesh", &CreateHybridMultiphysicsMesh, py::return_value_policy::reference,
+          "Creates a multiphysics computational mesh which is already hybridized");
+
+    m.def("EstimateErrorWithH1Reconstruction", &EstimateErrorWithH1Reconstruction,
+          "Estimate approximation error using Ainsworth's proposal");
+
+    m.def("EstimateErrorWithHdivReconstruction", &EstimateErrorWithHdivReconstruction,
+          "Estimate approximation error using H(div) reconstruction");
+
+    m.def("SolveHybridProblem", py::overload_cast<TPZMultiphysicsCompMesh*, const ProblemConfig&>(&SolveHybridProblem),
+          "Solves a hybrid H(div) finite element problem");
 
     // ProblemConfig
     py::class_<ProblemConfig>(m, "ProblemConfig")
@@ -195,79 +223,5 @@ PYBIND11_MODULE(errorestimation, m) {
             .def_property("Bcmaterialids", &ProblemConfig::getBcmaterialids, &ProblemConfig::setBcmaterialids)
             .def_property("Exact", &ProblemConfig::getExact, &ProblemConfig::setExact);
 
-    //  py::class_<TPZHDivErrorEstimatorH1>(m, "TPZHDivErrorEstimatorH1")
-    //          .def(py::init<TPZMultiphysicsCompMesh&>());
 
-    m.def("CreateHDivMesh", &CreateHDivMesh, py::return_value_policy::reference,
-          "A function that creates the mixed computational mesh");
-
-    m.def("HybridizeCompMesh", [](TPZMultiphysicsCompMesh* cmeshHDiv) {
-
-              TPZManVector<TPZCompMesh*, 2> meshVec(2, 0);
-              meshVec = cmeshHDiv->MeshVector();
-
-              TPZHybridizeHDiv hybrid;
-              TPZMultiphysicsCompMesh* HybridMesh = hybrid.Hybridize(cmeshHDiv);
-              HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
-              HybridMesh->AdjustBoundaryElements();
-
-              std::cout << "---Original PerifericalMaterialId --- " << std::endl;
-              std::cout << " LagrangeInterface = " << hybrid.fLagrangeInterface << std::endl;
-              std::cout << " HDivWrapMatid = " << hybrid.fHDivWrapMatid << std::endl;
-              std::cout << " InterfaceMatid = " << hybrid.fInterfaceMatid << std::endl;
-
-              cmeshHDiv = HybridMesh;
-              meshVec[0] = HybridMesh->MeshVector()[0];
-              meshVec[1] = HybridMesh->MeshVector()[1];
-
-#ifdef LOG4CXX
-              static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
-              std::stringstream sout;
-              HybridMesh->MeshVector()[0]->Print(sout);
-              HybridMesh->MeshVector()[1]->Print(sout);
-              LOGPZ_ERROR(logger, sout.str())
-#endif
-          }
-    );
-    m.def("SolveHybridProblem", [](TPZMultiphysicsCompMesh* cmeshHDiv, ProblemConfig config) {
-
-#ifdef LOG4CXX
-              static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
-              std::stringstream sout;
-              cmeshHDiv->Print(sout);
-              LOGPZ_ERROR(logger, sout.str())
-#endif
-              SolveHybridProblem(cmeshHDiv, 7, config);
-
-              TPZHDivErrorEstimatorH1 HDivEstimate(*cmeshHDiv);
-              HDivEstimate.fProblemConfig = config;
-              HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-              HDivEstimate.SetAnalyticSolution(config.exact);
-              std::cout << "Checkpoint\n";
-              HDivEstimate.fperformUplift = true;
-              HDivEstimate.fUpliftOrder = 2;
-
-              std::cout << "Checkpoint\n";
-              HDivEstimate.PotentialReconstruction();
-
-              TPZManVector<REAL> elementerrors;
-              HDivEstimate.ComputeErrors(elementerrors);
-          }
-    );
-
-    m.def("EstimateErrorsWithH1Reconstruction", [](TPZMultiphysicsCompMesh* cmeshHDiv, ProblemConfig& config) {
-        TPZHDivErrorEstimatorH1 HDivEstimate(*cmeshHDiv);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-        HDivEstimate.SetAnalyticSolution(config.exact);
-        std::cout << "Checkpoint\n";
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 2;
-
-        std::cout << "Checkpoint\n";
-        HDivEstimate.PotentialReconstruction();
-
-        TPZManVector<REAL> elementerrors;
-        HDivEstimate.ComputeErrors(elementerrors);
-    });
 }

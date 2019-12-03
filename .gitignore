@@ -2,6 +2,8 @@
 .DS_Store
 *.egg
 *.so
+*.vtk
+*.txt
 .idea
 python-bindings/build
 python-bindings/errorestimation.egg-info

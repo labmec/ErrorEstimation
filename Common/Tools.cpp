@@ -465,7 +465,7 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
 
 }
 
-void SolveHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &problem){
+void SolveHybridProblem(TPZMultiphysicsCompMesh *Hybridmesh, const ProblemConfig &problem){
 
     TPZAnalysis an(Hybridmesh);
 
