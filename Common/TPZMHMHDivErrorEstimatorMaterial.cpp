@@ -7,7 +7,7 @@
 #include "TPZMHMHDivErrorEstimatorMaterial.h"
 #include "pzaxestools.h"
 #include "TPZAnalyticSolution.h"
-
+#include "pzbndcond.h"
 
 TPZMHMHDivErrorEstimateMaterial::TPZMHMHDivErrorEstimateMaterial(int matid, int dim) : TPZMixedPoisson(matid,dim)
 {
@@ -80,11 +80,16 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
      |Ak  |  = |bk|
      
      Ak = int_K K grads_i.gradv dx = int_K gradphi_i.gradphi_j dx
-     bk = int_K K gradu_h.gradv dx = int_K K gradphi_i. gradu_h dx
+     bk = int_K K sigma_h.gradv dx = int_K - sigma_i. gradu_h dx
      
      **/
     
     int H1functionposition = IsH1Position(datavec);
+    if(H1functionposition == 0){
+        TPZMixedPoisson:: Contribute(datavec, weight, ek, ef);
+        return;
+    }
+    
     
     int dim = datavec[H1functionposition].axes.Rows();
     //defining test functions
@@ -102,6 +107,13 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
     solsigmafem.Zero();
     solukfem.Zero();
     
+    //flux fem
+    for (int ip = 0; ip<3; ip++){
+        
+        solsigmafem(ip,0) = datavec[2].sol[0][ip];
+    }
+    
+    
     //potetial fem
     solukfem(0,0) = datavec[3].sol[0][0];
     TPZFMatrix<REAL> dsolukfem(3,1,0),Kgradukfem(3,1,0);
@@ -117,14 +129,14 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
     
     TPZFMatrix<STATE> kgraduk(3,nphiuk,0.);
     
-    for(int i=0; i< dim; i++){
-        
-        for(int jd=0; jd< dim;jd++){
-            Kgradukfem(i,0) += PermTensor(i,jd)*dsolukfem(jd,0);
-           
-            
-        }
-    }
+//    for(int i=0; i< dim; i++){
+//
+//        for(int jd=0; jd< dim;jd++){
+//            Kgradukfem(i,0) += PermTensor(i,jd)*dsolukfem(jd,0);
+//
+//
+//        }
+//    }
     
     
     
@@ -132,17 +144,16 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
     for(int irow=0 ; irow<nphiuk; irow++){
         
         //K graduk
-        //REAL Kgradukfem = 0;
         for(int id=0; id< dim; id++){
             
             for(int jd=0; jd< dim;jd++){
                 kgraduk(id,irow) += PermTensor(id,jd)*dphiuk(jd,irow);
-                ef(irow,0) += weight*Kgradukfem(jd,0)*dphiuk(jd,irow);
+                
                 
             }
+            ef(irow,0) += (-1.)*weight*solsigmafem(id,0)*dphiuk(id,irow);
         }
         
-       // ef(irow,0) += weight* Kgradukfem ;
         
         
         //matrix Sk= int_{K} K grads_i.gradv
@@ -158,11 +169,51 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
         
     }
     
-    
-    
-    
-    
 }
+void TPZMHMHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc)
+{
+     int H1functionposition = IsH1Position(datavec);
+    if(H1functionposition == 0) return;
+
+    TPZFMatrix<REAL>  &phi_u = datavec[1].phi;
+    int phr_primal = phi_u.Rows();
+
+    short in,jn;
+    STATE v2[1];
+    if(bc.HasForcingFunction()) {
+        TPZManVector<STATE> res(1);
+        TPZFNMatrix<3,STATE> dres(3,1);
+        bc.ForcingFunction()->Execute(datavec[H1functionposition].x,res,dres);
+        v2[0] = res[0];
+    }
+    else{
+           v2[0] = bc.Val2()(0,0);
+    }
+//
+    switch (bc.Type()) {
+        case 0 :            // Dirichlet condition
+            for(in = 0 ; in < phr_primal; in++) {
+                ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
+                for (jn = 0 ; jn < phr_primal; jn++) {
+                    ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
+                }
+            }
+            break;
+        case 1 :            // Neumann condition
+            std::cout<<"Not Implemented yet"<<std::endl;
+            DebugStop();
+            break;
+        case 2 :        // mixed condition
+
+            std::cout<<"Not Implemented yet"<<std::endl;
+            DebugStop();
+
+            break;
+    }
+
+}
+
+
 
 
 
@@ -367,7 +418,7 @@ void TPZMHMHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec,
             }
             else{
                 
-                //FluxReconstructed is grad U
+                //FluxReconstructed is K gradU
                 TPZFMatrix<REAL> &dsolaxes = datavec[IsH1position].dsol[0];
                 TPZFNMatrix<9,REAL> dsol(3,0);
                 TPZFNMatrix<9,REAL> KGradsol(3,0);

@@ -118,17 +118,17 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     for(int irow=0 ; irow<nphiuk; irow++){
         
         //K graduk
-        for(int i=0; i< dim; i++){
+        for(int id=0; id< dim; id++){
             
             for(int jd=0; jd< dim;jd++){
                 
-                kgraduk(i,irow) += PermTensor(i,jd)*dphiuk(jd,irow);
+                kgraduk(id,irow) += PermTensor(id,jd)*dphiuk(jd,irow);
                 
             }
             //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
             //the minus sign is necessary because we are workin with sigma_h = - K grad u, Mark works with sigma_h = K grad u
             
-            ef(irow,0)+=(-1.)*weight*dphiuk(i,irow)*solsigmafem(i,0);
+            ef(irow,0)+=(-1.)*weight*dphiuk(id,irow)*solsigmafem(id,0);
         }
         
         //matrix Sk= int_{K} K graduk.gradv

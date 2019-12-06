@@ -166,7 +166,7 @@ protected:
     
     /// copy the solution from the neighbouring skeleton elements
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
-    void CopySolutionFromSkeleton();
+    virtual void CopySolutionFromSkeleton();
 
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
     virtual void SwitchMaterialObjects();

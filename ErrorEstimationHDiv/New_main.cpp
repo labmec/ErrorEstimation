@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     
     
     
-    for(int ndiv=1; ndiv<6; ndiv++){
+    for(int ndiv=1; ndiv<2; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
@@ -81,12 +81,14 @@ int main(int argc, char *argv[]) {
         config.adaptivityStep = ndiv;
         config.TensorNonConst = false;//para problem 3d com tensor nao constante
         
-        config.exact.fExact = TLaplaceExample1::ESinSin;//ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
-        config.problemname = "ESinSinRecHdiv";
+        TLaplaceExample1 example;
+
+        config.exact.fExact = example.EX;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
+        config.problemname = "ExRecH1";
         
         bool RunMark = false;
         
-        config.dir_name= "TesteSinPhil";//"ReconstructionH1";//
+        config.dir_name= "ReconstructionH1";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
         
@@ -271,7 +273,7 @@ int main(int argc, char *argv[]) {
                 HDivEstimate.SetAnalyticSolution(config.exact);
                 HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
                 
-                HDivEstimate.fPostProcesswithHDiv = true;
+                HDivEstimate.fPostProcesswithHDiv = false;
                 
                 HDivEstimate.PotentialReconstruction();
                 

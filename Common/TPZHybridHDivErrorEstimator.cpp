@@ -328,6 +328,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     
     
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
+    mesh_vectors[0] = 0;
     mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
     mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
@@ -989,8 +990,13 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
         
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
+        
+
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc) continue ;
+        
+   
+        
      //   std::cout<<"CalcStiff for bc el "<<std::endl;
         
         cel->CalcStiff(ekbc,efbc);
@@ -998,7 +1004,7 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
         efbc.Print(std::cout);
  
         ekbc.fMat.SolveDirect(efbc.fMat, ECholesky);
-       // efbc.Print(std::cout<<"Solution ");
+        efbc.Print(std::cout<<"Solution ");
         
         int count = 0;
         int nc = cel->NConnects();
@@ -1016,10 +1022,10 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
 
     }
     
-//    {
-//        std::ofstream out("PressureAfterL2Projection.txt");
-//        pressuremesh->Print(out);
-//    }
+    {
+        std::ofstream out("PressureAfterL2Projection.txt");
+        pressuremesh->Print(out);
+    }
 
 }
 
@@ -1320,7 +1326,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
         if (!intel1) DebugStop();
         int64_t index = intel1->Index();
-        REAL weight = fPressureweights[index];
+        REAL weight = 1;//fPressureweights[index];
         if(IsZero(weight)) DebugStop();
 //        std::cout << "Side " << celside.Side() << std::endl;
 //        intel1->Print();
@@ -1540,7 +1546,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     //Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
     // for the border fluxes
-    // in the future we can opt to create an H(1) post processing mesh
     {
         
         std::ofstream out("PressureOriginalBeforeProcessing.txt");
@@ -2082,8 +2087,6 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
     }
 }
 
-//    }
-}
 
 /// compute the pressure weights and material weights
 // fills in the data structure pressureweights and matid_weights
@@ -2100,6 +2103,10 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
         TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
+        if(matid == fPressureSkeletonMatId || matid == fHybridizer.fLagrangeInterface){
+            //fPressureweights[el] = 1.e12;
+            continue;
+        }
         if(!mat) DebugStop();
         TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
         if(gel->Dimension() != dim && !bcmat) continue;
