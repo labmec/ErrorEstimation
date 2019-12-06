@@ -340,13 +340,11 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         mesh_vectors[0] = CreateFluxMesh();
     }
 
-    
     if (!fOriginalIsHybridized) {
         fHybridizer.ComputePeriferalMaterialIds(mesh_vectors);
         fHybridizer.ComputeNState(mesh_vectors);
         fHybridizer.HybridizeInternalSides(mesh_vectors);
-        fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
-        
+
         //int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
         //fPressureSkeletonMatId = lastmatid + 1;
 
@@ -2103,10 +2101,10 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
         TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
-        if(matid == fPressureSkeletonMatId || matid == fHybridizer.fLagrangeInterface){
-            //fPressureweights[el] = 1.e12;
-            continue;
-        }
+       if(matid == fPressureSkeletonMatId || matid == fHybridizer.fLagrangeInterface){
+           //fPressureweights[el] = 1.e12;
+           continue;
+       }
         if(!mat) DebugStop();
         TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
         if(gel->Dimension() != dim && !bcmat) continue;

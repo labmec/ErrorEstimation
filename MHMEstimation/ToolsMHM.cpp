@@ -651,7 +651,7 @@ int MHMTest(ProblemConfig &Conf) {
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
 
-    ErrorEstimator.fPostProcesswithHDiv = false;
+    ErrorEstimator.fPostProcesswithHDiv = true;
     ErrorEstimator.PotentialReconstruction();
 
     {

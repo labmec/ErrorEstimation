@@ -112,7 +112,7 @@ int main() {
 
     TLaplaceExample1 example;
 
-        config.exact.fExact = example.EX;//ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//ESinMark;//EConst;//EArcTan;//
+        config.exact.fExact = example.ESinSin;//ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//ESinMark;//EConst;//EArcTan;//
 
     config.problemname = "SinSinNonHom";
 

@@ -35,8 +35,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         meshvec[0] = CreateFluxMesh();
         
     }
-    
-    
+
     TPZManVector<int,4> active(4,0);
     if(fPostProcesswithHDiv){
         active[0] = 1;
@@ -74,6 +73,8 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         fPostProcMesh.Print(out3);
     }
 #endif
+
+    fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
 
     SubStructurePostProcessingMesh();
     
