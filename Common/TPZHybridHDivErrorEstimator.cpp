@@ -207,7 +207,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
             plotname = out.str();
         
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(2, dim);
+        an.PostProcess(0, dim);
     }
     else
     {
@@ -1394,10 +1394,6 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subc
     int64_t nrows = subcmesh->ElementSolution().Rows();
     int64_t ncols = subcmesh->ElementSolution().Cols();
     
-    //std::ostream &out;
-    //    cmesh->ElementSolution().Print("ElSolution",std::cout);
-    
-    
     subcmesh->ElementSolution().Resize(nrows, ncols+2);
     int64_t nel = subcmesh->NElements();
     TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
@@ -1409,6 +1405,11 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subc
     }
     for (int i=0; i<4; i++) {
         errors[i] = sqrt(errors[i]);
+    }
+    for (int64_t el = 0; el<nel; el++) {
+        for (int i=0; i<4; i++) {
+            elsol(el,i) = errors[i];
+        }
     }
     for (int64_t el = 0; el < nrows; el++) {
         for (int i = 0; i < 3; i += 2) {
