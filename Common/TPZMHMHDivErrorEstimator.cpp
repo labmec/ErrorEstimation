@@ -35,6 +35,17 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         meshvec[0] = CreateFluxMesh();
         
     }
+    
+    //enriquecer no MHM tbem?
+    {
+        IncreasePressureSideOrders(meshvec[1]);//malha da pressao
+        if(fPostProcesswithHDiv)
+        {
+            IncreaseSideOrders(meshvec[0]);//malha do fluxo
+        }
+    }
+    
+    
 
     TPZManVector<int,4> active(4,0);
     if(fPostProcesswithHDiv){
@@ -75,6 +86,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 #endif
 
     fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
+    
 
     SubStructurePostProcessingMesh();
     

@@ -652,6 +652,13 @@ int MHMTest(ProblemConfig &Conf) {
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
 
     ErrorEstimator.fPostProcesswithHDiv = true;
+    
+    ErrorEstimator.fProblemConfig.porder =Conf.porder;
+    ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;
+    ErrorEstimator.fProblemConfig.hdivmais = Conf.hdivmais;
+    ErrorEstimator.fProblemConfig.adaptivityStep = Conf.adaptivityStep;
+    
+    
     ErrorEstimator.PotentialReconstruction();
 
     {
@@ -660,10 +667,7 @@ int MHMTest(ProblemConfig &Conf) {
         std::string command = "mkdir " + Conf.dir_name;
         system(command.c_str());
 
-        ErrorEstimator.fProblemConfig.porder =Conf.porder;
-        ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;
-        ErrorEstimator.fProblemConfig.hdivmais = Conf.hdivmais;
-        ErrorEstimator.fProblemConfig.adaptivityStep = Conf.adaptivityStep;
+
 
 
 

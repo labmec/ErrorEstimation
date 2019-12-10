@@ -86,7 +86,8 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
     
     int H1functionposition = IsH1Position(datavec);
     if(H1functionposition == 0){
-        TPZMixedPoisson:: Contribute(datavec, weight, ek, ef);
+       // TPZMixedPoisson:: Contribute(datavec, weight, ek, ef);
+        ContributeHdiv(datavec, weight, ek, ef);
         return;
     }
     
@@ -170,6 +171,145 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
     }
     
 }
+
+void TPZMHMHDivErrorEstimateMaterial::ContributeHdiv(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
+
+    
+    STATE force = ff;
+    if(fForcingFunction) {
+        TPZManVector<STATE> res(1);
+        fForcingFunction->Execute(datavec[1].x,res);
+        force = res[0];
+    }
+    
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+    
+    GetPermeability(datavec[1].x, PermTensor, InvPermTensor);
+    
+    // Setting the phis
+    TPZFMatrix<REAL> &phiQ = datavec[0].phi;
+    TPZFMatrix<REAL> &phip = datavec[1].phi;
+    TPZFMatrix<REAL> &dphiQ = datavec[0].dphix;
+    TPZFMatrix<REAL> &dphiP = datavec[1].dphix;
+    TPZFNMatrix<9,REAL> dphiPXY(3,dphiP.Cols());
+    TPZAxesTools<REAL>::Axes2XYZ(dphiP, dphiPXY, datavec[1].axes);
+    
+    
+    int phrq, phrp;
+    phrp = phip.Rows();
+    phrq = datavec[0].fVecShapeIndex.NElements();
+    
+    int nactive = 0;
+    for (int i=0; i<datavec.size(); i++) {
+        if (datavec[i].fActiveApproxSpace) {
+            nactive++;
+        }
+    }
+#ifdef PZDEBUG
+    if(nactive == 4)
+    {
+        int phrgb = datavec[2].phi.Rows();
+        int phrub = datavec[3].phi.Rows();
+        if(phrp+phrq+phrgb+phrub != ek.Rows())
+        {
+            DebugStop();
+        }
+    }else
+    {
+        if(phrp+phrq != ek.Rows())
+        {
+            DebugStop();
+        }
+    }
+#endif
+    //Calculate the matrix contribution for flux. Matrix A
+    for(int iq=0; iq<phrq; iq++)
+    {
+        //ef(iq, 0) += 0.;
+        int ivecind = datavec[0].fVecShapeIndex[iq].first;
+        int ishapeind = datavec[0].fVecShapeIndex[iq].second;
+        TPZFNMatrix<3,REAL> ivec(3,1,0.);
+        for(int id=0; id<3; id++){
+            ivec(id,0) = datavec[0].fNormalVec(id,ivecind);
+        }
+    
+        
+        TPZFNMatrix<3,REAL> ivecZ(3,1,0.);
+        TPZFNMatrix<3,REAL> jvecZ(3,1,0.);
+        for (int jq=0; jq<phrq; jq++)
+        {
+            TPZFNMatrix<3,REAL> jvec(3,1,0.);
+            int jvecind = datavec[0].fVecShapeIndex[jq].first;
+            int jshapeind = datavec[0].fVecShapeIndex[jq].second;
+            
+            for(int id=0; id<3; id++){
+                jvec(id,0) = datavec[0].fNormalVec(id,jvecind);
+            }
+            
+            //dot product between Kinv[u]v
+            jvecZ.Zero();
+            for(int id=0; id<fDim; id++){
+                for(int jd=0; jd<fDim; jd++){
+                    jvecZ(id,0) += InvPermTensor(id,jd)*jvec(jd,0);
+                }
+            }
+            //jvecZ.Print("mat1 = ");
+            REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
+            ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
+            
+        }
+    }
+    
+    
+    // Coupling terms between flux and pressure. Matrix B
+    for(int iq=0; iq<phrq; iq++)
+    {
+        int ivecind = datavec[0].fVecShapeIndex[iq].first;
+        int ishapeind = datavec[0].fVecShapeIndex[iq].second;
+        
+        TPZFNMatrix<3,REAL> ivec(3,1,0.);
+        for(int id=0; id<3; id++){
+            ivec(id,0) = datavec[0].fNormalVec(id,ivecind);
+        }
+        TPZFNMatrix<3,REAL> axesvec(3,1,0.);
+        datavec[0].axes.Multiply(ivec,axesvec);
+        
+        REAL divwq = 0.;
+        for(int iloc=0; iloc<fDim; iloc++)
+        {
+            divwq += axesvec(iloc,0)*dphiQ(iloc,ishapeind);
+        }
+        for (int jp=0; jp<phrp; jp++) {
+            
+            REAL fact = (-1.)*weight*phip(jp,0)*divwq;
+            // Matrix B
+            ek(iq, phrq+jp) += fact;
+            
+            // Matrix B^T
+            ek(phrq+jp,iq) += fact;
+        }
+    }
+    
+    //termo fonte referente a equacao da pressao
+    for(int ip=0; ip<phrp; ip++){
+        ef(phrq+ip,0) += (-1.)*weight*force*phip(ip,0);
+    }
+    //
+//    #ifdef LOG4CXX
+//        if(logdata->isDebugEnabled())
+//        {
+//            std::stringstream sout;
+//            sout<<"\n\n Matriz ek e vetor fk \n ";
+//            ek.Print("ekmph = ",sout,EMathematicaInput);
+//            ef.Print("efmph = ",sout,EMathematicaInput);
+//            LOGPZ_DEBUG(logdata,sout.str());
+//        }
+//    #endif
+    
+}
+
+
 void TPZMHMHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc)
 {
      int H1functionposition = IsH1Position(datavec);

@@ -112,11 +112,11 @@ int main() {
 
     TLaplaceExample1 example;
 
-        config.exact.fExact = example.ESinSin;//ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//ESinMark;//EConst;//EArcTan;//
+        config.exact.fExact = example.ESinSin;
 
-    config.problemname = "SinSinNonHom";
+    config.problemname = "SinSin";
 
-    config.dir_name= "MHMMeshNonConvex";
+    config.dir_name= "TestesMHM";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
