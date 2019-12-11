@@ -8,6 +8,10 @@
 #include "TPZNullMaterial.h"
 #include "TPZVecL2.h"
 
+#ifdef LOG4CXX
+static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+#endif
+
 // a method for generating the hybridized multiphysics post processing mesh
 void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 {
@@ -876,4 +880,127 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
         pressuremesh->Print(out);
     }
     
+}
+
+void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
+    {
+        std::ofstream outvtk("MeshToVerifyConsistency.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
+        std::ofstream outtxt("MeshToVerifyConsistency.txt");
+        cmesh->Print(outtxt);
+    }
+
+    TPZGeoMesh* gmesh = fOriginal->Reference();
+    gmesh->ResetReference();
+    cmesh->LoadReferences();
+
+    int dim = gmesh->Dimension();
+
+    int64_t nel = cmesh->NElements();
+    // Iterates through all elements of the mesh
+    for (int64_t iel = 0; iel < nel; iel++) {
+        TPZCompEl *cel = cmesh->Element(iel);
+        if (!cel) continue;
+
+        // Filters elements of highest dimension (2 or 3)
+        TPZGeoEl *gel = cel->Reference();
+
+        if (gel->Dimension() != dim) continue;
+
+        std::cout << "Element: " << gel->Index() << '\n';
+
+        // Iterates through the sides of the element
+        int nsides = gel->NSides();
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+
+            // Filters sides of lower dimension
+            if (gelside.Dimension() != dim - 1) continue;
+
+            // Gets compel sides of equal and lower (if existing) level linked to the gelside
+            TPZStack<TPZCompElSide> celstack;
+            gelside.EqualLevelCompElementList(celstack, 1, 0);
+
+            TPZCompElSide large = gelside.LowerLevelCompElementList2(1);
+            if (large) celstack.Push(large);
+
+            if (celstack.size() == 0) continue;
+
+            int intOrder = 2;
+
+            TPZIntPoints *intRule = gelside.CreateIntegrationRule(intOrder);
+
+            // Iterates through the comp sides connected to the reference gelside
+            int nstack = celstack.size();
+            for (int ist = 0; ist < nstack; ist++) {
+                TPZCompElSide cneighbour = celstack[ist];
+                if (!cneighbour) continue;
+
+                TPZGeoElSide neighbour = cneighbour.Reference();
+
+                // Filters comp sides in elements of highest dimension (2 or 3)
+                if (neighbour.Element()->Dimension() != dim) continue;
+
+                // Verifies if coordinates on neighbours are the same
+                TPZTransform<REAL> transform(gelside.Dimension());
+                gelside.SideTransform3(neighbour, transform);
+
+                TPZManVector<REAL> pt0(gelside.Dimension(), 0);
+                TPZManVector<REAL> pt1(neighbour.Dimension(), 0);
+
+                int npoints = intRule->NPoints();
+                for (int ipt = 0; ipt < npoints; ipt++) {
+                    REAL weight;
+                    // Gets point in side parametric space from integration rule
+                    intRule->Point(ipt, pt0, weight);
+                    // Gets point in neighbour parametric space
+                    transform.Apply(pt0, pt1);
+
+                    // Transform from parametric to global coordinates
+                    TPZManVector<REAL> x0(3);
+                    TPZManVector<REAL> x1(3);
+
+                    gelside.X(pt0, x0);
+                    neighbour.X(pt1, x1);
+
+                    // Maps pt0 and pt1 to volume and gets solution on this points
+                    TPZTransform<REAL> sideToVolume(dim, dim);
+                    sideToVolume = gelside.Element()->SideToSideTransform(iside, nsides - 1);
+
+                    TPZManVector<REAL> pt0_vol(dim, 0);
+                    sideToVolume.Apply(pt0, pt0_vol);
+                    TPZManVector<STATE> sol0(1);
+                    cel->Solution(pt0_vol, 0, sol0);
+
+                    TPZTransform<REAL> neighSideToVolume(dim, dim);
+                    neighSideToVolume = neighbour.Element()->SideToSideTransform(cneighbour.Side(), neighbour.Element()->NSides() - 1);
+
+                    TPZManVector<REAL> pt1_vol(dim, 0);
+                    neighSideToVolume.Apply(pt1, pt1_vol);
+                    TPZManVector<STATE> sol1(1);
+                    cneighbour.Element()->Solution(pt1_vol, 0, sol1);
+
+#ifdef LOG4CXX
+                    if (logger->isDebugEnabled()) {
+                        std::stringstream sout;
+                        sout << "\nSide Element =  " << gelside.Element()->Index() << "\n";
+                        sout << "Neighbour Element =  " << neighbour.Element()->Index() << "\n";
+                        sout << "Side solution =  " << sol0[0] << "\n";
+                        sout << "Neigh solution = " << sol1[0] << "\n";
+                        sout << "Diff = " << sol1[0] - sol0[0] << "\n";
+                        sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+                        sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+
+                        LOGPZ_DEBUG(logger, sout.str())
+                    }
+#endif
+
+                    // Checks pressure value on these nodes
+                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
+                    if (!intel) DebugStop();
+                }
+            }
+            delete intRule;
+        }
+    }
 }

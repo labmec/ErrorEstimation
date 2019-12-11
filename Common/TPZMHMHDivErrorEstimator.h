@@ -88,7 +88,9 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     virtual void SwitchMaterialObjects()override;
     
     virtual void CopySolutionFromSkeleton() override;
-    
+
+    void VerifySolutionConsistency(TPZCompMesh* cmesh) override;
+
 
 };
 
