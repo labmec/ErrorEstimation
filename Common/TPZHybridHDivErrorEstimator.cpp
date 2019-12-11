@@ -345,13 +345,10 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         fHybridizer.ComputeNState(mesh_vectors);
         fHybridizer.HybridizeInternalSides(mesh_vectors);
 
-        //int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
-        //fPressureSkeletonMatId = lastmatid + 1;
 
     } else {
         IdentifyPeripheralMaterialIds();
-       // int lastmatid = fPostProcMesh.MaterialVec().rbegin()->first;
-       // fPressureSkeletonMatId = lastmatid + 1;
+
     }
 
     // increase the order of the dim-1 elements to the maximum of both neighbouring elements
@@ -1136,12 +1133,7 @@ void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int6
 //    std::cout << std::endl;
     //store the average on solution of pressure mesh
     int count = 0;
-    //nao deveria entrar aqui os connects de contorno, como filtrar isso?
-    
-    //nao tomar media para condicao de contorno
-    
-    
-    
+   
     for (int ic = 0; ic < nc; ic++) {
         TPZConnect &c = cel->Connect(ic);
         int64_t seqnum = c.SequenceNumber();
@@ -1324,7 +1316,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         TPZInterpolatedElement *intel1 = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
         if (!intel1) DebugStop();
         int64_t index = intel1->Index();
-        REAL weight = 1;//fPressureweights[index];
+        REAL weight = fPressureweights[index];
         if(IsZero(weight)) DebugStop();
 //        std::cout << "Side " << celside.Side() << std::endl;
 //        intel1->Print();
@@ -1573,7 +1565,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         
         std::ofstream out("PressureAverageMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+        fPostProcMesh.MeshVector()[3]->Print(out);
         PlotLagrangeMultiplier("BeforeAverage");
     }
     
@@ -1658,15 +1650,10 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZManVector<TPZCompMesh *,2> meshvec(2);
         // fPostProcMesh[0] is the H1 or Hdiv mesh
         // fPostProcMesh[1] is the L2 mesh
- //       if(fPostProcesswithHDiv){
+
             meshvec[0] = fPostProcMesh.MeshVector()[0];
             meshvec[1] = fPostProcMesh.MeshVector()[1];
-  //      }
-//        else{
-//            meshvec[0] = fPostProcMesh.MeshVector()[1];
-//            meshvec[1] = fPostProcMesh.MeshVector()[0];
-//
-//        }
+  
         
       //  fPostProcMesh.ElementSolution().Print("SolutionBefroreTranfer");
         
