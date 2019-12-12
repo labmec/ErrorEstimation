@@ -1862,7 +1862,7 @@ void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) 
         std::ofstream outvtk("MeshToVerifyConsistency.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
     }
-    
+
     int64_t nel = cmesh->NElements();
     int dim = cmesh->Reference()->Dimension();
     

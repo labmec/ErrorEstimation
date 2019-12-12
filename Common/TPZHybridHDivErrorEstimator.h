@@ -193,7 +193,7 @@ protected:
     
 
     // Checks if the solution is in fact continuous
-    void VerifySolutionConsistency(TPZCompMesh* cmesh);
+    virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
     
   //  int IsH1Position(TPZVec<TPZMaterialData> &datavec);
     
