@@ -651,7 +651,7 @@ int MHMTest(ProblemConfig &Conf) {
     ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
 
-    ErrorEstimator.fPostProcesswithHDiv = true;
+    ErrorEstimator.fPostProcesswithHDiv = false;
     
     ErrorEstimator.fProblemConfig.porder =Conf.porder;
     ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;

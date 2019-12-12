@@ -1623,6 +1623,12 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     
     //Resolver problema local com potencial continuo como condicao de Dirichlet
+    {
+        std::ofstream file("MeshToComputeStiff.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), file);
+        
+    }
+    
     
     ComputeElementStiffnesses();
     
@@ -2093,7 +2099,7 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
            //fPressureweights[el] = 1.e12;
            continue;
        }
-        if(!mat) DebugStop();
+        if(!mat) continue;//DebugStop();
         TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
         if(gel->Dimension() != dim && !bcmat) continue;
         if(bcmat && bcmat->Type() == 0)

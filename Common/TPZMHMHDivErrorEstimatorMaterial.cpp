@@ -8,6 +8,7 @@
 #include "pzaxestools.h"
 #include "TPZAnalyticSolution.h"
 #include "pzbndcond.h"
+#include "TPZVecL2.h"
 
 TPZMHMHDivErrorEstimateMaterial::TPZMHMHDivErrorEstimateMaterial(int matid, int dim) : TPZMixedPoisson(matid,dim)
 {
@@ -76,11 +77,13 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
      datavec[2] Hdiv mesh, sigma_h
      datavec[3] L2 mesh, u_h
      
-     Implement the matrix
+     Implement the local projection
+     (K grads_i,gradv) = (-sigma_i,gradv) on K
+     The matrix formulation is
      |Ak  |  = |bk|
      
      Ak = int_K K grads_i.gradv dx = int_K gradphi_i.gradphi_j dx
-     bk = int_K K sigma_h.gradv dx = int_K - sigma_i. gradu_h dx
+     bk = int_K K sigma_h.gradv dx = int_K - sigma_i. gradphi_j dx
      
      **/
     
@@ -95,80 +98,75 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
     int dim = datavec[H1functionposition].axes.Rows();
     //defining test functions
     // Setting the phis
-    TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
-    TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
-    TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
-    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
+    TPZFMatrix<REAL> &phi_i = datavec[H1functionposition].phi;
+    TPZFMatrix<REAL> &dphi_iaxes = datavec[H1functionposition].dphix;
+    TPZFNMatrix<9,REAL> dphi_i(3,dphi_iaxes.Cols());
+    TPZAxesTools<REAL>::Axes2XYZ(dphi_iaxes, dphi_i, datavec[H1functionposition].axes);
     
     
+    STATE force = ff;
+    if(fForcingFunction) {
+        TPZManVector<STATE> res(1);
+        fForcingFunction->Execute(datavec[H1functionposition].x,res);
+        force = res[0];
+    }
     
-    int nphiuk = phiuk.Rows();
+    int nphi_i = phi_i.Rows();
     
-    TPZFMatrix<STATE> solsigmafem(3,nphiuk),solukfem(1,1);
+    TPZFMatrix<STATE> solsigmafem(3,nphi_i),solukfem(1,1),dsolukfem(3,nphi_i);
     solsigmafem.Zero();
     solukfem.Zero();
+    
+    //potetial fem
+    solukfem(0,0) = datavec[3].sol[0][0];
+    dsolukfem = datavec[3].dsol[0];
     
     //flux fem
     for (int ip = 0; ip<3; ip++){
         
         solsigmafem(ip,0) = datavec[2].sol[0][ip];
     }
-    
-    
-    //potetial fem
-    solukfem(0,0) = datavec[3].sol[0][0];
-    TPZFMatrix<REAL> dsolukfem(3,1,0),Kgradukfem(3,1,0);
-    
-    for(int i=0; i<3 ;i++){
-        dsolukfem(i,0) = datavec[H1functionposition].dsol[0][i];
-    }
-    
-   // dsolukfem = datavec[H1functionposition].dsol[0];
+
     
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
     
-    TPZFMatrix<STATE> kgraduk(3,nphiuk,0.);
+    TPZFMatrix<STATE> kgrads_i(3,nphi_i,0.),kgraduk_fem(3,nphi_i,0.);
     
-//    for(int i=0; i< dim; i++){
-//
-//        for(int jd=0; jd< dim;jd++){
-//            Kgradukfem(i,0) += PermTensor(i,jd)*dsolukfem(jd,0);
-//
-//
-//        }
-//    }
-    
-    
-    
-    
-    for(int irow=0 ; irow<nphiuk; irow++){
+    for(int irow=0 ; irow<nphi_i; irow++){
         
         //K graduk
         for(int id=0; id< dim; id++){
             
             for(int jd=0; jd< dim;jd++){
-                kgraduk(id,irow) += PermTensor(id,jd)*dphiuk(jd,irow);
-                
-                
+                kgrads_i(id,irow) += PermTensor(id,jd)*dphi_i(jd,irow);
+                kgraduk_fem(id,irow) += PermTensor(id,jd)*dsolukfem(jd,0);
+    
             }
-            ef(irow,0) += (-1.)*weight*solsigmafem(id,0)*dphiuk(id,irow);
+            ef(irow,0) += (-1.)*weight*solsigmafem(id,0)*dphi_i(id,irow);
+           // ef(irow,0) += weight*kgraduk_fem(id,irow)*dphi_i(id,irow);
+           // ef(irow,0) += weight*force*phi_i(id,0);
         }
-        
-        
-        
+  
         //matrix Sk= int_{K} K grads_i.gradv
-        for(int jcol=0; jcol<nphiuk;jcol++){
+        for(int jcol=0; jcol<nphi_i;jcol++){
             
             for(int jd=0;  jd< dim; jd++)
             {
-                ek(irow,jcol) += weight*kgraduk(jd,irow)*dphiuk(jd,jcol);
-                //ef(irow,0) += weight*Kgradukfem(jd,irow)*dphiuk(jd,jcol);
+                ek(irow,jcol) += weight*kgrads_i(jd,irow)*dphi_i(jd,jcol);
+
             }
-            
+  
         }
         
     }
+    
+//            {
+//               
+//                cout<<"\n\n Matriz ek e vetor fk \n ";
+//                ek.Print("ekmph = ");
+//                ef.Print("efmph = ");
+//               
+//            }
     
 }
 
@@ -223,6 +221,25 @@ void TPZMHMHDivErrorEstimateMaterial::ContributeHdiv(TPZVec<TPZMaterialData> &da
         }
     }
 #endif
+    
+    
+    TPZFMatrix<STATE> solsigmafem(3,phrp),solukfem(1,1);
+     solsigmafem.Zero();
+     solukfem.Zero();
+     
+     
+
+
+         //potetial fem
+         solukfem(0,0) = datavec[3].sol[0][0];
+         //flux fem
+         for (int ip = 0; ip<3; ip++){
+
+             solsigmafem(ip,0) = datavec[2].sol[0][ip];
+         }
+    
+    
+    
     //Calculate the matrix contribution for flux. Matrix A
     for(int iq=0; iq<phrq; iq++)
     {
@@ -295,27 +312,18 @@ void TPZMHMHDivErrorEstimateMaterial::ContributeHdiv(TPZVec<TPZMaterialData> &da
     for(int ip=0; ip<phrp; ip++){
         ef(phrq+ip,0) += (-1.)*weight*force*phip(ip,0);
     }
-    //
-//    #ifdef LOG4CXX
-//        if(logdata->isDebugEnabled())
-//        {
-//            std::stringstream sout;
-//            sout<<"\n\n Matriz ek e vetor fk \n ";
-//            ek.Print("ekmph = ",sout,EMathematicaInput);
-//            ef.Print("efmph = ",sout,EMathematicaInput);
-//            LOGPZ_DEBUG(logdata,sout.str());
-//        }
-//    #endif
+
     
 }
+
 
 
 void TPZMHMHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc)
 {
      int H1functionposition = IsH1Position(datavec);
-    if(H1functionposition == 0) return;
+    //if(H1functionposition == 0) return;
 
-    TPZFMatrix<REAL>  &phi_u = datavec[1].phi;
+    TPZFMatrix<REAL>  &phi_u = datavec[H1functionposition].phi;
     int phr_primal = phi_u.Rows();
 
     short in,jn;
@@ -332,11 +340,21 @@ void TPZMHMHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &data
 //
     switch (bc.Type()) {
         case 0 :            // Dirichlet condition
+            if(H1functionposition==0){
+                for(int iq=0; iq<phr_primal; iq++)
+                {
+                    //the contribution of the Dirichlet boundary condition appears in the flow equation
+                    ef(iq,0) += (-1.)*v2[0]*phi_u(iq,0)*weight;
+                }
+                
+            }
+            else{
             for(in = 0 ; in < phr_primal; in++) {
                 ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
                 for (jn = 0 ; jn < phr_primal; jn++) {
                     ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
                 }
+            }
             }
             break;
         case 1 :            // Neumann condition
@@ -557,18 +575,17 @@ void TPZMHMHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec,
                 for (int i=0; i<fDim; i++) Solout[i] = datavec[0].sol[0][i];
             }
             else{
-                
-                //FluxReconstructed is K gradU
                 TPZFMatrix<REAL> &dsolaxes = datavec[IsH1position].dsol[0];
                 TPZFNMatrix<9,REAL> dsol(3,0);
-                TPZFNMatrix<9,REAL> KGradsol(3,0);
+                 TPZFNMatrix<9,REAL> KGradsol(3,0);
                 TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[IsH1position].axes);
                 
                 PermTensor.Multiply(dsol,KGradsol);
                 
                 for(int id=0 ; id<fDim; id++) {
-                    Solout[id] = KGradsol(id,0);
+                    Solout[id] = KGradsol(id,0);//dsol(id,0);//derivate
                 }
+                 KGradsol.Print("kgrad urec ");
                 
             }
             break;

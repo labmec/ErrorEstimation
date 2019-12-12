@@ -376,7 +376,6 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh()
 
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
 {
-    
     TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
     {
         std::ofstream out1("OriginalPressureMesh.txt");
@@ -393,7 +392,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
     pressure->SetAllCreateFunctionsContinuous();
     pressure->ApproxSpace().CreateDisconnectedElements(true);
     int64_t nel = OrigPressure->NElements();
-    
+
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = OrigPressure->Element(el);
         if(!cel) continue;
@@ -412,32 +411,8 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
         int order = cel->Connect(nc-1).Order();
         newcel->PRefine(order);
     }
-    
-    
 
-    
-    std::cout<< "n connects after BC " << pressure->NConnects()<<"\n";
-    // creating discontinuous skeleton on H1 mesh
 
-    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
-    pressure->InsertMaterialObject(skeletonMat);
-    
-    set<int> matIdskeleton;
-    
-    matIdskeleton.insert(fPressureSkeletonMatId);
-    gmesh->ResetReference();
-    pressure->AutoBuild(matIdskeleton);
-    pressure->ExpandSolution();
-    
-    std::cout<< "n connects after skeleton " << pressure->NConnects()<<"\n";
-
-    {
-        std::ofstream out1("PressureWithSkeleton.txt");
-        pressure->Print(out1);
-        std::ofstream out2("BuildH1PressureWithSkeleton.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
-        
-    }
     
     std::cout<< "n connects before BC " << pressure->NConnects()<<"\n";
     // creating BC conditions for H1 mesh
@@ -462,12 +437,37 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
     }
     
     pressure->AutoBuild(matIdsbc);
+    
     {
         std::ofstream out1("PressureMeshPosBC.txt");
         pressure->Print(out1);
         std::ofstream out2("BuildH1PressureWithBC.vtk");
         TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
     }
+    
+    std::cout<< "n connects after BC " << pressure->NConnects()<<"\n";
+    // creating discontinuous skeleton on H1 mesh
+
+    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    pressure->InsertMaterialObject(skeletonMat);
+    
+    set<int> matIdskeleton;
+    
+    matIdskeleton.insert(fPressureSkeletonMatId);
+    gmesh->ResetReference();
+    pressure->AutoBuild(matIdskeleton);
+    pressure->ExpandSolution();
+    
+    std::cout<< "n connects after skeleton " << pressure->NConnects()<<"\n";
+
+    {
+        std::ofstream out1("PressureWithSkeleton.txt");
+        pressure->Print(out1);
+        std::ofstream out2("BuildH1PressureWithSkeleton.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
+        
+    }
+    
     
     
     return pressure;
@@ -864,7 +864,8 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
-                if ( gneigh.Element()->MaterialId() == this->fPressureSkeletonMatId) {
+                if ( gneigh.Element()->MaterialId() == this->fPressureSkeletonMatId||IsDirichletCondition(gneigh)) {
+                    std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
                     TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                     if (!intelneigh) DebugStop();
                     TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
@@ -872,9 +873,11 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
                     int con_size = con_neigh.NState() * con_neigh.NShape();
                     if (con_size != c_blocksize) DebugStop();
                     for (int ibl = 0; ibl < con_size; ibl++) {
+                        std::cout<<"valor da pressao connect "<<con_seqnum<<" = "<<pressuremesh->Block()(con_seqnum, 0, ibl, 0)<<"\n";
                         pressuremesh->Block()(c_seqnum, 0, ibl, 0) = pressuremesh->Block()(con_seqnum, 0, ibl, 0);
                     }
                     break;
+                    
                 }
                 // all elements must have at least one neighbour of type skeleton--> esta premissa nao vale para reconstrucao Hdiv-H1
                 if (ist == nst - 1) {
