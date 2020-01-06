@@ -63,6 +63,8 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
 
     // Creates skeleton elements to calculate the average pressure between neighbours
     void CreatePressureSkeleton();
+    // Creates skeleton elements to calculate the average pressure between neighbours
+    void InsertPressureSkeletonMaterial();
 
     // Creates H1 discontinuous space on skeleton elements
    // TPZCompMesh *CreateSkeletonApproximationSpace();

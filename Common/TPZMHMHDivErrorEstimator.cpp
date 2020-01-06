@@ -22,11 +22,12 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     fOriginal->CopyMaterials(fPostProcMesh);
         // switch the material from mixed to TPZMHMHDivErrorEstimationMaterial...
     SwitchMaterialObjects();
-    
+
     if(!fPostProcesswithHDiv){
         CreatePressureSkeleton();
     }
-    
+
+
     TPZManVector<TPZCompMesh *> meshvec(4);
     
     meshvec[0] = 0;
@@ -59,6 +60,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     active[1] = 1;
  
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
+    InsertPressureSkeletonMaterial();
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
 #ifdef PZDEBUG2
@@ -78,6 +80,10 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
     }
 
+    {
+        std::ofstream out3("MalhaComPressureSkeletonMat.txt");
+        fPostProcMesh.Print(out3);
+    }
 #ifdef PZDEBUG2
     {
         std::ofstream out1("fluxbeforeSub.txt");
@@ -89,8 +95,10 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     }
 #endif
 
-    fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
-    
+    if (fPostProcesswithHDiv) {
+        fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
+    }
+
 
     SubStructurePostProcessingMesh();
     
@@ -764,7 +772,7 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
     if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
 
     fPressureSkeletonMatId = maxMatId + 1;
-
+    fHybridizer.fLagrangeInterface = fPressureSkeletonMatId; // TODO: make this more elegant
     int dim = gmesh->Dimension();
 
     for (int iel = 0; iel < nel; iel++) {
@@ -863,7 +871,14 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
             int c_blocksize = c.NShape() * c.NState();
             //TPZGeoElSide gelside(gel,is);
             TPZStack<TPZCompElSide> celstack;
-            gelside.EqualLevelCompElementList(celstack, 1, 0);
+
+            // Gets compel sides of equal and lower (if existing) level linked to the gelside
+            gelside.EqualLevelCompElementList3(celstack, 1, 0);
+
+            gelside.HigherLevelCompElementList3(celstack, 1, 0);
+            //if (large) celstack.Push(large);
+
+ //           gelside.EqualLevelCompElementList(celstack, 1, 0);
             int nst = celstack.NElements();
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
@@ -1018,4 +1033,12 @@ void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
             delete intRule;
         }
     }
+}
+
+void TPZMHMHDivErrorEstimator::InsertPressureSkeletonMaterial() {
+    TPZNullMaterial * pressureSkeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    //fPostProcMesh.InsertMaterialObject(pressureSkeletonMat);
+//    std::set<int> skeletonMatId;
+//    skeletonMatId.insert(fPressureSkeletonMatId);
+    fPostProcMesh.MaterialVec().insert(std::make_pair(fPressureSkeletonMatId, pressureSkeletonMat));
 }
