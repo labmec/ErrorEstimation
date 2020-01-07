@@ -685,8 +685,6 @@ void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
                 
             }
             
-            
-            
             TPZCompEl *pressel = mphys->Element(1);
             pressel->LoadElementReference();
         }
@@ -844,27 +842,63 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
 #endif
 }
 
-void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
+void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
+
+    // Pressure skeleton
     TPZCompMesh *pressuremesh = PressureMesh();
     {
-        std::ofstream out("MeshBeforeCopySkeleton.txt");
+        std::ofstream out("MeshBeforeCopySkeletonMeshVector1.txt");
         pressuremesh->Print(out);
     }
+
     pressuremesh->Reference()->ResetReference();
     pressuremesh->LoadReferences();
-    int dim = pressuremesh->Dimension();
-    int64_t nel = pressuremesh->NElements();
+
+    int dim = fPostProcMesh.Dimension();
+    int64_t nel = fPostProcMesh.NElements();
     for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = pressuremesh->Element(el);
+        TPZCompEl* cel = fPostProcMesh.Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (cel->Dimension() != dim -1) continue;
+        cel->LoadElementReference();
+    }
+
+    nel = pressuremesh->NElements();
+    for (int64_t el = 0; el < nel; el++) {
+
+        TPZCompEl* cel = pressuremesh->Element(el);
+        if (!cel) continue;
+        TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
         if (!intel) DebugStop();
-        TPZGeoEl *gel = intel->Reference();
-        if (gel->Dimension() != dim) continue;
+        TPZGeoEl* gel = cel->Reference();
+        if (gel->Dimension() == dim) continue;
+
         int nsides = gel->NSides();
-        
+        for (int iside = 0; iside < nsides; iside++) {
+
+            TPZGeoElSide gelside(gel, iside);
+            bool onlyinterpolated = true;
+            TPZCompElSide large_celside = gelside.LowerLevelCompElementList2(onlyinterpolated);
+            if (large_celside) {
+                TPZInterpolatedElement* largeintel = dynamic_cast<TPZInterpolatedElement*>(large_celside.Element());
+                if (!largeintel) DebugStop();
+                int largeside = large_celside.Side();
+                intel->RestrainSide(nsides - 1, largeintel, largeside);
+                // restrain the corner nodes
+                for (int side = 0; side < nsides - 1; side++) {
+                    TPZGeoElSide gelside_small(gel, side);
+                    TPZCompElSide celside_restraint = gelside_small.LowerLevelCompElementList2(onlyinterpolated);
+                    if (celside_restraint) {
+                        TPZInterpolatedElement* largeintel = dynamic_cast<TPZInterpolatedElement*>(celside_restraint.Element());
+                        if (!largeintel) DebugStop();
+                        int largeside = large_celside.Side();
+                        intel->RestrainSide(side, largeintel, largeside);
+                    }
+                }
+            }
+
+        }
         for (int is = 0; is < nsides; is++) {
-            //
             TPZGeoElSide gelside(gel, is);
             TPZConnect &c = intel->Connect(is);
             int64_t c_seqnum = c.SequenceNumber();
@@ -872,13 +906,8 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
             //TPZGeoElSide gelside(gel,is);
             TPZStack<TPZCompElSide> celstack;
 
-            // Gets compel sides of equal and lower (if existing) level linked to the gelside
-            gelside.EqualLevelCompElementList3(celstack, 1, 0);
+            gelside.EqualLevelCompElementList(celstack, 1, 0);
 
-            gelside.HigherLevelCompElementList3(celstack, 1, 0);
-            //if (large) celstack.Push(large);
-
- //           gelside.EqualLevelCompElementList(celstack, 1, 0);
             int nst = celstack.NElements();
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
@@ -892,7 +921,8 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
                     int con_size = con_neigh.NState() * con_neigh.NShape();
                     if (con_size != c_blocksize) DebugStop();
                     for (int ibl = 0; ibl < con_size; ibl++) {
-                        std::cout<<"valor da pressao connect "<<con_seqnum<<" = "<<pressuremesh->Block()(con_seqnum, 0, ibl, 0)<<"\n";
+                        std::cout<<"valor da pressao connect neigh "<<con_seqnum<<" = "<<pressuremesh->Block()(con_seqnum, 0, ibl, 0)<<"\n";
+                        std::cout<<"valor da pressao connect "<<c_seqnum<<" = "<<pressuremesh->Block()(c_seqnum, 0, ibl, 0)<<"\n";
                         pressuremesh->Block()(c_seqnum, 0, ibl, 0) = pressuremesh->Block()(con_seqnum, 0, ibl, 0);
                     }
                     break;
@@ -909,7 +939,6 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton(){
         std::ofstream out("MeshAfterCopySkeleton.txt");
         pressuremesh->Print(out);
     }
-    
 }
 
 void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
@@ -936,8 +965,6 @@ void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
         TPZGeoEl *gel = cel->Reference();
 
         if (gel->Dimension() != dim) continue;
-
-        std::cout << "Element: " << gel->Index() << '\n';
 
         // Iterates through the sides of the element
         int nsides = gel->NSides();
