@@ -854,7 +854,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
 
     }
 
-    PlotState("PressureBeforeCopyskeleton.vtk", 2, true);
+    PlotState("PressureBeforeCopyskeleton.vtk", 2, &fPostProcMesh);
 
     pressuremesh->Reference()->ResetReference();
 
@@ -926,10 +926,11 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
         std::ofstream out("MeshAfterCopySkeleton.txt");
         pressuremesh->Print(out);
         std::ofstream file("PressureFromCopyskeleton.vtk");
-    
-        PlotState("PressureAfterCopyskeleton.vtk", 2, true);
-    
+
     }
+
+    std::set<int64_t> connectList;
+    ComputeBoundaryConnects(connectList);
 }
 
 void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
@@ -1055,8 +1056,42 @@ void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
 
 void TPZMHMHDivErrorEstimator::InsertPressureSkeletonMaterial() {
     TPZNullMaterial * pressureSkeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
-    //fPostProcMesh.InsertMaterialObject(pressureSkeletonMat);
-//    std::set<int> skeletonMatId;
-//    skeletonMatId.insert(fPressureSkeletonMatId);
     fPostProcMesh.MaterialVec().insert(std::make_pair(fPressureSkeletonMatId, pressureSkeletonMat));
+}
+
+void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connectList) {
+
+    int dim = fPostProcMesh.Dimension();
+    fPostProcMesh.Reference()->ResetReference();
+    fPostProcMesh.LoadReferences();
+
+    {
+        std::ofstream out("BeforeIncrementingConnects.txt");
+        fPostProcMesh.Print(out);
+    }
+
+    int64_t nel = fPostProcMesh.NElements();
+    for (int64_t el = 0; el < nel; el++) {
+        TPZCompEl* cel = fPostProcMesh.Element(el);
+        if (!cel) continue;
+        TPZGeoEl* gel = cel->Reference();
+        if (!gel) continue;
+        if (gel->Dimension() == dim) continue;
+
+        int nsides = gel->NSides();
+        for (int is = 0; is < nsides; is++) {
+            TPZGeoElSide gelside(gel, is);
+            TPZConnect& c = cel->Connect(is);
+            int64_t c_seqnum = c.SequenceNumber();
+            if (gelside.Element()->MaterialId() == this->fPressureSkeletonMatId || IsDirichletCondition(gelside)) {
+                connectList.insert(c_seqnum);
+                c.IncrementElConnected();
+            }
+        }
+    }
+
+    {
+        std::ofstream out("AfterIncrementingConnects.txt");
+        fPostProcMesh.Print(out);
+    }
 }

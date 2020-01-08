@@ -113,7 +113,7 @@ struct TPZHybridHDivErrorEstimator
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
-    void PlotState(const std::string &filename, int targetDim, bool reconstructed = true);
+    void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
 protected:
     

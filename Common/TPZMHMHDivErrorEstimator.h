@@ -93,7 +93,7 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
 
     void VerifySolutionConsistency(TPZCompMesh* cmesh) override;
 
-
+    void ComputeBoundaryConnects(std::set<int64_t>& connectList);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

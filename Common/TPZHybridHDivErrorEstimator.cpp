@@ -1609,7 +1609,13 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZManVector<TPZCompMesh *, 2> meshvec(2);
         meshvec[0] = fPostProcMesh.MeshVector()[0];
         meshvec[1] = fPostProcMesh.MeshVector()[1];
+
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
+        {
+            PlotState("MultiphysicsAfterTransfer2D.vtk", 2, &fPostProcMesh);
+        }
+
+
     }
 
 #ifdef PZDEBUG
@@ -1631,10 +1637,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
         
     }
-    
-    
+
     ComputeElementStiffnesses();
-    
+
 #ifdef PZDEBUG2
     {
         std::ofstream out("MeshBeforeLoadSol.txt");
@@ -1664,11 +1669,11 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             meshvec[1] = fPostProcMesh.MeshVector()[1];
   
         
-      //  fPostProcMesh.ElementSolution().Print("SolutionBefroreTranfer");
+        fPostProcMesh.ElementSolution().Print("SolutionBefroreTranfer");
         
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
         
-     //    fPostProcMesh.ElementSolution().Print("SolutionAfterTranfer");
+         fPostProcMesh.ElementSolution().Print("SolutionAfterTranfer");
         
         
         
@@ -2122,22 +2127,13 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
     }
 }
 
-void TPZHybridHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, bool reconstructed) {
-
-    TPZCompMesh *pressure = NULL;
-
-    if (reconstructed == false){
-        pressure = fOriginal->MeshVector()[1];
-    }
-    else{
-        pressure = PressureMesh();
-    }
+void TPZHybridHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh) {
 
     std::ofstream out2("PressuretoStateGraph.txt");
-    pressure->Print(out2);
+    cmesh->Print(out2);
 
     {
-        TPZAnalysis an(pressure, false);
+        TPZAnalysis an(cmesh, false);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
 
