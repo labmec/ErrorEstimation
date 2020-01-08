@@ -447,7 +447,9 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
         }
         
     }
-    
+    gmesh->ResetReference();
+    pressure->ApproxSpace().CreateDisconnectedElements(true);
+
     pressure->AutoBuild(matIdsbc);
     
     {
@@ -849,20 +851,32 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
     {
         std::ofstream out("MeshBeforeCopySkeletonMeshVector1.txt");
         pressuremesh->Print(out);
+        
+        
     }
 
     pressuremesh->Reference()->ResetReference();
-    pressuremesh->LoadReferences();
+//    pressuremesh->LoadReferences();
+    
 
-    int dim = fPostProcMesh.Dimension();
-    int64_t nel = fPostProcMesh.NElements();
+    if(pressuremesh->Reference()!= fPostProcMesh.Reference()) DebugStop();
+    
+    int dim = pressuremesh->Dimension();
+    int64_t nel = pressuremesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl* cel = fPostProcMesh.Element(el);
+        TPZCompEl* cel = pressuremesh->Element(el);
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!cel) continue;
-        if (cel->Dimension() != dim -1) continue;
+        if(!intel) DebugStop();
+// load just (d-1) dimensional elements
+        if (cel->Dimension() != dim) continue;
         cel->LoadElementReference();
     }
 
+    {
+        std::ofstream file("GmeshCopySkelton.txt");
+        pressuremesh->Reference()->Print(file);
+    }
     nel = pressuremesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
 
@@ -874,70 +888,58 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
         if (gel->Dimension() == dim) continue;
 
         int nsides = gel->NSides();
-        for (int iside = 0; iside < nsides; iside++) {
-
-            TPZGeoElSide gelside(gel, iside);
-            bool onlyinterpolated = true;
-            TPZCompElSide large_celside = gelside.LowerLevelCompElementList2(onlyinterpolated);
-            if (large_celside) {
-                TPZInterpolatedElement* largeintel = dynamic_cast<TPZInterpolatedElement*>(large_celside.Element());
-                if (!largeintel) DebugStop();
-                int largeside = large_celside.Side();
-                intel->RestrainSide(nsides - 1, largeintel, largeside);
-                // restrain the corner nodes
-                for (int side = 0; side < nsides - 1; side++) {
-                    TPZGeoElSide gelside_small(gel, side);
-                    TPZCompElSide celside_restraint = gelside_small.LowerLevelCompElementList2(onlyinterpolated);
-                    if (celside_restraint) {
-                        TPZInterpolatedElement* largeintel = dynamic_cast<TPZInterpolatedElement*>(celside_restraint.Element());
-                        if (!largeintel) DebugStop();
-                        int largeside = large_celside.Side();
-                        intel->RestrainSide(side, largeintel, largeside);
-                    }
-                }
-            }
-
-        }
         for (int is = 0; is < nsides; is++) {
             TPZGeoElSide gelside(gel, is);
+            
+            int matgelSide = gelside.Element()->MaterialId();
+            
+            std::cout<<"MatIdgelSide  "<<matgelSide<<"\n";
             TPZConnect &c = intel->Connect(is);
-            int64_t c_seqnum = c.SequenceNumber();
+            int64_t c_gelSide_seqnum  = c.SequenceNumber();
             int c_blocksize = c.NShape() * c.NState();
-            //TPZGeoElSide gelside(gel,is);
             TPZStack<TPZCompElSide> celstack;
 
             gelside.EqualLevelCompElementList(celstack, 1, 0);
+            
+            
+            
 
             int nst = celstack.NElements();
+            if(nst==0) DebugStop();
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
-                if ( gneigh.Element()->MaterialId() == this->fPressureSkeletonMatId||IsDirichletCondition(gneigh)) {
-                    std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
+                std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
+                if ( 1) {
+                    std::cout<<"MatId to Update "<<gneigh.Element()->MaterialId()<<"\n";
                     TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                     if (!intelneigh) DebugStop();
                     TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
-                    int64_t con_seqnum = con_neigh.SequenceNumber();
+                    int64_t c_neigh_seqnum = con_neigh.SequenceNumber();
                     int con_size = con_neigh.NState() * con_neigh.NShape();
                     if (con_size != c_blocksize) DebugStop();
                     for (int ibl = 0; ibl < con_size; ibl++) {
-                        std::cout<<"valor da pressao connect neigh "<<con_seqnum<<" = "<<pressuremesh->Block()(con_seqnum, 0, ibl, 0)<<"\n";
-                        std::cout<<"valor da pressao connect "<<c_seqnum<<" = "<<pressuremesh->Block()(c_seqnum, 0, ibl, 0)<<"\n";
-                        pressuremesh->Block()(c_seqnum, 0, ibl, 0) = pressuremesh->Block()(con_seqnum, 0, ibl, 0);
+                        std::cout<<"valor da pressao connect neigh (d-dimensional) "<<c_neigh_seqnum<<" = "<<pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0)<<"\n";
+                        std::cout<<"valor da pressao connect "<<c_gelSide_seqnum<<" = "<<pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0)<<"\n";
+                        pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0) = pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0);
                     }
-                    break;
+                   
                     
                 }
-                // all elements must have at least one neighbour of type skeleton--> esta premissa nao vale para reconstrucao Hdiv-H1
-                if (ist == nst - 1) {
-                    std::cout << "Connect " << is << " from element el " << el << " was not updated \n";
-                }
+
             }
         }
     }
     {
         std::ofstream out("MeshAfterCopySkeleton.txt");
         pressuremesh->Print(out);
+        std::ofstream file("PressureFromCopyskeleton.vtk");
+    
+        
+        PlotLagrangeMultiplier("PressureFromCopyskeleton.vtk", true);
+    
+        
+    
     }
 }
 

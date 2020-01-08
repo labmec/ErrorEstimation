@@ -273,7 +273,7 @@ void TPZMHMHDivErrorEstimateMaterial::ContributeHdiv(TPZVec<TPZMaterialData> &da
             }
             //jvecZ.Print("mat1 = ");
             REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
-            ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
+            ek(iq,jq) += weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
             
         }
     }
@@ -328,15 +328,8 @@ void TPZMHMHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &data
 
     short in,jn;
     STATE v2[1];
-    if(bc.HasForcingFunction()) {
-        TPZManVector<STATE> res(1);
-        TPZFNMatrix<3,STATE> dres(3,1);
-        bc.ForcingFunction()->Execute(datavec[H1functionposition].x,res,dres);
-        v2[0] = res[0];
-    }
-    else{
-           v2[0] = bc.Val2()(0,0);
-    }
+    
+    v2[0] = datavec[H1functionposition].sol[0][0];
 //
     switch (bc.Type()) {
         case 0 :            // Dirichlet condition
@@ -585,7 +578,7 @@ void TPZMHMHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec,
                 for(int id=0 ; id<fDim; id++) {
                     Solout[id] = KGradsol(id,0);//dsol(id,0);//derivate
                 }
-                 KGradsol.Print("kgrad urec ");
+            
                 
             }
             break;

@@ -995,11 +995,11 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
      //   std::cout<<"CalcStiff for bc el "<<std::endl;
         
         cel->CalcStiff(ekbc,efbc);
-        ekbc.Print(std::cout);
-        efbc.Print(std::cout);
+        //ekbc.Print(std::cout);
+       // efbc.Print(std::cout);
  
         ekbc.fMat.SolveDirect(efbc.fMat, ECholesky);
-        efbc.Print(std::cout<<"Solution ");
+      //  efbc.Print(std::cout<<"Solution ");
         
         int count = 0;
         int nc = cel->NConnects();
@@ -1600,6 +1600,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     // in the case of hybrid hdiv, computing the error using h(div) spaces, nothing will be done
     if (!fPostProcesswithHDiv) {
+        std::ofstream file("PressureMeshToCopySkeleton.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), file);
         CopySolutionFromSkeleton();
     }
     // transfer the continuous pressures to the multiphysics space
@@ -1626,6 +1628,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         std::ofstream file("MeshToComputeStiff.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), file);
+    
         
     }
     

@@ -112,9 +112,9 @@ int main() {
 
     TLaplaceExample1 example;
 
-        config.exact.fExact = example.EX;//ESinSin;
+        config.exact.fExact = example.ESinSin;
 
-    config.problemname = "EXHdiv";
+    config.problemname = "ESin";
 
     config.dir_name= "TestesMHM";
     std::string command = "mkdir " + config.dir_name;
