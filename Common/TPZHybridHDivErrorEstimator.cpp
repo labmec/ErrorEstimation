@@ -2121,3 +2121,33 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
         fMatid_weights[matid] = perm;
     }
 }
+
+void TPZHybridHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, bool reconstructed) {
+
+    TPZCompMesh *pressure = NULL;
+
+    if (reconstructed == false){
+        pressure = fOriginal->MeshVector()[1];
+    }
+    else{
+        pressure = PressureMesh();
+    }
+
+    std::ofstream out2("PressuretoStateGraph.txt");
+    pressure->Print(out2);
+
+    {
+        TPZAnalysis an(pressure, false);
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("State");
+
+        std::string plotname;
+        {
+            std::stringstream out;
+            out << filename << ".vtk";
+            plotname = out.str();
+        }
+        an.DefineGraphMesh(targetDim, scalnames, vecnames, plotname);
+        an.PostProcess(2, targetDim);
+    }
+}

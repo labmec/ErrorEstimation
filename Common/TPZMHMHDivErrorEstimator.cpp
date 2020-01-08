@@ -680,12 +680,12 @@ void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
             TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
             if(!mphys) DebugStop();
             
-            TPZMaterial *mat = fPostProcMesh.FindMaterial(mphys->Material()->Id());
-            TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
-            if(bc){
-                continue;
-                
-            }
+//            TPZMaterial *mat = fPostProcMesh.FindMaterial(mphys->Material()->Id());
+//            TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
+//            if(bc){
+//                continue;
+//
+//            }
             
             TPZCompEl *pressel = mphys->Element(1);
             pressel->LoadElementReference();
@@ -851,13 +851,12 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
     {
         std::ofstream out("MeshBeforeCopySkeletonMeshVector1.txt");
         pressuremesh->Print(out);
-        
-        
+
     }
 
+    PlotState("PressureBeforeCopyskeleton.vtk", 2, true);
+
     pressuremesh->Reference()->ResetReference();
-//    pressuremesh->LoadReferences();
-    
 
     if(pressuremesh->Reference()!= fPostProcMesh.Reference()) DebugStop();
     
@@ -868,7 +867,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!cel) continue;
         if(!intel) DebugStop();
-// load just (d-1) dimensional elements
+        // load just d dimensional elements
         if (cel->Dimension() != dim) continue;
         cel->LoadElementReference();
     }
@@ -877,14 +876,15 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
         std::ofstream file("GmeshCopySkelton.txt");
         pressuremesh->Reference()->Print(file);
     }
+
     nel = pressuremesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
-
         TPZCompEl* cel = pressuremesh->Element(el);
         if (!cel) continue;
         TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
         if (!intel) DebugStop();
         TPZGeoEl* gel = cel->Reference();
+        // filters just (d-1) dimensional elements
         if (gel->Dimension() == dim) continue;
 
         int nsides = gel->NSides();
@@ -900,9 +900,6 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
             TPZStack<TPZCompElSide> celstack;
 
             gelside.EqualLevelCompElementList(celstack, 1, 0);
-            
-            
-            
 
             int nst = celstack.NElements();
             if(nst==0) DebugStop();
@@ -910,23 +907,18 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
                 std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
-                if ( 1) {
-                    std::cout<<"MatId to Update "<<gneigh.Element()->MaterialId()<<"\n";
-                    TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
-                    if (!intelneigh) DebugStop();
-                    TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
-                    int64_t c_neigh_seqnum = con_neigh.SequenceNumber();
-                    int con_size = con_neigh.NState() * con_neigh.NShape();
-                    if (con_size != c_blocksize) DebugStop();
-                    for (int ibl = 0; ibl < con_size; ibl++) {
-                        std::cout<<"valor da pressao connect neigh (d-dimensional) "<<c_neigh_seqnum<<" = "<<pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0)<<"\n";
-                        std::cout<<"valor da pressao connect "<<c_gelSide_seqnum<<" = "<<pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0)<<"\n";
-                        pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0) = pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0);
-                    }
-                   
-                    
-                }
 
+                TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
+                if (!intelneigh) DebugStop();
+                TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
+                int64_t c_neigh_seqnum = con_neigh.SequenceNumber();
+                int con_size = con_neigh.NState() * con_neigh.NShape();
+                if (con_size != c_blocksize) DebugStop();
+                for (int ibl = 0; ibl < con_size; ibl++) {
+                    std::cout<<"valor da pressao connect neigh (d-dimensional) "<<c_neigh_seqnum<<" = "<<pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0)<<"\n";
+                    std::cout<<"valor da pressao connect "<<c_gelSide_seqnum<<" = "<<pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0)<<"\n";
+                    pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0) = pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0);
+                }
             }
         }
     }
@@ -935,10 +927,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
         pressuremesh->Print(out);
         std::ofstream file("PressureFromCopyskeleton.vtk");
     
-        
-        PlotLagrangeMultiplier("PressureFromCopyskeleton.vtk", true);
-    
-        
+        PlotState("PressureAfterCopyskeleton.vtk", 2, true);
     
     }
 }
