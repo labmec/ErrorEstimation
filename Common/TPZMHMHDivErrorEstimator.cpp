@@ -229,6 +229,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         
     }
     else{
+           fPostProcMesh.ComputeNodElCon();
+        std::set<int64_t> connectlist;
+        ComputeBoundaryConnects(connectlist);
+        
         for (int64_t el = 0; el<nel; el++) {
             TPZCompEl *cel = fPostProcMesh.Element(el);
             if(!cel) continue;
@@ -239,7 +243,30 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             
             submesh->TransferElement(&fPostProcMesh, el);
         }
+        
         fPostProcMesh.ComputeNodElCon();
+        
+        std::cout<<"connectlist ";
+        for(auto it: connectlist){
+            std::cout<<it<<" ";
+        }
+        std::cout<<"\n";
+        
+        for(auto it: connectlist){
+            
+           fPostProcMesh.ConnectVec()[it].IncrementElConnected();
+        }
+        for(auto iter : submeshmap)
+        {
+            iter.second->ExpandSolution();
+        }
+
+        {
+              std::ofstream out("MalhaTeste1.txt");
+              fPostProcMesh.Print(out);
+          }
+        
+        
         for(auto iter : submeshmap)
         {
             iter.second->MakeAllInternal();
@@ -254,10 +281,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 //        std::ofstream out("postproc_part_cmesh_substruct.vtk");
 //        TPZVTKGeoMesh::PrintCMeshVTK(&fPostProcMesh, out,true);
 //    }
-//    {
-//        std::ofstream out("postproc_part_cmesh_substruct.txt");
-//        fPostProcMesh.Print(out);
-//    }
+    {
+        std::ofstream out("postproc_part_cmesh_substruct.txt");
+        fPostProcMesh.Print(out);
+    }
     
     
     // transfer the elements this procedure didn't recognize
@@ -615,48 +642,6 @@ void TPZMHMHDivErrorEstimator::TransferEmbeddedElements()
         if(!sub) continue;
         sub->MakeAllInternal();
     }
-}
-
-void TPZMHMHDivErrorEstimator::TransferBoundaryConnectsToSubMesh2(){
-    
-    int64_t nel = fPostProcMesh.NElements();
-    int64_t ncon = fPostProcMesh.NConnects();
-    TPZVec<int> numelcon(ncon,0);
-
-    for (int64_t el=0; el<nel; el++) {
-        TPZCompEl *cel = fPostProcMesh.Element(el);
-        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
-        if(!sub) continue;
-        int nconnect = sub->NConnects();
-        for(int ic=0; ic<nconnect; ic++)
-        {
-            TPZConnect &con = cel->Connect(ic);
-           // int64_t conindex = cel->ConnectIndex(ic);
-            int64_t NumElCon = con.NElConnected();
-            if(NumElCon != 1)
-            {
-               sub->TransferElement(&fPostProcMesh, el);
-            }
-            else
-            {
-                continue;//connect_submesh[conindex] = 0;
-            }
-        }
-    }
-    
-    fPostProcMesh.ComputeNodElCon();
-    
-    for (int64_t el=0; el<nel; el++) {
-        TPZCompEl *cel = fPostProcMesh.Element(el);
-        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
-        if(!sub) continue;
-        sub->MakeAllInternal();
-    }
-    
-    
-    
-    
-    
 }
 
 // a method for computing the pressures between subdomains as average pressures
@@ -1129,7 +1114,7 @@ void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connec
             TPZConnect& c = cel->Connect(is);
             int64_t c_seqnum = c.SequenceNumber();
             if (gelside.Element()->MaterialId() == this->fPressureSkeletonMatId || IsDirichletCondition(gelside)) {
-                connectList.insert(c_seqnum);
+                connectList.insert(cel->ConnectIndex(is));
                 c.IncrementElConnected();
             }
         }
