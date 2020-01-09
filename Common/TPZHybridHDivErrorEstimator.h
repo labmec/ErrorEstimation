@@ -211,6 +211,8 @@ protected:
 
 
     void PrepareElementsForH1Reconstruction();
+    
+    void TransferBoundaryConnectsToSubMesh();
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

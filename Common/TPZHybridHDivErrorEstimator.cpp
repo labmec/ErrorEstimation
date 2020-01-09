@@ -1617,6 +1617,12 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
 
     }
+    
+    
+    TransferBoundaryConnectsToSubMesh();
+    
+    
+    
 
 #ifdef PZDEBUG
     {
@@ -2146,4 +2152,47 @@ void TPZHybridHDivErrorEstimator::PlotState(const std::string& filename, int tar
         an.DefineGraphMesh(targetDim, scalnames, vecnames, plotname);
         an.PostProcess(2, targetDim);
     }
+}
+
+
+void TPZHybridHDivErrorEstimator::TransferBoundaryConnectsToSubMesh(){
+    
+    int64_t nel = fPostProcMesh.NElements();
+    int64_t ncon = fPostProcMesh.NConnects();
+    TPZVec<int> numelcon(ncon,0);
+
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(!sub) continue;
+        int nconnect = sub->NConnects();
+        for(int ic=0; ic<nconnect; ic++)
+        {
+            TPZConnect &con = cel->Connect(ic);
+           // int64_t conindex = cel->ConnectIndex(ic);
+            int64_t NumElCon = con.NElConnected();
+            if(NumElCon != 1)
+            {
+               sub->TransferElement(&fPostProcMesh, el);
+            }
+            else
+            {
+                continue;
+            }
+        }
+    }
+    
+    fPostProcMesh.ComputeNodElCon();
+    
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(!sub) continue;
+        sub->MakeAllInternal();
+    }
+    
+    
+    
+    
+    
 }

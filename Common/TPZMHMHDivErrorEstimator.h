@@ -94,6 +94,9 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     void VerifySolutionConsistency(TPZCompMesh* cmesh) override;
 
     void ComputeBoundaryConnects(std::set<int64_t>& connectList);
+    
+    //transfer the boundary connects and skeleton connects to submesh
+    void TransferBoundaryConnectsToSubMesh2();
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

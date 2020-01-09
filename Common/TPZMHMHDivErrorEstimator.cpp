@@ -617,6 +617,48 @@ void TPZMHMHDivErrorEstimator::TransferEmbeddedElements()
     }
 }
 
+void TPZMHMHDivErrorEstimator::TransferBoundaryConnectsToSubMesh2(){
+    
+    int64_t nel = fPostProcMesh.NElements();
+    int64_t ncon = fPostProcMesh.NConnects();
+    TPZVec<int> numelcon(ncon,0);
+
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(!sub) continue;
+        int nconnect = sub->NConnects();
+        for(int ic=0; ic<nconnect; ic++)
+        {
+            TPZConnect &con = cel->Connect(ic);
+           // int64_t conindex = cel->ConnectIndex(ic);
+            int64_t NumElCon = con.NElConnected();
+            if(NumElCon != 1)
+            {
+               sub->TransferElement(&fPostProcMesh, el);
+            }
+            else
+            {
+                continue;//connect_submesh[conindex] = 0;
+            }
+        }
+    }
+    
+    fPostProcMesh.ComputeNodElCon();
+    
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(!sub) continue;
+        sub->MakeAllInternal();
+    }
+    
+    
+    
+    
+    
+}
+
 // a method for computing the pressures between subdomains as average pressures
 /// compute the average pressures of across edges of the H(div) mesh
 void TPZMHMHDivErrorEstimator::ComputeAveragePressures(int target_dim)
@@ -931,6 +973,9 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
 
     std::set<int64_t> connectList;
     ComputeBoundaryConnects(connectList);
+    
+    
+    
 }
 
 void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
