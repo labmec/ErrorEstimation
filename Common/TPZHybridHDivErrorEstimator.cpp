@@ -1484,8 +1484,8 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     }
     
   //  cmesh->ElementSolution().Print("ElSolution",std::cout);
-    ofstream out("IeffPerElement3DEx.nb");
-    dataIeff.Print("Ieff = ",out,EMathematicaInput);
+//    ofstream out("IeffPerElement3DEx.nb");
+//    dataIeff.Print("Ieff = ",out,EMathematicaInput);
     
     
 }

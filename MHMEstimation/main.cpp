@@ -99,7 +99,7 @@ int main() {
     InitializePZLOG();
 
 
-    for(int ndiv=1; ndiv<2 ; ndiv++) {
+    for(int ndiv=3; ndiv<4 ; ndiv++) {
     ProblemConfig config;
 
     config.porder = 1;
