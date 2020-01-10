@@ -182,7 +182,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     // will nucleate the group
     // this only works if the post processing mesh is H(div) hybridized
     
-    if(fPostProcesswithHDiv){
+    if(fPostProcesswithHDiv) {
     
         TPZVec<int64_t> elementgroup;
         fHybridizer.AssociateElements(&fPostProcMesh, elementgroup);
@@ -225,78 +225,65 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             }
 
         }
-    #endif
-        
-    }
-    else{
-           fPostProcMesh.ComputeNodElCon();
+#endif
+
+    } else {
         std::set<int64_t> connectlist;
         ComputeBoundaryConnects(connectlist);
-        
-        for (int64_t el = 0; el<nel; el++) {
-            TPZCompEl *cel = fPostProcMesh.Element(el);
-            if(!cel) continue;
-            TPZGeoEl *gel = cel->Reference();
-            if(!gel) DebugStop();
-            TPZSubCompMesh *submesh = ElementMesh[el];
-            if(!submesh)continue;
-            
-            submesh->TransferElement(&fPostProcMesh, el);
-        }
-        
-        fPostProcMesh.ComputeNodElCon();
-        
-        std::cout<<"connectlist ";
-        for(auto it: connectlist){
-            std::cout<<it<<" ";
-        }
-        std::cout<<"\n";
-        
-        for(auto it: connectlist){
-            
-           fPostProcMesh.ConnectVec()[it].IncrementElConnected();
-        }
-        for(auto iter : submeshmap)
+
         {
+            std::ofstream out("MalhaTesteBeforeTransfer.txt");
+            fPostProcMesh.Print(out);
+        }
+
+        for (int64_t el = 0; el < nel; el++) {
+            TPZCompEl* cel = fPostProcMesh.Element(el);
+            if (!cel) continue;
+            TPZGeoEl* gel = cel->Reference();
+            if (!gel) DebugStop();
+            TPZSubCompMesh* submesh = ElementMesh[el];
+            if (!submesh)continue;
+
+            submesh->TransferElement(&fPostProcMesh, el);
+            cel = fPostProcMesh.Element(el);
+            if (cel) DebugStop();
+        }
+
+        fPostProcMesh.ComputeNodElCon();
+
+        std::cout.flush();
+        std::cout << "connectlist ";
+        for (auto it : connectlist) {
+            std::cout << it << " ";
+        }
+        std::cout << "\n";
+
+        for (auto it : connectlist) {
+            fPostProcMesh.ConnectVec()[it].IncrementElConnected();
+        }
+
+        for (auto iter : submeshmap) {
             iter.second->ExpandSolution();
         }
 
         {
-              std::ofstream out("MalhaTeste1.txt");
-              fPostProcMesh.Print(out);
-          }
-        
-        
-        for(auto iter : submeshmap)
-        {
+            std::ofstream out("MalhaTeste1.txt");
+            fPostProcMesh.Print(out);
+        }
+
+        for (auto iter : submeshmap) {
             iter.second->MakeAllInternal();
         }
-  
+
     }
-    
-    
-    
-//    {
-//        fPostProcMesh.LoadReferences();
-//        std::ofstream out("postproc_part_cmesh_substruct.vtk");
-//        TPZVTKGeoMesh::PrintCMeshVTK(&fPostProcMesh, out,true);
-//    }
-    {
-        std::ofstream out("postproc_part_cmesh_substruct.txt");
-        fPostProcMesh.Print(out);
-    }
-    
-    
-    // transfer the elements this procedure didn't recognize
-    // this will transfer the wrappers, interface elements and lagrange multipliers
-    // transfer the elements whose connects belong to a unique submesh
-    TransferEmbeddedElements();
+
     fPostProcMesh.ComputeNodElCon();
     fPostProcMesh.CleanUpUnconnectedNodes();
     {
-        std::ofstream out("postproc_part_cmesh_substruct.txt");
+        std::ofstream out("MalhaTeste2.txt");
         fPostProcMesh.Print(out);
     }
+
     // set an analysis type for the submeshes
     {
         int64_t nel = fPostProcMesh.NElements();
@@ -348,7 +335,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     
 
 }
-
 
 
 // a method for generating the HDiv mesh
@@ -1095,11 +1081,6 @@ void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connec
     fPostProcMesh.Reference()->ResetReference();
     fPostProcMesh.LoadReferences();
 
-    {
-        std::ofstream out("BeforeIncrementingConnects.txt");
-        fPostProcMesh.Print(out);
-    }
-
     int64_t nel = fPostProcMesh.NElements();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl* cel = fPostProcMesh.Element(el);
@@ -1111,17 +1092,31 @@ void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connec
         int nsides = gel->NSides();
         for (int is = 0; is < nsides; is++) {
             TPZGeoElSide gelside(gel, is);
-            TPZConnect& c = cel->Connect(is);
-            int64_t c_seqnum = c.SequenceNumber();
             if (gelside.Element()->MaterialId() == this->fPressureSkeletonMatId || IsDirichletCondition(gelside)) {
-                connectList.insert(cel->ConnectIndex(is));
-                c.IncrementElConnected();
+
+                TPZStack<TPZCompElSide> celstack;
+                gelside.EqualLevelCompElementList3(celstack, 1, 0);
+
+                int nst = celstack.NElements();
+                if(nst == 0) DebugStop();
+
+                for (int ist = 0; ist < nst; ist++) {
+                    TPZCompElSide cneigh = celstack[ist];
+                    TPZCompEl * neigh = cneigh.Element();
+                    if (neigh->Dimension() != dim) continue;
+                    TPZGeoElSide gneigh = cneigh.Reference();
+
+                    TPZStack<int> containedSides;
+                    int nSides = gneigh.NSides();
+                    gneigh.Element()->LowerDimensionSides(gneigh.Side(), containedSides);
+                    containedSides.Push(gneigh.Side());
+                    for (int iSides = 0; iSides < containedSides.size(); iSides++) {
+                        int side = containedSides[iSides];
+                        connectList.insert(neigh->ConnectIndex(side));
+                        std::cout << "connect index: " << neigh->ConnectIndex(side) << " side: " << side << '\n';
+                    }
+                }
             }
         }
-    }
-
-    {
-        std::ofstream out("AfterIncrementingConnects.txt");
-        fPostProcMesh.Print(out);
     }
 }
