@@ -2141,6 +2141,7 @@ void TPZHybridHDivErrorEstimator::PlotState(const std::string& filename, int tar
         TPZAnalysis an(cmesh, false);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
+        scalnames.Push("PressureReconstructed");
 
         std::string plotname;
         {
