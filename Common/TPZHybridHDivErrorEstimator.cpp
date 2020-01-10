@@ -1582,7 +1582,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
     
     {
-        
         std::ofstream out("PressureAverageMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier("BeforeNodalAverage");
@@ -1610,8 +1609,17 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         meshvec[0] = fPostProcMesh.MeshVector()[0];
         meshvec[1] = fPostProcMesh.MeshVector()[1];
 
-        TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
         {
+            std::ofstream out("MultiphysicsBeforeTransfer.txt");
+            fPostProcMesh.Print(out);
+            PlotState("MultiphysicsBeforeTransfer2D.vtk", 2, &fPostProcMesh);
+        }
+
+        TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
+
+        {
+            std::ofstream out("MultiphysicsAfterTransfer.txt");
+            fPostProcMesh.Print(out);
             PlotState("MultiphysicsAfterTransfer2D.vtk", 2, &fPostProcMesh);
         }
 
@@ -2087,8 +2095,10 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
         }
     }
     {
-        std::ofstream out("MeshAfterCopySkeleton.txt");
+        std::ofstream out("PrssureMeshAfterCopySkeleton.txt");
         pressuremesh->Print(out);
+        std::ofstream out2("MeshAfterCopySkeleton.txt");
+        fPostProcMesh.Print(out2);
     }
 }
 

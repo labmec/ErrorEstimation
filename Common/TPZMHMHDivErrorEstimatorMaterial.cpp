@@ -316,58 +316,6 @@ void TPZMHMHDivErrorEstimateMaterial::ContributeHdiv(TPZVec<TPZMaterialData> &da
     
 }
 
-
-
-void TPZMHMHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc)
-{
-     int H1functionposition = IsH1Position(datavec);
-    //if(H1functionposition == 0) return;
-
-    TPZFMatrix<REAL>  &phi_u = datavec[H1functionposition].phi;
-    int phr_primal = phi_u.Rows();
-
-    short in,jn;
-    STATE v2[1];
-    
-    v2[0] = datavec[H1functionposition].sol[0][0];
-//
-    switch (bc.Type()) {
-        case 0 :            // Dirichlet condition
-            if(H1functionposition==0){
-                for(int iq=0; iq<phr_primal; iq++)
-                {
-                    //the contribution of the Dirichlet boundary condition appears in the flow equation
-                    ef(iq,0) += (-1.)*v2[0]*phi_u(iq,0)*weight;
-                }
-                
-            }
-            else{
-            for(in = 0 ; in < phr_primal; in++) {
-                ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
-                for (jn = 0 ; jn < phr_primal; jn++) {
-                    ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
-                }
-            }
-            }
-            break;
-        case 1 :            // Neumann condition
-            std::cout<<"Not Implemented yet"<<std::endl;
-            DebugStop();
-            break;
-        case 2 :        // mixed condition
-
-            std::cout<<"Not Implemented yet"<<std::endl;
-            DebugStop();
-
-            break;
-    }
-
-}
-
-
-
-
-
 void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**
@@ -382,7 +330,7 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
       error[3] - energy error computed with reconstructed solution
       error[4] - residual data error
      
-     If the resconstructionis done using H1, the errors are: ||gradufem-gradurec||, ||gradufem-gradex|| and ||f- Proj divfem||
+     If the reconstruction is done using H1, the errors are: ||gradufem-gradurec||, ||gradufem-gradex|| and ||f- Proj divfem||
      **/
     
     errors.Resize(NEvalErrors());

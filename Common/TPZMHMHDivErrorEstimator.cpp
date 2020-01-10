@@ -864,7 +864,6 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
     {
         std::ofstream out("MeshBeforeCopySkeletonMeshVector1.txt");
         pressuremesh->Print(out);
-
     }
 
     PlotState("PressureBeforeCopyskeleton.vtk", 2, &fPostProcMesh);
@@ -936,16 +935,14 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
         }
     }
     {
-        std::ofstream out("MeshAfterCopySkeleton.txt");
-        pressuremesh->Print(out);
-        std::ofstream file("PressureFromCopyskeleton.vtk");
-
+        std::ofstream out("MultiphysicsAfterCopySkeleton.txt");
+        fPostProcMesh.Print(out);
+        std::string file("PressureAfterCopyskeleton.vtk");
+        PlotState(file, 2, &fPostProcMesh);
     }
 
     std::set<int64_t> connectList;
     ComputeBoundaryConnects(connectList);
-    
-    
     
 }
 
