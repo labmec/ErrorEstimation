@@ -100,6 +100,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::NSolutionVariables(int var)
         case 103:
         case 104:
         case 105:
+        case 106:
             return 1;
             break;
         default:
