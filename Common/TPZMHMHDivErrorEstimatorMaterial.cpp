@@ -351,7 +351,7 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     else{
 
         for(int i=0; i< 3;i++){
-        fluxreconstructed[i] = data[1].dsol[0][i];
+        fluxreconstructed[i] = (-1)*data[1].dsol[0][i];
         }
         
         

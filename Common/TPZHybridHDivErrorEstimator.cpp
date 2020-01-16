@@ -124,19 +124,27 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 
     ComputeEffectivityIndices();
     
+    GlobalEffectivityIndex();
+    
     PostProcessing(an);
 }
 
 void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
-    //rever codigo baseado no vetor de erros dos materiais
+    
+//    error[0] - error computed with exact pressure
+//    error[1] - error computed with reconstructed pressure
+//    error[2] - energy error computed with exact solution
+//    error[3] - energy error computed with reconstructed solution
+//    error[4] - residual data error
+   
     
      int dim = fPostProcMesh.Dimension();
      int64_t nelem = fPostProcMesh.NElements();
-     TPZManVector<REAL,10> globalerrors(6,0.);
-     REAL Ieff_global=0.,Ieff_local=0.;
-    
+     TPZManVector<REAL,10> globalerrors(5,0.);
+    REAL Ieff_global=0.;
+
      for (int64_t el=0; el<nelem; el++) {
-     
+   
          TPZCompEl *cel = fPostProcMesh.ElementVec()[el];
          TPZGeoEl *gel = cel->Reference();
          REAL hk = gel->CharacteristicSize();
@@ -145,15 +153,36 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
          elerror.Fill(0.);
          cel->EvaluateError(fExact->ExactSolution(), elerror, NULL);
          int nerr = elerror.size();
+         
          for (int i=0; i<nerr; i++) {
+             
              globalerrors[i] += elerror[i]*elerror[i];
          }
-         globalerrors[nerr] += (hk/M_PI)*(hk/M_PI)*elerror[nerr-1]*elerror[nerr-1];
-             Ieff_local += globalerrors[nerr] + globalerrors[3];
-     
+         
+         REAL coef1 = (hk/M_PI)*(hk/M_PI);
+         
+         globalerrors[nerr-1] += coef1*elerror[nerr-1]*elerror[nerr-1];
+         
+
      }
-     
-      Ieff_global = sqrt(Ieff_local)/sqrt(globalerrors[2]);
+    
+    
+    if(sqrt(globalerrors[2])<1.e-10){
+        Ieff_global = 1.;
+    }
+    else{
+    
+        Ieff_global = sqrt(globalerrors[4] + globalerrors[3])/sqrt(globalerrors[2]);
+    }
+    
+    std::cout<<"Ieff_global "<<Ieff_global<<std::endl;
+    
+    
+
+    
+    
+    
+    ////
      
      ofstream myfile;
      myfile.open("ArquivosErros.txt", ios::app);
@@ -162,8 +191,8 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
      myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
      myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
      myfile << "I_eff global = " << Ieff_global << "\n";
-     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
-     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
+    myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
+    myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
      myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
      myfile.close();
      
@@ -1406,12 +1435,22 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subc
     for (int i=0; i<4; i++) {
         errors[i] = sqrt(errors[i]);
     }
+    
+
     for (int64_t el = 0; el<nel; el++) {
         for (int i=0; i<4; i++) {
             elsol(el,i) = errors[i];
         }
     }
+    
+    
+    REAL oscilatorytherm = 0;
+    
     for (int64_t el = 0; el < nrows; el++) {
+        TPZCompEl *cel = subcmesh->Element(el);
+        TPZGeoEl *gel = cel->Reference();
+         REAL hk = gel->CharacteristicSize();
+        
         for (int i = 0; i < 3; i += 2) {
             
             //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
@@ -1420,16 +1459,24 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subc
             REAL ErrorEstimate = errors[i + 1];
             REAL ErrorExact = errors[i];
             
+            if(i==2){
+               oscilatorytherm = subcmesh->ElementSolution()(el, i + 2);
+                oscilatorytherm *= (hk/M_PI);
+            }
+            
+            
             if (abs(ErrorEstimate) < tol) {
                 subcmesh->ElementSolution()(el, ncols + i / 2) = 1.;
                 
             }
             else {
-                REAL EfIndex = ErrorEstimate / ErrorExact;
+                REAL EfIndex = (ErrorEstimate + oscilatorytherm)/ ErrorExact;
                 subcmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
     }
+    
+    
 }
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
@@ -1453,8 +1500,20 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     
     TPZFMatrix<REAL> dataIeff(nrows,1);
     
+//    REAL oscilatorytherm = 0;
+    
     cmesh->ElementSolution().Resize(nrows, ncols+2);
+    REAL oscilatorytherm = 0;
+    
     for (int64_t el = 0; el < nrows; el++) {
+        
+        TPZCompEl *cel = cmesh->Element(el);
+//        if(!cel) continue;
+//        TPZGeoEl *gel = cel->Reference();
+//        if(!gel) continue;
+//        REAL hk = gel->CharacteristicSize();
+
+        
         for (int i = 0; i < 3; i += 2) {
             
           //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
@@ -1463,19 +1522,32 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
             REAL ErrorExact = cmesh->ElementSolution()(el, i);
             
+            TPZGeoEl *gel = cel->Reference();
+            
+            REAL hk = gel->CharacteristicSize();
+            
+            if(i==2){
+               oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
+                oscilatorytherm *= (hk/M_PI);
+            }
+            
+
+                
+                
+            
             if (abs(ErrorEstimate) < tol) {
                 cmesh->ElementSolution()(el, ncols + i / 2) = 1.;
                 dataIeff(el,0)=1.;
 
             }
             else {
-                REAL EfIndex = ErrorEstimate / ErrorExact;
+                REAL EfIndex = (ErrorEstimate +oscilatorytherm)/ ErrorExact;
                 dataIeff(el,0)= EfIndex;
                 
                 cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
-        TPZCompEl *cel = cmesh->Element(el);
+        
         TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
         if(subcmesh)
         {

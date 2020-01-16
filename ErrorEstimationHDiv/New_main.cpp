@@ -83,8 +83,8 @@ int main(int argc, char *argv[]) {
         
         TLaplaceExample1 example;
 
-        config.exact.fExact = example.EX;//ESinSin;//ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
-        config.problemname = "ExRecH1";
+        config.exact.fExact = example.ESinSin;//ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
+        config.problemname = "ESinRecH1";
         
         bool RunMark = false;
         
