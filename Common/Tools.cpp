@@ -174,12 +174,12 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
 }
 
 
-TPZGeoMesh *CreateGeoMesh(int nel, TPZVec<int> &bcids) {
+TPZGeoMesh* CreateGeoMesh(int nel, TPZVec<int>& bcids) {
     
-    TPZManVector<int> nx(2,nel);
-    TPZManVector<REAL> x0(3,0.),x1(3,1.);
+    TPZManVector<int> nx(2, nel);
+    TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
     x1[2] = 0.;
-    TPZGenGrid gen(nx,x0,x1);
+    TPZGenGrid gen(nx, x0, x1);
     gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
@@ -188,11 +188,8 @@ TPZGeoMesh *CreateGeoMesh(int nel, TPZVec<int> &bcids) {
     gen.SetBC(gmesh, 6, bcids[2]);
     gen.SetBC(gmesh, 7, bcids[3]);
     
-  //  UniformRefinement(1, gmesh);
-
+    gmesh->SetDimension(2);
     
-    
-
     return gmesh;
 }
 
@@ -845,7 +842,7 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
                 gelToRefine->Divide(sons);
 #ifdef LOG4CXX
                 int nsides = gelToRefine->NSides();
-                TPZVec<REAL> loccenter(3);
+                TPZVec<REAL> loccenter(gelToRefine->Dimension());
                 TPZVec<REAL> center(3);
                 gelToRefine->CenterPoint(nsides - 1, loccenter);
                 

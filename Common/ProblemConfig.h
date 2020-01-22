@@ -25,7 +25,7 @@ struct ProblemConfig
     bool makepressurecontinuous = 0;
     
     /// number of uniform refinements applied to the mesh
-    int ndivisions = 1;
+    int ndivisions = 0;
     int adaptivityStep = 0;
     int dimension = 0;
     bool prefine = false;
