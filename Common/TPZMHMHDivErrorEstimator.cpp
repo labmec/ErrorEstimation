@@ -252,11 +252,11 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         fPostProcMesh.ComputeNodElCon();
 
         std::cout.flush();
-        std::cout << "connectlist ";
-        for (auto it : connectlist) {
-            std::cout << it << " ";
-        }
-        std::cout << "\n";
+       // std::cout << "connectlist ";
+//        for (auto it : connectlist) {
+//            std::cout << it << " ";
+//        }
+      //  std::cout << "\n";
 
         for (auto it : connectlist) {
             fPostProcMesh.ConnectVec()[it].IncrementElConnected();
@@ -266,10 +266,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             iter.second->ExpandSolution();
         }
 
-        {
-            std::ofstream out("MalhaTeste1.txt");
-            fPostProcMesh.Print(out);
-        }
+//        {
+//            std::ofstream out("MalhaTeste1.txt");
+//            fPostProcMesh.Print(out);
+//        }
 
         for (auto iter : submeshmap) {
             iter.second->MakeAllInternal();
@@ -279,10 +279,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     fPostProcMesh.ComputeNodElCon();
     fPostProcMesh.CleanUpUnconnectedNodes();
-    {
-        std::ofstream out("MalhaTeste2.txt");
-        fPostProcMesh.Print(out);
-    }
+//    {
+//        std::ofstream out("MalhaTeste2.txt");
+//        fPostProcMesh.Print(out);
+//    }
 
     // set an analysis type for the submeshes
     {
@@ -293,10 +293,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
             if(sub)
             {
-                {
-                    std::ofstream out2("Sub.txt");
-                    sub->Print(out2);
-                }
+//                {
+//                    std::ofstream out2("Sub.txt");
+//                    sub->Print(out2);
+//                }
                 
                 if(fPostProcesswithHDiv){
                     fHybridizer.GroupandCondenseElements(sub);
@@ -402,11 +402,11 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh()
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
 {
     TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
-    {
-        std::ofstream out1("OriginalPressureMesh.txt");
-        OrigPressure->Print(out1);
-    }
-    std::cout<< "n connects pressure original " << OrigPressure->NConnects()<<"\n";
+//    {
+//        std::ofstream out1("OriginalPressureMesh.txt");
+//        OrigPressure->Print(out1);
+//    }
+ //   std::cout<< "n connects pressure original " << OrigPressure->NConnects()<<"\n";
     TPZGeoMesh *gmesh = OrigPressure->Reference();
     gmesh->ResetReference();
     int dim = gmesh->Dimension();
@@ -439,7 +439,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
 
 
     
-    std::cout<< "n connects before BC " << pressure->NConnects()<<"\n";
+ //   std::cout<< "n connects before BC " << pressure->NConnects()<<"\n";
     // creating BC conditions for H1 mesh
     TPZCompMesh *mult = fOriginal;
     
@@ -465,14 +465,14 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
 
     pressure->AutoBuild(matIdsbc);
     
-    {
-        std::ofstream out1("PressureMeshPosBC.txt");
-        pressure->Print(out1);
-        std::ofstream out2("BuildH1PressureWithBC.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
-    }
+//    {
+//        std::ofstream out1("PressureMeshPosBC.txt");
+//        pressure->Print(out1);
+//        std::ofstream out2("BuildH1PressureWithBC.vtk");
+//        TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
+//    }
     
-    std::cout<< "n connects after BC " << pressure->NConnects()<<"\n";
+ //   std::cout<< "n connects after BC " << pressure->NConnects()<<"\n";
     // creating discontinuous skeleton on H1 mesh
 
     TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
@@ -485,15 +485,15 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
     pressure->AutoBuild(matIdskeleton);
     pressure->ExpandSolution();
     
-    std::cout<< "n connects after skeleton " << pressure->NConnects()<<"\n";
-
-    {
-        std::ofstream out1("PressureWithSkeleton.txt");
-        pressure->Print(out1);
-        std::ofstream out2("BuildH1PressureWithSkeleton.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
-        
-    }
+//    std::cout<< "n connects after skeleton " << pressure->NConnects()<<"\n";
+//
+//    {
+//        std::ofstream out1("PressureWithSkeleton.txt");
+//        pressure->Print(out1);
+//        std::ofstream out2("BuildH1PressureWithSkeleton.vtk");
+//        TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
+//        
+//    }
     
     
     
@@ -905,7 +905,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
             
             int matgelSide = gelside.Element()->MaterialId();
             
-            std::cout<<"MatIdgelSide  "<<matgelSide<<"\n";
+            //std::cout<<"MatIdgelSide  "<<matgelSide<<"\n";
             TPZConnect &c = intel->Connect(is);
             int64_t c_gelSide_seqnum  = c.SequenceNumber();
             int c_blocksize = c.NShape() * c.NState();
@@ -918,7 +918,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
-                std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
+               // std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
 
                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                 if (!intelneigh) DebugStop();
@@ -927,19 +927,19 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
                 int con_size = con_neigh.NState() * con_neigh.NShape();
                 if (con_size != c_blocksize) DebugStop();
                 for (int ibl = 0; ibl < con_size; ibl++) {
-                    std::cout<<"valor da pressao connect neigh (d-dimensional) "<<c_neigh_seqnum<<" = "<<pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0)<<"\n";
-                    std::cout<<"valor da pressao connect "<<c_gelSide_seqnum<<" = "<<pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0)<<"\n";
+                    //std::cout<<"valor da pressao connect neigh (d-dimensional) "<<c_neigh_seqnum<<" = "<<pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0)<<"\n";
+                    //std::cout<<"valor da pressao connect "<<c_gelSide_seqnum<<" = "<<pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0)<<"\n";
                     pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0) = pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0);
                 }
             }
         }
     }
-    {
-        std::ofstream out("MultiphysicsAfterCopySkeleton.txt");
-        fPostProcMesh.Print(out);
-        std::string file("PressureAfterCopyskeleton.vtk");
-        PlotState(file, 2, &fPostProcMesh);
-    }
+//    {
+//        std::ofstream out("MultiphysicsAfterCopySkeleton.txt");
+//        fPostProcMesh.Print(out);
+//        std::string file("PressureAfterCopyskeleton.vtk");
+//        PlotState(file, 2, &fPostProcMesh);
+//    }
 
     std::set<int64_t> connectList;
     ComputeBoundaryConnects(connectList);
@@ -947,12 +947,12 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
 }
 
 void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
-    {
-        std::ofstream outvtk("MeshToVerifyConsistency.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
-        std::ofstream outtxt("MeshToVerifyConsistency.txt");
-        cmesh->Print(outtxt);
-    }
+//    {
+//        std::ofstream outvtk("MeshToVerifyConsistency.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
+//        std::ofstream outtxt("MeshToVerifyConsistency.txt");
+//        cmesh->Print(outtxt);
+//    }
 
     TPZGeoMesh* gmesh = fOriginal->Reference();
     gmesh->ResetReference();
@@ -1110,7 +1110,7 @@ void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connec
                     for (int iSides = 0; iSides < containedSides.size(); iSides++) {
                         int side = containedSides[iSides];
                         connectList.insert(neigh->ConnectIndex(side));
-                        std::cout << "connect index: " << neigh->ConnectIndex(side) << " side: " << side << '\n';
+                       // std::cout << "connect index: " << neigh->ConnectIndex(side) << " side: " << side << '\n';
                     }
                 }
             }

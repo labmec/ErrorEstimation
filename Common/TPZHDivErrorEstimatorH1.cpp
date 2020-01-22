@@ -47,7 +47,7 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     {
         CreateEdgeSkeletonMesh(mesh_vectors[0]);
     }
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("EnrichedPressure.txt");
         mesh_vectors[0]->Print(out);
@@ -63,10 +63,10 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     active[0] = 1;
     active[1] = 1;
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
-    {
-        std::ofstream out("multiphysicsWithnoInterface.txt");
-        fPostProcMesh.Print(out);
-    }
+//    {
+//        std::ofstream out("multiphysicsWithnoInterface.txt");
+//        fPostProcMesh.Print(out);
+//    }
     
     if(fperformUplift){
         

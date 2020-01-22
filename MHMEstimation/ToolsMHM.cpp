@@ -580,15 +580,15 @@ int MHMTest(ProblemConfig &Conf) {
         }
 #ifdef PZDEBUG
        // if(1)
-        {
-            std::ofstream out("MixedMeshControlHDiv.txt");
-            mhm->Print(out);
-        }
+//        {
+//            std::ofstream out("MixedMeshControlHDiv.txt");
+//            mhm->Print(out);
+//        }
 #endif
         bool substructure = true;
         mhm->BuildComputationalMesh(substructure);
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             std::ofstream file("GMeshControlHDiv.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(mhm->GMesh().operator->(), file);
@@ -599,7 +599,7 @@ int MHMTest(ProblemConfig &Conf) {
         
         
         std::cout << "MHM Hdiv Computational meshes created\n";
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         
         {
             std::ofstream gfile("geometryMHMHdiv.txt");
@@ -619,16 +619,16 @@ int MHMTest(ProblemConfig &Conf) {
     std::string prefix;
     std::cout<<"Solving MHM problem"<<std::endl;
     
-    for (auto it:MHMixed->CMesh()->MaterialVec()) {
-        TPZMaterial *mat = it.second;
-        TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
-        if(bnd){
-            std::cout<<"bc encontrado\n";
-            bnd->TPZMaterial::SetForcingFunction(Conf.exact.Exact());
-            if(bnd->HasForcingFunction()){
-                std::cout<<"bc has forcing function\n";}
-        }
-    }
+//    for (auto it:MHMixed->CMesh()->MaterialVec()) {
+//        TPZMaterial *mat = it.second;
+//        TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
+//        if(bnd){
+//            std::cout<<"bc encontrado\n";
+//            bnd->TPZMaterial::SetForcingFunction(Conf.exact.Exact());
+//            if(bnd->HasForcingFunction()){
+//                std::cout<<"bc has forcing function\n";}
+//        }
+//    }
     
 
     

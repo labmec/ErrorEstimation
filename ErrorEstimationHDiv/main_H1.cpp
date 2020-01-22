@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
     TPZMultiphysicsCompMesh *cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         
         std::ofstream out2("MalhaMista.txt");

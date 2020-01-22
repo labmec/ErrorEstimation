@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
         ProblemConfig config;
         
         config.porder = 1;
-        config.hdivmais = 1;
+        config.hdivmais = 2;
         config.ndivisions = ndiv;
         config.dimension = 2;
         config.prefine=false;
@@ -83,12 +83,12 @@ int main(int argc, char *argv[]) {
         
         TLaplaceExample1 example;
 
-        config.exact.fExact = example.ESinSin;//ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
-        config.problemname = "ESinRecH1";
+        config.exact.fExact = example.ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
+        config.problemname = "ESinTeste2";
         
         bool RunMark = false;
         
-        config.dir_name= "ReconstructionH1";
+        config.dir_name= "WorkshopTestsHdivH1";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
         
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
             
         }
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             std::ofstream out("gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
         
         
         UniformRefinement(config.ndivisions, gmesh);
-        RandomRefine(config, config.ndivisions);
+       DivideLowerDimensionalElements(gmesh);
         
 #ifdef PZDEBUG2
         {
@@ -279,16 +279,16 @@ int main(int argc, char *argv[]) {
                 
                 TPZManVector<REAL> elementerrors;
                 HDivEstimate.ComputeErrors(elementerrors);
-                // hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+         //       hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
                 
             }
             
             
         }
         
-        //    delete cmesh_HDiv;
-        //    delete meshvec_HDiv[0];
-        //    delete meshvec_HDiv[1];
+            delete cmesh_HDiv;
+            delete meshvec_HDiv[0];
+            delete meshvec_HDiv[1];
         //return 0;
     }
 }

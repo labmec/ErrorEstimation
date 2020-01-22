@@ -99,7 +99,7 @@ int main() {
     InitializePZLOG();
 
 
-    for(int ndiv=2; ndiv<3 ; ndiv++) {
+    for(int ndiv=4; ndiv<5 ; ndiv++) {
     ProblemConfig config;
 
     config.porder = 1;
@@ -112,11 +112,11 @@ int main() {
 
     TLaplaceExample1 example;
 
-        config.exact.fExact = example.ESinSin;
+        config.exact.fExact = example.ESinSinDirNonHom;
 
-    config.problemname = "ESin";
+    config.problemname = "ESinNonHomMHMHdivH1";
 
-    config.dir_name= "TestesMHM";
+    config.dir_name= "TestesMHMWorkshop";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -173,7 +173,7 @@ int main() {
         }
 #endif
 
-        UniformRefinement(ndiv, gmesh);
+        UniformRefinement(ndiv+1, gmesh);
         DivideLowerDimensionalElements(gmesh);
         
         TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
@@ -184,7 +184,7 @@ int main() {
         cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
         cmesh_HDiv->InitializeBlock();
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             
             std::ofstream out2("MalhaMista.txt");
