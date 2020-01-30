@@ -7,6 +7,9 @@
 
 #include "Tools.h"
 #include "pzgengrid.h"
+#include "tpzarc3d.h"
+#include "tpzgeoblend.h"
+#include "TPZGeoLinear.h"
 
 #include <tuple>
 #include <memory>
@@ -52,7 +55,8 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
     }
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
-        TPZBndCond *bc = mat->CreateBC(mat, matid, 0, val1, val2);
+        int bctype = 0;
+        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
         cmesh->InsertMaterialObject(bc);
     }
@@ -567,6 +571,7 @@ void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
     direct = 0;
     an.Assemble();
     an.Solve();//resolve o problema misto ate aqui
+    
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("Pressure");
     scalnames.Push("ExactPressure");
@@ -582,6 +587,7 @@ void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
     an.DefineGraphMesh(dim, scalnames, vecnames, sout.str());
     int resolution=2;
     an.PostProcess(resolution,dim);
+    
     
     if(config.exact.Exact())
     {
@@ -840,7 +846,7 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
             TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[iel];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
-#ifdef LOG4CXX
+#ifdef LOG4CXX2
                 int nsides = gelToRefine->NSides();
                 TPZVec<REAL> loccenter(gelToRefine->Dimension());
                 TPZVec<REAL> center(3);
@@ -859,4 +865,56 @@ void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
         }
     }
     DivideLowerDimensionalElements(gmeshToRefine);
+}
+
+
+TPZGeoMesh* CreateLCircleGeoMesh() {
+    
+    TPZGeoMesh* gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+    
+    TPZVec<REAL> coord(3, 0.);
+    
+    // Inserts node at origin
+    gmesh->NodeVec().AllocateNewElement();
+    gmesh->NodeVec()[0].Initialize(coord, *gmesh);
+    
+    // Inserts circumference nodes
+    for (int64_t i = 0; i < 13; i++) {
+        const REAL step = M_PI / 8;
+        coord[0] = cos(i * step);
+        coord[1] = sin(i * step);
+        const int64_t newID = gmesh->NodeVec().AllocateNewElement();
+        gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+    }
+    
+    int matIdTriangle = 1, matIdArc = 2;
+    
+    // Inserts triangle elements
+    TPZManVector<int64_t, 3> nodesIdVec(3);
+    for (int64_t i = 0; i < 6; i++) {
+        nodesIdVec[0] = 0;
+        nodesIdVec[1] = 1 + 2 * i;
+        nodesIdVec[2] = 3 + 2 * i;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
+    }
+    // Inserts arc elements
+    for (int64_t i = 0; i < 6; i++) {
+        nodesIdVec[0] = 1 + 2 * i;
+        nodesIdVec[1] = 3 + 2 * i;
+        nodesIdVec[2] = 2 + 2 * i;
+        new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, matIdArc, *gmesh);
+    }
+    // Finally, inserts line elements to complete boundary
+    nodesIdVec.Resize(2);
+    nodesIdVec[0] = 0;
+    nodesIdVec[1] = 1;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+    
+    nodesIdVec[0] = 0;
+    nodesIdVec[1] = 13;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+    
+    gmesh->BuildConnectivity();
+    return gmesh;
 }

@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     
     
     
-    for(int ndiv=1; ndiv<2; ndiv++){
+    for(int ndiv=3; ndiv<4; ndiv++){
         ProblemConfig config;
         
         config.porder = 1;
@@ -84,11 +84,11 @@ int main(int argc, char *argv[]) {
         TLaplaceExample1 example;
 
         config.exact.fExact = example.ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
-        config.problemname = "ESinTeste2";
+        config.problemname = "ESinSingular";
         
         bool RunMark = false;
         
-        config.dir_name= "WorkshopTestsHdivH1";
+        config.dir_name= "LCircleMesh";
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
         
@@ -139,19 +139,21 @@ int main(int argc, char *argv[]) {
         
         else{
             TPZManVector<int,4> bcids(4,-1);
-            gmesh = CreateGeoMesh(2, bcids);
+            int nel = pow(2, ndiv);
+            gmesh = CreateGeoMesh(nel, bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
             config.bcmaterialids.insert(-1);
-            config.gmesh = gmesh;
+            config.gmesh = new TPZGeoMesh;
+            *config.gmesh = *gmesh;
             gmesh->SetDimension(dim);
             
             
             
         }
         
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
-            std::ofstream out("gmesh.vtk");
+            std::ofstream out("gmeshInit.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
             std::ofstream out2("gmeshInitial.txt");
             gmesh->Print(out2);
@@ -159,18 +161,24 @@ int main(int argc, char *argv[]) {
         }
 #endif
         
-        TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
-        *hybridEstimatorMesh = *gmesh;
+
+        
+//        TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
+//        *hybridEstimatorMesh = *gmesh;
+        
+        
+//        UniformRefinement(config.ndivisions, gmesh);
+//       DivideLowerDimensionalElements(gmesh);
         
         
         
-        UniformRefinement(config.ndivisions, gmesh);
-       DivideLowerDimensionalElements(gmesh);
-        
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
             std::ofstream out("gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+            
+//            std::ofstream out3("gmeshhybridEstimatorMesh.vtk");
+//            TPZVTKGeoMesh::PrintGMeshVTK(hybridEstimatorMesh, out3);
             std::ofstream out2("gmeshInitial.txt");
             gmesh->Print(out2);
             
@@ -185,7 +193,7 @@ int main(int argc, char *argv[]) {
         cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
         cmesh_HDiv->InitializeBlock();
         
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
         {
             
             std::ofstream out2("MalhaMista.txt");
@@ -196,7 +204,8 @@ int main(int argc, char *argv[]) {
         
         
         
-        if(mixedsolution) SolveMixedProblem(cmesh_HDiv,config);
+        //if(mixedsolution)
+            SolveMixedProblem(cmesh_HDiv,config);
         
         
         meshvec_HDiv = cmesh_HDiv->MeshVector();
@@ -279,7 +288,7 @@ int main(int argc, char *argv[]) {
                 
                 TPZManVector<REAL> elementerrors;
                 HDivEstimate.ComputeErrors(elementerrors);
-         //       hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+            //   hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
                 
             }
             

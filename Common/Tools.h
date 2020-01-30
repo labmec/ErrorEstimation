@@ -79,5 +79,6 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader);
 TPZCompMesh *CMeshH1( ProblemConfig problem);
 
 void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine);
+TPZGeoMesh* CreateLCircleGeoMesh();
 
 

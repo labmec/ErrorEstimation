@@ -19,9 +19,8 @@
 
 bool readGeoMeshFromFile = false;
 bool postProcessWithHDiv = false;
-int refinementSteps = 4;
+int refinementSteps = 5;
 
-TPZGeoMesh* CreateLCircleGeoMesh();
 
 int main(int argc, char* argv[]) {
 
@@ -36,21 +35,21 @@ int main(int argc, char* argv[]) {
     
     // Creates geometric mesh
     TPZManVector<int, 4> bcids(4, -1);
-    TPZGeoMesh* gmeshOriginal = CreateGeoMesh(2, bcids);
-
-#ifdef PZDEBUG
+    TPZGeoMesh* gmeshOriginal = CreateGeoMesh(2, bcids);//CreateLCircleGeoMesh();//
+    
+#ifdef PZDEBUG2
     {
         std::ofstream out("AdaptivityInitialGmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
     }
 #endif
     
-    for (int iSteps = 0; iSteps < refinementSteps; iSteps++) {
+    for (int iSteps = 1; iSteps < refinementSteps; iSteps++) {
         
         ProblemConfig config;
         
         config.porder = 1;
-        config.hdivmais = 2;
+        config.hdivmais = 1;
         config.dimension = 2;
         config.makepressurecontinuous = true;
         config.adaptivityStep = iSteps;
@@ -62,6 +61,8 @@ int main(int argc, char* argv[]) {
         
         std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
+        
+        UniformRefinement(iSteps, gmeshOriginal);
         
         //malha geometrica
         TPZGeoMesh* gmesh = new TPZGeoMesh();
@@ -79,7 +80,7 @@ int main(int argc, char* argv[]) {
         cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
         cmesh_HDiv->InitializeBlock();
         
-        SolveMixedProblem(cmesh_HDiv, config);
+       // SolveMixedProblem(cmesh_HDiv, config);
         
         meshvec_HDiv = cmesh_HDiv->MeshVector();
         
@@ -114,60 +115,10 @@ int main(int argc, char* argv[]) {
             
             TPZManVector<REAL> elementerrors;
             HDivEstimate.ComputeErrors(elementerrors);
-            hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal);
+           // hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal);
         }
     }
     
     return 0;
 }
 
-TPZGeoMesh* CreateLCircleGeoMesh() {
-    
-    TPZGeoMesh* gmesh = new TPZGeoMesh();
-    gmesh->SetDimension(2);
-    
-    TPZVec<REAL> coord(3, 0.);
-    
-    // Inserts node at origin
-    gmesh->NodeVec().AllocateNewElement();
-    gmesh->NodeVec()[0].Initialize(coord, *gmesh);
-    
-    // Inserts circumference nodes
-    for (int64_t i = 0; i < 13; i++) {
-        const REAL step = M_PI / 8;
-        coord[0] = cos(i * step);
-        coord[1] = sin(i * step);
-        const int64_t newID = gmesh->NodeVec().AllocateNewElement();
-        gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
-    }
-    
-    int matIdTriangle = 1, matIdArc = 2;
-    
-    // Inserts triangle elements
-    TPZManVector<int64_t, 3> nodesIdVec(3);
-    for (int64_t i = 0; i < 6; i++) {
-        nodesIdVec[0] = 0;
-        nodesIdVec[1] = 1 + 2 * i;
-        nodesIdVec[2] = 3 + 2 * i;
-        new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
-    }
-    // Inserts arc elements
-    for (int64_t i = 0; i < 6; i++) {
-        nodesIdVec[0] = 1 + 2 * i;
-        nodesIdVec[1] = 3 + 2 * i;
-        nodesIdVec[2] = 2 + 2 * i;
-        new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, matIdArc, *gmesh);
-    }
-    // Finally, inserts line elements to complete boundary
-    nodesIdVec.Resize(2);
-    nodesIdVec[0] = 0;
-    nodesIdVec[1] = 1;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
-    
-    nodesIdVec[0] = 0;
-    nodesIdVec[1] = 13;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
-    
-    gmesh->BuildConnectivity();
-    return gmesh;
-}

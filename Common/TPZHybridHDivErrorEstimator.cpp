@@ -124,7 +124,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 
     ComputeEffectivityIndices();
     
-   // GlobalEffectivityIndex();
+    GlobalEffectivityIndex();
     
     PostProcessing(an);
 }
@@ -185,7 +185,7 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
     ////
      
      ofstream myfile;
-     myfile.open("ArquivosErros.txt", ios::app);
+     myfile.open("ErrorEstimationResults.txt", ios::app);
      myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
      myfile << "\n-------------------------------------------------- \n";
      myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
@@ -194,6 +194,7 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
      myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
+    myfile << "Ieff_global = " << Ieff_global << "\n";
      myfile.close();
      
     
@@ -1522,14 +1523,14 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
             REAL ErrorExact = cmesh->ElementSolution()(el, i);
             
-//            TPZGeoEl *gel = cel->Reference();
-//
-//            REAL hk = gel->CharacteristicSize();
-//
-//            if(i==2){
-//               oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
-//                oscilatorytherm *= (hk/M_PI);
-//            }
+            TPZGeoEl *gel = cel->Reference();
+
+            REAL hk = gel->CharacteristicSize();
+
+            if(i==2){
+               oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
+                oscilatorytherm *= (hk/M_PI);
+            }
             
 
             if (abs(ErrorEstimate) < tol) {
