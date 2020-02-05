@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
 //    }
     
     
-    SolveHybridProblem(cmesh_HDiv,n2,config);
+    SolveHybridProblem(cmesh_HDiv,n2,config,false);
     
 
     

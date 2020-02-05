@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
         meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
         meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
         
-        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config);
+        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config,false);
         
         
         //reconstroi potencial e calcula o erro
