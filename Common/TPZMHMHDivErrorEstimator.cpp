@@ -861,10 +861,10 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
 
     // Pressure skeleton
     TPZCompMesh *pressuremesh = PressureMesh();
-    {
-        std::ofstream out("MeshBeforeCopySkeletonMeshVector1.txt");
-        pressuremesh->Print(out);
-    }
+//    {
+//        std::ofstream out("MeshBeforeCopySkeletonMeshVector1.txt");
+//        pressuremesh->Print(out);
+//    }
 
     PlotState("PressureBeforeCopyskeleton.vtk", 2, &fPostProcMesh);
 

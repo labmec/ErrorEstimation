@@ -490,6 +490,7 @@ int MHMTest(ProblemConfig &Conf) {
     Configuration.pOrderSkeleton = Conf.porder;
     Configuration.numHDivisions = Conf.ndivisions;
     Configuration.hdivmaismais = Conf.hdivmais;
+  //  Configuration.numDivSkeleton = Conf.ndivisions;
     
     
     TPZGeoMesh *gmeshcoarse = NULL;
@@ -1140,9 +1141,9 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
         }
     }
     
-    for(int ilinha =0 ; ilinha <coarseIndexes.size() ;ilinha++){
-        std::cout<<"coarseIndex "<<coarseIndexes[ilinha]<<std::endl;
-    }
+//    for(int ilinha =0 ; ilinha <coarseIndexes.size() ;ilinha++){
+//        std::cout<<"coarseIndex "<<coarseIndexes[ilinha]<<std::endl;
+//    }
     
     return gmesh;
 }

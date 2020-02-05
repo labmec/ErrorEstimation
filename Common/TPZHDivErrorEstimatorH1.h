@@ -45,7 +45,8 @@ public:
     void PreparePostProcElements();
     
     /// copy the solution from the neighbouring skeleton elements to the H1 pressure elements
-    void CopySolutionFromSkeleton();
+    void CopySolutionFromSkeleton() override;
+    virtual void ComputePressureWeights() override;
     
 };
 

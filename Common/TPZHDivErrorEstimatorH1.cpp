@@ -127,6 +127,7 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     }
     
     PreparePostProcElements();
+    ComputePressureWeights();
     
 
 }
@@ -393,3 +394,41 @@ void TPZHDivErrorEstimatorH1::CopySolutionFromSkeleton()
 	}
 }
 
+void TPZHDivErrorEstimatorH1::ComputePressureWeights()
+{
+    
+    
+    TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[0];
+    int dim = pressuremesh->Dimension();
+    int64_t nel = pressuremesh->NElements();
+    fPressureweights.Resize(nel, 0);
+    fMatid_weights.clear();
+    for (int64_t el=0; el<nel; el++) {
+        TPZCompEl *cel = pressuremesh->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        int matid = gel->MaterialId();
+        TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
+       if(matid == fPressureSkeletonMatId || matid == fHybridizer.fLagrangeInterface){
+           //fPressureweights[el] = 1.e12;
+           continue;
+       }
+        if(!mat) continue;//DebugStop();
+        TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
+        if(gel->Dimension() != dim && !bcmat) continue;
+        if(bcmat && bcmat->Type() == 0)
+        {
+            this->fPressureweights[el] = 1.e12;
+            fMatid_weights[matid] = 1.e12;
+            continue;
+        }
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat);
+
+        if(!mixpoisson) DebugStop();
+        REAL perm;
+        mixpoisson->GetMaxPermeability(perm);
+        if(IsZero(perm)) DebugStop();
+        this->fPressureweights[el] = perm;
+        fMatid_weights[matid] = perm;
+    }
+}

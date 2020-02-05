@@ -68,31 +68,35 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ECube);
     
     
+     ProblemConfig config;
+    config.porder = 1;
+    config.hdivmais = 1;
+   
+    config.dimension = 2;
+    config.prefine=false;
+    config.makepressurecontinuous = true;
+    config.TensorNonConst = false;//para problem 3d com tensor nao constante
     
-    for(int ndiv=3; ndiv<4; ndiv++){
-        ProblemConfig config;
-        
-        config.porder = 1;
-        config.hdivmais = 2;
-        config.ndivisions = ndiv;
-        config.dimension = 2;
-        config.prefine=false;
-        config.makepressurecontinuous = true;
-        config.adaptivityStep = ndiv;
-        config.TensorNonConst = false;//para problem 3d com tensor nao constante
-        
-        TLaplaceExample1 example;
+    TLaplaceExample1 example;
 
-        config.exact.fExact = example.ESinSinDirNonHom;//ESinSin;//EBubble;//EArcTan;//
-        config.problemname = "ESinSingular";
-        
-        bool RunMark = false;
-        
-        config.dir_name= "LCircleMesh";
-        std::string command = "mkdir " + config.dir_name;
-        system(command.c_str());
-        
-        int dim = config.dimension;
+    config.exact.fExact = example.ESinSinDirNonHom;//EBubble;//EArcTan;//
+    
+    
+    bool RunMark = false;
+    config.problemname = "SinSinNonConvex";
+    
+    config.dir_name= "DirNonHomogeneo";
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+    
+    int dim = config.dimension;
+    
+    for(int ndiv=1; ndiv<5; ndiv++){
+
+        config.ndivisions = ndiv;
+
+        config.adaptivityStep = ndiv;
+       
         
         //malha geometrica
         TPZGeoMesh *gmesh = nullptr;
@@ -139,8 +143,11 @@ int main(int argc, char *argv[]) {
         
         else{
             TPZManVector<int,4> bcids(4,-1);
+            //bcids[3] = -1;
+            //int nelT= 2*ndiv;
             int nel = pow(2, ndiv);
-            gmesh = CreateGeoMesh(nel, bcids);//CreateLCircleGeoMesh();//
+
+            gmesh = CreateGeoMesh(nel, bcids);//CreateTrapezoidalMesh(nelT, nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
             config.bcmaterialids.insert(-1);
             config.gmesh = new TPZGeoMesh;
@@ -163,22 +170,21 @@ int main(int argc, char *argv[]) {
         
 
         
-//        TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
-//        *hybridEstimatorMesh = *gmesh;
+        TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
+        *hybridEstimatorMesh = *gmesh;
         
         
 //        UniformRefinement(config.ndivisions, gmesh);
 //       DivideLowerDimensionalElements(gmesh);
         
+        *config.gmesh = *gmesh;
         
         
-#ifdef PZDEBUG
+        
+#ifdef PZDEBUG2
         {
             std::ofstream out("gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-            
-//            std::ofstream out3("gmeshhybridEstimatorMesh.vtk");
-//            TPZVTKGeoMesh::PrintGMeshVTK(hybridEstimatorMesh, out3);
             std::ofstream out2("gmeshInitial.txt");
             gmesh->Print(out2);
             
@@ -204,8 +210,7 @@ int main(int argc, char *argv[]) {
         
         
         
-        //if(mixedsolution)
-            SolveMixedProblem(cmesh_HDiv,config);
+        //if(mixedsolution)SolveMixedProblem(cmesh_HDiv,config);
         
         
         meshvec_HDiv = cmesh_HDiv->MeshVector();
@@ -244,7 +249,7 @@ int main(int argc, char *argv[]) {
 #endif
         
         
-        SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config);
+        SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config,false);
         
 #ifdef PZDEBUG2
         {
@@ -265,7 +270,7 @@ int main(int argc, char *argv[]) {
                 HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
                 HDivEstimate.SetAnalyticSolution(config.exact);
                 HDivEstimate.fperformUplift = true;
-                HDivEstimate.fUpliftOrder = 1;
+                HDivEstimate.fUpliftOrder = config.hdivmais;
                 
                 HDivEstimate.PotentialReconstruction();
                 
@@ -288,7 +293,7 @@ int main(int argc, char *argv[]) {
                 
                 TPZManVector<REAL> elementerrors;
                 HDivEstimate.ComputeErrors(elementerrors);
-            //   hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+           //    hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
                 
             }
             

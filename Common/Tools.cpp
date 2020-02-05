@@ -89,6 +89,9 @@ TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem) {
 }
 
 TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
+    
+//    std::ofstream out("gmeshMulti.vtk");
+//    TPZVTKGeoMesh::PrintGMeshVTK(problem.gmesh, out);
    
     TPZMultiphysicsCompMesh *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
     TPZMaterial *mat = NULL;
@@ -127,7 +130,13 @@ TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem) {
     }
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
-        int bctype = 0;
+        int bctype;
+        if(matid == -1){
+            bctype = 0;
+        }
+        else{
+            bctype =1;
+        }
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
         cmesh->InsertMaterialObject(bc);
@@ -466,7 +475,7 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder){
 
 }
 
-void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem){
+void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem,bool PostProcessingFEM ){
     
 
     TPZAnalysis an(Hybridmesh);
@@ -513,18 +522,18 @@ void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const Problem
     an.Assemble();
     an.Solve();
 
-//    if(PostProcessingFEM){
-//
-//    TPZStack<std::string> scalnames, vecnames;
-//    scalnames.Push("ExactPressure");
-//    vecnames.Push("Flux");
-//
-//    std::stringstream sout;
-//    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
-//    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-//    int resolution = 2;
-//    an.PostProcess(resolution,Hybridmesh->Dimension());
-//    }
+    if(PostProcessingFEM){
+
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("ExactPressure");
+    vecnames.Push("Flux");
+
+    std::stringstream sout;
+    sout << problem.dir_name << "/" <<  "OriginalHybrid_Order_"<<problem.porder<<"Nref_"<<problem.ndivisions<<".vtk";
+    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
+    int resolution = 2;
+    an.PostProcess(resolution,Hybridmesh->Dimension());
+    }
 
     
 }
@@ -548,6 +557,14 @@ void PlotLagrangeMultiplier(TPZCompMesh *cmesh,const ProblemConfig &problem){
 
 void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config)
 {
+    #ifdef PZDEBUG
+            {
+                std::ofstream out("gmeshSolve.vtk");
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+                
+            }
+    #endif
+    
     
     TPZAnalysis an(cmesh_HDiv,false);
     
@@ -709,7 +726,7 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader){
     #endif
     
     
-        SolveHybridProblem(HybridMesh,hybrid.fInterfaceMatid,config);
+        SolveHybridProblem(HybridMesh,hybrid.fInterfaceMatid,config,false);
     
     #ifdef PZDEBUG
         {
@@ -916,5 +933,45 @@ TPZGeoMesh* CreateLCircleGeoMesh() {
     new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
     
     gmesh->BuildConnectivity();
+    return gmesh;
+}
+
+
+TPZGeoMesh *CreateTrapezoidalMesh(int nelx, int nely, REAL Lx, REAL Ly, TPZVec<int> &bcids){
+
+    TPZGeoMesh * gmesh = new TPZGeoMesh;
+    
+    TPZManVector<REAL,3> x0(3,0.),x1(3,0.);
+    TPZManVector<int,3> nx(2);
+    nx[0] = nelx;
+    nx[1] = nely;
+    x1[0] = Lx;
+    x1[1] = Ly;
+    TPZGenGrid gengrid(nx,x0,x1);
+    
+    gengrid.SetDistortion(0.25);
+    //        gengrid.SetZigZagPattern();
+
+    gengrid.Read(gmesh);
+    gengrid.SetBC(gmesh, 4, bcids[0]);
+    gengrid.SetBC(gmesh, 5, bcids[1]);
+    gengrid.SetBC(gmesh, 6, bcids[2]);
+    gengrid.SetBC(gmesh, 7, bcids[3]);
+//    x1[0] = Lx;
+//    x1[1] = 0.;
+//    gengrid.SetBC(gmesh, x0, x1, BC0);
+//    x0 = x1;
+//    x1[0] = Lx;
+//    x1[1] = Ly;
+//    gengrid.SetBC(gmesh, x0, x1, BC1);
+//    x0 = x1;
+//    x1[0] = 0.;
+//    x1[1] = Ly;
+//    gengrid.SetBC(gmesh, x0, x1, BC2);
+//    x0 = x1;
+//    x1[0] = 0.;
+//    x1[1] = 0.;
+//    gengrid.SetBC(gmesh, x0, x1, BC3);
+    
     return gmesh;
 }

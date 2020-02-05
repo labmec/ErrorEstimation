@@ -50,7 +50,7 @@ struct TPZHybridHDivErrorEstimator
     std::map<int,REAL> fMatid_weights;
     /// compute the pressure weights and material weights
     // fills in the data structure pressureweights and matid_weights
-    void ComputePressureWeights();
+   virtual void ComputePressureWeights();
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
     

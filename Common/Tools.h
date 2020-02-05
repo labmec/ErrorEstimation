@@ -51,6 +51,7 @@ void IncreaseSideOrders(TPZCompMesh *fluxmesh);
 /// Set the interface pressure to the average pressure
 void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, int InterfaceMatid);
 void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
+TPZGeoMesh *CreateTrapezoidalMesh(int nelx, int nely, REAL Lx, REAL Ly, TPZVec<int> &bcids);
 
 /// Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
 TPZGeoMesh *CreateGeoMesh(int nelem, TPZVec<int> &bcids);
@@ -70,7 +71,7 @@ void Prefinamento(TPZCompMesh * cmesh, int ndiv, int porder);
 
 
 
-void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem);
+void SolveHybridProblem(TPZCompMesh *Hybridmesh,int InterfaceMatId,const ProblemConfig &problem,bool PostProcessingFEM );
 void SolveMixedProblem(TPZCompMesh *cmesh_HDiv,const ProblemConfig &config);
 void PlotLagrangeMultiplier(TPZCompMesh *cmesh, const ProblemConfig &problem);
 
