@@ -102,14 +102,14 @@ int main() {
     config.dimension = 2;
     config.prefine=false;
     config.TensorNonConst = false;
-    config.MeshNonConvex = true ;
+    config.MeshNonConvex = false ;
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSinDirNonHom;
+    config.exact.fExact = example.E2SinSin;
 
-    config.problemname = "ESinNonHom";
+    config.problemname = "E2SinSin";
 
-    config.dir_name= "MHMMalhaNonConve";
+    config.dir_name= "MHMMalhaConvexa";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
