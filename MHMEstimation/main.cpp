@@ -105,23 +105,23 @@ int main() {
     config.MeshNonConvex = false ;
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.E2SinSin;
+    config.exact.fExact = example.ESinSin;
 
-    config.problemname = "E2SinSin";
+    config.problemname = "ESinSinSkRef_refIn";
 
-    config.dir_name= "MHMMalhaConvexa";
+    config.dir_name= "MHMSkeletonRefine";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     TPZGeoMesh *gmesh = nullptr;
 
-    for(int orderp =1; orderp <3; orderp++){
+    for(int orderp =1; orderp <2; orderp++){
         
         config.porder = orderp;
         
-        for(int hdivmais=1 ; hdivmais<3; hdivmais++){
+        for(int hdivmais=1 ; hdivmais<2; hdivmais++){
         config.hdivmais = hdivmais;
-            for(int ndiv=1; ndiv<6 ; ndiv++) {
+            for(int ndiv=1; ndiv<2 ; ndiv++) {
           
 
 
@@ -131,7 +131,7 @@ int main() {
 
 
             if(IsgmeshReader){
-                std::string meshfilename = "../Cube.msh";
+                std::string meshfilename = "../LMesh.msh";
 
                 TPZGmshReader gmsh;
                 gmsh.GetDimNamePhysical()[2]["dirichlet"] = 2;
@@ -162,7 +162,7 @@ int main() {
 
 
                 int nx = pow(2, ndiv);
-                gmesh = CreateGeoMesh(nx, bcids);//MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);// CreateCircleGeoMesh();//CreateGeoMesh(nx, bcids);
+                gmesh = CreateGeoMesh(nx, bcids);//MalhaGeomFredQuadrada(nx, nx,x0, x1, coarseindices, 1);// CreateCircleGeoMesh();
                 config.gmesh = gmesh;
                 config.materialids.insert(1);
                 config.bcmaterialids.insert(-1);
@@ -171,7 +171,7 @@ int main() {
             }
 
 
-        #ifdef PZDEBUG2
+        #ifdef PZDEBUG
                 {
                     std::ofstream out("GmeshMHM_Coarse.vtk");
                     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -181,8 +181,8 @@ int main() {
                 }
         #endif
 
-        //        UniformRefinement(ndiv+1, gmesh);
-        //        DivideLowerDimensionalElements(gmesh);
+                UniformRefinement(ndiv+1, gmesh);
+                DivideLowerDimensionalElements(gmesh);
                 
                 TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
                 

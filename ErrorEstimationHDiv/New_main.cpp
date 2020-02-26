@@ -51,7 +51,7 @@
 bool IsgmeshReader = false;//para ler a malha
 bool neumann = true; //para o problema local de neumann da forlmulacao Mark
 
-bool mixedsolution = true;//se quiser rodar o prolbema misto
+bool mixedsolution = true;//se quiser rodar o problema misto
 
 bool PostProcessingFEM = true;//para graficos da solucao FEM
 
@@ -79,19 +79,19 @@ int main(int argc, char *argv[]) {
     
     TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSinDirNonHom;//EBubble;//EArcTan;//
+    config.exact.fExact = example.ESinSin;//EBubble;//EArcTan;//
     
     
     bool RunMark = false;
-    config.problemname = "SinSinNonConvex";
+    config.problemname = "SinSin";
     
-    config.dir_name= "DirNonHomogeneo";
+    config.dir_name= "TesteStab";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
     
     int dim = config.dimension;
     
-    for(int ndiv=1; ndiv<5; ndiv++){
+    for(int ndiv=3; ndiv<4; ndiv++){
 
         config.ndivisions = ndiv;
 
@@ -142,14 +142,17 @@ int main(int argc, char *argv[]) {
         }
         
         else{
-            TPZManVector<int,4> bcids(4,-1);
-            //bcids[3] = -1;
-            //int nelT= 2*ndiv;
+            //TPZManVector<int,4> bcids(4,-1);
+            TPZManVector<int,4> bcids(4,-2);
+            bcids[3] = -1;
+//            bcids[1] = -1;
+            int nelT= 2*ndiv;
             int nel = pow(2, ndiv);
 
             gmesh = CreateGeoMesh(nel, bcids);//CreateTrapezoidalMesh(nelT, nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
-            config.bcmaterialids.insert(-1);
+            config.bcmaterialids.insert(-1);//dirichlet
+            config.bcmaterialids.insert(-2);//neumann
             config.gmesh = new TPZGeoMesh;
             *config.gmesh = *gmesh;
             gmesh->SetDimension(dim);
@@ -248,7 +251,8 @@ int main(int argc, char *argv[]) {
         }
 #endif
         
-        
+      //  SolveMixedProblem(cmesh_HDiv, config);
+     
         SolveHybridProblem(cmesh_HDiv,hybrid.fInterfaceMatid,config,false);
         
 #ifdef PZDEBUG2
@@ -293,7 +297,7 @@ int main(int argc, char *argv[]) {
                 
                 TPZManVector<REAL> elementerrors;
                 HDivEstimate.ComputeErrors(elementerrors);
-           //    hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+               hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
                 
             }
             

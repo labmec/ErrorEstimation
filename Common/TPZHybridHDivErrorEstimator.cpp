@@ -113,7 +113,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     myfile.open("ArquivosEstimationErrors.txt", ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order k= " << fProblemConfig.porder << " Order n= "<< fProblemConfig.hdivmais<<"\n";
+    myfile << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.porder << " Order n= "<< fProblemConfig.hdivmais<<"\n";
     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     myfile << "Global estimator = " << errorvec[3] << "\n";
     myfile << "Global exact error = " << errorvec[2] << "\n";
@@ -124,7 +124,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 
     ComputeEffectivityIndices();
     
-//    GlobalEffectivityIndex();
+    GlobalEffectivityIndex();
     
     PostProcessing(an);
 }
@@ -190,7 +190,6 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
      myfile << "\n-------------------------------------------------- \n";
      myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
      myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
-     myfile << "I_eff global = " << Ieff_global << "\n";
     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
      myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
@@ -220,6 +219,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         vecnames.Push("FluxFem");
         vecnames.Push("FluxReconstructed");
         vecnames.Push("FluxExact");
+        scalnames.Push("POrder");
         // scalnames.Push("POrder");
         
         

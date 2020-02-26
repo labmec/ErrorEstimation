@@ -2,7 +2,8 @@
 #include "meshgen.h"
 
 #include "pzgmesh.h"
-#include "pzgengrid.h"
+//#include "pzgengrid.h"
+#include "TPZGenGrid2D.h"
 #include "pzgeoel.h"
 #include "TPZRefPatternTools.h"
 #include "pzcheckgeom.h"
@@ -636,7 +637,8 @@ TPZGeoMesh *MalhaGeomFredQuadrada(int nelx, int nely, TPZVec<REAL> &x0, TPZVec<R
     TPZManVector<int,2> nx(2,3);
     nx[0] = nelx;
     nx[1] = nely;
-    TPZGenGrid gengrid(nx, x0, x1);
+    TPZGenGrid2D gengrid(nx, x0, x1, 1, 0);
+   // TPZGenGrid2D gengrid(nx, x0, x1);
     gengrid.SetRefpatternElements(true);
     gengrid.Read(gmesh, 1);
     gengrid.SetBC(gmesh, 4, -1);
@@ -762,16 +764,16 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
 //    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
     transfer.TransferFromMultiphysics();
 
-    {
-        std::ofstream out1("mfmesh.txt");
-        cmesh->Print(out1);
-        std::ofstream out2("flux.txt");
-        compmeshes[0]->Print(out2);
-        std::ofstream out3("pressure.txt");
-        compmeshes[1]->Print(out3);
-        std::ofstream out4("transfer.txt");
-        transfer.Print(out4);
-    }
+//    {
+//        std::ofstream out1("mfmesh.txt");
+//        cmesh->Print(out1);
+//        std::ofstream out2("flux.txt");
+//        compmeshes[0]->Print(out2);
+//        std::ofstream out3("pressure.txt");
+//        compmeshes[1]->Print(out3);
+//        std::ofstream out4("transfer.txt");
+//        transfer.Print(out4);
+//    }
     
     TPZStack<std::string> scalnames,vecnames;
     TPZMaterial *mat = cmesh->FindMaterial(1);
@@ -800,16 +802,16 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     }
     
     
-    std::string plotname;
-    {
-        std::stringstream out;
-        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
-        plotname = out.str();
-        
-    }
-    int resolution=0;
-    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
-    an.PostProcess(resolution,cmesh->Dimension() );
+//    std::string plotname;
+//    {
+//        std::stringstream out;
+//        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
+//        plotname = out.str();
+//
+//    }
+//    int resolution=0;
+//    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
+//    an.PostProcess(resolution,cmesh->Dimension() );
     
     
     if(analytic.Exact())

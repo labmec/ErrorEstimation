@@ -79,7 +79,8 @@ TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader);
  TPZMultiphysicsCompMesh * HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv, struct ProblemConfig &config);
 TPZCompMesh *CMeshH1( ProblemConfig problem);
 
-void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine);
+void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine,ProblemConfig &config);
 TPZGeoMesh* CreateLCircleGeoMesh();
+TPZGeoMesh* CreateLShapeMesh(int nel, TPZVec<int>& bcids);
 
 

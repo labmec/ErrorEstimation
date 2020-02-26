@@ -119,7 +119,7 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(TPZVec<TPZMaterialData> &datave
             int jshapeind = datavec[0].fVecShapeIndex[jq].second;
             REAL phival = datavec[0].phi(jshapeind);
             for(int id=0; id<3; id++){
-                jvec(id,0) = datavec[0].fNormalVec(id,jvecind)*phival;
+                jvec(id,0) = datavec[0].fDeformedDirections(id,jvecind)*phival;
             }
             STATE inner = 0.;
             for(int i=0; i<3; i++) inner += jvec(i,0)*gradpressure(i,0);

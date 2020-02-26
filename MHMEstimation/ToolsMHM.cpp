@@ -490,7 +490,7 @@ int MHMTest(ProblemConfig &Conf) {
     Configuration.pOrderSkeleton = Conf.porder;
     Configuration.numHDivisions = Conf.ndivisions;
     Configuration.hdivmaismais = Conf.hdivmais;
-  //  Configuration.numDivSkeleton = Conf.ndivisions;
+    Configuration.numDivSkeleton = Conf.ndivisions;
     
     
     TPZGeoMesh *gmeshcoarse = NULL;
@@ -547,10 +547,10 @@ int MHMTest(ProblemConfig &Conf) {
         }
         
         
-        {
-            std::ofstream file("GMeshAutoL2.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
-        }
+//        {
+//            std::ofstream file("GMeshAutoL2.vtk");
+//            TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
+//        }
         
         // indicate the boundary material indices to  the MHM control structure
         std::set<int> matids;
@@ -576,15 +576,15 @@ int MHMTest(ProblemConfig &Conf) {
         mhm->DivideSkeletonElements(Configuration.numDivSkeleton);
         mhm->DivideBoundarySkeletonElements();
         {
-            std::ofstream file("GMeshAutoL.vtk");
+            std::ofstream file("GMeshAutoLRefSk_Refint.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
         }
-#ifdef PZDEBUG
-       // if(1)
-//        {
-//            std::ofstream out("MixedMeshControlHDiv.txt");
-//            mhm->Print(out);
-//        }
+#ifdef PZDEBUG2
+        if(1)
+        {
+            std::ofstream out("MixedMeshControlHDiv.txt");
+            mhm->Print(out);
+        }
 #endif
         bool substructure = true;
         mhm->BuildComputationalMesh(substructure);
@@ -1073,7 +1073,7 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
     TPZManVector<REAL> x0(3,0.), x1(3,1.);
     x1[2] = 0.;
     
-    TPZGenGrid gen(nx,x0,x1);
+    TPZGenGrid2D gen(nx,x0,x1);
     
     TPZGeoMesh *gmesh = new TPZGeoMesh();
     gen.Read(gmesh);

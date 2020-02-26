@@ -135,7 +135,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         TPZSubCompMesh *ref = dynamic_cast<TPZSubCompMesh *>(mesh);
         ReferredMesh[el] = ref;
     }
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream file("GmeshSub.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
@@ -847,7 +847,7 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
         }
     }
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
