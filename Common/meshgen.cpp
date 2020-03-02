@@ -956,7 +956,7 @@ TPZGeoEl *FindEntry(TPZGeoMesh *gmesh)
     return 0;
 }
 
-
+#ifdef USING_BOOST
 #include <boost/numeric/odeint.hpp>       // odeint function definitions
 
 using namespace boost::numeric::odeint;
@@ -984,3 +984,4 @@ TStreamLineData ComputeStreamLine(TPZCompMesh *fluxmesh, TPZVec<REAL> &startx)
     
     return observer;
 }
+#endif
