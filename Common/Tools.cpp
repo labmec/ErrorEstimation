@@ -1036,6 +1036,61 @@ TPZGeoMesh* CreateLShapeMesh(TPZVec<int>& bcids) {
     
 }
 
+TPZGeoMesh* CreateQuadLShapeMesh(TPZVec<int>& bcids) {
+    
+    TPZGeoMesh* gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+    int matID = 1;
+    
+    // Creates matrix with node coordinates
+    const int NodeNumber = 8;
+    REAL coordinates[NodeNumber][3] = {
+            {0.,  0., 0.},
+            {1.,  0., 0.},
+            {1.,  1., 0.},
+            {0.,  1., 0.},
+            {-1., 1., 0.},
+            {-1., 0., 0.},
+            {-1.,-1., 0.},
+            {0., -1., 0.}
+    };
+    
+    // Inserts coordinates in the TPZGeoMesh object
+    for (int i = 0; i < NodeNumber; i++) {
+        int64_t nodeID = gmesh->NodeVec().AllocateNewElement();
+        
+        TPZVec<REAL> nodeCoord(3);
+        nodeCoord[0] = coordinates[i][0];
+        nodeCoord[1] = coordinates[i][1];
+        nodeCoord[2] = coordinates[i][2];
+        
+        gmesh->NodeVec()[nodeID] = TPZGeoNode(i, nodeCoord, *gmesh);
+    }
+    
+    // Creates 2D elements
+    TPZManVector<int64_t> nodeIDs(4);
+    for (int i = 0; i < 3; i++) {
+        nodeIDs[0] = 0;
+        nodeIDs[1] = (2 * i + 1) % NodeNumber;
+        nodeIDs[2] = (2 * i + 2) % NodeNumber;
+        nodeIDs[3] = (2 * i + 3) % NodeNumber;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
+    }
+    
+    // Creates line elements where boundary conditions will be inserted
+    nodeIDs.Resize(2);
+    for (int i = 0; i < NodeNumber; i++) {
+        nodeIDs[0] = i % NodeNumber;
+        nodeIDs[1] = (i + 1) % NodeNumber;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodeIDs, bcids[i], *gmesh);
+    }
+    
+    gmesh->BuildConnectivity();
+    
+    return gmesh;
+    
+}
+
 TPZGeoMesh* CreateSingleTriangleMesh(TPZVec<int>& bcids) {
     
     TPZGeoMesh* gmesh = new TPZGeoMesh();

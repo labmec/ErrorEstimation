@@ -35,11 +35,11 @@ int main(int argc, char* argv[]) {
     
     // Creates geometric mesh
     TPZManVector<int, 4> bcIDs(8, -1);
-    TPZGeoMesh* gmeshOriginal = CreateSingleQuadMesh(bcIDs);//CreateLShapeMesh(bcIDs);
+    TPZGeoMesh* gmeshOriginal = CreateQuadLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
     
     ProblemConfig config;
     config.porder = 1;
-    config.hdivmais = 0;
+    config.hdivmais = 1;
     config.dimension = 2;
     config.makepressurecontinuous = true;
     

@@ -101,5 +101,8 @@ TPZGeoMesh* CreateLCircleGeoMesh();
 
 TPZGeoMesh* CreateLShapeMesh(TPZVec<int>& bcids);
 
+TPZGeoMesh* CreateQuadLShapeMesh(TPZVec<int>& bcids);
+
 TPZGeoMesh* CreateSingleTriangleMesh(TPZVec<int>& bcids);
+
 TPZGeoMesh* CreateSingleQuadMesh(TPZVec<int>& bcids);
