@@ -17,10 +17,14 @@
 #include "TPZHybridHDivErrorEstimator.h"
 #include "TPZHDivErrorEstimatorH1.h"
 
+//#include "pzelchdiv.h"
+
 bool readGeoMeshFromFile = false;
 bool postProcessWithHDiv = false;
 int refinementSteps = 3;
 
+
+void TracingTriangleBug(TPZMultiphysicsCompMesh * multiphysics);
 
 int main(int argc, char* argv[]) {
 
@@ -35,7 +39,7 @@ int main(int argc, char* argv[]) {
     
     // Creates geometric mesh
     TPZManVector<int, 4> bcIDs(8, -1);
-    TPZGeoMesh* gmeshOriginal = CreateQuadLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
+    TPZGeoMesh* gmeshOriginal = CreateSingleTriangleMesh(bcIDs);//CreateLShapeMesh(bcIDs);
     
     ProblemConfig config;
     config.porder = 1;
@@ -71,6 +75,10 @@ int main(int argc, char* argv[]) {
     
     TPZMultiphysicsCompMesh* cmesh_HDiv = CreateHDivMesh(config); //Hdiv x L2
     cmesh_HDiv->InitializeBlock();
+    
+    TracingTriangleBug(cmesh_HDiv);
+    
+    
     
     {
         std::ofstream out("MultiphysicsMesh.txt");
@@ -122,3 +130,31 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
+void TracingTriangleBug(TPZMultiphysicsCompMesh * multiphysics) {
+    
+    TPZCompMesh* fluxMesh = multiphysics->MeshVector()[0];
+    
+    int64_t nel = fluxMesh->NElements();
+    for (int64_t i = 0; i < nel; i++) {
+        TPZCompEl * cel = fluxMesh->Element(i);
+        
+        if (cel->Material()->Id() != 1) continue;
+        if (cel->Dimension() != 2) continue;
+        
+        const auto fluxEl = dynamic_cast<TPZInterpolatedElement*> (cel);
+        if (!fluxEl) DebugStop();
+        
+        fluxEl->LoadElementReference();
+        const auto gel = fluxEl->Reference();
+       
+        
+        TPZMaterialData elData;
+        fluxEl->InitMaterialData(elData);
+        
+        
+        
+        std::cout << "blobloblbo";
+        
+    }
+    
+}
