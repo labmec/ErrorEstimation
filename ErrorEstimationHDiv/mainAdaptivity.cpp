@@ -77,8 +77,9 @@ int main(int argc, char* argv[]) {
     cmesh_HDiv->InitializeBlock();
     
     TracingTriangleBug(cmesh_HDiv);
-    
-    
+
+    DebugStop();
+
     
     {
         std::ofstream out("MultiphysicsMesh.txt");
@@ -130,31 +131,68 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void TracingTriangleBug(TPZMultiphysicsCompMesh * multiphysics) {
-    
-    TPZCompMesh* fluxMesh = multiphysics->MeshVector()[0];
-    
+void TracingTriangleBug(TPZMultiphysicsCompMesh *multiphysics) {
+
+    TPZCompMesh *fluxMesh = multiphysics->MeshVector()[0];
+
     int64_t nel = fluxMesh->NElements();
     for (int64_t i = 0; i < nel; i++) {
-        TPZCompEl * cel = fluxMesh->Element(i);
-        
+        TPZCompEl *cel = fluxMesh->Element(i);
+
         if (cel->Material()->Id() != 1) continue;
         if (cel->Dimension() != 2) continue;
-        
-        const auto fluxEl = dynamic_cast<TPZInterpolatedElement*> (cel);
+
+        const auto fluxEl = dynamic_cast<TPZInterpolatedElement *> (cel);
         if (!fluxEl) DebugStop();
-        
+
         fluxEl->LoadElementReference();
         const auto gel = fluxEl->Reference();
-       
-        
+
+
         TPZMaterialData elData;
         fluxEl->InitMaterialData(elData);
-        
-        
-        
-        std::cout << "blobloblbo";
-        
+
+        const int nNodes = gel->NCornerNodes();
+
+
+        TPZConnect &con = cel->Connect(fluxEl->NConnects() - 1);
+        const int nShape = con.NShape();
+
+        for (int iSide = nNodes; iSide < gel->NSides() - 1; iSide++) {
+
+            std::cout << "Side " << iSide << '\n';
+            const int pOrderIntRule = 20;
+            TPZIntPoints *sideIntRule = gel->CreateSideIntegrationRule(iSide, pOrderIntRule);
+            const int npts = sideIntRule->NPoints();
+
+            TPZTransform<> elTransform(gel->SideToSideTransform(iSide, gel->NSides() - 1));
+
+            TPZManVector<REAL, 3> pts(1, 0), ptEl(2, 0);
+            REAL w;
+
+            TPZFMatrix<REAL> numericalIntegration(con.NShape(), 1, 0);
+            for (auto ipt = 0; ipt < npts; ipt++) {
+                sideIntRule->Point(ipt, pts, w);
+                
+                elTransform.Apply(pts, ptEl);
+
+                fluxEl->ComputeRequiredData(elData, ptEl);
+
+                int totalPhi = elData.divphi.Rows();
+                int initialPhi = elData.divphi.Rows() - nShape;
+
+                for(int iPhi = initialPhi; iPhi < totalPhi; iPhi++) {
+                    numericalIntegration(iPhi - initialPhi, 0) += w * elData.divphi(iPhi, 0);
+                }
+
+            }
+
+            for (int i = 0; i < numericalIntegration.Rows(); i++) {
+                std::cout << numericalIntegration(i, 0) << '\n';
+            }
+            std::cout << '\n';
+
+        }
+
     }
-    
 }
