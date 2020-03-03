@@ -17,9 +17,9 @@
 #include "TPZHybridHDivErrorEstimator.h"
 #include "TPZHDivErrorEstimatorH1.h"
 
-bool readGeoMeshFromFile = true;
+bool readGeoMeshFromFile = false;
 bool postProcessWithHDiv = false;
-int refinementSteps = 3;
+int refinementSteps = 4;
 
 
 int main(int argc, char* argv[]) {
@@ -39,13 +39,13 @@ int main(int argc, char* argv[]) {
     
     ProblemConfig config;
     config.porder = 1;
-    config.hdivmais = 1;
+    config.hdivmais = 0;
     config.dimension = 2;
     config.makepressurecontinuous = true;
     
     
     if(readGeoMeshFromFile){
-        std::string meshfilename = "../LMesh3.msh";//"../LMesh.msh";
+        std::string meshfilename = "../LMesh.msh";//"../LMesh3.msh";
 
         TPZGmshReader gmsh;
         gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
         config.adaptivityStep = iSteps;
         
         TLaplaceExample1 example;
-        config.exact.fExact = example.EConst;//ESinMark;//EArcTanSingular;//EArcTanSingular;
+        config.exact.fExact = example.ESinMark;//EConst;//EArcTanSingular;//EArcTanSingular;
         config.dir_name = "TestAdaptivityH1";
         config.problemname = "ESinMark";
         
