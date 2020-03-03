@@ -143,7 +143,7 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
     cmesh->LoadReferences();
     bool keepmatrix = false;
     bool keeponelagrangian = true;
-    //TPZCompMeshTools::CreatedCondensedElements(cmesh, keeponelagrangian, keepmatrix); TODO apagar comentario
+    TPZCompMeshTools::CreatedCondensedElements(cmesh, keeponelagrangian, keepmatrix);
     
     return cmesh;
 }
@@ -582,11 +582,6 @@ void SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config) {
     delete direct;
     direct = 0;
     an.Assemble();
-    
-    std::cout << ":: Printing load vector:\n";
-    an.Rhs().Print("RHS=",std::cout,  EMathematicaInput);
-    std::cout << ":: Printing global stiffness matrix:\n";
-    an.Solver().Matrix()->Print("K=",std::cout, EMathematicaInput);
     
     an.Solve();//resolve o problema misto ate aqui
     
