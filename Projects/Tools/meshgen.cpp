@@ -739,6 +739,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     
     
 #ifdef PZDEBUG
+    if(0)
     {
         std::ofstream file("MeshToSolveProblem.txt");
         cmesh->Print(file);
@@ -764,16 +765,17 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
 //    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
     transfer.TransferFromMultiphysics();
 
-//    {
-//        std::ofstream out1("mfmesh.txt");
-//        cmesh->Print(out1);
-//        std::ofstream out2("flux.txt");
-//        compmeshes[0]->Print(out2);
-//        std::ofstream out3("pressure.txt");
-//        compmeshes[1]->Print(out3);
-//        std::ofstream out4("transfer.txt");
-//        transfer.Print(out4);
-//    }
+    if(0)
+    {
+        std::ofstream out1("mfmesh.txt");
+        cmesh->Print(out1);
+        std::ofstream out2("flux.txt");
+        compmeshes[0]->Print(out2);
+        std::ofstream out3("pressure.txt");
+        compmeshes[1]->Print(out3);
+        std::ofstream out4("transfer.txt");
+        transfer.Print(out4);
+    }
     
     TPZStack<std::string> scalnames,vecnames;
     TPZMaterial *mat = cmesh->FindMaterial(1);

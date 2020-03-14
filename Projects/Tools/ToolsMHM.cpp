@@ -544,15 +544,15 @@ int MHMTest(ProblemConfig &Conf) {
 //            std::cout << "coarse index i = " << elementIndexes[i] << std::endl;
 //        }
 
-        mhm->DefinePartitionbyCoarseIndices(elementIndexes);
+            mhm->DefinePartitionbyCoarseIndices(elementIndexes);
 
         }
         
-        
-//        {
-//            std::ofstream file("GMeshAutoL2.vtk");
-//            TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
-//        }
+        if(0)
+        {
+            std::ofstream file("GMeshAutoL2.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
+        }
         
         // indicate the boundary material indices to  the MHM control structure
         std::set<int> matids;
@@ -577,6 +577,7 @@ int MHMTest(ProblemConfig &Conf) {
         
         mhm->DivideSkeletonElements(Configuration.numDivSkeleton);
         mhm->DivideBoundarySkeletonElements();
+        if(0)
         {
             std::ofstream file("GMeshAutoLRefSk_Refint.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
@@ -752,7 +753,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
     }
     
 #ifdef PZDEBUG
-    
+    if(0)
     {
 
         std::ofstream out_mhm("InsertMaterial.txt");
