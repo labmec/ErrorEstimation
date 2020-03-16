@@ -60,7 +60,7 @@
 
 #include "TPZVTKGeoMesh.h"
 #include "pzvisualmatrix.h"
-#include "pzgengrid.h"
+#include "TPZGenGrid2D.h"
 #include "TPZExtendGridDimension.h"
 #include "pzcheckgeom.h"
 
@@ -559,8 +559,8 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     x1[2] = 0.;
     TPZManVector<int,2> nelx(2,py);
     nelx[0] = px;
-    TPZGenGrid gengrid(nelx,x0,x1);
-    gengrid.SetElementType(EQuadrilateral);
+    TPZGenGrid2D gengrid(nelx,x0,x1);
+    gengrid.SetElementType(MMeshType::EQuadrilateral);
     TPZGeoMesh *gmesh = new TPZGeoMesh;
     gmesh->SetDimension(2);
     gengrid.Read(gmesh);
@@ -821,8 +821,8 @@ int MHMTest(ConfigCasesMaze Conf){
     //    MixedMesh->Print(out);
     
 //    std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
-    
-    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), 0,  Conf.GetVTKName(), Configuration);
+    TLaplaceExample1 example;
+    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), example,  Conf.GetVTKName(), Configuration);
     
     
     return 0;
@@ -918,8 +918,8 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     x1[2] = 0.;
     TPZManVector<int,2> nelx(2,ny);
     nelx[0] = nx;
-    TPZGenGrid gengrid(nelx,x0,x1);
-    gengrid.SetElementType(EQuadrilateral);
+    TPZGenGrid2D gengrid(nelx,x0,x1);
+    gengrid.SetElementType(MMeshType::EQuadrilateral);
     TPZGeoMesh *gmeshcoarse = new TPZGeoMesh;
     gmeshcoarse->SetDimension(2);
         gengrid.SetRefpatternElements(true);

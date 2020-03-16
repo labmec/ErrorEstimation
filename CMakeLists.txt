@@ -122,11 +122,25 @@ if(WIN32)
 
 endif()
 
+#enabling Boost library
+option(USING_BOOST "Whether the Boost package will be linked with the library" OFF)
+
+if(USING_BOOST)
+    IF (WIN32)
+        set(Boost_USE_STATIC_LIBS   ON)
+        set(Boost_USE_MULTITHREADED ON)
+        set(CMAKE_PREFIX_PATH "C:/local/boost_1_69_0" ${CMAKE_PREFIX_PATH})
+    ENDIF()
+    find_package( Boost COMPONENTS unit_test_framework date_time atomic REQUIRED )
+endif(USING_BOOST)
+
+
 #set(CONF_INCLUDE_DIRS "." "ErrorEstimationHDiv")
 
 add_subdirectory(Common)
 include_directories(Common)
 
+add_subdirectory(PerformanceTest)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(HybridH1)

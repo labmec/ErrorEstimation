@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
                 
                 TPZManVector<REAL> elementerrors;
                 HDivEstimate.ComputeErrors(elementerrors);
-               hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+               hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh, config);
                 
             }
             
