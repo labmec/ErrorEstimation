@@ -68,16 +68,6 @@ if(USING_LOG4CXX)
 	endif()
 endif(USING_LOG4CXX)
 
-
-#-----
-#enabling OpenCV projects
-option(BUILD_OPENCV_PROJECTS "Whether to build projects that require OpenCV" OFF)
-if(BUILD_OPENCV_PROJECTS)
-	find_package(OpenCV REQUIRED)
-	#add_subdirectory(MHM_Maze)     #must be done at the end
-endif()
-#---
-
 #enabling pthread library
 find_path(PTHREAD_INCLUDE NAMES PThread.h pthread.h PATHS ${SEARCH_DIRS} D:/Projetos/externallibs/include )
 find_library(PTHREAD_LIB NAMES libpthread.dylib pthread.lib pthreadVC2.lib libPThread.so libPThread.a libpthread.so libpthread.a PATHS ${SEARCH_DIRS} D:/Projetos/externallibs/lib  ${PROJECT_SOURCE_DIR}/../pthread/lib)
@@ -136,6 +126,14 @@ add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(HybridH1)
 add_subdirectory(MHMEstimation)
 
+#enabling OpenCV projects
+option(BUILD_OPENCV_PROJECTS "Whether to build projects that require OpenCV" OFF)
 if(BUILD_OPENCV_PROJECTS)
-	add_subdirectory(MHM_Maze) # must be added here to inherit non-empty ${common_SRC} 
+    add_subdirectory(MHM_Maze)
+endif()
+
+# enabling UNISIM project
+option(BUILD_UNISIM_PROJECT "Whether to build estimation on UNISIM mesh" OFF)
+if(BUILD_UNISIM_PROJECT)
+    add_subdirectory(UNISIM)
 endif()
