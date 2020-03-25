@@ -1,3 +1,8 @@
 # os finder
 .DS_Store
+# CLion files
+.idea/*
+cmake-build-*/
+# Sourcetrail files
+*.srctrl*
 
