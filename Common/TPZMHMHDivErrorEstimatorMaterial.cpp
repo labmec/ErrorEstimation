@@ -127,8 +127,12 @@ void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datave
         solsigmafem(ip,0) = datavec[2].sol[0][ip];
     }
 
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
     
-    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
+    GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
+    
+    
     
     TPZFMatrix<STATE> kgrads_i(3,nphi_i,0.),kgraduk_fem(3,nphi_i,0.);
     
@@ -183,7 +187,7 @@ void TPZMHMHDivErrorEstimateMaterial::ContributeHdiv(TPZVec<TPZMaterialData> &da
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;
     
-    GetPermeability(datavec[1].x, PermTensor, InvPermTensor);
+    GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
     
     // Setting the phis
     TPZFMatrix<REAL> &phiQ = datavec[0].phi;
@@ -380,8 +384,10 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     pressurefem[0] = data[3].sol[0][0];
 
     
-    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
+     TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+    
+    GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
     
     
     
@@ -487,8 +493,11 @@ void TPZMHMHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec,
      datavec[3] L2 mesh fem
      **/
     
-    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+    
+    GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
+    
     
     
     TPZManVector<STATE,2> pressexact(1,0.);

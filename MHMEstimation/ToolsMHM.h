@@ -78,7 +78,7 @@
 
 #include "TPZVTKGeoMesh.h"
 #include "pzvisualmatrix.h"
-#include "pzgengrid.h"
+//#include "pzgengrid.h"
 #include "TPZExtendGridDimension.h"
 #include "pzcheckgeom.h"
 
@@ -101,6 +101,7 @@
 
 #include "TPZMHMHDivErrorEstimator.h"
 #include "Tools.h"
+#include "TPZGenGrid2D.h"
 
 using namespace std;
 

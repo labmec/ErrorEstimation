@@ -101,6 +101,7 @@ int main() {
     ProblemConfig config;
     config.dimension = 2;
     config.prefine=false;
+    //config.ndivisions = 5;
     config.TensorNonConst = false;
     config.MeshNonConvex = false ;
     TLaplaceExample1 example;
@@ -192,7 +193,7 @@ int main() {
                 cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
                 cmesh_HDiv->InitializeBlock();
                 
-        #ifdef PZDEBUG2
+        #ifdef PZDEBUG
                 {
                     
                     std::ofstream out2("MalhaMista.txt");

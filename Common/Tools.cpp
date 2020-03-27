@@ -395,10 +395,10 @@ void PrintSolAndDerivate(const ProblemConfig config) {
 
 void FunctionTest() {
     TLaplaceExample1 Denise;
-    Denise.fExact = TLaplaceExample1::ESinSinDirNonHom;//TLaplaceExample1::ESinMark;//
+    Denise.fExact = TLaplaceExample1::ESinMark;//ESinSinDirNonHom;//TLaplaceExample1::
     TPZVec<FADFADREAL> x(3);
-    FADFADREAL x0 = (FADFADREAL) 0.001;
-    FADFADREAL x1 = (FADFADREAL) 0.5;
+    FADFADREAL x0 = (FADFADREAL) 0.013;
+    FADFADREAL x1 = (FADFADREAL) 0.25;
     FADFADREAL x2 = (FADFADREAL) 0;
     x[0] = x0;
     x[1] = x1;
@@ -418,8 +418,14 @@ void FunctionTest() {
     TPZManVector<REAL, 3> grad(3);
     Denise.graduxy(x_r, grad);
     
+    std::cout << "valor de grad " << grad[0] <<", "<<grad[1]<<","<< grad[2]<< std::endl;
+    
+    
+    
     REAL force;
     Denise.DivSigma(x_r, force);
+    
+    std::cout << "valor de div " << force << std::endl;
     
 }
 

@@ -17,14 +17,11 @@
 #include "TPZHybridHDivErrorEstimator.h"
 #include "TPZHDivErrorEstimatorH1.h"
 
-<<<<<<< HEAD
-=======
 //#include "pzelchdiv.h"
 
->>>>>>> 6cca1bce2c5d47673fc9449f806a2cc08f4be28c
 bool readGeoMeshFromFile = false;
 bool postProcessWithHDiv = false;
-int refinementSteps = 4;
+int refinementSteps = 13;
 
 
 void TracingTriangleBug(TPZMultiphysicsCompMesh* multiphysics);
@@ -41,25 +38,29 @@ int main(int argc, char* argv[]) {
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
     // Creates geometric mesh
-    TPZManVector<int, 4> bcIDs(8, -1);
-    TPZGeoMesh* gmeshOriginal = CreateLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
+
+    TPZGeoMesh* gmeshOriginal = nullptr;//CreateLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
     
     ProblemConfig config;
-<<<<<<< HEAD
+
     config.porder = 1;
-    config.hdivmais = 0;
-=======
-    config.porder = 2;
     config.hdivmais = 1;
->>>>>>> 6cca1bce2c5d47673fc9449f806a2cc08f4be28c
+
     config.dimension = 2;
     config.makepressurecontinuous = true;
     
-    config.materialids.insert(1);
-    config.bcmaterialids.insert(-1);
-    UniformRefinement(1, gmeshOriginal);
+
     
-<<<<<<< HEAD
+    
+    TLaplaceExample1 example;
+    config.exact.fExact = example.ESinMark;
+    config.dir_name = "TriangularLShapeMesh";
+    config.problemname = "ESinSinMark_UniRef";
+    
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+    
+    
     if(readGeoMeshFromFile){
         std::string meshfilename = "../LMesh.msh";//"../LMesh3.msh";
 
@@ -71,76 +72,81 @@ int main(int argc, char* argv[]) {
         gmsh.PrintPartitionSummary(std::cout);
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
-=======
+
+
+
+        
+    }
+    else
+    {
+        TPZManVector<int, 4> bcIDs(8, -1);
+        gmeshOriginal = CreateLShapeMesh(bcIDs);//CreateGeoMesh(1, bcIDs);//
+        config.materialids.insert(1);
+        config.bcmaterialids.insert(-1);
+        //UniformRefinement(3, gmeshOriginal);
+        
+    }
+    
     gmeshOriginal->SetDimension(config.dimension);
     config.gmesh = gmeshOriginal;
->>>>>>> 6cca1bce2c5d47673fc9449f806a2cc08f4be28c
-
-#ifdef PZDEBUG
-    {
-        std::ofstream out("InitialGmesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
-    }
-#endif
+    
+    #ifdef PZDEBUG2
+        {
+            std::ofstream out("InitialGmesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
+        }
+    #endif
     
     
-    TLaplaceExample1 example;
-    config.exact.fExact = example.ESinSin;
-    config.dir_name = "TriangularLShapeMesh";
-    config.problemname = "TriangularLShapeESinSin";
-    
-    std::string command = "mkdir " + config.dir_name;
-    system(command.c_str());
-    
-    
-    TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-    
-    TPZMultiphysicsCompMesh* cmesh_HDiv = CreateHDivMesh(config); //Hdiv x L2
-    cmesh_HDiv->InitializeBlock();
-    
-    
-    {
-        std::ofstream out("MultiphysicsMesh.txt");
-        cmesh_HDiv->Print(out);
-        std::ofstream outvtk("MultiphysicsMesh.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(cmesh_HDiv, outvtk);
-    }
-    
-    SolveMixedProblem(cmesh_HDiv, config);
-    
-    return 0;
-    
-    meshvec_HDiv = cmesh_HDiv->MeshVector();
-    
-    //cria malha hibrida
-    TPZHybridizeHDiv hybrid;
-    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
-    HybridMesh->CleanUpUnconnectedNodes();
-    HybridMesh->AdjustBoundaryElements();
-    
-<<<<<<< HEAD
     for (int iSteps = 1; iSteps < refinementSteps; iSteps++) {
         
 
         config.adaptivityStep = iSteps;
+        //config.porder = iSteps;
         
-        TLaplaceExample1 example;
-        config.exact.fExact = example.ESinMark;//EConst;//EArcTanSingular;//EArcTanSingular;
-        config.dir_name = "TestAdaptivityH1";
-        config.problemname = "ESinMark";
+        UniformRefinement(iSteps, gmeshOriginal);
         
-        std::string command = "mkdir " + config.dir_name;
-        system(command.c_str());
-=======
-    delete cmesh_HDiv;
-    delete meshvec_HDiv[0];
-    delete meshvec_HDiv[1];
+        
+        //FunctionTest();
     
-    cmesh_HDiv = (HybridMesh);//malha hribrida
-    meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
-    meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
-    
-    SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, true);
+        
+
+              TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
+              
+              TPZMultiphysicsCompMesh* cmesh_HDiv = nullptr;
+              
+              
+              cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
+              cmesh_HDiv->InitializeBlock();
+               #ifdef PZDEBUG2
+              {
+                  std::ofstream out("MultiPhysicsMesh.txt");
+                  cmesh_HDiv->Print(out);
+                  std::ofstream outvtk("MultiPhysicsMesh.vtk");
+                  
+                  TPZVTKGeoMesh::PrintCMeshVTK(cmesh_HDiv,outvtk);
+        
+                  
+              }
+              #endif
+              
+              meshvec_HDiv = cmesh_HDiv->MeshVector();
+              
+              //cria malha hibrida
+              TPZHybridizeHDiv hybrid;
+              auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
+              HybridMesh->CleanUpUnconnectedNodes();
+              HybridMesh->AdjustBoundaryElements();
+              
+              delete cmesh_HDiv;
+              delete meshvec_HDiv[0];
+              delete meshvec_HDiv[1];
+              
+              cmesh_HDiv = (HybridMesh);//malha hribrida
+              meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
+              meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
+              
+              SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config,false);
     
     
     //reconstroi potencial e calcula o erro
@@ -150,7 +156,6 @@ int main(int argc, char* argv[]) {
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
->>>>>>> 6cca1bce2c5d47673fc9449f806a2cc08f4be28c
         
         HDivEstimate.fPostProcesswithHDiv = postProcessWithHDiv;
         
@@ -158,11 +163,16 @@ int main(int argc, char* argv[]) {
         
         TPZManVector<REAL> elementerrors;
         HDivEstimate.ComputeErrors(elementerrors);
-        hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal, config);
+       // hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal, config);
     }
     
-    return 0;
+   // return 0;
+        
+    }
 }
+
+
+        
 
 
 // TODO: Turn this into a Unit Test

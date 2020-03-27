@@ -124,9 +124,14 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
      datavec[1]= Pressure Resconstructed
      datavec[2]= Hdiv FEM
      datavec[3]= Pressure FEM
+    
      **/
-    TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvK;
+    
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+    
+    MixedMat::GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
+    
 
     
     if(MixedMat::fPermeabilityFunction){
@@ -223,14 +228,21 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
 
     
     REAL residual = 0.;
+    std::cout<<" divsigma "<<divsigma[0] << " divsigmafem "<<divsigmafem<<"\n";
+    
     residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
     
     
     pressurereconstructed[0] = data[1].sol[0][0];
     pressurefem[0] = data[3].sol[0][0];
     
-    TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvK;
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+    
+    MixedMat::GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
+    
+    
+    
     //int rtens = 2*fDim;
     if(MixedMat::fPermeabilityFunction){
         PermTensor.Redim(3,3);

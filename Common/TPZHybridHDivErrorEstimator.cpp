@@ -101,7 +101,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     an.PostProcessError(errorvec,true);//calculo do erro com sol exata e aprox e armazena no elementsolution
     
   //  TPZCompMesh *cmesh = &fPostProcMesh;
-//    cmesh->ElementSolution().Print("ElSolutionAposPosProcess",std::cout);
+   // cmesh->ElementSolution().Print("ElSolutionAposPosProcess",std::cout);
     
     std::cout << "Computed errors " << errorvec << std::endl;
     
@@ -120,6 +120,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     myfile <<"|uex-ufem|= "<<errorvec[0] << "\n";
     myfile <<"|ufem-urec| = "<<errorvec[1] << "\n";
     myfile <<"Residual ErrorL2= "<<errorvec[4] << "\n";
+    myfile <<"Global Index = "<< sqrt(errorvec[3]+errorvec[4])/errorvec[2];
+    
     myfile.close();
 
     ComputeEffectivityIndices();
@@ -171,6 +173,8 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
         Ieff_global = 1.;
     }
     else{
+        
+        std::cout<<"residual "<<globalerrors[4]<<" estimated "<<globalerrors[3]<< " exact "<<globalerrors[2]<<"\n";
     
         Ieff_global = sqrt(globalerrors[4] + globalerrors[3])/sqrt(globalerrors[2]);
     }
@@ -188,7 +192,7 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
      myfile.open("ErrorEstimationResults.txt", ios::app);
      myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
      myfile << "\n-------------------------------------------------- \n";
-     myfile << "Ndiv = " << fProblemConfig.ndivisions << " Order = " << fProblemConfig.porder << "\n";
+    myfile<< "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.porder << " Order n= "<< fProblemConfig.hdivmais<<"\n";
      myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
@@ -1506,10 +1510,10 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     for (int64_t el = 0; el < nrows; el++) {
         
         TPZCompEl *cel = cmesh->Element(el);
-//        if(!cel) continue;
-//        TPZGeoEl *gel = cel->Reference();
-//        if(!gel) continue;
-//        REAL hk = gel->CharacteristicSize();
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) continue;
+        REAL hk = gel->CharacteristicSize();
 
         
         for (int i = 0; i < 3; i += 2) {
@@ -1520,14 +1524,14 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
             REAL ErrorExact = cmesh->ElementSolution()(el, i);
             
-//            TPZGeoEl *gel = cel->Reference();
-//
-//            REAL hk = gel->CharacteristicSize();
-//
-//            if(i==2){
-//               oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
-//                oscilatorytherm *= (hk/M_PI);
-//            }
+            TPZGeoEl *gel = cel->Reference();
+
+            REAL hk = gel->CharacteristicSize();
+
+            if(i==2){
+               oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
+                oscilatorytherm *= (hk/M_PI);
+            }
             
 
             if (abs(ErrorEstimate) < tol) {

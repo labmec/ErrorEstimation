@@ -81,7 +81,10 @@
 
 #include "TPZMHMixedHybridMeshControl.h"
 #include "TPZHybridizeHDiv.h"
-#include "meshgen.h"
+//#include "meshgen.h"
+#include "TPZGenGrid2D.h"
+
+
 //#include "ConfigCasesMaze.h"
 #include <iostream>
 #include <string>
@@ -507,10 +510,10 @@ int MHMTest(ProblemConfig &Conf) {
         }
         
         gmeshcoarse = CreateLMHMMesh(nsizeH, elementIndexes);
-//        {
-//            std::ofstream file("GMeshAutoL_1.vtk");
-//            TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
-//        }
+        {
+            std::ofstream file("GMeshAutoL_1.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+        }
         
     }
     else{
@@ -1073,7 +1076,8 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
     TPZManVector<REAL> x0(3,0.), x1(3,1.);
     x1[2] = 0.;
     
-    TPZGenGrid2D gen(nx,x0,x1);
+    
+    TPZGenGrid2D gen(nx, x0, x1, 1, 0);
     
     TPZGeoMesh *gmesh = new TPZGeoMesh();
     gen.Read(gmesh);

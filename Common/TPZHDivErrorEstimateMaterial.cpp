@@ -109,8 +109,12 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
         }
 
     
-    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
+    
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+    
+    GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
+    
     
     TPZFMatrix<STATE> kgraduk(3,nphiuk,0.);
     
@@ -211,7 +215,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
 
  
     fluxfem=data[2].sol[0];
-    divsigmafem=data[2].divsol[0][0];
+    divsigmafem= data[2].divsol[0][0];
     
  
 
@@ -239,6 +243,8 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     
     REAL residual = 0.;
     
+   // std::cout<<" divsigma[0] "<<divsigma[0]<<" divsigmafem "<<divsigmafem<<"\n";
+    
     residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
    
     
@@ -247,9 +253,10 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
  
         pressurefem = data[3].sol[0][0];
     
-    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
     
+    GetPermeabilities(data[2].x, PermTensor, InvPermTensor);
     
     TPZFNMatrix<3,REAL> fluxexactneg;
     
@@ -372,8 +379,10 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     int H1functionposition = 0;
     H1functionposition = IsH1Position(datavec);
     
-    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+    
+    GetPermeabilities(datavec[2].x, PermTensor, InvPermTensor);
     
     
     TPZManVector<STATE,2> pressexact(1,0.);
