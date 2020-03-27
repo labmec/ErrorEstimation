@@ -1,21 +1,28 @@
-# @file SBFem/CMakeList.txt  -- First file to read for CMake
+cmake_minimum_required (VERSION 3.10)
 
-cmake_minimum_required (VERSION 2.8.0)
+project (ErrorEstimation CXX)
+include(cmake/StandardProjectSettings.cmake)
 
-project (ErrorEstimation)
+# Link this 'library' to set the c++ standard/compile-time options requested
+add_library(project_options INTERFACE)
+target_compile_features(project_options INTERFACE cxx_std_17)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Sanitizer options if supported by compiler
+include(cmake/Sanitizers.cmake)
+enable_sanitizers(project_options)
+
+# Allow for static analysis options
+include(cmake/StaticAnalyzers.cmake)
 
 IF (WIN32)
-	# Prevents timespec redefinition problem with Visual Studio 2015
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_STRUCT_TIMESPEC")
-	find_package( PZ PATHS "C:/Arquivos de Programas/PZ" REQUIRED NO_DEFAULT_PATH)
+    # Prevents timespec redefinition problem with Visual Studio 2015
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_STRUCT_TIMESPEC")
+    find_package(PZ PATHS "C:/Arquivos de Programas/PZ" REQUIRED NO_DEFAULT_PATH)
 ELSE ()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-narrowing")#this flag is for preventing errors when casting from double to float
-	find_package( PZ REQUIRED )
-ENDIF()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-narrowing")#this flag is for preventing errors when casting from double to float
+    find_package(PZ REQUIRED)
+ENDIF ()
 
 include_directories(${PZ_INCLUDE_DIRS})
 
@@ -28,7 +35,7 @@ IF(APPLE)
 	#   SET(OperatingSystem "Mac OS X")
 ENDIF(APPLE)
 
-include_directories(${PZ_INCLUDE_DIRS})
+include_directories(SYSTEM ${PZ_INCLUDE_DIRS})
 
 # Location to search files or libraries
 set(SEARCH_DIRS ENV PATH /usr/local/opt/ /usr/local/opt/qt5/lib/cmake/ /usr/include /usr/local/include /usr/local/include/boost /usr/local/include/log4cxx /usr/local/include/tbb /usr/lib /usr/lib64 /usr/local/lib ./. ./.. ./../libs ./../libs/fad ./../libs/metis ./../libs/metis/include ./../libs/metis/lib ./../externallibs ./../externallibs/fad ./../externallibs/pthread ./../externallibs/metis ./../externallibs/metis/include ./../externallibs/metis/lib ./..metis ./../metis/include ./../metis/lib ./externallibs/lib ./externallibs/include ./../externallibs/lib ./../externallibs/include)
@@ -64,32 +71,6 @@ if(USING_LOG4CXX)
 	endif()
 endif(USING_LOG4CXX)
 
-
-#-----
-#enabling OpenCV projects
-option(BUILD_OPENCV_PROJECTS "Whether to build projects that require OpenCV" OFF)
-if(BUILD_OPENCV_PROJECTS)
-	find_package(OpenCV REQUIRED)
-	#add_subdirectory(MHM_Maze)     #must be done at the end
-endif()
-#---
-
-#enabling pthread library
-find_path(PTHREAD_INCLUDE NAMES PThread.h pthread.h PATHS ${SEARCH_DIRS} D:/Projetos/externallibs/include )
-find_library(PTHREAD_LIB NAMES libpthread.dylib pthread.lib pthreadVC2.lib libPThread.so libPThread.a libpthread.so libpthread.a PATHS ${SEARCH_DIRS} D:/Projetos/externallibs/lib  ${PROJECT_SOURCE_DIR}/../pthread/lib)
-if(PTHREAD_INCLUDE-NOTFOUND)
-	set(PTHREAD_INCLUDE "" CACHE PATH "Directory where pthread.h can be found")
-endif()
-if(PTHREAD_LIB-NOTFOUND)
-	set(PTHREAD_LIBexit "" CACHE PATH "Directory where the pthread library can be found")
-endif()
-include_directories(${PTHREAD_INCLUDE})
-IF (WIN32)
-	find_package( PZ PATHS "C:/Arquivos de Programas/PZ" REQUIRED NO_DEFAULT_PATH)
-ELSE()
-	find_package( PZ REQUIRED )
-ENDIF (WIN32)
-
 if(WIN32)
 	#add a define saying it is a VC compiler
 	set(VC "#Will add a define VC on pz_config.h")
@@ -122,7 +103,16 @@ if(WIN32)
 
 endif()
 
-#set(CONF_INCLUDE_DIRS "." "ErrorEstimationHDiv")
+# This option enables a lot of warnings and treat them as errors, to ensure
+# good programming practices are used. Since its behaviour is extreme, it
+# should be turned off by default.
+option(ENABLE_ALL_WARNINGS "Enable a lot of compiler warnings and treat them as errors" OFF)
+if (ENABLE_ALL_WARNINGS)
+    add_library(project_warnings INTERFACE)
+    include(cmake/CompilerWarnings.cmake)
+    set_project_warnings(project_warnings)
+    set(CMAKE_CXX_FLAGS "")
+endif ()
 
 add_subdirectory(Common)
 include_directories(Common)
@@ -132,6 +122,14 @@ add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(HybridH1)
 add_subdirectory(MHMEstimation)
 
+# enabling OpenCV projects
+option(BUILD_OPENCV_PROJECTS "Whether to build projects that require OpenCV" OFF)
 if(BUILD_OPENCV_PROJECTS)
-	add_subdirectory(MHM_Maze) # must be added here to inherit non-empty ${common_SRC} 
+    add_subdirectory(MHM_Maze)
+endif()
+
+# enabling UNISIM project
+option(BUILD_UNISIM_PROJECT "Whether to build estimation on UNISIM mesh" OFF)
+if(BUILD_UNISIM_PROJECT)
+    add_subdirectory(UNISIM)
 endif()

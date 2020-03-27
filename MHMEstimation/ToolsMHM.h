@@ -78,7 +78,10 @@
 
 #include "TPZVTKGeoMesh.h"
 #include "pzvisualmatrix.h"
+
 //#include "pzgengrid.h"
+
+#include "TPZGenGrid2D.h"
 #include "TPZExtendGridDimension.h"
 #include "pzcheckgeom.h"
 

@@ -1,8 +1,8 @@
-
-
 set(MHMMAZE mainMaze.cpp ConfigCasesMaze.h )
 
 add_executable(MHM_Maze mainMaze.cpp ${common_SRC} ${MHMMAZE})
+
+find_package(OpenCV REQUIRED)
 target_link_libraries(MHM_Maze pz ${OpenCV_LIBS})
 
 set(MHMError mainMHMError.cpp ConfigCasesMaze.h ${common_SRC})
