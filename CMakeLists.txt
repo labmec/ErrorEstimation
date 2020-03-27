@@ -1,15 +1,16 @@
 cmake_minimum_required (VERSION 3.10)
 
-project (ErrorEstimation CXX)
+project (ErrorEstimation)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 include(cmake/StandardProjectSettings.cmake)
 
-# Link this 'library' to set the c++ standard/compile-time options requested
-add_library(project_options INTERFACE)
-target_compile_features(project_options INTERFACE cxx_std_17)
-
-# Sanitizer options if supported by compiler
-include(cmake/Sanitizers.cmake)
-enable_sanitizers(project_options)
+## Sanitizer options if supported by compiler
+#include(cmake/Sanitizers.cmake)
+#add_library(project_options INTERFACE)
+#enable_sanitizers(project_options)
 
 # Allow for static analysis options
 include(cmake/StaticAnalyzers.cmake)
@@ -35,7 +36,7 @@ IF(APPLE)
 	#   SET(OperatingSystem "Mac OS X")
 ENDIF(APPLE)
 
-include_directories(SYSTEM ${PZ_INCLUDE_DIRS})
+include_directories(${PZ_INCLUDE_DIRS})
 
 # Location to search files or libraries
 set(SEARCH_DIRS ENV PATH /usr/local/opt/ /usr/local/opt/qt5/lib/cmake/ /usr/include /usr/local/include /usr/local/include/boost /usr/local/include/log4cxx /usr/local/include/tbb /usr/lib /usr/lib64 /usr/local/lib ./. ./.. ./../libs ./../libs/fad ./../libs/metis ./../libs/metis/include ./../libs/metis/lib ./../externallibs ./../externallibs/fad ./../externallibs/pthread ./../externallibs/metis ./../externallibs/metis/include ./../externallibs/metis/lib ./..metis ./../metis/include ./../metis/lib ./externallibs/lib ./externallibs/include ./../externallibs/lib ./../externallibs/include)
