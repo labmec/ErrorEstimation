@@ -3,7 +3,7 @@ add_executable(UNISIMHDiv mainHdiv.cpp ${common_SRC})
 find_package(libInterpolate REQUIRED)
 target_link_libraries(UNISIMHDiv
         PUBLIC libInterpolate::Interpolate pz
-        PRIVATE project_options)
+        )
 
 if (ENABLE_ALL_WARNINGS)
     target_link_libraries(UNISIMHDiv PRIVATE project_warnings)
