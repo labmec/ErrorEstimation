@@ -1,12 +1,12 @@
-#include <libInterpolate/Interpolate.hpp>
-#include <Pre/TPZGmshReader.h>
-#include <Post/TPZVTKGeoMesh.h>
-#include <Material/pzbndcond.h>
-#include <Mesh/TPZCompMeshTools.h>
 #include <Material/TPZVecL2.h>
+#include <Material/pzbndcond.h>
+#include <Matrix/pzstepsolver.h>
+#include <Mesh/TPZCompMeshTools.h>
+#include <Post/TPZVTKGeoMesh.h>
+#include <Pre/TPZGmshReader.h>
 #include <Pre/TPZHybridizeHDiv.h>
 #include <StrMatrix/pzskylstrmatrix.h>
-#include <Matrix/pzstepsolver.h>
+#include <libInterpolate/Interpolate.hpp>
 
 #include <iostream>
 #include <map>
@@ -16,8 +16,8 @@ TPZGeoMesh *CreateFlatGeoMesh(std::string &geometry_file2D);
 
 void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename);
 
-void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, std::vector<double> &y,
-                               std::vector<double> &z);
+void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x,
+                               std::vector<double> &y, std::vector<double> &z);
 
 void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name);
 
@@ -38,7 +38,6 @@ void UNISIMHDiv() {
 
     std::string name = "InitialGeoMesh";
     PrintGeometry(gmesh, name);
-
 }
 
 TPZGeoMesh *CreateFlatGeoMesh(std::string &geometry_file2D) {
@@ -64,9 +63,9 @@ void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename) {
     _2D::ThinPlateSplineInterpolator<double> interp;
     interp.setData(x, y, z);
 
-    int nCoordinates = gmesh->NodeVec().NElements();
+    int64_t nCoordinates = gmesh->NodeVec().NElements();
     double sum = 0.0;
-    for (auto val:z) {
+    for (auto val : z) {
         sum += val;
     }
     double val_storage = sum / z.size();
@@ -88,8 +87,8 @@ void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename) {
     }
 }
 
-void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, std::vector<double> &y,
-                               std::vector<double> &z) {
+void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x,
+                               std::vector<double> &y, std::vector<double> &z) {
 
     std::ifstream file;
     file.open(name);
@@ -104,7 +103,8 @@ void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, 
             int val = i % 15;
             if (val == 0) {
                 double a, b, c;
-                if (iss >> a >> b >> c);
+                if (iss >> a >> b >> c)
+                    ;
                 x.push_back(a);
                 y.push_back(b);
                 z.push_back(c);
@@ -118,15 +118,14 @@ void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, 
     }
 
     std::cout << "File successfully read!\n";
-
 }
 
 void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name) {
-    std::stringstream text_name;
+    std::stringstream txt_name;
     std::stringstream vtk_name;
-    text_name << file_name << "_geometry" << ".txt";
-    vtk_name << file_name << "_geometry" << ".vtk";
-    std::ofstream textfile(text_name.str().c_str());
+    txt_name << file_name << ".txt";
+    vtk_name << file_name << ".vtk";
+    std::ofstream textfile(txt_name.str().c_str());
     gmesh->Print(textfile);
     std::ofstream vtkfile(vtk_name.str().c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
