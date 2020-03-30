@@ -1,6 +1,7 @@
 #include "Tools.h"
 
 #include <Material/REAL/mixedpoisson.h>
+#include <Material/TPZNullMaterial.h>
 #include <Material/TPZVecL2.h>
 #include <Material/pzbndcond.h>
 #include <Matrix/pzstepsolver.h>
@@ -17,9 +18,10 @@
 #include <StrMatrix/TPZSSpStructMatrix.h>
 #include <iostream>
 #include <map>
+#include <string>
 #include <vector>
 
-TPZGeoMesh *CreateFlatGeoMesh(std::string &geometry_file2D);
+TPZGeoMesh *CreateFlatGeoMesh(std::string &gmshFile);
 
 void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename);
 
@@ -30,16 +32,16 @@ void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name);
 
 void UNISIMHDiv();
 
-TPZMultiphysicsCompMesh *CreateMixedMesh(const ProblemConfig &problem);
+TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem);
 
-TPZCompMesh *CreateFluxMesh(const ProblemConfig &problem);
+TPZCompMesh *CreateFluxCMesh(const ProblemConfig &problem);
 
-TPZCompMesh *CreatePressureL2Mesh(const ProblemConfig &problem);
+TPZCompMesh *CreatePressureCMesh(const ProblemConfig &problem);
 
 void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine);
 
-void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, int InterfaceMatId,
-                        const ProblemConfig &problem);
+void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
+                             const ProblemConfig &problem);
 int main() {
 #ifdef LOG4CXX
     InitializePZLOG();
@@ -66,20 +68,18 @@ void UNISIMHDiv() {
 
     TLaplaceExample1 example;
     config.exact.fExact = example.EConst;
-    config.problemname = "SinSin";
     config.dir_name = "TesteUNISIM";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     config.materialids.insert(1);
-    config.materialids.insert(2);
-    config.bcmaterialids.insert(3);
-    config.bcmaterialids.insert(4);
-    config.bcmaterialids.insert(5);
+    config.bcmaterialids.insert(-1);
+    config.bcmaterialids.insert(-2);
+    config.bcmaterialids.insert(-3);
 
     config.gmesh = gmesh;
 
-    TPZMultiphysicsCompMesh *cmesh_HDiv = CreateMixedMesh(config);
+    TPZMultiphysicsCompMesh *cmesh_HDiv = CreateMixedCMesh(config);
     cmesh_HDiv->InitializeBlock();
 
     // Hybridizes mesh
@@ -90,7 +90,7 @@ void UNISIMHDiv() {
 
     cmesh_HDiv = HybridMesh;
 
-    SolveMixedHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config);
+    SolveMixedHybridProblem(cmesh_HDiv, config);
 
     //    {
     //
@@ -128,19 +128,27 @@ void UNISIMHDiv() {
     //        }
 }
 
-TPZGeoMesh *CreateFlatGeoMesh(std::string &geometry_file2D) {
+TPZGeoMesh *CreateFlatGeoMesh(std::string &gmshFile) {
 
-    TPZGmshReader Geometry;
-    TPZGeoMesh *gmesh2d;
-    REAL l = 1.0;
-    Geometry.SetCharacteristiclength(l);
-    Geometry.SetFormatVersion("4.1");
-    gmesh2d = Geometry.GeometricGmshMesh(geometry_file2D);
-    Geometry.PrintPartitionSummary(std::cout);
+    TPZGmshReader gmeshReader;
+    TPZGeoMesh *gmesh;
 
-    std::string filename1 = "InputData/UNISIMPointCloud.txt";
-    //ModifyZCoordinates(gmesh2d, filename1);
-    return gmesh2d;
+    TPZManVector<std::map<std::string, int>, 4> meshMaterialData(3);
+    // B.C. materials
+    meshMaterialData[1].insert({"ZeroFlux", -1});
+    meshMaterialData[1].insert({"Productors", -2});
+    meshMaterialData[1].insert({"Injectors", -3});
+    // Domain materials
+    meshMaterialData[2].insert({"RockMatrix", 1});
+    meshMaterialData[2].insert({"RockMatrix2", 1});
+    gmeshReader.SetDimNamePhysical(meshMaterialData);
+
+    gmeshReader.SetFormatVersion("4.1");
+    gmesh = gmeshReader.GeometricGmshMesh(gmshFile);
+
+    // std::string filename1 = "InputData/UNISIMPointCloud.txt";
+    // ModifyZCoordinates(gmesh, filename1);
+    return gmesh;
 }
 
 void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename) {
@@ -218,20 +226,20 @@ void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name) {
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
 }
 
-TPZCompMesh *CreatePressureL2Mesh(const ProblemConfig &problem) {
+TPZCompMesh *CreatePressureCMesh(const ProblemConfig &problem) {
     TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial *mat = 0;
-    for (auto matid : problem.materialids) {
-        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        if (!mat) mat = mix;
-        cmesh->InsertMaterialObject(mix);
-    }
+
+    TPZNullMaterial *pressureMat = new TPZNullMaterial(1);
+    cmesh->InsertMaterialObject(pressureMat);
 
     cmesh->SetDefaultOrder(problem.porder + problem.hdivmais);
-    // cmesh->SetDefaultOrder(problem.porder);
+
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     cmesh->ApproxSpace().CreateDisconnectedElements(true);
+
     cmesh->AutoBuild();
+    // This puts pressure equations after flux equations. It is necessary so we
+    // don't end up with '0' values in the diagonal of the global matrix.
     int64_t n_connects = cmesh->NConnects();
     for (int64_t i = 0; i < n_connects; ++i) {
         cmesh->ConnectVec()[i].SetLagrangeMultiplier(1);
@@ -240,80 +248,73 @@ TPZCompMesh *CreatePressureL2Mesh(const ProblemConfig &problem) {
     return cmesh;
 }
 
-TPZCompMesh *CreateFluxMesh(const ProblemConfig &problem) {
-    int dim = problem.gmesh->Dimension();
+TPZCompMesh *CreateFluxCMesh(const ProblemConfig &problem) {
     TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial *mat = NULL;
-    problem.gmesh->ResetReference();
-    for (auto matid : problem.materialids) {
-        TPZVecL2 *mix = new TPZVecL2(matid);
-        mix->SetDimension(dim);
-        if (!mat) mat = mix;
-        cmesh->InsertMaterialObject(mix);
-    }
-    for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
-        int bctype;
-        if (matid == 3 || matid == 4 || matid == 5) {
-            bctype = 0;
-        } else {
-            bctype = 1;
-        }
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+
+    TPZVecL2 *fluxMat = new TPZVecL2(1);
+    fluxMat->SetDimension(cmesh->Dimension());
+    cmesh->InsertMaterialObject(fluxMat);
+
+    for (auto bcID : {-1, -2, -3}) {
+        // BC values defined here won't be used
+        TPZFNMatrix<1, REAL> val1, val2(1, 1, 0.);
+        int bctype = -1;
+        TPZBndCond *bc = fluxMat->CreateBC(fluxMat, bcID, bctype, val1, val2);
         cmesh->InsertMaterialObject(bc);
     }
+
     cmesh->SetDefaultOrder(problem.porder);
-    cmesh->ApproxSpace().SetAllCreateFunctionsHDiv(dim);
+    cmesh->ApproxSpace().SetAllCreateFunctionsHDiv(cmesh->Dimension());
     cmesh->AutoBuild();
 
     cmesh->InitializeBlock();
     return cmesh;
 }
 
-TPZMultiphysicsCompMesh *CreateMixedMesh(const ProblemConfig &problem) {
-
+TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem) {
     TPZMultiphysicsCompMesh *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
+
+    TPZMixedPoisson *mix = new TPZMixedPoisson(1, cmesh->Dimension());
+
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    TPZMaterial *mat = NULL;
     K.Identity();
     invK.Identity();
+    mix->SetPermeabilityTensor(K, invK);
 
-    for (auto matid : problem.materialids) {
-        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        mix->SetForcingFunction(problem.exact.ForcingFunction());
-        mix->SetForcingFunctionExact(problem.exact.Exact());
-        mix->SetPermeabilityTensor(K, invK);
+    cmesh->InsertMaterialObject(mix);
 
-        if (!mat) mat = mix;
+    // Insert boundary conditions
+    TPZFNMatrix<1, REAL> val1(1, 1, 1.e12); // Not used by the material
+    TPZFNMatrix<1, REAL> val2(1, 1, 0.);
+    const int dirichlet = 0;
+    const int neumann = 1;
 
-        cmesh->InsertMaterialObject(mix);
-    }
-    for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
-        int bctype;
-        if (matid == 3 || matid == 4 || matid == 5) {
-            bctype = 0;
-        } else {
-            bctype = 1;
-        }
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
-        cmesh->InsertMaterialObject(bc);
-    }
+    // Zero flux (reservoir boundary)
+    TPZBndCond *zeroFlux = mix->CreateBC(mix, -1, neumann, val1, val2);
+    // Productors
+    val2(0, 0) = -10.;
+    TPZBndCond *productors = mix->CreateBC(mix, -2, dirichlet, val1, val2);
+    // Injectors
+    val2(0, 0) = 20.;
+    TPZBndCond *injectors = mix->CreateBC(mix, -3, dirichlet, val1, val2);
+
+    cmesh->InsertMaterialObject(zeroFlux);
+    cmesh->InsertMaterialObject(productors);
+    cmesh->InsertMaterialObject(injectors);
+
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
 
     TPZManVector<int> active(2, 1);
-    TPZManVector<TPZCompMesh *> meshvector(2, 0);
+    TPZManVector<TPZCompMesh *> meshVector(2, 0);
 
-    meshvector[0] = CreateFluxMesh(problem);
-    meshvector[1] = CreatePressureL2Mesh(problem);
+    meshVector[0] = CreateFluxCMesh(problem);
+    meshVector[1] = CreatePressureCMesh(problem);
 
-    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0],
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshVector[0],
                                                  problem.hdivmais);
-    TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);
+    TPZCompMeshTools::SetPressureOrders(meshVector[0], meshVector[1]);
 
-    cmesh->BuildMultiphysicsSpace(active, meshvector);
+    cmesh->BuildMultiphysicsSpace(active, meshVector);
     cmesh->LoadReferences();
     bool keepmatrix = false;
     bool keeponelagrangian = true;
@@ -323,8 +324,8 @@ TPZMultiphysicsCompMesh *CreateMixedMesh(const ProblemConfig &problem) {
     return cmesh;
 }
 
-void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, int InterfaceMatId,
-                        const ProblemConfig &problem) {
+void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
+                             const ProblemConfig &problem) {
 
     TPZAnalysis an(Hybridmesh);
 
@@ -333,24 +334,8 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, int InterfaceMatId,
     strmat.SetNumThreads(4);
 #else
     TPZSkylineStructMatrix strmat(Hybridmesh);
-    strmat.SetNumThreads(0);
+    strmat.SetNumThreads(4);
 #endif
-
-    std::set<int> matIds;
-
-    for (auto matid : problem.materialids) {
-
-        matIds.insert(matid);
-    }
-
-    for (auto matidbc : problem.bcmaterialids) {
-
-        matIds.insert(matidbc);
-    }
-
-    matIds.insert(InterfaceMatId);
-
-    strmat.SetMaterialIds(matIds);
 
     an.SetStructuralMatrix(strmat);
 
@@ -358,25 +343,20 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, int InterfaceMatId,
     direct->SetDirect(ELDLt);
     an.SetSolver(*direct);
     delete direct;
-    direct = 0;
+
     an.Assemble();
     an.Solve();
 
     std::cout << "Writing output files...\n";
+
     TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("ExactPressure");
     scalnames.Push("Pressure");
-    vecnames.Push("ExactFlux");
     vecnames.Push("Flux");
 
     std::stringstream sout;
-    sout << problem.dir_name << "/"
-         << "OriginalHybrid_Order_" << problem.porder << "Nref_"
-         << problem.ndivisions << "NAdapStep_" << problem.adaptivityStep
-         << ".vtk";
+    sout << problem.dir_name + "/Hdiv-Order" << problem.porder << ".vtk";
     an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-    int resolution = 2;
-    an.PostProcess(resolution, Hybridmesh->Dimension());
+    an.PostProcess(1, Hybridmesh->Dimension());
 }
 
 void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
