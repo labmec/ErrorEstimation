@@ -66,8 +66,8 @@ void UNISIMHDiv() {
     config.dimension = 2;
     config.makepressurecontinuous = true;
 
-    TLaplaceExample1 example;
-    config.exact.fExact = example.EConst;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::EConst;
     config.dir_name = "TesteUNISIM";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
