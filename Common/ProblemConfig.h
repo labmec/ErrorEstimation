@@ -43,57 +43,13 @@ struct ProblemConfig
     /// set of boundary condition material ids
     std::set<int> bcmaterialids;
     /// exact solution
-    TLaplaceExample1 exact;
+    TPZAutoPointer<TLaplaceExample1> exact;
 
+    ProblemConfig() = default;
 
-    ProblemConfig() {};
+    ProblemConfig(const ProblemConfig &cp) = default;
 
-    ProblemConfig(const ProblemConfig &cp) : gmesh(cp.gmesh),
-                                             porder(cp.porder),
-                                             hdivmais(cp.hdivmais),
-                                             makepressurecontinuous(cp.makepressurecontinuous),
-                                             problemname(cp.problemname),
-                                             materialids(cp.materialids),
-                                             bcmaterialids(cp.bcmaterialids),
-                                             exact(cp.exact),
-                                             ndivisions(cp.ndivisions),
-                                             prefine(cp.prefine),
-                                             alpha(cp.alpha),
-                                             dir_name(cp.dir_name),
-                                             steklovexample(cp.steklovexample),
-                                             GalvisExample(cp.GalvisExample),
-                                             dimension(cp.dimension),
-                                             adaptivityStep(cp.adaptivityStep),
-                                            TensorNonConst(cp.TensorNonConst),
-                                            MeshNonConvex(cp.MeshNonConvex)
-    {
-    }
-
-    ProblemConfig &operator=(const ProblemConfig &cp) {
-        gmesh = cp.gmesh;
-        porder = cp.porder;
-        hdivmais = cp.hdivmais;
-        makepressurecontinuous = cp.makepressurecontinuous;
-        problemname = cp.problemname;
-        materialids = cp.materialids;
-        bcmaterialids = cp.bcmaterialids;
-        exact = cp.exact;
-        dimension = cp.dimension;
-
-        ndivisions = cp.ndivisions;
-        prefine = cp.prefine;
-        adaptivityStep = cp.adaptivityStep;
-
-        alpha = cp.alpha;
-        dir_name = cp.dir_name;
-        steklovexample = cp.steklovexample;
-        GalvisExample = cp.GalvisExample;
-        TensorNonConst = cp.TensorNonConst;
-        MeshNonConvex = cp.MeshNonConvex;
-
-
-        return *this;
-    }
+    ProblemConfig &operator=(const ProblemConfig &cp) = default;
 };
 
 #endif /* ProblemConfig_h */

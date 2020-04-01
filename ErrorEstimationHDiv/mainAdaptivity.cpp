@@ -30,16 +30,17 @@ int main(int argc, char* argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
-    
+
     // Initializing uniform refinements for reference elements
     gRefDBase.InitializeUniformRefPattern(EOned);
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
-    
+
     // Creates geometric mesh
 
-    TPZGeoMesh* gmeshOriginal = nullptr;//CreateLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
-    
+    TPZGeoMesh *gmeshOriginal =
+        nullptr; // CreateLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
+
     ProblemConfig config;
 
     config.porder = 1;
@@ -47,18 +48,18 @@ int main(int argc, char* argv[]) {
 
     config.dimension = 2;
     config.makepressurecontinuous = true;
-    
-    TLaplaceExample1 example;
-    config.exact.fExact = example.ESinMark;
+
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+
     config.dir_name = "TriangularLShapeMesh";
     config.problemname = "ESinSinMark_UniRef";
-    
+
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
-    
-    
-    if(readGeoMeshFromFile){
-        std::string meshfilename = "../LMesh.msh";//"../LMesh3.msh";
+
+    if (readGeoMeshFromFile) {
+        std::string meshfilename = "../LMesh.msh"; //"../LMesh3.msh";
 
         TPZGmshReader gmsh;
         gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
@@ -68,7 +69,7 @@ int main(int argc, char* argv[]) {
         gmsh.PrintPartitionSummary(std::cout);
         config.materialids.insert(1);
         config.bcmaterialids.insert(2);
-   
+
     }
 else
 

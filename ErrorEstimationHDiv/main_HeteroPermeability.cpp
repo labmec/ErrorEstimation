@@ -115,23 +115,23 @@ int main(int argc, char *argv[]) {
     if(IsreadMesh){
         
     
-    if(config.steklovexample){
-        
-        config.exact.fExact = TLaplaceExample1::ESteklovNonConst;
-        config.problemname ="ESteklovNonConst k=1 n=3";
+    if(config.steklovexample) {
 
+            config.exact.operator*().fExact =
+                TLaplaceExample1::ESteklovNonConst;
+            config.problemname = "ESteklovNonConst k=1 n=3";
 
-        TPZGmshReader gmsh;
-        std::string meshfilename = "MalhaSteklov.msh";
+            TPZGmshReader gmsh;
+            std::string meshfilename = "MalhaSteklov.msh";
 #ifdef MACOSX
-        meshfilename = "../" + meshfilename;
+            meshfilename = "../" + meshfilename;
 #endif
-        gmsh.GetDimNamePhysical()[2]["Omega1"] = 1;
-        gmsh.GetDimNamePhysical()[2]["Omega2"] = 2;
-        gmsh.GetDimNamePhysical()[2]["Omega3"] = 3;
-        gmsh.GetDimNamePhysical()[2]["Omega4"] = 4;
-        
-        gmsh.GetDimNamePhysical()[1]["boundary1"] =5;
+            gmsh.GetDimNamePhysical()[2]["Omega1"] = 1;
+            gmsh.GetDimNamePhysical()[2]["Omega2"] = 2;
+            gmsh.GetDimNamePhysical()[2]["Omega3"] = 3;
+            gmsh.GetDimNamePhysical()[2]["Omega4"] = 4;
+
+            gmsh.GetDimNamePhysical()[1]["boundary1"] =5;
         gmsh.GetDimNamePhysical()[1]["boundary2"] =6;
         gmsh.GetDimNamePhysical()[1]["boundary3"] =7;
         gmsh.GetDimNamePhysical()[1]["boundary4"] =8;
@@ -155,18 +155,16 @@ int main(int argc, char *argv[]) {
     
     }
     
-    else if(config.GalvisExample){
-        
-        config.exact.fExact = TLaplaceExample1::EGalvisNonConst;
-        config.problemname ="EGalvisNonConst k=1 n=3 Up=1";
+    else if(config.GalvisExample) {
+
+        config.exact.operator*().fExact = TLaplaceExample1::EGalvisNonConst;
+        config.problemname = "EGalvisNonConst k=1 n=3 Up=1";
         std::string meshfilename = "Galvismesh.msh";
 #ifdef MACOSX
         meshfilename = "../" + meshfilename;
 #endif
         TPZGmshReader gmsh;
-        
-        
-        
+
         gmsh.GetDimNamePhysical()[2]["Omega1"] = 1;
         gmsh.GetDimNamePhysical()[2]["Omega2"] = 2;
         gmsh.GetDimNamePhysical()[2]["Omega3"] = 3;

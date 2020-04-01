@@ -62,40 +62,38 @@ int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
-    
-    
-    for (int ndiv=1 ; ndiv<2;ndiv++){
 
-    ProblemConfig config;
-    
-    config.porder = 2;
-    config.ndivisions = ndiv;
-    config.dimension = 2;
-    config.prefine=false;
-        
-    int orderlagrange =2;
-        
-    TLaplaceExample1 example;
-    config.exact.fExact = example.ESinSin;//EX;//ESinSinDirNonHom;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
-    config.problemname = "ESinSin k=1 e lagrange order 2";
-    
-    config.dir_name= "HybridH1_ESinSin";
-    std::string command = "mkdir " + config.dir_name;
-    system(command.c_str());
-    
-    
-    //geometric mesh
-    TPZManVector<int,4> bcids(4,-1);
-    TPZGeoMesh *gmesh = CreateGeoMesh(2, bcids);
-//    if(1)
-//    {
-//        TPZManVector<TPZGeoEl *> sub;
-//        gmesh->Element(0)->Divide(sub);
-//        DivideLowerDimensionalElements(gmesh);
-//    }
-        
-        
-        config.gmesh=gmesh;
+    for (int ndiv = 1; ndiv < 2; ndiv++) {
+
+        ProblemConfig config;
+
+        config.porder = 2;
+        config.ndivisions = ndiv;
+        config.dimension = 2;
+        config.prefine = false;
+
+        int orderlagrange = 2;
+
+        config.exact = new TLaplaceExample1;
+        config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+
+        config.problemname = "ESinSin k=1 e lagrange order 2";
+
+        config.dir_name = "HybridH1_ESinSin";
+        std::string command = "mkdir " + config.dir_name;
+        system(command.c_str());
+
+        // geometric mesh
+        TPZManVector<int, 4> bcids(4, -1);
+        TPZGeoMesh *gmesh = CreateGeoMesh(2, bcids);
+        //    if(1)
+        //    {
+        //        TPZManVector<TPZGeoEl *> sub;
+        //        gmesh->Element(0)->Divide(sub);
+        //        DivideLowerDimensionalElements(gmesh);
+        //    }
+
+        config.gmesh = gmesh;
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         
@@ -115,20 +113,17 @@ int main(int argc, char *argv[]) {
 #endif
         
         //problema H1
-    if(h1solution)
-    {
-            
-        example.fSignConvention = -1;
+    if(h1solution) {
+
+        config.exact.operator*().fSignConvention = -1;
         TPZCompMesh *cmeshH1 = CMeshH1(config);
         {
             ofstream arg1("CompMeshH1.txt");
             cmeshH1->Print(arg1);
         }
-        SolveH1Problem(cmeshH1,config);
-
+        SolveH1Problem(cmeshH1, config);
     }
-        
-    
+
     TPZCreateMultiphysicsSpace createspace(gmesh);
     
     createspace.SetMaterialIds({1}, {-2,-1});
@@ -208,35 +203,32 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
     int matID = 1;
     int dirichlet = 0;
     int neumann = 1;
-    
+
     // Creates Poisson material
     TPZMatLaplacianHybrid *material = new TPZMatLaplacianHybrid(matID, dim);
-    
+
     cmesh_H1Hybrid->InsertMaterialObject(material);
-    if(config.exact.fExact != TLaplaceExample1::ENone)
-    {
-        material->SetForcingFunction(config.exact.ForcingFunction());
-        material->SetForcingFunctionExact(config.exact.Exact());
+    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+        material->SetForcingFunction(
+            config.exact.operator*().ForcingFunction());
+        material->SetForcingFunctionExact(config.exact.operator*().Exact());
     }
     //    TPZMaterial * mat(material);
     //    cmesh->InsertMaterialObject(mat);
-    
+
     // Inserts boundary conditions
     TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 1.);
-    TPZMaterial * BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
-    if(config.exact.fExact != TLaplaceExample1::ENone)
-    {
-        BCond0->SetForcingFunction(config.exact.Exact());
+    TPZMaterial *BCond0 =
+        material->CreateBC(material, -1, dirichlet, val1, val2);
+    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+        BCond0->SetForcingFunction(config.exact.operator*().Exact());
     }
     val2.Zero();
-    TPZMaterial * BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
-    
+    TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+
     cmesh_H1Hybrid->InsertMaterialObject(BCond0);
     cmesh_H1Hybrid->InsertMaterialObject(BCond1);
-    
-
 }
-
 
 //TPZCompMesh *CMeshH1(const ProblemConfig &problem) {
 //    
@@ -330,8 +322,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
     an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
     an.PostProcess(resolution,dim);
 
-
-    an.SetExact(config.exact.ExactSolution());
+    an.SetExact(config.exact.operator*().ExactSolution());
 
     TPZManVector<REAL> errorvec(10, 0.);
     int64_t nelem = cmeshH1->NElements();
@@ -392,9 +383,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct Problem
 
     //Calculo do Erro
 
-
-
-        an.SetExact(config.exact.ExactSolution());
+        an.SetExact(config.exact.operator*().ExactSolution());
 
         TPZManVector<REAL> errorvec(5, 0.);
         int64_t nelem = cmesh_H1Hybrid->NElements();

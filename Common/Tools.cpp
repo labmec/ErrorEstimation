@@ -63,7 +63,7 @@ TPZCompMesh* CreateFluxHDivMesh(const ProblemConfig& problem) {
             bctype = 1;
         }
         TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->SetDefaultOrder(problem.porder);
@@ -107,13 +107,13 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
 //    invK.Print(std::cout);
     
     for (auto matid : problem.materialids) {
-        TPZMixedPoisson* mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        mix->SetForcingFunction(problem.exact.ForcingFunction());
-        mix->SetForcingFunctionExact(problem.exact.Exact());
+        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
+        mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
         mix->SetPermeabilityTensor(K, invK);
-        
+
         if (!mat) mat = mix;
-        
+
         cmesh->InsertMaterialObject(mix);
     }
     for (auto matid : problem.bcmaterialids) {
@@ -125,7 +125,7 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
             bctype = 1;
         }
         TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -372,8 +372,8 @@ void PrintSolAndDerivate(const ProblemConfig config) {
         Print(xfadfad[i], std::cout);
     }
     std::cout << std::endl;
-    config.exact.graduxy(xfad, graduxy);
-    config.exact.uxy(xfadfad, uxyfadfad);
+    config.exact.operator*().graduxy(xfad, graduxy);
+    config.exact.operator*().uxy(xfadfad, uxyfadfad);
     for (int i = 0; i < 3; i++) {
         std::cout << "xfad = ";
         Print(xfad[i], std::cout);
@@ -598,36 +598,38 @@ void SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config) {
     scalnames.Push("ExactPressure");
     vecnames.Push("Flux");
     vecnames.Push("ExactFlux");
-    
+
     int dim = config.gmesh->Dimension();
-    
+
     std::stringstream sout;
-    
-    sout << config.dir_name << "/"  "OriginalMixed_Order_" << config.problemname << "Order" << config.porder
-         << "NAdapStep_" << config.adaptivityStep << ".vtk";
-    
+
+    sout << config.dir_name
+         << "/"
+            "OriginalMixed_Order_"
+         << config.problemname << "Order" << config.porder << "NAdapStep_"
+         << config.adaptivityStep << ".vtk";
+
     an.DefineGraphMesh(dim, scalnames, vecnames, sout.str());
     int resolution = 2;
     an.PostProcess(resolution, dim);
-    
-    
-    if (config.exact.Exact()) {
+
+    if (config.exact.operator*().Exact()) {
         TPZManVector<REAL> errors(4, 0.);
         an.SetThreadsForError(0);
-        an.SetExact(config.exact.ExactSolution());
+        an.SetExact(config.exact.operator*().ExactSolution());
         an.PostProcessError(errors, false);
-        
-        //Erro
+
+        // Erro
         ofstream myfile;
         myfile.open("MixedError.txt", ios::app);
         myfile << "\n\n Error for Mixed formulation ";
         myfile << "\n-------------------------------------------------- \n";
-        myfile << "Ndiv = " << config.ndivisions << " Order k = " << config.porder << "\n";
-        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
-        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
-        myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
+        myfile << "Ndiv = " << config.ndivisions
+               << " Order k = " << config.porder << "\n";
+        myfile << "Energy norm = " << errors[0] << "\n";   // norma energia
+        myfile << "error norm L2 = " << errors[1] << "\n"; // norma L2
+        myfile << "Semi norm H1 = " << errors[2] << "\n";  // norma L2
         myfile.close();
-        
     }
 }
 
@@ -786,25 +788,24 @@ TPZCompMesh* CMeshH1(ProblemConfig problem) {
     
     
     for (auto matid : problem.materialids) {
-        TPZMatPoisson3d* mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetForcingFunctionExact(problem.exact.Exact());
-        mix->SetForcingFunction(problem.exact.ForcingFunction());
-        
+        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
+        mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
+        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
+
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
-        
     }
-    
+
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
         val2.Zero();
-        TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
-        
+        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+
         cmesh->InsertMaterialObject(bc);
     }
-    
+
     cmesh->SetDefaultOrder(problem.porder);//ordem
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     

@@ -2178,8 +2178,6 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
 // fills in the data structure pressureweights and matid_weights
 void TPZHybridHDivErrorEstimator::ComputePressureWeights()
 {
-    
-    
     TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[1];
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
