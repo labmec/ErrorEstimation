@@ -1,9 +1,11 @@
-add_executable(UNISIMHDiv mainHdiv.cpp ${common_SRC})
+add_executable(UNISIMHDiv mainHdiv.cpp)
 
 find_package(libInterpolate REQUIRED)
-target_link_libraries(UNISIMHDiv
-        PUBLIC libInterpolate::Interpolate pz
-        )
+target_link_libraries(UNISIMHDiv PUBLIC
+    libInterpolate::Interpolate
+    Tools
+    ErrorEstimationLib
+)
 
 if (ENABLE_ALL_WARNINGS)
     target_link_libraries(UNISIMHDiv PRIVATE project_warnings)

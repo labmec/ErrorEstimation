@@ -36,9 +36,9 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "TPZHybridHDivErrorEstimator.h"
-#include "TPZHDivErrorEstimatorH1.h"
 #include "Tools.h"
+#include "TPZHDivErrorEstimatorH1.h"
+#include "TPZHybridHDivErrorEstimator.h"
 
 #include "TPZBFileStream.h"
 #include <tuple>

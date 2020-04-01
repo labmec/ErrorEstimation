@@ -10,13 +10,11 @@ ELSE ()
     find_package(PZ REQUIRED)
 ENDIF ()
 
-include_directories(${PZ_INCLUDE_DIRS})
-
 IF(APPLE)
 	# Mac OS X specific code
 	add_definitions(-DMACOSX)
 	set(MACOSX MACOSX)
-	FIND_LIBRARY(ACCELERATE_LIB Accelerate)
+	find_library(ACCELERATE_LIB Accelerate)
 	link_libraries(${ACCELERATE_LIB})
 	#   SET(OperatingSystem "Mac OS X")
 ENDIF(APPLE)

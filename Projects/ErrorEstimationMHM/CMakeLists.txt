@@ -1,12 +1,6 @@
 # Project to implemented MHM Error Estimation
-file(GLOB header *.h)
-file(GLOB source *.cpp)
-
-set(ErrorEstimateSRC  ${common_SRC} ${header} ${source})
-
-add_executable(MHMEstimation ${ErrorEstimateSRC})
-
-target_link_libraries(MHMEstimation pz)
+add_executable(MHMEstimation main.cpp)
+target_link_libraries(MHMEstimation Tools ErrorEstimationLib)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)

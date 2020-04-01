@@ -26,8 +26,8 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "TPZHybridHDivErrorEstimator.h"
 #include "Tools.h"
+#include "TPZHybridHDivErrorEstimator.h"
 
 #include <tuple>
 #include <memory>
