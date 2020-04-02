@@ -103,9 +103,9 @@ int main() {
     //config.ndivisions = 5;
     config.TensorNonConst = false;
     config.MeshNonConvex = false ;
-    TLaplaceExample1 example;
 
-    config.exact.fExact = example.ESinSin;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
 
     config.problemname = "ESinSinSkRef_refIn";
 

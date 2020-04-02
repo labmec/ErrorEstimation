@@ -2,8 +2,8 @@
 add_library(Tools
     Tools.cpp
     Tools.h
-   # ToolsMHM.cpp
-   # ToolsMHM.h
+    ToolsMHM.cpp
+    ToolsMHM.h
     meshgen.cpp
     meshgen.h
 )

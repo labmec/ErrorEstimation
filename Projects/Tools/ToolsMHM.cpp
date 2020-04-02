@@ -177,11 +177,11 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
     std::cout << "Post processing errors " << std::endl;
     
     
-    if(Conf.exact.Exact())
+    if(Conf.exact.operator*().Exact())
     {
         TPZManVector<REAL> errors(4,0.);
         an->SetThreadsForError(2);
-        an->SetExact(Conf.exact.ExactSolution());
+        an->SetExact(Conf.exact.operator*().ExactSolution());
         an->PostProcessError(errors,false);
         
         //Erro
@@ -411,8 +411,8 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     
     for (auto matid : Conf.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        mix->SetForcingFunction(Conf.exact.ForcingFunction());
-        mix->SetForcingFunctionExact(Conf.exact.Exact());
+        mix->SetForcingFunction(Conf.exact.operator*().ForcingFunction());
+        mix->SetForcingFunctionExact(Conf.exact.operator*().Exact());
         mix->SetPermeabilityTensor(K, invK);
         
         if (!mat) mat = mix;
@@ -423,7 +423,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(Conf.exact.Exact());
+        bc->TPZMaterial::SetForcingFunction(Conf.exact.operator*().Exact());
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -736,8 +736,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
 //    K.Print(std::cout);
 //    invK.Print(std::cout);
     
-    mat->SetForcingFunctionExact(config.exact.Exact());
-    mat->SetForcingFunction(config.exact.ForcingFunction());
+    mat->SetForcingFunctionExact(config.exact.operator*().Exact());
+    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
     mat->SetPermeabilityTensor(K, invK);
     
     
@@ -747,7 +747,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &c
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype = 0;
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.Exact());
+        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
         MixedFluxPressureCmesh->InsertMaterialObject(bc);
     }
     
@@ -903,8 +903,8 @@ TPZCompMesh *CMesh_H1(struct ProblemConfig &problem) {
     
     for (auto matid : problem.materialids) {
         TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetForcingFunctionExact(problem.exact.Exact());
-        mix->SetForcingFunction(problem.exact.ForcingFunction());
+        mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
+        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
         
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
@@ -920,12 +920,12 @@ TPZCompMesh *CMesh_H1(struct ProblemConfig &problem) {
         if(matid==10){
             int bctype = 1;
             TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+            bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
             cmesh->InsertMaterialObject(bc);
         }
         else{
             TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+            bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
             cmesh->InsertMaterialObject(bc);
         }
         
