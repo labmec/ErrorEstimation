@@ -64,29 +64,31 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
-    for(int ndiv=1; ndiv<2; ndiv++){
-    ProblemConfig config;
-    
-    config.porder = 1;
-    config.hdivmais = 0;
-    config.ndivisions = ndiv;
-    config.dimension = 2;
-    config.prefine=false;
-    config.makepressurecontinuous = true;
+    for(int ndiv=1; ndiv<2; ndiv++) {
+        ProblemConfig config;
 
-    
-    config.exact.fExact = TLaplaceExample1::ESinMark;//ESinSinDirNonHom;//ESinSin;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
-    config.problemname = "ESinSinCircle k=1 e n=0 Up=2";//"EConst";//"ESinSinDirNonHom";//"ESinSin";//" //"EArcTanSingular_PRef";//""ArcTang";//
-    
-    config.dir_name= "ESinMark";
-    //config.dir_name= "ESinSin";
-    std::string command = "mkdir " + config.dir_name;
-    system(command.c_str());
+        config.porder = 1;
+        config.hdivmais = 0;
+        config.ndivisions = ndiv;
+        config.dimension = 2;
+        config.prefine = false;
+        config.makepressurecontinuous = true;
 
-    
-    //geometric mesh
+        config.exact = new TLaplaceExample1;
+        config.exact.operator*().fExact = TLaplaceExample1::
+            ESinMark; // ESinSinDirNonHom;//ESinSin;//ESinMark;//EX;//EConst;//EArcTanSingular;//EArcTan;//
+        config.problemname =
+            "ESinSinCircle k=1 e n=0 Up=2"; //"EConst";//"ESinSinDirNonHom";//"ESinSin";//"
+                                            ////"EArcTanSingular_PRef";//""ArcTang";//
 
-     TPZGeoMesh *gmesh = ReadGeometricMesh(config, IsgmeshReader);
+        config.dir_name = "ESinMark";
+        // config.dir_name= "ESinSin";
+        std::string command = "mkdir " + config.dir_name;
+        system(command.c_str());
+
+        // geometric mesh
+
+        TPZGeoMesh *gmesh = ReadGeometricMesh(config, IsgmeshReader);
     
 
     UniformRefinement(config.ndivisions, gmesh);

@@ -273,8 +273,6 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreateFluxMesh()
 // a method for creating the pressure mesh
 TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
 {
-    
-    
     if(fPostProcesswithHDiv) {
         TPZCompMesh * pressure = fOriginal->MeshVector()[1]->Clone();
         return pressure;
@@ -333,13 +331,12 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
 
 /// create the post processed multiphysics mesh (which is necessarily hybridized)
 void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
-    if(!fOriginalIsHybridized && fPostProcesswithHDiv == false)
+    if(!fOriginalIsHybridized && !fPostProcesswithHDiv)
     {
         // we can not post process with H1 if the original mesh is not hybridized
         DebugStop();
     }
 
-    
 #ifdef PZDEBUG2
     {
         std::ofstream out("OriginalFlux.txt");
@@ -351,7 +348,6 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     }
 #endif
     
-
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
@@ -1019,7 +1015,10 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
         
 
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-        if (!bc) continue ;
+
+        // TODO I modified this conditional for now, to handle the cases where
+        //  the bc is not Dirichlet type. @Gustavo
+        if (!bc || bc->Type() != 0) continue ;
         
    
         
@@ -1891,8 +1890,9 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
 void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
 
     if(fPostProcesswithHDiv) {
-        for (auto matid : fPostProcMesh.MaterialVec()) {
-            TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+        for (auto mat : fPostProcMesh.MaterialVec()) {
+            TPZMixedPoisson *mixpoisson =
+                dynamic_cast<TPZMixedPoisson *>(mat.second);
             if (mixpoisson) {
                 TPZMixedHDivErrorEstimate<TPZMixedPoisson> *newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
 
@@ -1914,30 +1914,23 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
             }
         }
     }
-    // TODO this should be done in a better way by merging the materials
     else {
         // switch the material of the HDiv approximation to a material for an H1 approximation
-        for(auto matid : fPostProcMesh.MaterialVec())
+        for(auto mat : fPostProcMesh.MaterialVec())
         {
-            TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (matid.second);
+            TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat.second);
             if(mixpoisson)
             {
-                int dim = mixpoisson->Dimension();
-                int matid = mixpoisson->Id();
-
                 TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
 
-                if(fExact)
-                {
+                if (fExact) {
                     newmat->SetForcingFunctionExact(fExact->Exact());
                     newmat->SetForcingFunction(fExact->ForcingFunction());
-
                 }
 
                 for (auto bcmat : fPostProcMesh.MaterialVec()) {
                     TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
                     if (bc) {
- 
                         bc->SetMaterial(newmat);
                     }
                 }
@@ -2196,15 +2189,33 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
         if(!mat) continue;//DebugStop();
         TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
         if(gel->Dimension() != dim && !bcmat) continue;
+
+        // TODO the code breaks when it reaches this part with a Neumann BC.
+        //  The pointer bcmat is not null, but it won't enter this condition
+        //  since its type is 1. Also, in the future, it should be extended to
+        //  support Robin BC type as well. @Gustavo
+
         if(bcmat && bcmat->Type() == 0)
         {
             this->fPressureweights[el] = 1.e12;
             fMatid_weights[matid] = 1.e12;
             continue;
         }
-        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat);
+        if(bcmat && bcmat->Type() == 1)
+        {
+            TPZMixedPoisson *mixpoisson =
+                dynamic_cast<TPZMixedPoisson *>(bcmat->Material());
+            if (!mixpoisson) DebugStop();
+            REAL perm;
+            mixpoisson->GetMaxPermeability(perm);
+            this->fPressureweights[el] = perm;
+            fMatid_weights[matid] = perm;
+            continue;
+        }
 
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat);
         if(!mixpoisson) DebugStop();
+
         REAL perm;
         mixpoisson->GetMaxPermeability(perm);
         if(IsZero(perm)) DebugStop();

@@ -12,10 +12,10 @@
 #include <cmath>
 #include <tuple>
 
-#include "ProblemConfig.h"
 #include "Tools.h"
-#include "TPZHybridHDivErrorEstimator.h"
+#include "ProblemConfig.h"
 #include "TPZHDivErrorEstimatorH1.h"
+#include "TPZHybridHDivErrorEstimator.h"
 
 //#include "pzelchdiv.h"
 
