@@ -2190,6 +2190,7 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
         TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
         if(gel->Dimension() != dim && !bcmat) continue;
 
+<<<<<<< HEAD
         // TODO the code breaks when it reaches this part with a Neumann BC.
         //  The pointer bcmat is not null, but it won't enter this condition
         //  since its type is 1. Also, in the future, it should be extended to
@@ -2211,7 +2212,6 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
             this->fPressureweights[el] = perm;
             fMatid_weights[matid] = perm;
             continue;
-        }
 
         TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat);
         if(!mixpoisson) DebugStop();
