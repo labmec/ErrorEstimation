@@ -2201,7 +2201,7 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights()
             fMatid_weights[matid] = 1.e12;
             continue;
         }
-        if(bcmat && bcmat->Type() == 1)
+        if(bcmat && bcmat->Type() != 0)
         {
             TPZMixedPoisson *mixpoisson =
                 dynamic_cast<TPZMixedPoisson *>(bcmat->Material());

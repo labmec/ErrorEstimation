@@ -88,6 +88,9 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
     K.Identity();
     invK.Identity();
     
+    REAL Km = 1.e12;//forcando condicao de Dirichlet
+    REAL g = 0.;
+    
     if (problem.TensorNonConst && problem.gmesh->Dimension() == 3) {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
@@ -119,10 +122,12 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype;
-        if (matid == -1 || matid == 2) {
+        if (matid == -1 || matid == -2) {
             bctype = 0;
         } else {
-            bctype = 1;
+            bctype = 2;
+            val1(0,0) = Km;
+            val2(0,0) = g;
         }
         TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
