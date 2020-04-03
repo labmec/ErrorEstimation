@@ -2194,50 +2194,47 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
 
 /// compute the pressure weights and material weights
 // fills in the data structure pressureweights and matid_weights
-void TPZHybridHDivErrorEstimator::ComputePressureWeights()
-{
+void TPZHybridHDivErrorEstimator::ComputePressureWeights() {
     TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[1];
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
     fPressureweights.Resize(nel, 0);
     fMatid_weights.clear();
-    for (int64_t el=0; el<nel; el++) {
+    for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
-        if(!cel) continue;
+        if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
         TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
-       if(matid == fPressureSkeletonMatId || matid == fHybridizer.fLagrangeInterface){
-           //fPressureweights[el] = 1.e12;
-           continue;
-       }
-        if(!mat) continue;//DebugStop();
-        TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
-        if(gel->Dimension() != dim && !bcmat) continue;
-
-        // TODO the code breaks when it reaches this part with a Neumann BC.
-        //  The pointer bcmat is not null, but it won't enter this condition
-        //  since its type is 1. Also, in the future, it should be extended to
-        //  support Robin BC type as well. @Gustavo
-
-        if(bcmat && bcmat->Type() == 0)
-        {
-            this->fPressureweights[el] = 1.e12;
-            fMatid_weights[matid] = 1.e12;
+        if (matid == fPressureSkeletonMatId ||
+            matid == fHybridizer.fLagrangeInterface) {
+            // fPressureweights[el] = 1.e12;
             continue;
         }
-        if(bcmat && bcmat->Type() != 0)
-        {
+        if (!mat) continue; // DebugStop();
+       TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
+       if (gel->Dimension() != dim && !bcmat) continue;
 
-        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat);
-        if(!mixpoisson) DebugStop();
+       if (bcmat) {
+           if (bcmat->Type() == 0) {
+               this->fPressureweights[el] = 1.e12;
+               fMatid_weights[matid] = 1.e12;
+               continue;
+           } else {
+               this->fPressureweights[el] = 0.;
+               fMatid_weights[matid] = 0.;
+               continue;
+           }
+       }
 
-        REAL perm;
-        mixpoisson->GetMaxPermeability(perm);
-        if(IsZero(perm)) DebugStop();
-        this->fPressureweights[el] = perm;
-        fMatid_weights[matid] = perm;
-    }
+       TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *>(mat);
+       if (!mixpoisson) DebugStop();
+
+       REAL perm;
+       mixpoisson->GetMaxPermeability(perm);
+       if (IsZero(perm)) DebugStop();
+       this->fPressureweights[el] = perm;
+       fMatid_weights[matid] = perm;
     }
 }
 
