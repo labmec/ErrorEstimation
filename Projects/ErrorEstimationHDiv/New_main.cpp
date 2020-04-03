@@ -72,12 +72,12 @@ int main(int argc, char *argv[]) {
     config.TensorNonConst = false; // para problem 3d com tensor nao constante
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.exact.operator*().fExact = TLaplaceExample1::EX;
 
     bool RunMark = false;
-    config.problemname = "SinSin";
+    config.problemname = "EX";
 
-    config.dir_name = "TesteStab";
+    config.dir_name = "TesteBoundaryCondition";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -127,18 +127,20 @@ int main(int argc, char *argv[]) {
 
         else {
             // TPZManVector<int,4> bcids(4,-1);
-            TPZManVector<int, 4> bcids(4, -2);
-            bcids[3] = -1;
-            //            bcids[1] = -1;
-            int nelT = 2 * ndiv;
+            TPZManVector<int, 4> bcids(4, -3);
+           // bcids[3] = -1;
+           // bcids[1] = -1;
+           // bcids[0] = -3;
+            //int nelT = 2 * ndiv;
             int nel = pow(2, ndiv);
 
             gmesh = CreateGeoMesh(
                 nel, bcids); // CreateTrapezoidalMesh(nelT,
                              // nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
-            config.bcmaterialids.insert(-1); // dirichlet
-            config.bcmaterialids.insert(-2); // neumann
+           // config.bcmaterialids.insert(-1); // dirichlet
+           // config.bcmaterialids.insert(-2); // neumann
+            config.bcmaterialids.insert(-3); // Robin
             config.gmesh = new TPZGeoMesh;
             *config.gmesh = *gmesh;
             gmesh->SetDimension(dim);
@@ -177,7 +179,7 @@ int main(int argc, char *argv[]) {
         cmesh_HDiv = CreateHDivMesh(config); // Hdiv x L2
         cmesh_HDiv->InitializeBlock();
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
 
             std::ofstream out2("MalhaMista.txt");
@@ -222,11 +224,9 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
-        //  SolveMixedProblem(cmesh_HDiv, config);
+        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, true);
 
-        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, false);
-
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
             std::ofstream out("OriginalHybridMesh.txt");
             (HybridMesh)->Print(out);
