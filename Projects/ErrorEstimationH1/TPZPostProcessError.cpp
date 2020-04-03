@@ -278,7 +278,7 @@ void TPZPostProcessError::ComputeHDivSolution()
 #else
     int numthreads = 8;
 #endif
-#ifdef USING_MKL2
+#ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(meshmixed);
     strmat.SetNumThreads(numthreads);
     an.SetStructuralMatrix(strmat);

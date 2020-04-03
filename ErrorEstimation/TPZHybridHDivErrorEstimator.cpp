@@ -273,63 +273,91 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreateFluxMesh()
 // a method for creating the pressure mesh
 TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
 {
-    if(fPostProcesswithHDiv) {
-        TPZCompMesh * pressure = fOriginal->MeshVector()[1]->Clone();
+    if (fPostProcesswithHDiv) {
+        TPZCompMesh *pressure = fOriginal->MeshVector()[1]->Clone();
         return pressure;
     }
-    //For H1 reconstruction need to build material for bc condition
-    else{
+
+    // For H1 reconstruction, we need to build BC materials
+    else {
+        TPZCompMesh *mult = fOriginal;
         TPZCompMesh *pressure = fOriginal->MeshVector()[1]->Clone();
-        TPZGeoMesh  *gmesh = pressure->Reference();
+        TPZGeoMesh *gmesh = pressure->Reference();
         gmesh->ResetReference();
         pressure->LoadReferences();
+
         pressure->ApproxSpace().SetAllCreateFunctionsContinuous();
         pressure->ApproxSpace().CreateDisconnectedElements(true);
-        
-        TPZCompMesh *mult = fOriginal;
- 
-        set<int> matIdsbc;
-        for(auto it : mult->MaterialVec()){
+
+        set<int> bcMatIDs;
+        for (auto it : mult->MaterialVec()) {
             TPZMaterial *mat = it.second;
-            TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
-            if(bc){
-                int matbcid = bc->Material()->Id();
-                TPZMaterial *pressuremat = pressure->FindMaterial(matbcid);
-                TPZMaterial *bcmat =  pressuremat->CreateBC(pressuremat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
-                if(fExact){
+            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            if (bc) {
+                int pressureMatId = bc->Material()->Id();
+                TPZMaterial *pressuremat = pressure->FindMaterial(pressureMatId);
+                TPZMaterial *bcmat = pressuremat->CreateBC(
+                    pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
+                if (fExact) {
                     bcmat->SetForcingFunction(fExact->Exact());
                 }
                 pressure->InsertMaterialObject(bcmat);
-                matIdsbc.insert(mat->Id());
-                
+                bcMatIDs.insert(bc->Id());
             }
-            
         }
-        
+
+        // Create computational elements for BCs in pressure mesh
+        std::map<int64_t, TPZCompEl*> bcGeoElToNeighCompEl;
+        for (int64_t el = 0; el < gmesh->NElements(); el++) {
+            // This map stores the ID of the BC geometric element and a pointer
+            // to the computational element of its volumetric neighbour
+            TPZGeoEl *gel = gmesh->Element(el);
+            if (!gel) continue;
+
+            // Filters BC elements
+            int matID = gel->MaterialId();
+            if (bcMatIDs.find(matID) != bcMatIDs.end()) {
+
+                TPZGeoElSide bcSide(gel, gel->NSides() - 1);
+                TPZStack<TPZCompElSide> compNeighSides;
+                // AskPhil should I use this method or EqualLevelCompElList3?
+                //  Am I right in keeping the onlyinterpolate flag true?
+                bcSide.EqualLevelCompElementList(compNeighSides, 1, 1);
+                if (compNeighSides.size() != 1) DebugStop();
+
+                TPZCompEl *cel = compNeighSides[0].Element();
+                if (!cel) DebugStop();
+
+                bcGeoElToNeighCompEl.insert({gel->Index(), cel});
+            }
+        }
+        for (const auto &it : bcGeoElToNeighCompEl) {
+            int64_t bcElID = it.first;
+            TPZCompEl *neighCel = it.second;
+            TPZGeoEl *bcGeoEl = pressure->Reference()->Element(bcElID);
+            neighCel->LoadElementReference(); // AskPhil is this needed?
+            int64_t id;
+            pressure->CreateCompEl(bcGeoEl, id);
+        }
+
         gmesh->ResetReference();
-        pressure->AutoBuild(matIdsbc);
-        
-#ifdef PZDEBUG2
+        pressure->AutoBuild(bcMatIDs);
+
+#ifdef PZDEBUG
         {
-            std::ofstream out("BuildH1Pressure.txt");
-            std::ofstream out2("BuildH1Pressure.vtk");
-            TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
-            
-            pressure->Print(out);
+            std::ofstream outTXT("PostProcPressureMesh.txt");
+            std::ofstream outVTK("PostProcPressureMesh.vtk");
+            pressure->Print(outTXT);
+            TPZVTKGeoMesh::PrintCMeshVTK(pressure, outVTK);
         }
 #endif
-        
+
         return pressure;
-
     }
-    
-
-    
 }
 
-
-
-/// create the post processed multiphysics mesh (which is necessarily hybridized)
+/// create the post processed multiphysics mesh (which is necessarily
+/// hybridized)
 void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     if(!fOriginalIsHybridized && !fPostProcesswithHDiv)
     {
@@ -2073,10 +2101,7 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         TPZInterpolatedElement *subintel = dynamic_cast<TPZInterpolatedElement *>(subcel);
         
         int nsides = gel->NSides();
-       // std::cout<<"el "<<el << " nsides "<<nsides<<std::endl;
         if (!subintel) continue;//DebugStop();
-//        int nsides = gel->NSides();
-//        std::cout<<"el "<<el << " nsides "<<nsides<<std::endl;
         for (int side = 0; side < nsides - 1; side++) {
             if (subintel->NSideConnects(side) == 0) continue;
             int connectindex = subintel->MidSideConnectLocId(side);
