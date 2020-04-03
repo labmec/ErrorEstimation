@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 
     int dim = config.dimension;
 
-    for (int ndiv = 3; ndiv < 4; ndiv++) {
+    for (int ndiv = 0; ndiv < 1; ndiv++) {
 
         config.ndivisions = ndiv;
 
@@ -134,8 +134,7 @@ int main(int argc, char *argv[]) {
             //int nelT = 2 * ndiv;
             int nel = pow(2, ndiv);
 
-            gmesh = CreateGeoMesh(
-                nel, bcids); // CreateTrapezoidalMesh(nelT,
+            gmesh = CreateGeoMesh(2, bcids); // CreateTrapezoidalMesh(nelT,
                              // nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
            // config.bcmaterialids.insert(-1); // dirichlet
