@@ -24,6 +24,7 @@
 #include "TPZVecL2.h"
 #include "TPZNullMaterial.h"
 #include "pzelementgroup.h"
+#include "TPZInterfaceEl.h"
 
 #include "TPZParFrontStructMatrix.h"
 #include "pzstepsolver.h"
@@ -2085,50 +2086,117 @@ void TPZHybridHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) 
 
 void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
 
-    // we increase the connects of the borders of the pressure elements so that
-    // the condensed compel does not condense these equations then if we compute
-    // the stiffness matrix and load the solution the internal solution is updated
-    fPostProcMesh.ComputeNodElCon();
-
     // This vector stores the connects from elements which have a neighbour of
     // an internal boundary material. We don't want to condense these connects,
     // so we are later incrementing the number of elements connected to them.
+    // Then we compute the stiffness matrix and load the solution the internal
+    // solution is updated.
     TPZManVector<int64_t> connectsToIncrement(fPostProcMesh.NConnects(), -1);
+    fPostProcMesh.ComputeNodElCon();
 
-    // TODO:
-    //  - iterate pressure mesh elements,
-    //  - filter interface elements,
-    //  - get their vol. neighbours compsides and put 1 in connectsToIncrement
-    //      on the indexes of the connects of these sides
+    TPZCompMesh *pressureMesh = fPostProcMesh.MeshVector()[1];
+    pressureMesh->LoadReferences();
 
+    for (int64_t el = 0; el < pressureMesh->NElements(); el++) {
+        TPZCompEl *cel = pressureMesh->Element(el);
+        if (!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) continue;
+
+        if (gel->MaterialId() != fPressureSkeletonMatId) continue;
+
+        TPZGeoElSide skelSide(gel, gel->NSides() - 1);
+        TPZStack<TPZCompElSide> compNeighSides;
+        skelSide.EqualLevelCompElementList(compNeighSides, 1, 0);
+        // AskPhil: it should always be 2, so this condition holds, right?
+        if (compNeighSides.size() != 2) DebugStop();
+
+        for (int i = 0; i < compNeighSides.size(); i++) {
+            TPZCompEl *neighCel = compNeighSides[i].Element();
+            TPZInterpolatedElement *neighIntEl =
+                dynamic_cast<TPZInterpolatedElement *>(neighCel);
+            if (!neighIntEl) DebugStop();
+
+            int sideNum = compNeighSides[i].Side();
+            int nCon = neighIntEl->NSideConnects(sideNum);
+
+            for (int iCon = 0; iCon < nCon; iCon++) {
+                TPZConnect &con = neighIntEl->SideConnect(iCon, sideNum);
+                int64_t seqNum = con.SequenceNumber();
+                connectsToIncrement[seqNum] = 1;
+            }
+        }
+    }
+
+    fPostProcMesh.LoadReferences();
     int64_t nel = fPostProcMesh.NElements();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if (!gel) DebugStop();
+
         if (gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZMultiphysicsElement *mcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
+        TPZMultiphysicsElement *mcel =
+            dynamic_cast<TPZMultiphysicsElement *>(cel);
         if (!mcel) DebugStop();
 
-        // TODO pegar lados d-1 do mcel e fazer EqualLevelCompElList3
-        //  Filtrar mat id do contorno BC
-        //  TPZElementGroup cbaseado no elemento multifisico, adicionando os compel de contorno
-        //  fpostprocmesh.Element(el) == 0 agora
+        std::set<int64_t> elementsToGroup;
+        for (int iSide = 0; iSide < gel->NSides(); iSide++) {
+            // AskPhil: is side creation expensive? Should we iterate from
+            //  iSide = gel->NCornerNodes to gel->NSides-1 instead?
+            TPZGeoElSide side(gel, iSide);
+            if (side.Dimension() != gel->Dimension() - 1) continue;
 
+            TPZStack<TPZCompElSide> compNeighSides;
+            side.EqualLevelCompElementList3(compNeighSides, 1, 0);
+
+            for (int i = 0; i < compNeighSides.size(); i++) {
+                TPZCompElSide compSide = compNeighSides[i];
+                TPZCompEl *neighCel = compSide.Element();
+                TPZMaterial *mat = neighCel->Material();
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+                if (bc) {
+                    elementsToGroup.insert(mcel->Index());
+                    elementsToGroup.insert(neighCel->Index());
+                }
+            }
+        }
+
+        if (elementsToGroup.size()) {
+            int64_t index;
+            TPZElementGroup *elGroup =
+                new TPZElementGroup(fPostProcMesh, index);
+            for (const auto &it : elementsToGroup) {
+                elGroup->AddElement(fPostProcMesh.Element(it));
+            }
+        }
     }
 
     fPostProcMesh.ComputeNodElCon();
 
-    // TODO: iterate through connects of the mesh (which mesh?) and increment
-    //  the connects marked as 1 in the vector 'connectsToIncrement'
+    // Increments NElConnected of connects that should not be condensed
+    for (int64_t i = 0; i < fPostProcMesh.NConnects(); i++) {
+        if (connectsToIncrement[i] == 1) {
+            fPostProcMesh.ConnectVec()[i].IncrementElConnected();
+        }
+    }
 
-    for (int64_t el = 0; el < nel; el++) {
+#ifdef PZDEBUG
+    {
+        std::ofstream txt("MixedMeshAfterIncrementingConnects.txt");
+        fPostProcMesh.Print(txt);
+        std::ofstream txtPressureMesh("PressureMeshAfterIncrementingConnects.txt");
+        fPostProcMesh.MeshVector()[1]->Print(txtPressureMesh);
+    }
+#endif
+
+    for (int64_t el = 0; el < fPostProcMesh.NElements(); el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if (!gel) {
-            TPZElementGroup* group = dynamic_cast<TPZElementGroup*>(cel);
+            TPZElementGroup *group = dynamic_cast<TPZElementGroup *>(cel);
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
@@ -2137,7 +2205,8 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
 
     for (auto matit : fPostProcMesh.MaterialVec()) {
         TPZMaterial *mat = matit.second;
-        TPZHDivErrorEstimateMaterial *errormat = dynamic_cast<TPZHDivErrorEstimateMaterial *>(mat);
+        TPZHDivErrorEstimateMaterial *errormat =
+            dynamic_cast<TPZHDivErrorEstimateMaterial *>(mat);
         if (errormat) {
             errormat->fNeumannLocalProblem = false;
         }
@@ -2145,7 +2214,10 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
 
     fPostProcMesh.CleanUpUnconnectedNodes();
 
-    // TODO: print multiphysics mesh
+#ifdef PZDEBUG
+    std::ofstream outTXT("PostProcessMeshAfterPreparingElements.txt");
+    fPostProcMesh.Print(outTXT);
+#endif
 }
 
 void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
