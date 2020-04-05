@@ -2089,8 +2089,8 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
     // This vector stores the connects from elements which have a neighbour of
     // an internal boundary material. We don't want to condense these connects,
     // so we are later incrementing the number of elements connected to them.
-    // Then we compute the stiffness matrix and load the solution the internal
-    // solution is updated.
+    // Then we compute the stiffness matrix and load the solution of the
+    // internal degrees of freedom.
     TPZManVector<int64_t> connectsToIncrement(fPostProcMesh.NConnects(), -1);
     fPostProcMesh.ComputeNodElCon();
 
