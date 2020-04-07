@@ -61,7 +61,7 @@ struct TPZHybridHDivErrorEstimator
     TPZAnalyticSolution *fExact;
     
     ProblemConfig fProblemConfig;
-    
+
     TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, bool InputisHybridized = true) : fOriginal(&InputMesh),
     fOriginalIsHybridized(InputisHybridized), fPostProcMesh(0),fExact(NULL)
     {
@@ -98,7 +98,10 @@ struct TPZHybridHDivErrorEstimator
     {
         fExact = &exact;
     }
-    
+
+    void SetHybridizer(TPZHybridizeHDiv &hybridizer) {
+        fHybridizer = hybridizer;
+    }
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
     virtual void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);

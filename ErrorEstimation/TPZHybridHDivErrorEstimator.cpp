@@ -381,6 +381,13 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
     fOriginal->CopyMaterials(fPostProcMesh);
+
+    {
+        fPostProcMesh.DeleteMaterial(fHybridizer.fHDivWrapMatid);
+        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid);
+        fPostProcMesh.DeleteMaterial(fHybridizer.fLagrangeInterface);
+    }
+
     // switch the material from mixed to TPZMixedHdivErrorEstimate...
     SwitchMaterialObjects();
     
@@ -1378,7 +1385,10 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         if (!intel1) DebugStop();
         int64_t index = intel1->Index();
         REAL weight = fPressureweights[index];
-        if(IsZero(weight)) DebugStop();
+        if(IsZero(weight)) {
+            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(intel1->Material());
+            if (!bc) DebugStop();
+        }
 //        std::cout << "Side " << celside.Side() << std::endl;
 //        intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
@@ -2108,7 +2118,9 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         TPZGeoElSide skelSide(gel, gel->NSides() - 1);
         TPZStack<TPZCompElSide> compNeighSides;
         skelSide.EqualLevelCompElementList(compNeighSides, 1, 0);
-        // AskPhil: it should always be 2, so this condition holds, right?
+        // TODO: If the mesh is refined it should break here, then we will need to call
+        //  LowerLevelCompElementList. I can't test it right now, so I'm leaving
+        //  like this. Gustavo 6/4/20
         if (compNeighSides.size() != 2) DebugStop();
 
         for (int i = 0; i < compNeighSides.size(); i++) {
@@ -2173,9 +2185,8 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         }
     }
 
-    fPostProcMesh.ComputeNodElCon();
-
     // Increments NElConnected of connects that should not be condensed
+    fPostProcMesh.ComputeNodElCon();
     for (int64_t i = 0; i < fPostProcMesh.NConnects(); i++) {
         if (connectsToIncrement[i] == 1) {
             fPostProcMesh.ConnectVec()[i].IncrementElConnected();
@@ -2184,10 +2195,10 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
 
 #ifdef PZDEBUG
     {
-        std::ofstream txt("MixedMeshAfterIncrementingConnects.txt");
-        fPostProcMesh.Print(txt);
+        std::ofstream txtPostProcMesh("PostProcMeshAfterIncrementingConnects.txt");
+        fPostProcMesh.Print(txtPostProcMesh);
         std::ofstream txtPressureMesh("PressureMeshAfterIncrementingConnects.txt");
-        fPostProcMesh.MeshVector()[1]->Print(txtPressureMesh);
+        pressureMesh->Print(txtPressureMesh);
     }
 #endif
 

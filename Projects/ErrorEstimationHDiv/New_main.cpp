@@ -254,6 +254,7 @@ int main(int argc, char *argv[]) {
             else {
 
                 TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+                HDivEstimate.SetHybridizer(hybrid);
                 HDivEstimate.fProblemConfig = config;
                 HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
                 HDivEstimate.SetAnalyticSolution(config.exact);
