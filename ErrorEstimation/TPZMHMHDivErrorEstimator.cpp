@@ -402,11 +402,11 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh()
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
 {
     TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
-//    {
-//        std::ofstream out1("OriginalPressureMesh.txt");
-//        OrigPressure->Print(out1);
-//    }
- //   std::cout<< "n connects pressure original " << OrigPressure->NConnects()<<"\n";
+    {
+        std::ofstream out1("OriginalPressureMesh.txt");
+        OrigPressure->Print(out1);
+    }
+    std::cout<< "n connects pressure original " << OrigPressure->NConnects()<<"\n";
     TPZGeoMesh *gmesh = OrigPressure->Reference();
     gmesh->ResetReference();
     int dim = gmesh->Dimension();

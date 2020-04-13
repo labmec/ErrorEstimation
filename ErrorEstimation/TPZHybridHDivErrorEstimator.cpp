@@ -1385,10 +1385,12 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         if (!intel1) DebugStop();
         int64_t index = intel1->Index();
         REAL weight = fPressureweights[index];
+
         if(IsZero(weight)) {
             TPZBndCond *bc = dynamic_cast<TPZBndCond *>(intel1->Material());
             if (!bc) DebugStop();
         }
+
 //        std::cout << "Side " << celside.Side() << std::endl;
 //        intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());

@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
             // TPZManVector<int,4> bcids(4,-1);
             TPZManVector<int, 4> bcids(4, -3);
            // bcids[3] = -1;
-           // bcids[1] = -1;
+            bcids[1] = -1;
            // bcids[0] = -3;
             //int nelT = 2 * ndiv;
             int nel = pow(2, ndiv);
