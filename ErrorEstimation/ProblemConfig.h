@@ -33,7 +33,10 @@ struct ProblemConfig
     bool GalvisExample = false;
     bool TensorNonConst = false;
     bool MeshNonConvex = false;
+    
     STATE alpha=1;
+    STATE Km = 0.;
+    STATE coefG = 0.;
     /// directory where the files will be stored
     std::string dir_name = ".";
     /// name identifying the problem

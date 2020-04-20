@@ -180,7 +180,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
  /*
   Add Robin boundary condition for local problem
   ek+= <w,Km s_i>
-  ef+= <w,Lm u_d +g+sigma_i.n>
+  ef+= <w,Km*u_d + g + sigma_i.n>
   */
     int H1functionposition = 0;
     H1functionposition = IsH1Position(datavec);
@@ -189,50 +189,46 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
     
     TPZFMatrix<REAL>  &phi_i = datavec[H1functionposition].phi;
     int nphi_i = phi_i.Rows();
+    TPZFMatrix<STATE> solsigmafem(3,1);
+    solsigmafem.Zero();
+    
+   
+    TPZManVector<REAL,3> normal = datavec[2].normal;
+    std::cout<<normal[0]<<", "<<normal[1]<<","<<normal[2]<<std::endl;
+
+    REAL normalsigma = 0.;
+    
+    for (int ip = 0; ip<3; ip++){
+
+        solsigmafem(ip,0) = datavec[2].sol[0][ip];
+        normalsigma += datavec[2].sol[0][ip]*normal[ip];
+    }
+    
 
     REAL g = bc.Val2()(0,0);//g
     REAL Km = bc.Val1()(0,0);//Km
     REAL u_D =0.;
-    REAL normalflux = 0;
     REAL robinterm = 0.;
     if(bc.HasForcingFunction())
     {
         TPZManVector<STATE> res(3);
         TPZFNMatrix<9,STATE> gradu(dim,1);
         bc.ForcingFunction()->Execute(datavec[H1functionposition].x,res,gradu);
-        if(bc.Type() == 0)
-        {
+        
+        if(bc.Type() == 0 ||bc.Type() == 4){
             u_D = res[0];
         }
-        else if(bc.Type() == 1 || bc.Type() == 2)
-        {
-            TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
-            GetPermeabilities(datavec[H1functionposition].x, PermTensor, InvPermTensor);
-            //REAL normflux = 0.;
-            for(int i=0; i<3; i++)
-            {
-                for(int j=0; j<dim; j++)
-                {
-                    normalflux += datavec[H1functionposition].normal[i]*PermTensor(i,j)*gradu(j,0);
-                }
-            }
-            if(bc.Type() ==2)
-            {
-                robinterm = Km*u_D + g + normalflux;
-            }
-        }
-        else
-        {
-            DebugStop();
-        }
+
     }
     else{
-        u_D = bc.Val2()(0,0);
+        u_D = bc.Val2()(0,0);//duvida aqui ainda
     }
 
     
     
-    if (bc.Type()==2) {
+    if (bc.Type()==4) {
+        
+        robinterm = Km*u_D +g + normalsigma ;
             
             for(int iq = 0; iq < nphi_i; iq++) {
                 //<w,Km*u_D+g+sigma_i*n>
@@ -247,6 +243,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
     
     else{
         DebugStop();
+        std::cout<<" Not implemented yet"<<std::endl;
     }
     
     
@@ -258,6 +255,7 @@ void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData >
         //fem solution for flux and potential
         datavec[2].SetAllRequirements(false);
         datavec[2].fNeedsSol = true;
+        datavec[2].fNeedsNormal = true;
         
         datavec[3].SetAllRequirements(false);
         datavec[3].fNeedsSol = true;

@@ -1046,6 +1046,10 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         
+        int dim = gel->Dimension();
+        
+       
+        
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
         
@@ -1054,7 +1058,7 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
 
         // TODO I modified this conditional for now, to handle the cases where
         //  the bc is not Dirichlet type. @Gustavo
-        if (!bc || bc->Type() != 0) continue ;
+        if (!bc /*|| bc->Type() != 0*/) continue ;
         
    
         
@@ -1362,9 +1366,9 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
     TPZStack<TPZCompElSide> celstack;
     int onlyinterpolated = 1;
     int removeduplicates = 0;
-//    std::cout << "Starting element side " << side << std::endl;
-//    std::cout << "Starting element \n";
-//    celside.Element()->Print();
+    std::cout << "Starting element side " << side << std::endl;
+    std::cout << "Starting element \n";
+    celside.Element()->Print();
     
     gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
     celstack.Push(gelside.Reference());
@@ -1391,11 +1395,11 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
             if (!bc) DebugStop();
         }
 
-//        std::cout << "Side " << celside.Side() << std::endl;
-//        intel1->Print();
+        std::cout << "Side " << celside.Side() << std::endl;
+        intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
 
-        if (connects.find(conindex) != connects.end()) DebugStop();//nao pode inserir cnnects que já existem
+      //  if (connects.find(conindex) != connects.end()) DebugStop();//nao pode inserir cnnects que já existem
         TPZConnect &c = intel1->Connect(celside.Side());
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
