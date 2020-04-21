@@ -1069,7 +1069,7 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
        // efbc.Print(std::cout);
  
         ekbc.fMat.SolveDirect(efbc.fMat, ECholesky);
-      //  efbc.Print(std::cout<<"Solution ");
+        efbc.Print(std::cout<<"Solution ");
         
         int count = 0;
         int nc = cel->NConnects();
@@ -1399,7 +1399,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
 
-      //  if (connects.find(conindex) != connects.end()) DebugStop();//nao pode inserir cnnects que já existem
+        if (connects.find(conindex) != connects.end()) DebugStop();//nao pode inserir cnnects que já existem
         TPZConnect &c = intel1->Connect(celside.Side());
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();

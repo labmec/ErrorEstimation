@@ -126,9 +126,9 @@ int main(int argc, char *argv[]) {
         }
 
         else {
-            // TPZManVector<int,4> bcids(4,-1);
-            TPZManVector<int, 4> bcids(4, -3);;
-            bcids[1] = -1;
+             TPZManVector<int,4> bcids(4,-1);
+            //TPZManVector<int, 4> bcids(4, -3);;
+           // bcids[1] = -1;
             config.coefG = 0.;
             config.Km = 1.e12;
 
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
             config.materialids.insert(1);
             config.bcmaterialids.insert(-1); // dirichlet
            // config.bcmaterialids.insert(-2); // neumann
-            config.bcmaterialids.insert(-3); // Robin
+            //config.bcmaterialids.insert(-3); // Robin
             config.gmesh = new TPZGeoMesh;
             *config.gmesh = *gmesh;
             gmesh->SetDimension(dim);
