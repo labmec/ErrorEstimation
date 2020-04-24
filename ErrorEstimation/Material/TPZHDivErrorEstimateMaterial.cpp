@@ -198,7 +198,9 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
 
     REAL normalsigma = 0.;
     
-    for (int ip = 0; ip<3; ip++){
+    int nsol = datavec[2].sol[0].size();
+    
+    for (int ip = 0; ip<nsol/*3*/; ip++){
 
         solsigmafem(ip,0) = datavec[2].sol[0][ip];
         normalsigma += datavec[2].sol[0][ip]*normal[ip];
@@ -207,7 +209,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
 
     REAL g = bc.Val2()(0,0);//g
     REAL Km = bc.Val1()(0,0);//Km
-    REAL u_D =0.;
+    REAL u_D = 0.;
     REAL robinterm = 0.;
     if(bc.HasForcingFunction())
     {
@@ -221,10 +223,9 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
 
     }
     else{
-        u_D = bc.Val2()(0,0);//duvida aqui ainda
+        u_D = bc.Val2()(1,0);//duvida aqui ainda
     }
 
-    
     
     if (bc.Type()==4) {
         
@@ -241,10 +242,11 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
         
     }
     
-    else{
-        DebugStop();
-        std::cout<<" Not implemented yet"<<std::endl;
-    }
+//    else{
+//        std::cout<<" Not implemented yet"<<std::endl;
+//        continue;//DebugStop();
+//        
+//    }
     
     
 }

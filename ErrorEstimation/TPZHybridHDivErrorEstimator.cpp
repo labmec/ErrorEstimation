@@ -128,7 +128,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 
     ComputeEffectivityIndices();
     
-    GlobalEffectivityIndex();
+//    GlobalEffectivityIndex();
     
     PostProcessing(an);
 }
@@ -366,7 +366,7 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         DebugStop();
     }
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream out("OriginalFlux.txt");
         fOriginal->MeshVector()[0]->Print(out);
@@ -1393,7 +1393,13 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         if(IsZero(weight)) {
             TPZBndCond *bc = dynamic_cast<TPZBndCond *>(intel1->Material());
             if (!bc) DebugStop();
+            
+            int bcType = bc->Type();
+            if(bcType != 0) continue;//ver com Phil como calcular a media para outros BC
+            
         }
+        
+        
 
         std::cout << "Side " << celside.Side() << std::endl;
         intel1->Print();
@@ -1723,8 +1729,10 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     // transfer the continuous pressures to the multiphysics space
     {
         TPZManVector<TPZCompMesh *, 2> meshvec(2);
-        meshvec[0] = fPostProcMesh.MeshVector()[0];
-        meshvec[1] = fPostProcMesh.MeshVector()[1];
+        meshvec[0] = fPostProcMesh.MeshVector()[0];//flux
+        meshvec[1] = fPostProcMesh.MeshVector()[1];//pressure
+        
+        
 
 //        {
 //            std::ofstream out("MultiphysicsBeforeTransfer.txt");
@@ -1754,8 +1762,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         fPostProcMesh.Print(out);
         std::ofstream out2("PressureMeshSmooth.txt");
         fPostProcMesh.MeshVector()[1]->Print(out2);
-      //  std::ofstream out3("FluxMeshSmooth.txt");
-       // fPostProcMesh.MeshVector()[0]->Print(out3);
+//        std::ofstream out3("FluxMeshSmooth.txt");
+//        fPostProcMesh.MeshVector()[0]->Print(out3);
     }
 #endif
     
