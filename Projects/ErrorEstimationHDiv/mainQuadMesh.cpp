@@ -203,10 +203,13 @@ void ConfigureGeoMesh(const int nDivisions, const BCType &bcType,
     switch (bcType) {
     case BCType::Dirichlet:
         bcId = -1;
+        break;
     case BCType::Neumann:
         bcId = -2;
+        break;
     case BCType::Robin:
         bcId = -3;
+        break;
     default:
         DebugStop();
     }
