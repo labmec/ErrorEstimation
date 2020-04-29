@@ -1024,6 +1024,73 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
 //compute de L2 projection of Dirichlet boundary condition for Hdi-H1 reconstruction
 void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh, int target_dim){
     
+    {
+        std::ofstream out("PressureBeforeL2Projection.txt");
+        pressuremesh->Print(out);
+    }
+    if(target_dim==2){
+           std::cout<<"Not implemented for 2D interface"<<std::endl;
+           DebugStop();
+       }
+       
+       TPZGeoMesh *gmesh = pressuremesh->Reference();
+       gmesh->ResetReference();
+       int64_t nel = pressuremesh->NElements();
+
+       TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
+
+       TPZElementMatrix ekbc,efbc;
+       for(int iel=0; iel < nel; iel++) {
+           TPZCompEl *cel = elementvec[iel];
+           if(!cel) continue;
+           TPZGeoEl *gel = cel->Reference();
+           
+           int matid = gel->MaterialId();
+           TPZMaterial *mat = pressuremesh->FindMaterial(matid);
+           
+
+           TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+           if (!bc || (bc->Type()!=0)) continue ;
+           
+           
+           
+      
+           
+        //   std::cout<<"CalcStiff for bc el "<<std::endl;
+           
+           cel->CalcStiff(ekbc,efbc);
+           ekbc.Print(std::cout);
+           efbc.Print(std::cout);
+    
+           ekbc.fMat.SolveDirect(efbc.fMat, ELU/*ECholesky*/);
+           efbc.Print(std::cout<<"Solution ");
+           
+           int count = 0;
+           int nc = cel->NConnects();
+           for (int ic = 0; ic < nc; ic++) {
+               TPZConnect &c = cel->Connect(ic);
+               int64_t seqnum = c.SequenceNumber();
+               int64_t pos = pressuremesh->Block().Position(seqnum);
+               int ndof = c.NShape() * c.NState();
+               for (int idf = 0; idf < ndof; idf++) {
+                   pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+               }
+           }
+           
+
+
+       }
+       
+    
+    {
+        std::ofstream out("PressureAfterL2Projection.txt");
+        pressuremesh->Print(out);
+    }
+
+}
+
+void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh, int target_dim){
+    
 //    {
 //        std::ofstream out("PressureBeforeL2Projection.txt");
 //        pressuremesh->Print(out);
@@ -1040,16 +1107,13 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
 
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
 
-    TPZElementMatrix ekbc,efbc;
+   // TPZElementMatrix ekbc,efbc;
     for(int iel=0; iel < nel; iel++) {
         TPZCompEl *cel = elementvec[iel];
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
-        
         int dim = gel->Dimension();
-        
-       
-        
+
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
         
@@ -1059,38 +1123,80 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
         // TODO I modified this conditional for now, to handle the cases where
         //  the bc is not Dirichlet type. @Gustavo
         if (!bc /*|| bc->Type() != 0*/) continue ;
-        
-   
-        
-     //   std::cout<<"CalcStiff for bc el "<<std::endl;
-        
-        cel->CalcStiff(ekbc,efbc);
-        //ekbc.Print(std::cout);
-       // efbc.Print(std::cout);
- 
-        ekbc.fMat.SolveDirect(efbc.fMat, ECholesky);
+        //---
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        int nc = cel->NConnects();
+        int order = cel->Connect(nc - 1).Order();
+        TPZGeoElSide gelside(gel, gel->NSides()-1);
+        TPZAutoPointer<TPZIntPoints> intp = gel->CreateSideIntegrationRule(gel->NSides()-1,2*order);
+        int nshape = intel->NShapeF();
+        TPZFNMatrix<20, REAL> ekbc(nshape, nshape, 0.), efbc(nshape, 1, 0.);
+        TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dshape(dim, nshape);
+        int64_t npoints = intp->NPoints();
+        for (int64_t ip = 0; ip < npoints; ip++) {
+            TPZManVector<REAL, 3> pt(3, 0.);
+            REAL weight;
+            intp->Point(ip, pt, weight);
+            intel->Shape(pt, phi, dshape);
+            REAL u_D = 0.;
+            if(bc->HasForcingFunction()){
+                TPZManVector<STATE> res(3);
+                TPZFNMatrix<9,STATE> gradu(dim,1);
+                bc->ForcingFunction()->Execute(pt,res,gradu);
+                u_D = res[0];
+            }
+            
+            int bcType = bc->Type();
+            switch (bcType) {
+                case 0:
+                    for (int ishape = 0; ishape < nshape; ishape++) {
+                        efbc(ishape, 0) += weight * phi(ishape, 0) * u_D;
+                        for (int jshape = 0; jshape < nshape; jshape++) {
+                        ekbc(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
+                        }
+                    }
+                    break;
+                    
+                case 4:
+                    REAL InvKm = 1./bc->Val1()(0,0);
+                    REAL g = bc->Val2()(0,0);
+                    //u_D = bc->Val2()(1,0);
+                    for (int ishape = 0; ishape < nshape; ishape++) {
+                        efbc(ishape, 0) += weight * (InvKm*(phi(ishape, 0) + g) +  u_D);
+                        for (int jshape = 0; jshape < nshape; jshape++) {
+                            ekbc(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
+                        }
+                    }
+                    
+                    break;
+            }
+            
+        }
+            
+                
+                 ekbc.Print(std::cout);
+                 efbc.Print(std::cout);
+                
+        ekbc.SolveDirect(efbc, ELU);
         efbc.Print(std::cout<<"Solution ");
         
         int count = 0;
-        int nc = cel->NConnects();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = pressuremesh->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+                pressuremesh->Solution()(pos + idf, 0) = efbc(count++);
             }
         }
         
-
-
     }
     
-//    {
-//        std::ofstream out("PressureAfterL2Projection.txt");
-//        pressuremesh->Print(out);
-//    }
+    {
+        std::ofstream out("PressureAfterL2Projection_2.txt");
+        pressuremesh->Print(out);
+    }
 
 }
 
@@ -1377,7 +1483,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
     // higher and will be used later to impose the value of the BC in the
     // connects when needed
     std::map<int64_t, std::pair<REAL, TPZVec<STATE>>> connects;
-    //para cada elemento que tem este no procede como segue
+    //para cada elemento que tem este noh procede como segue
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         TPZGeoElSide gelside0 = celside.Reference();
@@ -1393,9 +1499,9 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         if(IsZero(weight)) {
             TPZBndCond *bc = dynamic_cast<TPZBndCond *>(intel1->Material());
             if (!bc) DebugStop();
-            
-            int bcType = bc->Type();
-            if(bcType != 0) continue;//ver com Phil como calcular a media para outros BC
+            else{
+                continue;//duvida
+            }
             
         }
         
@@ -1405,7 +1511,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
 
-        if (connects.find(conindex) != connects.end()) DebugStop();//nao pode inserir cnnects que já existem
+        if (connects.find(conindex) != connects.end()) continue;//DebugStop();//nao pode inserir cnnects que já existem
         TPZConnect &c = intel1->Connect(celside.Side());
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
@@ -1682,7 +1788,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     if(!fPostProcesswithHDiv){
         TPZCompMesh *pressuremesh = PressureMesh();
         int target_dim = 1;//ver se fica igual para dimensao maior
-        ComputeBoundaryL2Projection(pressuremesh, target_dim );
+        //ComputeBoundaryL2Projection(pressuremesh, target_dim );
+        NewComputeBoundaryL2Projection(pressuremesh, target_dim);
     }
     
 //    {
@@ -2326,30 +2433,43 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights() {
             // fPressureweights[el] = 1.e12;
             continue;
         }
-        if (!mat) continue; // DebugStop();
+        if (!mat)  DebugStop();
+
+        
+      // if (gel->Dimension() != dim /*&& !bcmat*/) continue;
        TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
-       if (gel->Dimension() != dim && !bcmat) continue;
 
        if (bcmat) {
            if (bcmat->Type() == 0) {
                this->fPressureweights[el] = 1.e12;
                fMatid_weights[matid] = 1.e12;
                continue;
-           } else {
+           }
+           else if (bcmat->Type() == 4){
+               this->fPressureweights[el] = bcmat->Val1()(0,0);//valor de Km
+               fMatid_weights[matid] = bcmat->Val2()(0,0);
+               
+           }
+           
+           else {
                this->fPressureweights[el] = 0.;
                fMatid_weights[matid] = 0.;
                continue;
            }
        }
+        
+       else{
 
-       TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *>(mat);
-       if (!mixpoisson) DebugStop();
+        
+           TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *>(mat);
+            if (!mixpoisson) DebugStop();
 
-       REAL perm;
-       mixpoisson->GetMaxPermeability(perm);
-       if (IsZero(perm)) DebugStop();
-       this->fPressureweights[el] = perm;
-       fMatid_weights[matid] = perm;
+           REAL perm;
+           mixpoisson->GetMaxPermeability(perm);
+           if (IsZero(perm)) DebugStop();
+           this->fPressureweights[el] = perm;
+           fMatid_weights[matid] = perm;
+    }
     }
 }
 

@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
         }
 
         else {
-             //TPZManVector<int,4> bcids(4,-1);
+            //TPZManVector<int,4> bcids(4,-1);
             TPZManVector<int, 4> bcids(4, -3);;
             bcids[1] = -1;
             config.coefG = 0.;

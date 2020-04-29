@@ -198,15 +198,17 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
 
     REAL normalsigma = 0.;
     
-    int nsol = datavec[2].sol[0].size();
+    int nsol = datavec[2].sol[0].size();//ver pq nao é vetorial
     
-    for (int ip = 0; ip<nsol/*3*/; ip++){
+    for (int ip = 0; ip< nsol; ip++){
 
         solsigmafem(ip,0) = datavec[2].sol[0][ip];
         normalsigma += datavec[2].sol[0][ip]*normal[ip];
     }
     
-
+  
+    
+//tem que resover o UpdateBcValues para receber o g correto
     REAL g = bc.Val2()(0,0);//g
     REAL Km = bc.Val1()(0,0);//Km
     REAL u_D = 0.;
@@ -216,10 +218,8 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
         TPZManVector<STATE> res(3);
         TPZFNMatrix<9,STATE> gradu(dim,1);
         bc.ForcingFunction()->Execute(datavec[H1functionposition].x,res,gradu);
-        
-        if(bc.Type() == 0 ||bc.Type() == 4){
-            u_D = res[0];
-        }
+        u_D = res[0];
+    
 
     }
     else{
@@ -228,7 +228,6 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
 
     
     if (bc.Type()==4) {
-        
         robinterm = Km*u_D +g + normalsigma ;
             
             for(int iq = 0; iq < nphi_i; iq++) {
@@ -242,11 +241,10 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
         
     }
     
-//    else{
-//        std::cout<<" Not implemented yet"<<std::endl;
-//        continue;//DebugStop();
-//        
-//    }
+    else{
+        std::cout<<" Not implemented yet"<<std::endl;
+        
+    }
     
     
 }
@@ -263,6 +261,20 @@ void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData >
         datavec[3].fNeedsSol = true;
   
 
+}
+
+void TPZHDivErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec){
+
+    datavec[2].SetAllRequirements(false);
+    datavec[2].fNeedsSol = true;
+    datavec[2].fNeedsNormal = true;
+        
+    
+}
+
+void TPZHDivErrorEstimateMaterial::UpdateBCValues(TPZVec<TPZMaterialData> & datavec){
+    DebugStop();
+    
 }
 
 void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
