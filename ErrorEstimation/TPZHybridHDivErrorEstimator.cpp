@@ -1440,8 +1440,8 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages() {
         }
         TPZGeoEl *gel = intel->Reference();
         
-        if (gel->Dimension() != dim - 1 /*|| gel->MaterialId() != fInterfaceMatid*/) {
-        //    std::cout<<"MatId "<< gel->MaterialId()<<std::endl;
+        if (gel->Dimension() != dim - 1 || gel->MaterialId() != fInterfaceMatid) {
+            std::cout<<"MatId of element not important for nodal average computation "<< gel->MaterialId()<<std::endl;
             continue;
         }
         // AskPhil we need to filter bc sides that are not dirichlet
@@ -1500,6 +1500,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
             TPZBndCond *bc = dynamic_cast<TPZBndCond *>(intel1->Material());
             if (!bc) DebugStop();
             else{
+                
                 continue;//duvida
             }
             
@@ -1511,7 +1512,11 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
 
-        if (connects.find(conindex) != connects.end()) continue;//DebugStop();//nao pode inserir cnnects que já existem
+        if (connects.find(conindex) != connects.end())
+        {
+            std::cout << "O CODIGO NAO DEVERIA PASSAR POR AQUI\n";
+            continue;//DebugStop();//nao pode inserir cnnects que já existem
+        }
         TPZConnect &c = intel1->Connect(celside.Side());
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
@@ -1811,11 +1816,11 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         }
     }
     
-//    {
-//        std::ofstream out("PressureAverageMesh.txt");
-//        fPostProcMesh.MeshVector()[1]->Print(out);
-//        PlotLagrangeMultiplier("BeforeNodalAverage");
-//    }
+    {
+        std::ofstream out("PressureAverageMesh.txt");
+        fPostProcMesh.MeshVector()[1]->Print(out);
+        PlotLagrangeMultiplier("BeforeNodalAverage");
+    }
     
     ComputeNodalAverages();
     
