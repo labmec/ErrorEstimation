@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         int orderlagrange = 2;
 
         config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+        config.exact.operator*().fExact = TLaplaceExample1::EConst;
 
         config.problemname = "ESinSin k=1 e lagrange order 2";
 

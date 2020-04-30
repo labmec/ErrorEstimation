@@ -1069,6 +1069,7 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
        // efbc.Print(std::cout);
  
         ekbc.fMat.SolveDirect(efbc.fMat, ECholesky);
+        //ekbc.fMat.SolveDirect(efbc.fMat, ELU);
         efbc.Print(std::cout<<"Solution ");
         
         int count = 0;

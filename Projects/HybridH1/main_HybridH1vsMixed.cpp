@@ -55,7 +55,7 @@ struct ErrorData
     std::ofstream ErroH1,ErroHybridH1,ErroMixed;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate;
     int maxdiv = 2;
-    int orderlagrange = 2;
+    int orderlagrange = 1;
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
 
@@ -68,14 +68,15 @@ void BuildANDinsertBCflux(TPZCompMesh *cmesh_flux, ProblemConfig &config);
 void BuildANDinsertBCpotential(TPZCompMesh *cmesh_p, ProblemConfig &config);
 void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config);
 
-void CreateH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,ErrorData &eData, ProblemConfig &config);
+int CreateH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,ErrorData &eData, ProblemConfig &config);
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorData &eData, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData);
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config,struct ErrorData &eData);
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config, struct ErrorData &eData);
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct ErrorData &eData);
 
 void Configure(ProblemConfig &config, int ndiv);
 void InitializeOutstream(ErrorData &eData);
+void FlushTable(ErrorData &eData);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -84,11 +85,6 @@ int main(int argc, char *argv[]) {
 
     ErrorData eData;
     InitializeOutstream(eData);
-
-    eData.LogH1 = new TPZVec<REAL>(eData.numErrors, -1);
-    eData.LogHybridH1 = new TPZVec<REAL>(eData.numErrors, -1);
-    eData.LogMixed = new TPZVec<REAL>(eData.numErrors, -1);
-    eData.rate = new TPZVec<REAL>(eData.numErrors, -1);
 
     for (int ndiv = 1; ndiv < eData.maxdiv+2; ndiv++) {
         if (ndiv == eData.maxdiv+1) eData.last = true;
@@ -112,8 +108,8 @@ int main(int argc, char *argv[]) {
 
         //HybridH1
         TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(config.gmesh);
-        CreateH1ComputationalMesh(cmesh_H1Hybrid, eData, config);
-        SolveHybridH1Problem(cmesh_H1Hybrid,config,eData);
+        int lagrangeId = CreateH1ComputationalMesh(cmesh_H1Hybrid, eData, config);
+        SolveHybridH1Problem(cmesh_H1Hybrid,lagrangeId,config,eData);
 
         //Mixed
         TPZMultiphysicsCompMesh *cmesh_mixed = new TPZMultiphysicsCompMesh(config.gmesh);
@@ -133,8 +129,10 @@ int main(int argc, char *argv[]) {
     eData.exp *=2;
     }
 
-    return 0.;
+    //Not ready yet
+    //FlushTable(eData);
 
+    return 0.;
 }
 
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorData &eData, ProblemConfig &config){
@@ -161,7 +159,7 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     cmesh_Mixed->InitializeBlock();
 }
 
-void CreateH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ErrorData &eData, ProblemConfig &config){
+int CreateH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ErrorData &eData, ProblemConfig &config){
     TPZCreateMultiphysicsSpace createspace(config.gmesh);
 
     createspace.SetMaterialIds({1}, {-2,-1});
@@ -181,6 +179,8 @@ void CreateH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ErrorDat
 
     cmesh_H1Hybrid->InitializeBlock();
     cmesh_H1Hybrid->ComputeNodElCon();
+
+    return createspace.fH1Hybrid.fLagrangeMatid.first;
 }
 
 void InitializeOutstream(ErrorData &eData){
@@ -195,9 +195,15 @@ void InitializeOutstream(ErrorData &eData){
     eData.ErroHybridH1.open("ErroHybridH1.txt",std::ofstream::app);
     eData.ErroMixed.open("ErroMixed.txt",std::ofstream::app);
 
-    eData.ErroH1 << "----------COMPUTED H1 ERRORS (H1)----------\n"; eData.ErroH1.flush();
-    eData.ErroHybridH1 << "----------COMPUTED ERRORS (HYBRID_H1)----------\n"; eData.ErroHybridH1.flush();
-    eData.ErroMixed << "----------COMPUTED ERRORS (MIXED)----------\n"; eData.ErroMixed.flush();
+    eData.ErroH1 <<       "----------COMPUTED ERRORS (H1)----------\n"; eData.ErroH1.flush();
+    eData.ErroHybridH1 << "-------COMPUTED ERRORS (HYBRID_H1)------\n"; eData.ErroHybridH1.flush();
+    eData.ErroMixed <<    "--------COMPUTED ERRORS (MIXED)---------\n"; eData.ErroMixed.flush();
+
+    //Log Initialization
+    eData.LogH1 = new TPZVec<REAL>(eData.numErrors, -1);
+    eData.LogHybridH1 = new TPZVec<REAL>(eData.numErrors, -1);
+    eData.LogMixed = new TPZVec<REAL>(eData.numErrors, -1);
+    eData.rate = new TPZVec<REAL>(eData.numErrors, -1);
 }
 
 void Configure(ProblemConfig &config,int ndiv){
@@ -342,8 +348,9 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
 
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData){
 
-    TPZAnalysis an(cmeshH1);
+    config.exact.operator*().fSignConvention = -1;
 
+    TPZAnalysis an(cmeshH1);
 
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(cmeshH1);
@@ -426,11 +433,40 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 
     std::cout << "FINISHED!" << std::endl;
 }
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig config,struct ErrorData &eData){
 
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config,struct ErrorData &eData){
+    config.exact.operator*().fSignConvention = -1;
 
     TPZAnalysis an(cmesh_H1Hybrid);
-    TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
+
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(cmesh_H1Hybrid);
+    strmat.SetNumThreads(0);
+    //        strmat.SetDecomposeType(ELDLt);
+#else
+    //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
+        //    strmat.SetNumThreads(2);
+        //    strmat.SetDecomposeType(ELDLt);
+        TPZSkylineStructMatrix strmat(cmesh_H1Hybrid);
+        strmat.SetNumThreads(0);
+#endif
+    std::set<int> matIds;
+    for (auto matid : config.materialids) matIds.insert(matid);
+    for (auto matidbc : config.bcmaterialids) matIds.insert(matidbc);
+
+    matIds.insert(InterfaceMatId);
+    strmat.SetMaterialIds(matIds);
+    an.SetStructuralMatrix(strmat);
+
+    TPZStepSolver<STATE>* direct = new TPZStepSolver<STATE>;
+    direct->SetDirect(ELDLt);
+    an.SetSolver(*direct);
+    delete direct;
+    direct = 0;
+    an.Assemble();
+    an.Solve();
+
+    //TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
     TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
     an.SetStructuralMatrix(skylstr);
     TPZStepSolver<STATE> step;
@@ -490,6 +526,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct Problem
 
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct ErrorData &eData) {
 
+    config.exact.operator*().fSignConvention = 1;
     bool optBW = true;
 
     TPZAnalysis an(cmesh_Mixed, optBW); //Cria objeto de análise que gerenciará a analise do problema
@@ -553,4 +590,58 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(resolution, dim);
     }
+}
+
+//Incomplete
+void FlushTable(ErrorData &eData){
+    DebugStop();
+    /*eData.ErroH1.close(); eData.ErroMixed.close(); eData.ErroHybridH1.close();
+    //std::ifstream iTeste("ErroH1.txt");
+    std::ifstream iErroH1("ErroH1.txt");
+    std::ifstream iErroHybridH1("ErroHybridH1.txt");
+    std::ifstream iErroMixed("ErroMixed.txt");
+    std::ofstream oErrors("ErrorsALL.txt");
+
+    int counter = 0, hash_counter = 0;
+    size_t last_index;
+    string residue;
+    std::string space = "\t||\t",end = "\t||\n";
+    std::string H1Line,HybridLine,MixedLine;
+
+    std::ofstream oH1("ErroH1_TEMP.txt");
+    std::ofstream oHybridH1("ErroHybridH1.txt");
+    std::ofstream oErroMixed("ErroMixed.txt");
+    while (getline(iErroH1, H1Line)) {
+        if (counter == 0){
+            continue;
+        }
+        string a = H1Line[0];
+        if ((H1Line[0]).compare("#"))
+            hash_counter = 0;
+        oH1 << H1Line << endl;
+    }
+
+    while (getline(iErroH1, H1Line)){
+        if(counter > 0) {
+            //getline(iErroH1, H1Line);
+            last_index = H1Line.find_last_not_of("0123456789");
+            residue = H1Line.substr(last_index - 1);
+            oErrors << residue << space;
+
+            getline(iErroHybridH1, HybridLine);
+            last_index = H1Line.find_last_not_of("0123456789");
+            residue = H1Line.substr(last_index - 1);
+            oErrors << HybridLine << space;
+
+            getline(iErroMixed, MixedLine);
+            last_index = H1Line.find_last_not_of("0123456789");
+            residue = H1Line.substr(last_index - 1);
+            oErrors << MixedLine << end;
+        }
+        else{
+            getline(iErroH1, H1Line);
+            getline(iErroHybridH1, HybridLine);
+            getline(iErroMixed, MixedLine);
+        } counter++;
+    }*/
 }
