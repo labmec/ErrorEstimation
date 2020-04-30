@@ -209,7 +209,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
   
     
 //tem que resover o UpdateBcValues para receber o g correto
-    REAL g = bc.Val2()(0,0);//g
+    REAL g = bc.Val1()(1,0);//g
     REAL Km = bc.Val1()(0,0);//Km
     REAL u_D = 0.;
     REAL robinterm = 0.;
@@ -223,7 +223,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
 
     }
     else{
-        u_D = bc.Val2()(1,0);//duvida aqui ainda
+        u_D = bc.Val2()(0,0);//usualmente updatebc coloca o valor exato no val2
     }
 
     

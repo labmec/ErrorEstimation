@@ -122,35 +122,26 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
         
     
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(2, 1, 0.), val2(1, 1, 0.);
         int bctype;
     
         switch (matid) {
             case -1 :{
             bctype = 0;
-           //     TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-                //bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
-                //cmesh->InsertMaterialObject(bc);
                 break;
             }
                 
                 
             case -2:{
             bctype = 1;
-                
-           //     TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-//                bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
-//                cmesh->InsertMaterialObject(bc);
+    
             break;
             }
             case -3:{
             bctype = 4;// different from mixed (bctype 2) already implemented on TPZMatPoisson3d
             val1(0,0) = Km;
-            val2(0,0) = g;
-            //val2(1,0) = 1.;//uD..tem q melhorar
-                
-                //TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-//               cmesh->InsertMaterialObject(bc); bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+            val1(1,0) = g;
+
                 
             break;
             }
