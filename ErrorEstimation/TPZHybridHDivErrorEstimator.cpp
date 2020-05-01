@@ -1103,6 +1103,7 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
     
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     gmesh->ResetReference();
+    fOriginal->LoadReferences();
     int64_t nel = pressuremesh->NElements();
 
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
@@ -1122,7 +1123,7 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
 
         // TODO I modified this conditional for now, to handle the cases where
         //  the bc is not Dirichlet type. @Gustavo
-        if (!bc /*|| bc->Type() != 0*/) continue ;
+        if (!bc) continue ;
         //---
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         int nc = cel->NConnects();
@@ -1158,11 +1159,21 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
                     break;
                     
                 case 4:
+                    TPZCompEl* origCel = gel->Reference();
+                    TPZMultiphysicsElement * multiphysicsCel = dynamic_cast<TPZMultiphysicsElement*> (origCel);
+                    if (!multiphysicsCel) {
+                        DebugStop();
+                    }
+                    TPZCompEl *fluxCel = multiphysicsCel->Element(0);
+                    TPZManVector<REAL> sol;
+                    pt.resize(dim); // AskPhil is there a better way of doing this?
+                    // Forcing function requires 3 positions, but Solution requires 1
+                    fluxCel->Solution(pt, 0, sol);
+
                     REAL InvKm = 1./bc->Val1()(0,0);
-                    REAL g = bc->Val2()(0,0);
-                    //u_D = bc->Val2()(1,0);
+                    REAL g = bc->Val1()(1, 0);
                     for (int ishape = 0; ishape < nshape; ishape++) {
-                        efbc(ishape, 0) += weight * (InvKm*(phi(ishape, 0) + g) +  u_D);
+                        efbc(ishape, 0) += weight * (InvKm * (sol[0] + g) + u_D) * phi(ishape, 0);
                         for (int jshape = 0; jshape < nshape; jshape++) {
                             ekbc(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
                         }
