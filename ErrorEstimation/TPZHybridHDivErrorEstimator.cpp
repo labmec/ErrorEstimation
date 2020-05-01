@@ -1089,108 +1089,112 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
 
 }
 
-void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh, int target_dim){
-    
-//    {
-//        std::ofstream out("PressureBeforeL2Projection.txt");
-//        pressuremesh->Print(out);
-//    }
-    
-    if(target_dim==2){
-        std::cout<<"Not implemented for 2D interface"<<std::endl;
+void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
+    TPZCompMesh *pressuremesh, int target_dim) {
+
+    //{
+    //    std::ofstream out("PressureBeforeL2Projection.txt");
+    //    pressuremesh->Print(out);
+    //}
+
+    if (target_dim == 2) {
+        std::cout << "Not implemented for 2D interface" << std::endl;
         DebugStop();
     }
-    
+
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     gmesh->ResetReference();
     fOriginal->LoadReferences();
+
     int64_t nel = pressuremesh->NElements();
-
-    TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
-
-   // TPZElementMatrix ekbc,efbc;
-    for(int iel=0; iel < nel; iel++) {
-        TPZCompEl *cel = elementvec[iel];
-        if(!cel) continue;
+    for (int iel = 0; iel < nel; iel++) {
+        TPZCompEl *cel = pressuremesh->ElementVec()[iel];
+        if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         int dim = gel->Dimension();
 
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
-        
 
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        if (!bc) continue;
 
-        // TODO I modified this conditional for now, to handle the cases where
-        //  the bc is not Dirichlet type. @Gustavo
-        if (!bc) continue ;
-        //---
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         int nc = cel->NConnects();
         int order = cel->Connect(nc - 1).Order();
-        TPZGeoElSide gelside(gel, gel->NSides()-1);
-        TPZAutoPointer<TPZIntPoints> intp = gel->CreateSideIntegrationRule(gel->NSides()-1,2*order);
+        TPZGeoElSide gelside(gel, gel->NSides() - 1);
+        TPZAutoPointer<TPZIntPoints> intp =
+            gel->CreateSideIntegrationRule(gel->NSides() - 1, 2 * order);
+
+        TPZInterpolatedElement *intel =
+            dynamic_cast<TPZInterpolatedElement *>(cel);
         int nshape = intel->NShapeF();
+
         TPZFNMatrix<20, REAL> ekbc(nshape, nshape, 0.), efbc(nshape, 1, 0.);
         TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dshape(dim, nshape);
+
         int64_t npoints = intp->NPoints();
         for (int64_t ip = 0; ip < npoints; ip++) {
-            TPZManVector<REAL, 3> pt(3, 0.);
+            TPZManVector<REAL, 3> pt(dim, 0.);
             REAL weight;
             intp->Point(ip, pt, weight);
             intel->Shape(pt, phi, dshape);
             REAL u_D = 0.;
-            if(bc->HasForcingFunction()){
-                TPZManVector<STATE> res(3);
-                TPZFNMatrix<9,STATE> gradu(dim,1);
-                bc->ForcingFunction()->Execute(pt,res,gradu);
-                u_D = res[0];
+
+            if (bc->HasForcingFunction()) {
+                TPZManVector<STATE> result(3);
+                TPZFNMatrix<9, STATE> gradu(dim, 1);
+                TPZManVector<REAL, 3> x;
+                gel->X(pt, x);
+                bc->ForcingFunction()->Execute(x, result, gradu);
+                u_D = result[0];
             }
-            
+
             int bcType = bc->Type();
             switch (bcType) {
-                case 0:
-                    for (int ishape = 0; ishape < nshape; ishape++) {
-                        efbc(ishape, 0) += weight * phi(ishape, 0) * u_D;
-                        for (int jshape = 0; jshape < nshape; jshape++) {
-                        ekbc(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
-                        }
+            case 0:
+                for (int ishape = 0; ishape < nshape; ishape++) {
+                    efbc(ishape, 0) += weight * phi(ishape, 0) * u_D;
+                    for (int jshape = 0; jshape < nshape; jshape++) {
+                        ekbc(ishape, jshape) +=
+                            weight * phi(ishape, 0) * phi(jshape, 0);
                     }
-                    break;
-                    
-                case 4:
-                    TPZCompEl* origCel = gel->Reference();
-                    TPZMultiphysicsElement * multiphysicsCel = dynamic_cast<TPZMultiphysicsElement*> (origCel);
-                    if (!multiphysicsCel) {
-                        DebugStop();
-                    }
-                    TPZCompEl *fluxCel = multiphysicsCel->Element(0);
-                    TPZManVector<REAL> sol;
-                    pt.resize(dim); // AskPhil is there a better way of doing this?
-                    // Forcing function requires 3 positions, but Solution requires 1
-                    fluxCel->Solution(pt, 0, sol);
+                }
+                break;
 
-                    REAL InvKm = 1./bc->Val1()(0,0);
-                    REAL g = bc->Val1()(1, 0);
-                    for (int ishape = 0; ishape < nshape; ishape++) {
-                        efbc(ishape, 0) += weight * (InvKm * (sol[0] + g) + u_D) * phi(ishape, 0);
-                        for (int jshape = 0; jshape < nshape; jshape++) {
-                            ekbc(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
-                        }
+            case 4:
+                TPZCompEl *origCel = gel->Reference();
+                TPZMultiphysicsElement *multiphysicsCel =
+                    dynamic_cast<TPZMultiphysicsElement *>(origCel);
+                if (!multiphysicsCel) {
+                    DebugStop();
+                }
+                TPZCompEl *fluxCel = multiphysicsCel->Element(0);
+                TPZManVector<REAL> sol;
+                pt.resize(dim); // AskPhil is there a better way of doing this?
+                // Forcing function requires 3 positions, but Solution requires
+                // 1
+                fluxCel->Solution(pt, 0, sol);
+
+                REAL InvKm = 1. / bc->Val1()(0, 0);
+                REAL g = bc->Val1()(1, 0);
+                for (int ishape = 0; ishape < nshape; ishape++) {
+                    efbc(ishape, 0) +=
+                        weight * (InvKm * (sol[0] + g) + u_D) * phi(ishape, 0);
+                    for (int jshape = 0; jshape < nshape; jshape++) {
+                        ekbc(ishape, jshape) +=
+                            weight * phi(ishape, 0) * phi(jshape, 0);
                     }
-                    
-                    break;
+                }
+                break;
             }
-            
         }
-            
-                
-                 ekbc.Print(std::cout);
-                 efbc.Print(std::cout);
-                
+
+        ekbc.Print(std::cout);
+        efbc.Print(std::cout);
+
         ekbc.SolveDirect(efbc, ELU);
-        efbc.Print(std::cout<<"Solution ");
-        
+        efbc.Print(std::cout << "Solution ");
+
         int count = 0;
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
@@ -1201,16 +1205,13 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
                 pressuremesh->Solution()(pos + idf, 0) = efbc(count++);
             }
         }
-        
     }
-    
+
     {
         std::ofstream out("PressureAfterL2Projection_2.txt");
         pressuremesh->Print(out);
     }
-
 }
-
 
 // compute the average of an element iel in the pressure mesh looking at its neighbours
 void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel)
