@@ -47,6 +47,7 @@
 #include "TPZCreateMultiphysicsSpace.h"
 #include <tuple>
 #include <memory>
+#include <stack>
 
 bool neumann = true;
 
@@ -54,7 +55,7 @@ struct ErrorData
 {
     std::ofstream ErroH1,ErroHybridH1,ErroMixed;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate;
-    int maxdiv = 2;
+    int maxdiv = 5;
     int orderlagrange = 1;
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
@@ -68,15 +69,44 @@ void BuildANDinsertBCflux(TPZCompMesh *cmesh_flux, ProblemConfig &config);
 void BuildANDinsertBCpotential(TPZCompMesh *cmesh_p, ProblemConfig &config);
 void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config);
 
-int CreateH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,ErrorData &eData, ProblemConfig &config);
+int CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,ErrorData &eData, ProblemConfig &config);
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorData &eData, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config, struct ErrorData &eData);
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct ErrorData &eData);
 
-void Configure(ProblemConfig &config, int ndiv);
 void InitializeOutstream(ErrorData &eData);
 void FlushTable(ErrorData &eData);
+void CleanErrors(string file);
+void InvertError(string file);
+void FillErrors(ofstream &table,string f1,string f2,string f3);
+
+void Configure(ProblemConfig &config,int ndiv){
+    config.porder = 2;
+    config.hdivmais = 1;
+    config.ndivisions = ndiv;
+    config.dimension = 2;
+    config.prefine = false;
+
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.exact.operator*().fSignConvention = 1;
+
+    config.problemname = "ESinSin";
+
+    config.dir_name = "HybridH1_ESinSin";
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    // geometric mesh
+    TPZManVector<int, 4> bcids(4, -1);
+    TPZGeoMesh *gmesh = CreateGeoMesh(1, bcids);
+    UniformRefinement(config.ndivisions, gmesh);
+
+    config.gmesh = gmesh;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+}
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -108,7 +138,7 @@ int main(int argc, char *argv[]) {
 
         //HybridH1
         TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(config.gmesh);
-        int lagrangeId = CreateH1ComputationalMesh(cmesh_H1Hybrid, eData, config);
+        int lagrangeId = CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, eData, config);
         SolveHybridH1Problem(cmesh_H1Hybrid,lagrangeId,config,eData);
 
         //Mixed
@@ -130,7 +160,7 @@ int main(int argc, char *argv[]) {
     }
 
     //Not ready yet
-    //FlushTable(eData);
+    FlushTable(eData);
 
     return 0.;
 }
@@ -154,12 +184,14 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     TPZManVector<TPZCompMesh *, 2> meshvector(2);
     meshvector[0] = cmesh_flux;
     meshvector[1] = cmesh_p;
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0], config.hdivmais);
+
     cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
     cmesh_Mixed->LoadReferences();
     cmesh_Mixed->InitializeBlock();
 }
 
-int CreateH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ErrorData &eData, ProblemConfig &config){
+int CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ErrorData &eData, ProblemConfig &config){
     TPZCreateMultiphysicsSpace createspace(config.gmesh);
 
     createspace.SetMaterialIds({1}, {-2,-1});
@@ -206,32 +238,6 @@ void InitializeOutstream(ErrorData &eData){
     eData.rate = new TPZVec<REAL>(eData.numErrors, -1);
 }
 
-void Configure(ProblemConfig &config,int ndiv){
-    config.porder = 1;
-    config.ndivisions = ndiv;
-    config.dimension = 2;
-    config.prefine = false;
-
-    config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
-    config.exact.operator*().fSignConvention = 1;
-
-    config.problemname = "ESinSin k=1 e lagrange order 2";
-
-    config.dir_name = "HybridH1_ESinSin";
-    std::string command = "mkdir " + config.dir_name;
-    system(command.c_str());
-
-    // geometric mesh
-    TPZManVector<int, 4> bcids(4, -1);
-    TPZGeoMesh *gmesh = CreateGeoMesh(1, bcids);
-    UniformRefinement(config.ndivisions, gmesh);
-
-    config.gmesh = gmesh;
-    config.materialids.insert(1);
-    config.bcmaterialids.insert(-1);
-}
-
 void BuildANDinsertBCflux(TPZCompMesh *cmesh_flux, ProblemConfig &config){
 
     int dim = config.gmesh->Dimension();
@@ -274,6 +280,8 @@ void BuildANDinsertBCpotential(TPZCompMesh *cmesh_p, ProblemConfig &config){
 
     TPZNullMaterial *material = new TPZNullMaterial(matID); material->SetDimension(dim);
     cmesh_p->InsertMaterialObject(material);
+
+    //cmesh_p->SetDefaultOrder(config.porder + config.hdivmais);
 
     cmesh_p->AutoBuild();
     cmesh_p->ExpandSolution();
@@ -407,6 +415,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
     }
 
     eData.ErroH1 << "h = " << eData.h << std::endl;
+    eData.ErroH1 << "DOF = " << cmeshH1->NEquations() << std::endl;
     for(int i =0; i < eData.numErrors;i++) (*eData.LogH1)[i] = Errors[i];
     Errors.clear();
 
@@ -435,7 +444,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 }
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig config,struct ErrorData &eData){
 
-    config.exact.operator*().fSignConvention = -1;
+    config.exact.operator*().fSignConvention = 1;
 
     TPZAnalysis an(cmesh_H1Hybrid);
 
@@ -467,13 +476,13 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     an.Solve();
 
     //TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
-    TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
+    /*TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
     an.SetStructuralMatrix(skylstr);
     TPZStepSolver<STATE> step;
     step.SetDirect(ELDLt);
     an.SetSolver(step);
 
-    an.Run();
+    an.Run();*/
 
     int64_t nelem = cmesh_H1Hybrid->NElements();
     cmesh_H1Hybrid->LoadSolution(cmesh_H1Hybrid->Solution());
@@ -498,6 +507,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     }
 
     eData.ErroHybridH1 << "h = " << eData.h << std::endl;
+    eData.ErroHybridH1 << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
     for(int i =0; i < eData.numErrors;i++) (*eData.LogHybridH1)[i] = Errors[i];
     Errors.clear();
 
@@ -558,6 +568,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     }
 
     eData.ErroMixed << "h = " << eData.h << std::endl;
+    eData.ErroMixed << "DOF = " << cmesh_Mixed->NEquations() << std::endl;
     for(int i =0; i < eData.numErrors;i++) (*eData.LogMixed)[i] = Errors[i];
     Errors.clear();
 
@@ -594,54 +605,224 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
 
 //Incomplete
 void FlushTable(ErrorData &eData){
-    DebugStop();
-    /*eData.ErroH1.close(); eData.ErroMixed.close(); eData.ErroHybridH1.close();
-    //std::ifstream iTeste("ErroH1.txt");
-    std::ifstream iErroH1("ErroH1.txt");
-    std::ifstream iErroHybridH1("ErroHybridH1.txt");
-    std::ifstream iErroMixed("ErroMixed.txt");
-    std::ofstream oErrors("ErrorsALL.txt");
+    eData.ErroH1.close(); eData.ErroMixed.close(); eData.ErroHybridH1.close();
+    string file1 = "ErroH1.txt"; CleanErrors(file1);
+    string file2 = "ErroHybridH1.txt"; CleanErrors(file2);
+    string file3 = "ErroMixed.txt"; CleanErrors(file3);
 
-    int counter = 0, hash_counter = 0;
-    size_t last_index;
-    string residue;
-    std::string space = "\t||\t",end = "\t||\n";
-    std::string H1Line,HybridLine,MixedLine;
+    InvertError(file2);
+    InvertError(file3);
 
-    std::ofstream oH1("ErroH1_TEMP.txt");
-    std::ofstream oHybridH1("ErroHybridH1.txt");
-    std::ofstream oErroMixed("ErroMixed.txt");
-    while (getline(iErroH1, H1Line)) {
-        if (counter == 0){
+    ProblemConfig config;
+    Configure(config,0);
+    std::string plotname;
+    {
+        std::stringstream out;
+        std::string command = "mkdir ComparisonTable";
+        system(command.c_str());
+
+        out << "ComparisonTable" << "/" << "Quad_"<<config.problemname <<"___porder_" << config.porder
+            << "___hdivmais_" << config.hdivmais << "___lagrangeOrder_" <<
+            eData.orderlagrange <<".csv";
+        plotname = out.str();
+    }
+    std::cout << plotname;
+    remove(plotname.c_str());
+    ofstream table(plotname.c_str(),ios::app);
+
+    table << "Geometry" << ","<< "Quadrilateral" <<"\n";
+    table << "Refinement" << "," << "Uniform" <<"\n";
+    table << "domain" << "," << "[0 1]x[0 1]" <<"\n";
+    table << "Case" << "," << config.problemname << "\n";
+    table <<"Approximation" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" <<"\n";
+    table << "p-order" << "," << config.porder << "," << config.porder << "," << config.porder << "\n";
+    table << "lagrange/hdivmais" << "," << "---" << "," << eData.orderlagrange << "," << config.hdivmais << "\n\n";
+    table << "Norm" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" << "\n";
+
+    FillErrors(table,file1,file2,file3);
+
+    table.close();
+}
+
+void InvertError(string file){
+    std::vector<std::string> erro,rate;
+    std::string sErro,sRate;
+    int size = 0;
+
+    std::ifstream iErro(file);
+    std::ofstream temp("temp.txt");
+
+    int it_count = -1, hash_count = 0;
+    string Line;
+    while(getline(iErro,Line)){
+        it_count++;
+        if (it_count == 0) {
+            temp << Line << endl;
             continue;
         }
-        string a = H1Line[0];
-        if ((H1Line[0]).compare("#"))
-            hash_counter = 0;
-        oH1 << H1Line << endl;
-    }
 
-    while (getline(iErroH1, H1Line)){
-        if(counter > 0) {
-            //getline(iErroH1, H1Line);
-            last_index = H1Line.find_last_not_of("0123456789");
-            residue = H1Line.substr(last_index - 1);
-            oErrors << residue << space;
+        hash_count++;
+        if (Line.find("#") != string::npos) hash_count = 0;
 
-            getline(iErroHybridH1, HybridLine);
-            last_index = H1Line.find_last_not_of("0123456789");
-            residue = H1Line.substr(last_index - 1);
-            oErrors << HybridLine << space;
-
-            getline(iErroMixed, MixedLine);
-            last_index = H1Line.find_last_not_of("0123456789");
-            residue = H1Line.substr(last_index - 1);
-            oErrors << MixedLine << end;
+        switch (hash_count) {
+        case (1):
+            sErro = Line;
+            temp << Line << endl;
+            continue;
+        case (2):
+            temp << sErro << endl;
+            erro.push_back(Line);
+            break;
+        case (4):
+            if (it_count == 5)
+                temp << Line << endl;
+            else{
+                sRate = Line;
+                temp << Line << endl;
+                }
+            break;
+        case (5):
+            if (it_count == 6)
+                temp << Line << endl;
+            else {
+                temp << sRate << endl;
+                rate.push_back(Line);
+            }
+            break;
+        default:
+            temp << Line << endl;
+            break;
         }
-        else{
-            getline(iErroH1, H1Line);
-            getline(iErroHybridH1, HybridLine);
-            getline(iErroMixed, MixedLine);
-        } counter++;
-    }*/
+    }
+    temp.close();
+
+    remove(file.c_str());
+    std::ifstream itemp("temp.txt");
+    std::ofstream Erro(file.c_str());
+
+    it_count = -1; hash_count =0;
+    int erro_counter =0, rate_counter =0;
+    while(getline(itemp,Line)){
+        it_count++;
+        if (it_count == 0) {
+            Erro << Line << endl;
+            continue;
+        }
+
+        hash_count++;
+        if (Line.find("#") != string::npos) hash_count = 0;
+
+        switch (hash_count) {
+        case (1):
+            Erro << erro[erro_counter] << endl;
+            erro_counter++;
+            break;
+        case (4):
+            if (it_count == 5)
+                Erro << Line << endl;
+            else{
+                Erro << rate[rate_counter] << endl;
+                rate_counter++;
+            }
+            break;
+        default:
+            Erro << Line << endl;
+            continue;
+        }
+    }
+    itemp.close();
+    remove("temp.txt");
+}
+
+void FillErrors(ofstream &table,string f1,string f2,string f3){
+
+    std::ifstream iErroH1(f1.c_str());
+    std::ifstream iErroHybridH1(f2.c_str());
+    std::ifstream iErroMixed(f3.c_str());
+
+    int it_count = -1, hash_count = 0;
+    string Line0,Line1,Line2;
+    while(getline(iErroH1,Line0)) {
+        it_count++;
+        getline(iErroHybridH1, Line1);
+        getline(iErroMixed, Line2);
+
+        if (it_count == 0) {
+            continue;
+        }
+        hash_count++;
+        if (Line0.find("#") != string::npos) hash_count = 0;
+
+        switch (hash_count) {
+        case (0):
+            table << "\n";
+            continue;
+        case (1):
+            table << "H1-error" << ",";
+            break;
+        case (2):
+            table << "L2-error" << ",";
+            break;
+        case (3):
+            table << "3rd-error" << ",";
+            break;
+        case (4):
+            if (it_count == 5)
+                table << "h" << ",";
+            else
+                table << "H1-rate" << ",";
+            break;
+        case (5):
+            if (it_count == 6)
+                table << "DOF" << ",";
+            else
+                table << "L2-rate" << ",";
+            break;
+        case (6):
+            table << "3rd-rate" << ",";
+            break;
+        case (7):
+            table << "h" << ",";
+            break;
+        case (8):
+            table << "DOF" << ",";
+            break;
+        default:
+            break;
+        }
+        table << Line0 << "," << Line1 << "," << Line2 << "\n";
+    }
+}
+
+void CleanErrors(string file){
+    std::ifstream iErro(file);
+    std::ofstream temp("temp.txt");
+    size_t last_index;
+    string Line, residue, other = "other";
+
+
+    int counter = -1;
+    while (getline(iErro, Line)) {
+        size_t found = Line.find(other);
+        if (found != string::npos) continue;
+
+        last_index = Line.find("=");
+
+        if (last_index == string::npos) {
+            last_index = Line.find(":");
+            if(last_index == string::npos)
+                temp << Line << endl;
+            else{
+                residue = Line.substr(last_index+2);
+                temp << residue <<endl;
+            }
+        }
+        else {
+            residue = Line.substr(last_index+2);
+            temp << residue <<endl;
+        }
+    }
+    iErro.close(); temp.close();
+    remove(file.c_str());
+    rename("temp.txt", file.c_str());
 }
