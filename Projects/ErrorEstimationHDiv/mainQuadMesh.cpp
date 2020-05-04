@@ -156,8 +156,10 @@ void RunProblem(const int nDivisions, const int pOrder, const int hDivPlusPlus,
     switch (estimator) {
     case ErrorEstimator::HybridHDiv:
         RunHybridHDivEstimation(config, mixedMesh, hybrid);
+        break;
     case ErrorEstimator::MarkHDiv:
         RunMarkHDivEstimation(config, mixedMesh);
+        break;
     default:
         DebugStop();
     }
