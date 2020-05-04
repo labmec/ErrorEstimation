@@ -203,11 +203,8 @@ protected:
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
     
-  //  int IsH1Position(TPZVec<TPZMaterialData> &datavec);
-    
-    
-    
-    
+  //  int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
+
 protected:
     
     // compute the average of an element iel in the pressure mesh looking at its neighbours

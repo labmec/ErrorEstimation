@@ -92,40 +92,19 @@ void UNISIMHDiv() {
 
     SolveMixedHybridProblem(cmesh_HDiv, config);
 
-    //    {
-    //
-    //        if(RunMark){
-    //            TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-    //            HDivEstimate.fProblemConfig = config;
-    //            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-    //            HDivEstimate.SetAnalyticSolution(config.exact);
-    //            HDivEstimate.fperformUplift = true;
-    //            HDivEstimate.fUpliftOrder = config.hdivmais;
-    //
-    //            HDivEstimate.PotentialReconstruction();
-    //
-    //            TPZManVector<REAL> elementerrors;
-    //            HDivEstimate.ComputeErrors(elementerrors);
-    //
-    //        }
-    //
-    //        else{
-    //
-    //            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-    //            HDivEstimate.fProblemConfig = config;
-    //            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-    //            HDivEstimate.SetAnalyticSolution(config.exact);
-    //            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-    //
-    //            HDivEstimate.fPostProcesswithHDiv = false;
-    //
-    //            HDivEstimate.PotentialReconstruction();
-    //
-    //            TPZManVector<REAL> elementerrors;
-    //            HDivEstimate.ComputeErrors(elementerrors);
-    //            hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
-    //
-    //        }
+    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+    HDivEstimate.fProblemConfig = config;
+    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.SetAnalyticSolution(config.exact);
+    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+
+    HDivEstimate.fPostProcesswithHDiv = false;
+
+    HDivEstimate.PotentialReconstruction();
+
+    TPZManVector<REAL> elementerrors;
+    HDivEstimate.ComputeErrors(elementerrors);
+    //hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
 }
 
 TPZGeoMesh *CreateFlatGeoMesh(std::string &gmshFile) {
@@ -287,10 +266,9 @@ TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem) {
     TPZFNMatrix<1, REAL> val1(1, 1, 1.e12); // Not used by the material
     TPZFNMatrix<1, REAL> val2(1, 1, 0.);
     const int dirichlet = 0;
-    const int neumann = 1;
 
     // Zero flux (reservoir boundary)
-    TPZBndCond *zeroFlux = mix->CreateBC(mix, -1, neumann, val1, val2);
+    TPZBndCond *zeroFlux = mix->CreateBC(mix, -1, dirichlet, val1, val2);
     // Productors
     val2(0, 0) = -10.;
     TPZBndCond *productors = mix->CreateBC(mix, -2, dirichlet, val1, val2);

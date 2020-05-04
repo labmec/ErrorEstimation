@@ -42,7 +42,7 @@ TPZHDivErrorEstimateMaterial &TPZHDivErrorEstimateMaterial::operator=(const TPZH
     return *this;
 }
 
-int TPZHDivErrorEstimateMaterial::IsH1Position(TPZVec<TPZMaterialData> &datavec){
+int TPZHDivErrorEstimateMaterial::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec){
 
     int nvec = datavec.NElements();
     int firstNoNullposition = -1;
@@ -78,7 +78,7 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
      **/
     
     int H1functionposition = 0;
-    H1functionposition = IsH1Position(datavec);
+    H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
     
     int dim = datavec[H1functionposition].axes.Rows();
     //defining test functions
@@ -174,79 +174,64 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     
 }
 
+void TPZHDivErrorEstimateMaterial::ContributeBC(
+    TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+    TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
 
-void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc){
-    
- /*
-  Add Robin boundary condition for local problem
-  ek+= <w,Km s_i>
-  ef+= <w,Km*u_d + g + sigma_i.n>
-  */
-    int H1functionposition = 0;
-    H1functionposition = IsH1Position(datavec);
-    
+    /*
+     Add Robin boundary condition for local problem
+     ek+= <w,Km s_i>
+     ef+= <w,Km*u_d + g + sigma_i.n>
+     */
+    int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
     int dim = datavec[H1functionposition].axes.Rows();
-    
-    TPZFMatrix<REAL>  &phi_i = datavec[H1functionposition].phi;
+
+    TPZFMatrix<REAL> &phi_i = datavec[H1functionposition].phi;
     int nphi_i = phi_i.Rows();
-    TPZFMatrix<STATE> solsigmafem(3,1);
+
+    TPZFMatrix<STATE> solsigmafem(3, 1);
     solsigmafem.Zero();
-    
-   
-    TPZManVector<REAL,3> normal = datavec[2].normal;
-    std::cout<<normal[0]<<", "<<normal[1]<<","<<normal[2]<<std::endl;
+
+    TPZManVector<REAL, 3> normal = datavec[2].normal;
 
     REAL normalsigma = 0.;
-    
-    int nsol = datavec[2].sol[0].size();//ver pq nao é vetorial
-    
-    for (int ip = 0; ip< nsol; ip++){
+    int nsol = datavec[2].sol[0].size(); // ver pq nao é vetorial
 
-        solsigmafem(ip,0) = datavec[2].sol[0][ip];
-        normalsigma += datavec[2].sol[0][ip]*normal[ip];
-    }
-    
-  
-    
-//tem que resover o UpdateBcValues para receber o g correto
-    REAL g = bc.Val1()(1,0);//g
-    REAL Km = bc.Val1()(0,0);//Km
-    REAL u_D = 0.;
-    REAL robinterm = 0.;
-    if(bc.HasForcingFunction())
-    {
-        TPZManVector<STATE> res(3);
-        TPZFNMatrix<9,STATE> gradu(dim,1);
-        bc.ForcingFunction()->Execute(datavec[H1functionposition].x,res,gradu);
-        u_D = res[0];
-    
-
-    }
-    else{
-        u_D = bc.Val2()(0,0);//usualmente updatebc coloca o valor exato no val2
+    for (int ip = 0; ip < nsol; ip++) {
+        solsigmafem(ip, 0) = datavec[2].sol[0][ip];
+        normalsigma += datavec[2].sol[0][ip] * normal[ip];
     }
 
-    
-    if (bc.Type()==4) {
-        robinterm = Km*u_D +g + normalsigma ;
-            
-            for(int iq = 0; iq < nphi_i; iq++) {
-                //<w,Km*u_D+g+sigma_i*n>
-                ef(iq,0) += robinterm*phi_i(iq,0)*weight;
-                for (int jq = 0; jq < nphi_i; jq++) {
-                    //<w,Km*s_i>
-                    ek(iq,jq) += weight*Km*phi_i(iq,0)*phi_i(jq,0);
-                }
+    // tem que resover o UpdateBcValues para receber o g correto
+    if (bc.Type() == 4) {
+        REAL u_D = 0.;
+        if (bc.HasForcingFunction()) {
+            TPZManVector<STATE> res(3);
+            TPZFNMatrix<9, STATE> gradu(dim, 1);
+            bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
+            u_D = res[0];
+
+        } else {
+            // usualmente updatebc coloca o valor exato no val2
+            u_D = bc.Val2()(0, 0);
+        }
+
+        REAL g = bc.Val1()(1, 0);  // g
+        REAL Km = bc.Val1()(0, 0); // Km
+        REAL robinterm = Km * u_D + g + normalsigma;
+
+        for (int iq = 0; iq < nphi_i; iq++) {
+            //<w,Km*u_D+g+sigma_i*n>
+            ef(iq, 0) += robinterm * phi_i(iq, 0) * weight;
+            for (int jq = 0; jq < nphi_i; jq++) {
+                //<w,Km*s_i>
+                ek(iq, jq) += weight * Km * phi_i(iq, 0) * phi_i(jq, 0);
             }
-        
+        }
     }
-    
-    else{
-        std::cout<<" Not implemented yet"<<std::endl;
-        
+    else if (bc.Type() == 1) {
+        std::cout << " BC type not implemented yet" << std::endl;
     }
-    
-    
 }
 
 
@@ -309,7 +294,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
  
 
     int H1functionposition = 0;
-    H1functionposition = IsH1Position(data);
+    H1functionposition = FirstNonNullApproxSpaceIndex(data);
 
    
     TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
@@ -466,7 +451,7 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
      **/
     
     int H1functionposition = 0;
-    H1functionposition = IsH1Position(datavec);
+    H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
     
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;

@@ -1170,9 +1170,6 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
                 }
                 TPZCompEl *fluxCel = multiphysicsCel->Element(0);
                 TPZManVector<REAL> sol;
-                pt.resize(dim); // AskPhil is there a better way of doing this?
-                // Forcing function requires 3 positions, but Solution requires
-                // 1
                 fluxCel->Solution(pt, 0, sol);
 
                 REAL InvKm = 1. / bc->Val1()(0, 0);
@@ -1189,11 +1186,11 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
             }
         }
 
-        ekbc.Print(std::cout);
-        efbc.Print(std::cout);
+//        ekbc.Print(std::cout);
+//        efbc.Print(std::cout);
 
         ekbc.SolveDirect(efbc, ELU);
-        efbc.Print(std::cout << "Solution ");
+//        efbc.Print(std::cout << "Solution ");
 
         int count = 0;
         for (int ic = 0; ic < nc; ic++) {
@@ -1453,10 +1450,10 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages() {
         TPZGeoEl *gel = intel->Reference();
         
         if (gel->Dimension() != dim - 1 || gel->MaterialId() != fInterfaceMatid) {
-            std::cout<<"MatId of element not important for nodal average computation "<< gel->MaterialId()<<std::endl;
+            // MatId of element not important for nodal average computation
             continue;
         }
-        // AskPhil we need to filter bc sides that are not dirichlet
+
         //percorre cada no do elemento de interface
         int ncorners = gel->NCornerNodes();
         for (int side = 0; side < ncorners; side++) {
@@ -1484,10 +1481,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
     TPZStack<TPZCompElSide> celstack;
     int onlyinterpolated = 1;
     int removeduplicates = 0;
-    std::cout << "Starting element side " << side << std::endl;
-    std::cout << "Starting element \n";
-    celside.Element()->Print();
-    
+
     gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
     celstack.Push(gelside.Reference());
     // This map stores the connects, the weight associated with the element
@@ -1518,23 +1512,18 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
             
         }
         
-        
-
-        std::cout << "Side " << celside.Side() << std::endl;
-        intel1->Print();
         int64_t conindex = intel1->ConnectIndex(celside.Side());
 
-        if (connects.find(conindex) != connects.end())
-        {
-            std::cout << "O CODIGO NAO DEVERIA PASSAR POR AQUI\n";
-            continue;//DebugStop();//nao pode inserir cnnects que já existem
+        if (connects.find(conindex) != connects.end()) {
+
+            DebugStop();
         }
+
         TPZConnect &c = intel1->Connect(celside.Side());
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         TPZManVector<REAL,3> pt(0), x(3);
         gelside0.X(pt, x);
-     //   std::cout << "x = " << x << " seqnumber= "<< seqnum<<" sol " << pressureHybrid->Block().Get(seqnum, 0, 0, 0) << std::endl;
         TPZManVector<STATE, 3> sol(nstate, 0.);
         for (int istate = 0; istate < nstate; istate++) {
             sol[istate] = pressureHybrid->Block().Get(seqnum, 0, istate, 0);
@@ -1549,7 +1538,8 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
     for (auto it = connects.begin(); it != connects.end(); it++) {
         REAL weight = it->second.first;
         sum_weight += weight;
-        // If the node is located on the Dirichlet BC, internal sides don't contribute to the average of the connects
+        // If the node is located on the Dirichlet BC, internal sides don't
+        // contribute to the average of the connects
         for (int istate = 0; istate < nstate; istate++) {
             averageSol[istate] += it->second.second[istate]*weight;
             nconnects++;
@@ -1564,7 +1554,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         int64_t conindex = it->first;
         TPZConnect &c = pressureHybrid->ConnectVec()[conindex];
         int64_t seqnum = c.SequenceNumber();
-       // std::cout<<"connect "<<seqnum<<std::endl;
+
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         for (int istate = 0; istate < nstate; istate++) {
 #ifdef LOG4CXX
@@ -1773,14 +1763,12 @@ void TPZHybridHDivErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec
     }
 }
 
-
 void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
-    /// I havent tested to compute post processing more than a single time
-    // Please test me!
+
     if (fPostProcMesh.MeshVector().size()) {
         DebugStop();
     }
-    
+
     //Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
     // for the border fluxes
 //    {
@@ -2417,7 +2405,12 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
                 }
                 // all elements must have at least one neighbour of type skeleton--> esta premissa nao vale para reconstrucao Hdiv-H1
                 if (ist == nst - 1) {
-                    std::cout << "Connect " << is << " from element el " << el << " was not updated \n";
+#ifdef LOG4CXX
+                    std::stringstream sout;
+                    sout << "Connect " << is << " from element el " << el
+                         << " was not updated \n";
+                    LOGPZ_DEBUG(logger, sout.str())
+#endif
                 }
             }
         }
