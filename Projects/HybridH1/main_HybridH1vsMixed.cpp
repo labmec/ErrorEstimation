@@ -53,15 +53,16 @@ bool neumann = true;
 
 struct ErrorData
 {
-    std::ofstream ErroH1,ErroHybridH1,ErroMixed;
-    TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate;
+    std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro;
+    TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
     int maxdiv = 5;
-    int orderlagrange = 5;
+    int orderlagrange = 1;
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
 
     std::string plotfile;
-    bool commandLine = false;
+    int mode = 4;
+    int argc = 1;
 
     bool last = false, post_proc = true;
     int exp = 2; // Initial exponent of mesh refinement (numElem = 2*2^exp)
@@ -77,22 +78,25 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorDa
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig config, struct ErrorData &eData);
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct ErrorData &eData);
+void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, ErrorData &eData);
+void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, ErrorData &eData);
 ////Output setup
 void InitializeOutstream(ErrorData &eData);
 void FlushTable(ErrorData &eData,char *argv[]);
 void CleanErrors(string file);
 void InvertError(string file);
 void FillErrors(ofstream &table,string f1,string f2,string f3);
+void FillErrors(ofstream &table,string f,int mode);
+void FillLegend(ofstream &table,int hash_count, int it_count);
 ////Command Line Entry
 ////The command line entry is useful for consecutive runs
 ////One can build a .sh documment to run all of them.
 void EvaluateEntry(int argc, char *argv[],ErrorData &eData);
 void InitializeOutstream(ErrorData &eData,char *argv[]);
-void Configure(ProblemConfig &config,int ndiv,char *argv[]);
 void IsInteger(char *argv);
 
-void Configure(ProblemConfig &config,int ndiv){
-    config.porder = 4;
+void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
+    config.porder = 2;
     config.hdivmais = 0;
     config.ndivisions = ndiv;
     config.dimension = 2;
@@ -116,6 +120,11 @@ void Configure(ProblemConfig &config,int ndiv){
     config.gmesh = gmesh;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+
+    if(eData.argc != 1) {
+        config.porder = atoi(argv[2]);
+        config.hdivmais = atoi(argv[4]);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -125,8 +134,7 @@ int main(int argc, char *argv[]) {
     ErrorData eData;
     EvaluateEntry(argc,argv,eData);
 
-    if (argc == 1) InitializeOutstream(eData);
-    else InitializeOutstream(eData,argv);
+    InitializeOutstream(eData,argv);
 
     const clock_t begin_iter = clock();
 
@@ -135,8 +143,7 @@ int main(int argc, char *argv[]) {
         eData.h = 1./eData.exp;
 
         ProblemConfig config;
-        if (argc == 1) Configure(config,ndiv);
-        else Configure(config,ndiv,argv);
+        Configure(config,ndiv,eData,argv);
 
 #ifdef PZDEBUG
         if(eData.last && eData.post_proc) {
@@ -146,34 +153,45 @@ int main(int argc, char *argv[]) {
             config.gmesh->Print(out2);
         }
 #endif
+
         //H1
         TPZCompMesh *cmeshH1 = CMeshH1(config);
-        SolveH1Problem(cmeshH1, config, eData);
+        if(eData.mode == 1 || eData.mode == 2) {
+            SolveH1Problem(cmeshH1, config, eData);
+        }
 
         //HybridH1
         TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(config.gmesh);
-        int interfaceMatID = -10;
-        CreateHybridH1ComputationalMesh(cmesh_H1Hybrid,interfaceMatID, eData, config);
-        SolveHybridH1Problem(cmesh_H1Hybrid,interfaceMatID,config,eData);
+        if(eData.mode == 1 || eData.mode == 3){
+            int interfaceMatID = -10;
+            CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config);
+            SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData);
+        }
 
         //Mixed
         TPZMultiphysicsCompMesh *cmesh_mixed = new TPZMultiphysicsCompMesh(config.gmesh);
-        CreateMixedComputationalMesh(cmesh_mixed,eData,config);
-        SolveMixedProblem(cmesh_mixed,config,eData);
+        if(eData.mode == 1 || eData.mode == 4) {
+            CreateMixedComputationalMesh(cmesh_mixed, eData, config);
+            SolveMixedProblem(cmesh_mixed, config, eData);
+        }
 
 #ifdef PZDEBUG
         {
             if(eData.last && eData.post_proc) {
                 const clock_t begin_time = clock();
-                std::ofstream out2(eData.plotfile + "/H1HybridMesh.txt");
-                cmesh_H1Hybrid->Print(out2);
-                std::ofstream out3(eData.plotfile + "/H1Mesh.txt");
-                cmeshH1->Print(out3);
-                std::ofstream out4(eData.plotfile + "/MixedMesh.txt");
-                cmesh_mixed->Print(out4);
+                if(eData.mode == 1 || eData.mode == 3){
+                    std::ofstream out2(eData.plotfile + "/H1HybridMesh.txt");
+                    cmesh_H1Hybrid->Print(out2);
+                }
+                if(eData.mode == 1 || eData.mode == 2) {
+                    std::ofstream out3(eData.plotfile + "/H1Mesh.txt");
+                    cmeshH1->Print(out3);
+                }
+                if(eData.mode == 1 || eData.mode == 4) {
+                    std::ofstream out4(eData.plotfile + "/MixedMesh.txt");
+                    cmesh_mixed->Print(out4);
+                }
                 std::cout << "printing comp mesh time: " << float( clock () - begin_time )/CLOCKS_PER_SEC <<endl;
-                //std::ofstream out3("gmeshHybridH1.vtk");
-                //TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out3);
             }
         }
 #endif
@@ -187,12 +205,6 @@ int main(int argc, char *argv[]) {
     FlushTable(eData,argv);
 
     return 0.;
-}
-
-void Configure(ProblemConfig &config,int ndiv,char *argv[]){
-    Configure(config,ndiv);
-    config.porder = atoi(argv[1]);
-    config.hdivmais = atoi(argv[3]);
 }
 
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorData &eData, ProblemConfig &config){
@@ -215,8 +227,11 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     meshvector[0] = cmesh_flux;
     meshvector[1] = cmesh_p;
     TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0], config.hdivmais);
+    TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);
 
     cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
+    bool keeponelagrangian = true, keepmatrix = false;
+    TPZCompMeshTools::CreatedCondensedElements(cmesh_Mixed, keeponelagrangian, keepmatrix);
     cmesh_Mixed->LoadReferences();
     cmesh_Mixed->InitializeBlock();
 }
@@ -245,56 +260,77 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     interFaceMatID = createspace.fH1Hybrid.fLagrangeMatid.first;
 }
 
-void InitializeOutstream(ErrorData &eData){
-    //Error buffer
-    if( remove( "ErroH1.txt" ) != 0 || remove( "ErroHybridH1.txt" ) != 0 || remove( "ErroMixed.txt" ) != 0 )
-        perror( "Error deleting file" );
-    else
-        puts( "Error log successfully deleted" );
-
-    //Outstream file
-    eData.ErroH1.open("ErroH1.txt",std::ofstream::app);
-    eData.ErroHybridH1.open("ErroHybridH1.txt",std::ofstream::app);
-    eData.ErroMixed.open("ErroMixed.txt",std::ofstream::app);
-
-    eData.ErroH1 <<       "----------COMPUTED ERRORS (H1)----------\n"; eData.ErroH1.flush();
-    eData.ErroHybridH1 << "-------COMPUTED ERRORS (HYBRID_H1)------\n"; eData.ErroHybridH1.flush();
-    eData.ErroMixed <<    "--------COMPUTED ERRORS (MIXED)---------\n"; eData.ErroMixed.flush();
-
-    //Log Initialization
-    eData.LogH1 = new TPZVec<REAL>(eData.numErrors, -1);
-    eData.LogHybridH1 = new TPZVec<REAL>(eData.numErrors, -1);
-    eData.LogMixed = new TPZVec<REAL>(eData.numErrors, -1);
-    eData.rate = new TPZVec<REAL>(eData.numErrors, -1);
-
-    if(!eData.commandLine)
-    {
-        ProblemConfig config;
-        Configure(config,0);
-
-        std::stringstream out;
-        out << "Quad_" <<config.problemname <<"___porder_" << config.porder
-            << "___hdivmais_" << config.hdivmais << "___lagrangeOrder_" <<
-            eData.orderlagrange;
-        eData.plotfile = out.str();
-
-        std::string command = "mkdir " + eData.plotfile;
-        system(command.c_str());
-    }
-}
-
 void InitializeOutstream(ErrorData &eData, char *argv[]){
-    InitializeOutstream(eData);
-    eData.orderlagrange = atoi(argv[2]);
+    //Error buffer
+    if(eData.mode == 1) {
+
+        if( remove( "ErroH1.txt" ) != 0 || remove( "ErroHybridH1.txt" ) != 0 || remove( "ErroMixed.txt" ) != 0 )
+            perror( "Error deleting file" );
+        else
+            puts( "Error log successfully deleted" );
+
+        eData.ErroH1.open("ErroH1.txt", std::ofstream::app);
+        eData.ErroHybridH1.open("ErroHybridH1.txt", std::ofstream::app);
+        eData.ErroMixed.open("ErroMixed.txt", std::ofstream::app);
+
+        eData.ErroH1 << "----------COMPUTED ERRORS (H1)----------\n";
+        eData.ErroH1.flush();
+        eData.ErroHybridH1 << "-------COMPUTED ERRORS (HYBRID_H1)------\n";
+        eData.ErroHybridH1.flush();
+        eData.ErroMixed << "--------COMPUTED ERRORS (MIXED)---------\n";
+        eData.ErroMixed.flush();
+
+        // Log Initialization
+        eData.LogH1 = new TPZVec<REAL>(eData.numErrors, -1);
+        eData.LogHybridH1 = new TPZVec<REAL>(eData.numErrors, -1);
+        eData.LogMixed = new TPZVec<REAL>(eData.numErrors, -1);
+        eData.rate = new TPZVec<REAL>(eData.numErrors, -1);
+    }
+    else{
+        if( remove( "Erro.txt" ) != 0) perror( "Error deleting file" );
+        else puts( "Error log successfully deleted" );
+
+        eData.Erro.open("Erro.txt",std::ofstream::app);
+        eData.Erro << "----------COMPUTED ERRORS----------\n";
+
+        eData.Log = new TPZVec<REAL>(eData.numErrors, -1);
+        eData.rate = new TPZVec<REAL>(eData.numErrors, -1);
+    }
+
+    if(eData.argc != 1) eData.orderlagrange = atoi(argv[3]);
 
     ProblemConfig config;
-    Configure(config,0,argv);
+    Configure(config,0,eData,argv);
 
     std::stringstream out;
-    out << "Quad_" <<config.problemname <<"___porder_" << config.porder
-        << "___hdivmais_" << config.hdivmais << "___lagrangeOrder_" <<
-        eData.orderlagrange;
-    eData.plotfile = out.str();
+    if(eData.mode == 1) {
+        out << "Quad_" << config.problemname << "___porder_"
+            << config.porder << "___hdivmais_" << config.hdivmais
+            << "___lagrangeOrder_" << eData.orderlagrange;
+        eData.plotfile = out.str();
+    }
+    else{
+        switch(eData.mode) {
+        case 2:
+            out << "Quad_" << config.problemname << "___porder_"
+                << config.porder;
+            eData.plotfile = out.str();
+            break;
+        case 3:
+            out << "Quad_" << config.problemname << "___porder_"
+                << config.porder << "___lagrangeOrder_" << eData.orderlagrange;
+            eData.plotfile = out.str();
+            break;
+        case 4:
+            out << "Quad_" << config.problemname << "___porder_"
+                << config.porder << "___hdivmais_" << config.hdivmais;
+            eData.plotfile = out.str();
+            break;
+        default:
+            std::cout << "Invalid mode number";
+            break;
+        }
+    }
 
     std::string command = "mkdir " + eData.plotfile;
     system(command.c_str());
@@ -343,7 +379,7 @@ void BuildANDinsertBCpotential(TPZCompMesh *cmesh_p, ProblemConfig &config){
     TPZNullMaterial *material = new TPZNullMaterial(matID); material->SetDimension(dim);
     cmesh_p->InsertMaterialObject(material);
 
-    //cmesh_p->SetDefaultOrder(config.porder + config.hdivmais);
+    cmesh_p->SetDefaultOrder(config.porder + config.hdivmais);
 
     cmesh_p->AutoBuild();
     cmesh_p->ExpandSolution();
@@ -460,26 +496,11 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 
     ////Calculo do erro
     std::cout << "Computing Error H1 " << std::endl;
-    TPZManVector<REAL,4> Errors;
-    Errors.resize(eData.numErrors);
 
     an.SetExact(config.exact.operator*().ExactSolution());
 
-    bool store_errors = false;
-    an.PostProcessError(Errors, store_errors, eData.ErroH1);
-
-    eData.LogH1->Print(std::cout);
-    if((*eData.LogH1)[0] !=-1){
-        for(int j =0; j < 3 ; j++) {
-            (*eData.rate)[j] = (log10(Errors[j]) - log10((*eData.LogH1)[j]))/(log10(eData.h)-log10(eData.hLog));
-            eData.ErroH1 << "rate " << j << ": " << (*eData.rate)[j] << std::endl;
-        }
-    }
-
-    eData.ErroH1 << "h = " << eData.h << std::endl;
-    eData.ErroH1 << "DOF = " << cmeshH1->NEquations() << std::endl;
-    for(int i =0; i < eData.numErrors;i++) (*eData.LogH1)[i] = Errors[i];
-    Errors.clear();
+    if(eData.mode == 1) StockErrorsH1(an,cmeshH1,eData.ErroH1,eData.LogH1,eData);
+    else StockErrorsH1(an,cmeshH1,eData.Erro,eData.Log,eData);
 
     ////PostProcess
     if(eData.last && eData.post_proc) {
@@ -553,25 +574,13 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
     ////Calculo do erro
     std::cout << "Computing Error HYBRID_H1 " << std::endl;
-    TPZManVector<REAL,4> Errors;
-    Errors.resize(eData.numErrors);
 
     an.SetExact(config.exact.operator*().ExactSolution());
 
-    bool store_errors = true;
-    an.PostProcessError(Errors, store_errors, eData.ErroHybridH1); std::cout << Errors[0] << "   " << Errors[0] << "   " << Errors[0] << "   ";
+    std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
 
-    if((*eData.LogHybridH1)[0] !=-1){
-        for(int j =0; j < 3 ; j++) {
-            (*eData.rate)[j] = (log10(Errors[j]) - log10((*eData.LogHybridH1)[j]))/(log10(eData.h)-log10(eData.hLog));
-            eData.ErroHybridH1 << "rate " << j << ": " << (*eData.rate)[j] << std::endl;
-        }
-    }
-
-    eData.ErroHybridH1 << "h = " << eData.h << std::endl;
-    eData.ErroHybridH1 << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
-    for(int i =0; i < eData.numErrors;i++) (*eData.LogHybridH1)[i] = Errors[i];
-    Errors.clear();
+    if(eData.mode == 1) StockErrors(an,cmesh_H1Hybrid,eData.ErroHybridH1,eData.LogHybridH1,eData);
+    else StockErrors(an,cmesh_H1Hybrid,eData.Erro,eData.Log,eData);
 
     ////PostProcess
 
@@ -614,25 +623,13 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
 
     ////Calculo do erro
     std::cout << "Computing Error MIXED " << std::endl;
-    TPZManVector<REAL,6> Errors;
-    Errors.resize(eData.numErrors);
 
     an.SetExact(config.exact.operator*().ExactSolution());
 
-    bool store_errors = false;
-    an.PostProcessError(Errors, store_errors, eData.ErroMixed);
+    std::cout << "DOF = " << cmesh_Mixed->NEquations() << std::endl;
 
-    if((*eData.LogMixed)[0] !=-1){
-        for(int j =0; j < 3 ; j++) {
-            (*eData.rate)[j] = (log10(Errors[j]) - log10((*eData.LogMixed)[j]))/(log10(eData.h)-log10(eData.hLog));
-            eData.ErroMixed << "rate " << j << ": " << (*eData.rate)[j] << std::endl;
-        }
-    }
-
-    eData.ErroMixed << "h = " << eData.h << std::endl;
-    eData.ErroMixed << "DOF = " << cmesh_Mixed->NEquations() << std::endl;
-    for(int i =0; i < eData.numErrors;i++) (*eData.LogMixed)[i] = Errors[i];
-    Errors.clear();
+    if(eData.mode == 1) StockErrors(an,cmesh_Mixed,eData.ErroMixed,eData.LogMixed,eData);
+    else StockErrors(an,cmesh_Mixed,eData.Erro,eData.Log,eData);
 
     ////PostProcess
     if(eData.last && eData.post_proc) {
@@ -660,48 +657,128 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     }
 }
 
-//Incomplete
 void FlushTable(ErrorData &eData, char *argv[]){
-    eData.ErroH1.close(); eData.ErroMixed.close(); eData.ErroHybridH1.close();
-    string file1 = "ErroH1.txt"; CleanErrors(file1);
-    string file2 = "ErroHybridH1.txt"; CleanErrors(file2);
-    string file3 = "ErroMixed.txt"; CleanErrors(file3);
-
-    InvertError(file2);
-    InvertError(file3);
-
-    ProblemConfig config;
-    if(!eData.commandLine) Configure(config,0);
-    else Configure(config,0,argv);
 
     std::string plotname;
     plotname = eData.plotfile + "/" + eData.plotfile + ".csv";
-    /*
-    {
-        std::stringstream out;
-        std::string command = "mkdir ComparisonTable";
-        system(command.c_str());
 
-        out << "ComparisonTable" << "/" << "Quad_"<<config.problemname <<"___porder_" << config.porder
-            << "___hdivmais_" << config.hdivmais << "___lagrangeOrder_" <<
-            eData.orderlagrange <<".csv";
-        plotname = out.str();
-    }*/
     remove(plotname.c_str());
-    ofstream table(plotname.c_str(),ios::app);
+    ofstream table(plotname.c_str(), ios::app);
 
-    table << "Geometry" << ","<< "Quadrilateral" <<"\n";
-    table << "Refinement" << "," << "Uniform" <<"\n";
-    table << "domain" << "," << "[0 1]x[0 1]" <<"\n";
-    table << "Case" << "," << config.problemname << "\n";
-    table <<"Approximation" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" <<"\n";
-    table << "p-order" << "," << config.porder << "," << config.porder << "," << config.porder << "\n";
-    table << "lagrange/hdivmais" << "," << "---" << "," << eData.orderlagrange << "," << config.hdivmais << "\n\n";
-    table << "Norm" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" << "\n";
+    ProblemConfig config;
+    Configure(config, 0, eData, argv);
 
-    FillErrors(table,file1,file2,file3);
+    if(eData.mode == 1) {
+        eData.ErroH1.close();
+        eData.ErroMixed.close();
+        eData.ErroHybridH1.close();
+        string file1 = "ErroH1.txt";
+        CleanErrors(file1);
+        string file2 = "ErroHybridH1.txt";
+        CleanErrors(file2);
+        string file3 = "ErroMixed.txt";
+        CleanErrors(file3);
+
+        InvertError(file2);
+        InvertError(file3);
+
+        table << "Geometry" << "," << "Quadrilateral" << "\n";
+        table << "Refinement" << "," << "Uniform" << "\n";
+        table << "domain" << "," << "[0 1]x[0 1]" << "\n";
+        table << "Case" << "," << config.problemname << "\n";
+        table << "Approximation" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" << "\n";
+        table << "p-order" << "," << config.porder << "," << config.porder << "," << config.porder << "\n";
+        table << "lagrange/hdivmais" << "," << "---" << "," << eData.orderlagrange << "," << config.hdivmais << "\n\n";
+        table << "Norm" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" << "\n";
+
+        FillErrors(table, file1, file2, file3);
+    }
+
+    else{
+        eData.Erro.close();
+        string file = "Erro.txt";
+        CleanErrors(file);
+
+        if(eData.mode == 3 || eData.mode == 4) InvertError(file);
+
+        table << "Geometry" << "," << "Quadrilateral" << "\n";
+        table << "Refinement" << "," << "Uniform" << "\n";
+        table << "domain" << "," << "[0 1]x[0 1]" << "\n";
+        table << "Case" << "," << config.problemname << "\n";
+        switch(eData.mode) {
+        case 2:
+            table << "Approximation" << "," << "H1" << "\n";
+            table << "p-order" << "," << config.porder << "\n";
+            table << "---" << "," << "---" <<  "\n\n";
+            table << "Norm" << "," << "H1" << "\n";
+            break;
+        case 3:
+            table << "Approximation" << "," << "HybridH1" << "\n";
+            table << "p-order" << "," << config.porder << "\n";
+            table << "lagrange" << "," << eData.orderlagrange <<  "\n\n";
+            table << "Norm" << "," << "HybridH1" << "\n";
+            break;
+        case 4:
+            table << "Approximation" << "," << "Mixed" << "\n";
+            table << "p-order" << "," << config.porder << "\n";
+            table << "hdivmais" << "," << config.hdivmais <<  "\n\n";
+            table << "Norm" << "," << "Mixed" << "\n";
+            break;
+        }
+
+        FillErrors(table, file, eData.mode);
+
+    }
 
     table.close();
+}
+
+void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh, ofstream &Erro, TPZVec<REAL> *Log,ErrorData &eData){
+
+    TPZManVector<REAL,6> Errors;
+    Errors.resize(eData.numErrors);
+    bool store_errors = false;
+
+    an.PostProcessError(Errors, store_errors, Erro);
+
+    if ((*Log)[0] != -1) {
+        for (int j = 0; j < 3; j++) {
+            (*eData.rate)[j] =
+                (log10(Errors[j]) - log10((*Log)[j])) /
+                (log10(eData.h) - log10(eData.hLog));
+            Erro << "rate " << j << ": " << (*eData.rate)[j] << std::endl;
+        }
+    }
+
+    Erro << "h = " << eData.h << std::endl;
+    Erro << "DOF = " << cmesh->NEquations() << std::endl;
+    for (int i = 0; i < eData.numErrors; i++)
+        (*Log)[i] = Errors[i];
+    Errors.clear();
+}
+
+void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro, TPZVec<REAL> *Log,ErrorData &eData){
+
+    TPZManVector<REAL,6> Errors;
+    Errors.resize(eData.numErrors);
+    bool store_errors = false;
+
+    an.PostProcessError(Errors, store_errors, Erro);
+
+    if ((*Log)[0] != -1) {
+        for (int j = 0; j < 3; j++) {
+            (*eData.rate)[j] =
+                (log10(Errors[j]) - log10((*Log)[j])) /
+                (log10(eData.h) - log10(eData.hLog));
+            Erro << "rate " << j << ": " << (*eData.rate)[j] << std::endl;
+        }
+    }
+
+    Erro << "h = " << eData.h << std::endl;
+    Erro << "DOF = " << cmesh->NEquations() << std::endl;
+    for (int i = 0; i < eData.numErrors; i++)
+        (*Log)[i] = Errors[i];
+    Errors.clear();
 }
 
 void InvertError(string file){
@@ -794,6 +871,27 @@ void InvertError(string file){
     remove("temp.txt");
 }
 
+void FillErrors(ofstream &table,string f,int mode){
+    std::ifstream iErro(f.c_str());
+
+    int it_count = -1, hash_count = 0;
+    string Line;
+    while(getline(iErro,Line)) {
+        it_count++;
+
+        if (it_count == 0) {
+            continue;
+        }
+        hash_count++;
+        if (Line.find("#") != string::npos) hash_count = 0;
+
+        FillLegend(table,hash_count,it_count);
+
+        if(hash_count == 0) table <<"\n";
+        else table << Line << "\n";
+    }
+}
+
 void FillErrors(ofstream &table,string f1,string f2,string f3){
 
     std::ifstream iErroH1(f1.c_str());
@@ -813,44 +911,50 @@ void FillErrors(ofstream &table,string f1,string f2,string f3){
         hash_count++;
         if (Line0.find("#") != string::npos) hash_count = 0;
 
-        switch (hash_count) {
-        case (0):
-            table << "\n";
-            continue;
-        case (1):
-            table << "H1-error" << ",";
-            break;
-        case (2):
-            table << "L2-error" << ",";
-            break;
-        case (3):
-            table << "3rd-error" << ",";
-            break;
-        case (4):
-            if (it_count == 5)
-                table << "h" << ",";
-            else
-                table << "H1-rate" << ",";
-            break;
-        case (5):
-            if (it_count == 6)
-                table << "DOF" << ",";
-            else
-                table << "L2-rate" << ",";
-            break;
-        case (6):
-            table << "3rd-rate" << ",";
-            break;
-        case (7):
+        FillLegend(table,hash_count,it_count);
+
+        if(hash_count == 0) table <<"\n";
+        else table << Line0 << "," << Line1 << "," << Line2 << "\n";
+    }
+}
+
+void FillLegend(ofstream &table,int hash_count,int it_count){
+    switch (hash_count) {
+    case (0):
+        table << "\n";
+        break;
+    case (1):
+        table << "H1-error" << ",";
+        break;
+    case (2):
+        table << "L2-error" << ",";
+        break;
+    case (3):
+        table << "3rd-error" << ",";
+        break;
+    case (4):
+        if (it_count == 5)
             table << "h" << ",";
-            break;
-        case (8):
+        else
+            table << "H1-rate" << ",";
+        break;
+    case (5):
+        if (it_count == 6)
             table << "DOF" << ",";
-            break;
-        default:
-            break;
-        }
-        table << Line0 << "," << Line1 << "," << Line2 << "\n";
+        else
+            table << "L2-rate" << ",";
+        break;
+    case (6):
+        table << "3rd-rate" << ",";
+        break;
+    case (7):
+        table << "h" << ",";
+        break;
+    case (8):
+        table << "DOF" << ",";
+        break;
+    default:
+        break;
     }
 }
 
@@ -888,22 +992,31 @@ void CleanErrors(string file){
 }
 
 void EvaluateEntry(int argc, char *argv[],ErrorData &eData){
-    if(argc != 1 && argc != 4){
+    if(argc != 1 && argc != 5){
         std::cout << "Invalid entry";
         DebugStop();
     }
-    if(argc == 4){
-        eData.commandLine = true;
-        for(int i = 1; i < 4 ; i++)
+    if(argc == 5){
+        eData.argc = argc;
+        for(int i = 2; i < 5 ; i++)
             IsInteger(argv[i]);
+        if(std::strcmp(argv[1], "All") == 0)
+            eData.mode = 1;
+        if(std::strcmp(argv[1], "H1") == 0)
+            eData.mode = 2;
+        if(std::strcmp(argv[1], "HybridH1") == 0)
+            eData.mode = 3;
+        if(std::strcmp(argv[1], "Mixed") == 0)
+            eData.mode = 4;
     }
     if(argc == 1){
-        std::cout << "The polinomial order used here is defined by the code.\n"
-                     "One can also define the polinomial order at the command line.\n"
+        std::cout << "The polynomial order used here is defined within the code.\n"
+                     "One can also define the polynomial order at the command line.\n"
                      "For that, insert 3 integer values after the executable command:\n"
-                     "internal polynomial order --- Lagrange Order --- HdivMais\n"
-                     "The command line entry is useful for consecutive runs as one can"
-                     "build a .bash documment to run all of them.";
+                     "mode --- Polynomial Order --- Lagrange Order --- HdivMais\n"
+                     "mode = 'All', 'H1', 'HybridH1' or 'Mixed'\n"
+                     "The command line entry is useful for consecutive runs as one can\n"
+                     "build a .sh document to run all of them.";
     }
 }
 
