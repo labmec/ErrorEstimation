@@ -56,12 +56,12 @@ struct ErrorData
     std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
     int maxdiv = 5;
-    int orderlagrange = 1;
+    int orderlagrange = 3;
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 4;
+    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed";
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -96,7 +96,7 @@ void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 2;
+    config.porder = 4;
     config.hdivmais = 0;
     config.ndivisions = ndiv;
     config.dimension = 2;
@@ -127,6 +127,16 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     }
 }
 
+/**
+ * @brief This "main" solves a given mesh using the H1, HybridH1 and Mixed approximations;
+ * @brief One can run this "main" using Command Line or manually within your programming IDE;
+ * @brief Running manually: Set p-order and hdivmais within "Configure",
+ * @brief Set Lagrange-order, maximum number of refinements (maxdiv) and "mode" within ErrorData;
+ * @brief mode stands for 1 = "ALL", 2 = "H1", 3 = "HybridH1" and 4 = "Mixed";
+ * @brief Running via Command Line: call "HybridH1vsMixed mode porder lagrangeorder hdivmais"
+ * @brief at the executable directory. One may define a bash file running multiple simulations
+ * @brief using the Command Line. Check BashFile.sh within HybridH1 directory.
+ */
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
@@ -227,13 +237,14 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     meshvector[0] = cmesh_flux;
     meshvector[1] = cmesh_p;
     TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0], config.hdivmais);
-    TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);
+    //TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);
 
     cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
     bool keeponelagrangian = true, keepmatrix = false;
     TPZCompMeshTools::CreatedCondensedElements(cmesh_Mixed, keeponelagrangian, keepmatrix);
     cmesh_Mixed->LoadReferences();
     cmesh_Mixed->InitializeBlock();
+    //cmesh_Mixed->ComputeNodElCon();
 }
 
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID , ErrorData &eData, ProblemConfig &config){
