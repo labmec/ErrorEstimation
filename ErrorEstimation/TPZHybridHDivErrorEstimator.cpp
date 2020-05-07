@@ -1118,6 +1118,7 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
 
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc) continue;
+        if(bc->Type()==4 && bc->Val1()(0,0)==0) continue;
 
         int nc = cel->NConnects();
         int order = cel->Connect(nc - 1).Order();
@@ -1182,12 +1183,14 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
                             weight * phi(ishape, 0) * phi(jshape, 0);
                     }
                 }
+                    
+                    
                 break;
             }
         }
 
-//        ekbc.Print(std::cout);
-//        efbc.Print(std::cout);
+        ekbc.Print(std::cout);
+        efbc.Print(std::cout);
 
         ekbc.SolveDirect(efbc, ELU);
 //        efbc.Print(std::cout << "Solution ");

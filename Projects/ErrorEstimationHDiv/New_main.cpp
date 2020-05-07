@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     config.TensorNonConst = false; // para problem 3d com tensor nao constante
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EX;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
 
     bool RunMark = false;
     config.problemname = "EX";
@@ -127,10 +127,10 @@ int main(int argc, char *argv[]) {
 
         else {
             //TPZManVector<int,4> bcids(4,-1);
-            TPZManVector<int, 4> bcids(4, -3);;
+            TPZManVector<int,4> bcids(4,-3);
             bcids[1] = -1;
             config.coefG = 0.;
-            config.Km = 1.e12;
+            config.Km = 0.;//1.e12;
 
           //  int nel = pow(2, ndiv);
 
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
                              // nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
             config.bcmaterialids.insert(-1); // dirichlet
-           // config.bcmaterialids.insert(-2); // neumann
+            //config.bcmaterialids.insert(-2); // neumann
             config.bcmaterialids.insert(-3); // Robin
             config.gmesh = new TPZGeoMesh;
             *config.gmesh = *gmesh;

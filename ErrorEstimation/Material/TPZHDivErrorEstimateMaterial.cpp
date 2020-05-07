@@ -202,8 +202,8 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
         normalsigma += datavec[2].sol[0][ip] * normal[ip];
     }
 
-    // tem que resover o UpdateBcValues para receber o g correto
-    if (bc.Type() == 4) {
+    // tem que resolver o UpdateBcValues para receber o g correto
+    if (bc.Type() == 4 && bc.Val1()(0, 0)!=0) {
         REAL u_D = 0.;
         if (bc.HasForcingFunction()) {
             TPZManVector<STATE> res(3);
