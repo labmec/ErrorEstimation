@@ -199,11 +199,16 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
     //    TPZFMatrix<REAL> &axes = data.axes;
     int phr_primal = phi_u.Rows();
     int phr_hybrid = phi_flux.Rows();
-    
+    bool primal = true;
+    TPZManVector<REAL,3> x(3);
     if(phr_hybrid)
     {
-        std::cout << "Please implement me\n";
-        DebugStop();
+        primal = false;
+        x = datavec[1].x;
+    }
+    else
+    {
+        x = datavec[0].x;
     }
     short in,jn;
     STATE v2[1];
@@ -212,34 +217,64 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
     if(bc.HasForcingFunction()) {            // phi(in, 0) = phi_in                          // JORGE 2013 01 26
         TPZManVector<STATE> res(1);
         TPZFNMatrix<3,STATE> dres(3,1);
-        bc.ForcingFunction()->Execute(datavec[0].x,res,dres);       // dphi(i,j) = dphi_j/dxi
+        bc.ForcingFunction()->Execute(x,res,dres);       // dphi(i,j) = dphi_j/dxi
         v2[0] = res[0];
     }
     
-    switch (bc.Type()) {
-        case 0 :            // Dirichlet condition
-            for(in = 0 ; in < phr_primal; in++) {
-                ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
-                for (jn = 0 ; jn < phr_primal; jn++) {
-                    ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
+    if(primal)
+    {
+        switch (bc.Type()) {
+            case 0 :            // Dirichlet condition
+                for(in = 0 ; in < phr_primal; in++) {
+                    ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
+                    for (jn = 0 ; jn < phr_primal; jn++) {
+                        ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
+                    }
                 }
-            }
-            break;
-        case 1 :            // Neumann condition
-            for(in = 0 ; in < phr_primal; in++) {
-                ef(in,0) += v2[0] * (STATE)(phi_u(in,0) * weight);
-            }
-            break;
-        case 2 :        // mixed condition
-            for(in = 0 ; in < phr_primal; in++) {
-                ef(in, 0) += v2[0] * (STATE)(phi_u(in, 0) * weight);
-                for (jn = 0 ; jn < phi_u.Rows(); jn++) {
-                    ek(in,jn) += bc.Val1()(0,0) * (STATE)(phi_u(in,0) * phi_u(jn,0) * weight);     // peso de contorno => integral de contorno
+                break;
+            case 1 :            // Neumann condition
+                for(in = 0 ; in < phr_primal; in++) {
+                    ef(in,0) += v2[0] * (STATE)(phi_u(in,0) * weight);
                 }
-            }
-            break;
+                break;
+            case 2 :        // mixed condition
+                for(in = 0 ; in < phr_primal; in++) {
+                    ef(in, 0) += v2[0] * (STATE)(phi_u(in, 0) * weight);
+                    for (jn = 0 ; jn < phi_u.Rows(); jn++) {
+                        ek(in,jn) += bc.Val1()(0,0) * (STATE)(phi_u(in,0) * phi_u(jn,0) * weight);     // peso de contorno => integral de contorno
+                    }
+                }
+                break;
+            default:
+                DebugStop();
+        }
+    } else
+    {
+        switch (bc.Type()) {
+            case 0 :            // Dirichlet condition
+                for(in = 0 ; in < phr_primal; in++) {
+                    ef(in,0) += v2[0] * (STATE)(phi_u(in,0) * weight);
+                }
+                break;
+            case 1 :            // Neumann condition
+                for(in = 0 ; in < phr_primal; in++) {
+                    ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
+                    for (jn = 0 ; jn < phr_primal; jn++) {
+                        ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
+                    }
+                }
+                break;
+            case 2 :        // mixed condition
+                DebugStop();
+                for(in = 0 ; in < phr_primal; in++) {
+                    ef(in, 0) += v2[0] * (STATE)(phi_u(in, 0) * weight);
+                    for (jn = 0 ; jn < phi_u.Rows(); jn++) {
+                        ek(in,jn) += 1./bc.Val1()(0,0) * (STATE)(phi_u(in,0) * phi_u(jn,0) * weight);     // peso de contorno => integral de contorno
+                    }
+                }
+                break;
+        }
     }
-
 }
 
 void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
