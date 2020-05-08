@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-TPZGeoMesh *CreateFlatGeoMesh(std::string &gmshFile);
+TPZGeoMesh *CreateFlatGeoMesh();
 
 void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename);
 
@@ -30,7 +30,7 @@ void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x,
 
 void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name);
 
-void UNISIMHDiv();
+void UNISIMHDiv(TPZGeoMesh *gmesh);
 
 TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem);
 
@@ -38,39 +38,45 @@ TPZCompMesh *CreateFluxCMesh(const ProblemConfig &problem);
 
 TPZCompMesh *CreatePressureCMesh(const ProblemConfig &problem);
 
-void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine);
-
 void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
                              const ProblemConfig &problem);
+
+void hAdaptivity(TPZHybridHDivErrorEstimator& estimator, REAL thresholdRatio);
+
 int main() {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
 
-    UNISIMHDiv();
+    TPZGeoMesh *gmesh = CreateFlatGeoMesh();
+
+    int nSteps = 4;
+    for (int i = 0; i < nSteps; i++) {
+        UNISIMHDiv(gmesh);
+    }
 
     return 0;
 }
 
-void UNISIMHDiv() {
+void UNISIMHDiv(TPZGeoMesh *gmesh) {
 
-    std::string geometry_file2D = "InputData/UNISIMFlatMesh.msh";
-    TPZGeoMesh *gmesh = CreateFlatGeoMesh(geometry_file2D);
-
-    std::string name = "InitialGeoMesh";
-    PrintGeometry(gmesh, name);
+    static int adaptivityStep = 0;
 
     ProblemConfig config;
     config.porder = 1;
     config.hdivmais = 1;
     config.dimension = 2;
+    config.adaptivityStep = adaptivityStep;
     config.makepressurecontinuous = true;
 
-    config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EConst;
     config.dir_name = "TesteUNISIM";
+    config.problemname = "UNISIM_Errors";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
+
+    std::stringstream gmeshFileName;
+    gmeshFileName << config.dir_name << "/GeoMesh" << adaptivityStep;
+    PrintGeometry(gmesh, gmeshFileName.str());
 
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
@@ -90,12 +96,12 @@ void UNISIMHDiv() {
 
     cmesh_HDiv = HybridMesh;
 
+    // Solves FEM problem
     SolveMixedHybridProblem(cmesh_HDiv, config);
 
+    // Estimates error
     TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
     HDivEstimate.fProblemConfig = config;
-    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-    HDivEstimate.SetAnalyticSolution(config.exact);
     HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
 
     HDivEstimate.fPostProcesswithHDiv = false;
@@ -104,19 +110,25 @@ void UNISIMHDiv() {
 
     TPZManVector<REAL> elementerrors;
     HDivEstimate.ComputeErrors(elementerrors);
-    //hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh);
+
+    // h-refinement
+    hAdaptivity(HDivEstimate, 0.5);
+    adaptivityStep++;
 }
 
-TPZGeoMesh *CreateFlatGeoMesh(std::string &gmshFile) {
+TPZGeoMesh *CreateFlatGeoMesh() {
+
+    std::string gmshFile = "InputData/UNISIMFlatMesh.msh";
 
     TPZGmshReader gmeshReader;
     TPZGeoMesh *gmesh;
 
     TPZManVector<std::map<std::string, int>, 4> meshMaterialData(3);
-    // B.C. materials
+    // BC materials
     meshMaterialData[1].insert({"ZeroFlux", -1});
     meshMaterialData[1].insert({"Productors", -2});
     meshMaterialData[1].insert({"Injectors", -3});
+    meshMaterialData[1].insert({"Faults", 99}); // Won't be used
     // Domain materials
     meshMaterialData[2].insert({"RockMatrix", 1});
     meshMaterialData[2].insert({"RockMatrix2", 1});
@@ -235,9 +247,10 @@ TPZCompMesh *CreateFluxCMesh(const ProblemConfig &problem) {
     cmesh->InsertMaterialObject(fluxMat);
 
     for (auto bcID : {-1, -2, -3}) {
-        // BC values defined here won't be used
-        TPZFNMatrix<1, REAL> val1, val2(1, 1, 0.);
-        int bctype = -1;
+        // The information here is not important.
+        // The materials are needed only so the mesh creates BC elements.
+        TPZFNMatrix<1, REAL> val1, val2;
+        int bctype = 999;
         TPZBndCond *bc = fluxMat->CreateBC(fluxMat, bcID, bctype, val1, val2);
         cmesh->InsertMaterialObject(bc);
     }
@@ -309,7 +322,7 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
 
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(Hybridmesh);
-    strmat.SetNumThreads(4);
+    strmat.SetNumThreads(0);
 #else
     TPZSkylineStructMatrix strmat(Hybridmesh);
     strmat.SetNumThreads(4);
@@ -332,50 +345,67 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
     vecnames.Push("Flux");
 
     std::stringstream sout;
-    sout << problem.dir_name + "/Hdiv-Order" << problem.porder << ".vtk";
+    sout << problem.dir_name + "/Hdiv-Order" << problem.porder
+         << "-AdaptivityStep" << problem.adaptivityStep << ".vtk";
     an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
     an.PostProcess(1, Hybridmesh->Dimension());
 }
 
-void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine) {
-
+void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio) {
     // Column of the flux error estimate on the element solution matrix
-    const int fluxErrorEstimateCol = 3;
+    const int fluxErrorCol = 3;
 
-    int64_t nelem = postProcessMesh->ElementSolution().Rows();
+    TPZCompMesh *postProcessMesh = &estimator.fPostProcMesh;
+    TPZGeoMesh *gmesh = postProcessMesh->Reference();
+    postProcessMesh->LoadReferences();
 
-    // Iterates through element errors to get the maximum value
+    // Cleans geometric elements of interfaces and other auxiliary materials
+    // and iterates through element errors to get the maximum value
+    std::set<int> matIdsToDelete;
+    matIdsToDelete.insert(estimator.fHybridizer.fLagrangeInterface);
+    matIdsToDelete.insert(estimator.fHybridizer.fHDivWrapMatid);
+    matIdsToDelete.insert(estimator.fHybridizer.fInterfaceMatid);
+
     REAL maxError = 0.;
-    for (int64_t iel = 0; iel < nelem; iel++) {
-        TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
-        if (!cel) continue;
-        if (cel->Dimension() != postProcessMesh->Dimension()) continue;
-        REAL elementError =
-            postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+    int64_t nElemsToBeKept = 0;
 
-        if (elementError > maxError) {
-            maxError = elementError;
+    int64_t nelem = gmesh->NElements();
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZGeoEl *gel = gmesh->ElementVec()[iel];
+        if (!gel) continue;
+
+        int elMatId = gel->MaterialId();
+        if (matIdsToDelete.find(elMatId) != matIdsToDelete.end()) {
+            if (nElemsToBeKept == 0) nElemsToBeKept = iel;
+            gmesh->DeleteElement(gel, iel);
+            continue;
+        }
+
+        REAL elemError = postProcessMesh->ElementSolution()(iel, fluxErrorCol);
+        if (elemError > maxError) {
+            maxError = elemError;
         }
     }
 
-    // Refines elements which error are bigger than 30% of the maximum error
-    REAL threshold = 0.3 * maxError;
+    REAL threshold = thresholdRatio * maxError;
 
+    nelem = postProcessMesh->NElements();
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
         if (!cel) continue;
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
 
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) DebugStop();
+
         REAL elementError =
-            postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+            postProcessMesh->ElementSolution()(iel, fluxErrorCol);
         if (elementError > threshold) {
-            TPZGeoEl *gel = cel->Reference();
             TPZVec<TPZGeoEl *> sons;
-            TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[gel->Id()];
-            if (gelToRefine && !gelToRefine->HasSubElement()) {
-                gelToRefine->Divide(sons);
+            if (!gel->HasSubElement()) {
+                gel->Divide(sons);
             }
         }
     }
-    DivideLowerDimensionalElements(gmeshToRefine);
+    DivideLowerDimensionalElements(gmesh);
 }

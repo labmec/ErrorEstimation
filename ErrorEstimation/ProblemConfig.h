@@ -22,11 +22,11 @@ struct ProblemConfig
     /// increment in internal order of flux and pressure
     int hdivmais = 1;
     /// option to compute the error based on continuous pressures or not
-    bool makepressurecontinuous = 0;
+    bool makepressurecontinuous = false;
     
     /// number of uniform refinements applied to the mesh
-    int ndivisions = 0;
-    int adaptivityStep = 0;
+    int ndivisions = -1;
+    int adaptivityStep = -1;
     int dimension = 0;
     bool prefine = false;
     bool steklovexample = false;
