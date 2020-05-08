@@ -21,6 +21,8 @@ struct ProblemConfig
     int porder = 1;
     /// increment in internal order of flux and pressure
     int hdivmais = 1;
+    /// decrement of the order of the lagrangian space (H-1/2)
+    int H1Hybridminus = 1;
     /// option to compute the error based on continuous pressures or not
     bool makepressurecontinuous = 0;
     

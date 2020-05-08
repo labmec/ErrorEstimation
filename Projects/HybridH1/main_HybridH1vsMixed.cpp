@@ -56,7 +56,7 @@ struct ErrorData
     std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
     int maxdiv = 5;
-    int orderlagrange = 3;
+
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
 
@@ -69,8 +69,8 @@ struct ErrorData
 };
 ////Insert materials
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
-void BuildANDinsertBCflux(TPZCompMesh *cmesh_flux, ProblemConfig &config);
-void BuildANDinsertBCpotential(TPZCompMesh *cmesh_p, ProblemConfig &config);
+void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config);
+void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config);
 void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config);
 ////Computational mesh and FEM solvers
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId,ErrorData &eData, ProblemConfig &config);
@@ -81,7 +81,6 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
 void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, ErrorData &eData);
 void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, ErrorData &eData);
 ////Output setup
-void InitializeOutstream(ErrorData &eData);
 void FlushTable(ErrorData &eData,char *argv[]);
 void CleanErrors(string file);
 void InvertError(string file);
@@ -96,8 +95,9 @@ void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 4;
-    config.hdivmais = 0;
+    config.porder = 2;         // Potential and internal flux order
+    config.hdivmais = 3;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = 1;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -124,16 +124,17 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     if(eData.argc != 1) {
         config.porder = atoi(argv[2]);
         config.hdivmais = atoi(argv[4]);
+        config.H1Hybridminus = atoi(argv[3]);
     }
 }
 
 /**
  * @brief This "main" solves a given mesh using the H1, HybridH1 and Mixed approximations;
  * @brief One can run this "main" using Command Line or manually within your programming IDE;
- * @brief Running manually: Set p-order and hdivmais within "Configure",
- * @brief Set Lagrange-order, maximum number of refinements (maxdiv) and "mode" within ErrorData;
+ * @brief Running manually: Set p-order, H1Hybridmais and hdivmais within "Configure",
+ * @brief maximum number of refinements (maxdiv) and "mode" within ErrorData;
  * @brief mode stands for 1 = "ALL", 2 = "H1", 3 = "HybridH1" and 4 = "Mixed";
- * @brief Running via Command Line: call "HybridH1vsMixed mode porder lagrangeorder hdivmais"
+ * @brief Running via Command Line: call "HybridH1vsMixed mode porder H1Hybridminus hdivmais"
  * @brief at the executable directory. One may define a bash file running multiple simulations
  * @brief using the Command Line. Check BashFile.sh within HybridH1 directory.
  */
@@ -154,18 +155,18 @@ int main(int argc, char *argv[]) {
 
         ProblemConfig config;
         Configure(config,ndiv,eData,argv);
+        std::cout <<"HyybridH1Minus = " << config.H1Hybridminus << "\n\n\n\n";
 
-#ifdef PZDEBUG
         if(eData.last && eData.post_proc) {
             std::ofstream out(eData.plotfile + "/gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
             std::ofstream out2(eData.plotfile + "/gmeshInitial.txt");
             config.gmesh->Print(out2);
         }
-#endif
 
         //H1
         TPZCompMesh *cmeshH1 = CMeshH1(config);
+        TPZCompMeshTools::CreatedCondensedElements(cmeshH1, false, false);
         if(eData.mode == 1 || eData.mode == 2) {
             SolveH1Problem(cmeshH1, config, eData);
         }
@@ -185,8 +186,6 @@ int main(int argc, char *argv[]) {
             SolveMixedProblem(cmesh_mixed, config, eData);
         }
 
-#ifdef PZDEBUG
-        {
             if(eData.last && eData.post_proc) {
                 const clock_t begin_time = clock();
                 if(eData.mode == 1 || eData.mode == 3){
@@ -203,8 +202,6 @@ int main(int argc, char *argv[]) {
                 }
                 std::cout << "printing comp mesh time: " << float( clock () - begin_time )/CLOCKS_PER_SEC <<endl;
             }
-        }
-#endif
 
     eData.hLog = eData.h;
     eData.exp *=2;
@@ -224,11 +221,11 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
 
     //Flux mesh creation
     TPZCompMesh *cmesh_flux = new TPZCompMesh(config.gmesh);
-    BuildANDinsertBCflux(cmesh_flux, config);
+    BuildFluxMesh(cmesh_flux, config);
 
     //Potential mesh creation
     TPZCompMesh *cmesh_p = new TPZCompMesh(config.gmesh);
-    BuildANDinsertBCpotential(cmesh_p, config);
+    BuildPotentialMesh(cmesh_p, config);
 
     //Multiphysics mesh build
     InsertMaterialMixed(cmesh_Mixed, config);
@@ -236,27 +233,27 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     TPZManVector<TPZCompMesh *, 2> meshvector(2);
     meshvector[0] = cmesh_flux;
     meshvector[1] = cmesh_p;
-    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0], config.hdivmais);
-    //TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0], config.hdivmais); //Increases internal flux order by "hdivmais"
+    TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);//Set the pressure order the same as the internal flux
 
     cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
     bool keeponelagrangian = true, keepmatrix = false;
     TPZCompMeshTools::CreatedCondensedElements(cmesh_Mixed, keeponelagrangian, keepmatrix);
     cmesh_Mixed->LoadReferences();
     cmesh_Mixed->InitializeBlock();
-    //cmesh_Mixed->ComputeNodElCon();
 }
 
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID , ErrorData &eData, ProblemConfig &config){
     TPZCreateMultiphysicsSpace createspace(config.gmesh);
 
     createspace.SetMaterialIds({1}, {-2,-1});
-    createspace.fH1Hybrid.fHybridizeBC = false;//opcao de hibridizar o contorno
+    createspace.fH1Hybrid.fHybridizeBC = true;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
 
     TPZManVector<TPZCompMesh *> meshvec;
 
-    createspace.CreateAtomicMeshes(meshvec,config.porder,eData.orderlagrange);
+    int lagrangeOrder = config.porder - config.H1Hybridminus;
+    createspace.CreateAtomicMeshes(meshvec,config.porder,lagrangeOrder);
 
     InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
     createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
@@ -308,7 +305,7 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
         eData.rate = new TPZVec<REAL>(eData.numErrors, -1);
     }
 
-    if(eData.argc != 1) eData.orderlagrange = atoi(argv[3]);
+
 
     ProblemConfig config;
     Configure(config,0,eData,argv);
@@ -317,7 +314,7 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
     if(eData.mode == 1) {
         out << "Quad_" << config.problemname << "___porder_"
             << config.porder << "___hdivmais_" << config.hdivmais
-            << "___lagrangeOrder_" << eData.orderlagrange;
+            << "___H1Hybridminus_" << config.H1Hybridminus;
         eData.plotfile = out.str();
     }
     else{
@@ -329,7 +326,7 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
             break;
         case 3:
             out << "Quad_" << config.problemname << "___porder_"
-                << config.porder << "___lagrangeOrder_" << eData.orderlagrange;
+                << config.porder << "___H1Hybridminus_" << config.H1Hybridminus;
             eData.plotfile = out.str();
             break;
         case 4:
@@ -347,14 +344,15 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
     system(command.c_str());
 }
 
-void BuildANDinsertBCflux(TPZCompMesh *cmesh_flux, ProblemConfig &config){
+void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config){
 
     int dim = config.gmesh->Dimension();
     int matID = 1;
     int dirichlet = 0;
     int neumann = 1;
 
-    cmesh_flux->SetDefaultOrder(config.porder);
+    int flux_order = config.porder - config.hdivmais;
+    cmesh_flux->SetDefaultOrder(flux_order);
     cmesh_flux->SetDimModel(config.gmesh->Dimension());
 
     cmesh_flux->SetAllCreateFunctionsHDiv();
@@ -377,11 +375,14 @@ void BuildANDinsertBCflux(TPZCompMesh *cmesh_flux, ProblemConfig &config){
     cmesh_flux->InitializeBlock();
 }
 
-void BuildANDinsertBCpotential(TPZCompMesh *cmesh_p, ProblemConfig &config){
+void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
     int matID = 1;
     int dim = config.gmesh->Dimension();
 
-    cmesh_p->SetDefaultOrder(config.porder);
+    int potential_order = config.porder - config.hdivmais;
+    cmesh_p->SetDefaultOrder(potential_order);
+    //cmesh_p->SetDefaultOrder(config.porder);
+    //cmesh_p->SetDefaultOrder(config.porder + config.hdivmais);
     cmesh_p->SetDimModel(dim);
 
     cmesh_p->SetAllCreateFunctionsContinuous(); //H1 functions
@@ -389,8 +390,6 @@ void BuildANDinsertBCpotential(TPZCompMesh *cmesh_p, ProblemConfig &config){
 
     TPZNullMaterial *material = new TPZNullMaterial(matID); material->SetDimension(dim);
     cmesh_p->InsertMaterialObject(material);
-
-    cmesh_p->SetDefaultOrder(config.porder + config.hdivmais);
 
     cmesh_p->AutoBuild();
     cmesh_p->ExpandSolution();
@@ -467,6 +466,8 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 
     config.exact.operator*().fSignConvention = -1;
 
+    std::cout << "Solving H1 " << std::endl;
+
     TPZAnalysis an(cmeshH1);
 
 #ifdef USING_MKL
@@ -489,8 +490,6 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 
     strmat.SetMaterialIds(matids);
     an.SetStructuralMatrix(strmat);
-
-
 
     TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
     direct->SetDirect(ELDLt);
@@ -539,6 +538,8 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig config,struct ErrorData &eData){
 
     config.exact.operator*().fSignConvention = 1;
+
+    std::cout << "Solving HYBRID_H1 " << std::endl;
 
     TPZAnalysis an(cmesh_H1Hybrid);
 
@@ -607,7 +608,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
             out << eData.plotfile /* << config.dir_name*/ << "/"
                 << "HybridH1" << config.porder << "_" << dim << "D_"
                 << config.problemname << "Ndiv_ " << config.ndivisions
-                << "HdivMais" << config.hdivmais << ".vtk";
+                << "HdivMais" << config.porder - config.H1Hybridminus << ".vtk";
             plotname = out.str();
         }
         int resolution = 0;
@@ -620,6 +621,8 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
 
     config.exact.operator*().fSignConvention = 1;
     bool optBW = true;
+
+    std::cout << "Solving Mixed " << std::endl;
 
     TPZAnalysis an(cmesh_Mixed, optBW); //Cria objeto de análise que gerenciará a analise do problema
     TPZSkylineStructMatrix matskl(cmesh_Mixed); //caso simetrico ***
@@ -698,8 +701,8 @@ void FlushTable(ErrorData &eData, char *argv[]){
         table << "domain" << "," << "[0 1]x[0 1]" << "\n";
         table << "Case" << "," << config.problemname << "\n";
         table << "Approximation" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" << "\n";
-        table << "p-order" << "," << config.porder << "," << config.porder << "," << config.porder << "\n";
-        table << "lagrange/hdivmais" << "," << "---" << "," << eData.orderlagrange << "," << config.hdivmais << "\n\n";
+        table << "Internal order" << "," << config.porder << "," << config.porder << "," << config.porder<< "\n";
+        table << "External flux" << "," << "---" << "," << config.porder - config.H1Hybridminus << "," << config.porder - config.hdivmais << "\n\n";
         table << "Norm" << "," << "H1" << "," << "HybridH1" << "," << "Mixed" << "\n";
 
         FillErrors(table, file1, file2, file3);
@@ -719,20 +722,20 @@ void FlushTable(ErrorData &eData, char *argv[]){
         switch(eData.mode) {
         case 2:
             table << "Approximation" << "," << "H1" << "\n";
-            table << "p-order" << "," << config.porder << "\n";
+            table << "Internal order"  << "," << config.porder << "\n";
             table << "---" << "," << "---" <<  "\n\n";
             table << "Norm" << "," << "H1" << "\n";
             break;
         case 3:
             table << "Approximation" << "," << "HybridH1" << "\n";
-            table << "p-order" << "," << config.porder << "\n";
-            table << "lagrange" << "," << eData.orderlagrange <<  "\n\n";
+            table << "Internal order"  << "," << config.porder << "\n";
+            table << "External flux" << "," << config.porder - config.H1Hybridminus <<  "\n\n";
             table << "Norm" << "," << "HybridH1" << "\n";
             break;
         case 4:
             table << "Approximation" << "," << "Mixed" << "\n";
-            table << "p-order" << "," << config.porder << "\n";
-            table << "hdivmais" << "," << config.hdivmais <<  "\n\n";
+            table << "Internal order" << "," << config.porder << "\n";
+            table << "External flux" << "," << config.porder - config.hdivmais <<  "\n\n";
             table << "Norm" << "," << "Mixed" << "\n";
             break;
         }
@@ -1024,7 +1027,7 @@ void EvaluateEntry(int argc, char *argv[],ErrorData &eData){
         std::cout << "The polynomial order used here is defined within the code.\n"
                      "One can also define the polynomial order at the command line.\n"
                      "For that, insert 3 integer values after the executable command:\n"
-                     "mode --- Polynomial Order --- Lagrange Order --- HdivMais\n"
+                     "mode --- Polynomial Order --- H1Hybridminus --- HdivMais\n"
                      "mode = 'All', 'H1', 'HybridH1' or 'Mixed'\n"
                      "The command line entry is useful for consecutive runs as one can\n"
                      "build a .sh document to run all of them.";
