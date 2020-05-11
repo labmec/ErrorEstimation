@@ -4,4 +4,5 @@ AccessModifierOffset: '-4'
 AlignAfterOpenBracket: Align
 AllowShortIfStatementsOnASingleLine: WithoutElse
 IndentWidth: '4'
+ColumnLimit: 120
 ...

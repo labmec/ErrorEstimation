@@ -289,6 +289,7 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
             // to the computational element of its volumetric neighbour
             TPZGeoEl *gel = gmesh->Element(el);
             if (!gel) continue;
+            if (gel->HasSubElement()) continue;
 
             // Filters BC elements
             int matID = gel->MaterialId();
@@ -2215,12 +2216,14 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         // TODO: If the mesh is refined it should break here, then we will need to call
         //  LowerLevelCompElementList. I can't test it right now, so I'm leaving
         //  like this. Gustavo 6/4/20
+        TPZCompElSide large = skelSide.LowerLevelCompElementList2(true);
+        int size = compNeighSides.size();
+        int sizeLower = compNeighSides.size();
         if (compNeighSides.size() != 2) DebugStop();
 
         for (int i = 0; i < compNeighSides.size(); i++) {
             TPZCompEl *neighCel = compNeighSides[i].Element();
-            TPZInterpolatedElement *neighIntEl =
-                dynamic_cast<TPZInterpolatedElement *>(neighCel);
+            TPZInterpolatedElement *neighIntEl = dynamic_cast<TPZInterpolatedElement *>(neighCel);
             if (!neighIntEl) DebugStop();
 
             int sideNum = compNeighSides[i].Side();
@@ -2271,8 +2274,7 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
 
         if (elementsToGroup.size()) {
             int64_t index;
-            TPZElementGroup *elGroup =
-                new TPZElementGroup(fPostProcMesh, index);
+            TPZElementGroup *elGroup = new TPZElementGroup(fPostProcMesh, index);
             for (const auto &it : elementsToGroup) {
                 elGroup->AddElement(fPostProcMesh.Element(it));
             }
