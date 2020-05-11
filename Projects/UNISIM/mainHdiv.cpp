@@ -25,8 +25,8 @@ TPZGeoMesh *CreateFlatGeoMesh();
 
 void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename);
 
-void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x,
-                               std::vector<double> &y, std::vector<double> &z);
+void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, std::vector<double> &y,
+                               std::vector<double> &z);
 
 void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name);
 
@@ -38,10 +38,9 @@ TPZCompMesh *CreateFluxCMesh(const ProblemConfig &problem);
 
 TPZCompMesh *CreatePressureCMesh(const ProblemConfig &problem);
 
-void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
-                             const ProblemConfig &problem);
+void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &problem);
 
-void hAdaptivity(TPZHybridHDivErrorEstimator& estimator, REAL thresholdRatio);
+void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio);
 
 int main() {
 #ifdef LOG4CXX
@@ -174,8 +173,8 @@ void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename) {
     }
 }
 
-void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x,
-                               std::vector<double> &y, std::vector<double> &z) {
+void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, std::vector<double> &y,
+                               std::vector<double> &z) {
     std::ifstream file;
     file.open(name);
 
@@ -301,22 +300,19 @@ TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem) {
     meshVector[0] = CreateFluxCMesh(problem);
     meshVector[1] = CreatePressureCMesh(problem);
 
-    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshVector[0],
-                                                 problem.hdivmais);
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshVector[0], problem.hdivmais);
     TPZCompMeshTools::SetPressureOrders(meshVector[0], meshVector[1]);
 
     cmesh->BuildMultiphysicsSpace(active, meshVector);
     cmesh->LoadReferences();
     bool keepmatrix = false;
     bool keeponelagrangian = true;
-    TPZCompMeshTools::CreatedCondensedElements(cmesh, keeponelagrangian,
-                                               keepmatrix);
+    TPZCompMeshTools::CreatedCondensedElements(cmesh, keeponelagrangian, keepmatrix);
 
     return cmesh;
 }
 
-void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
-                             const ProblemConfig &problem) {
+void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &problem) {
 
     TPZAnalysis an(Hybridmesh);
 
@@ -345,10 +341,9 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh,
     vecnames.Push("Flux");
 
     std::stringstream sout;
-    sout << problem.dir_name + "/Hdiv-Order" << problem.porder
-         << "-AdaptivityStep" << problem.adaptivityStep << ".vtk";
+    sout << problem.dir_name + "/Hdiv-Order" << problem.porder << "-AdaptivityStep" << problem.adaptivityStep << ".vtk";
     an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-    an.PostProcess(1, Hybridmesh->Dimension());
+    an.PostProcess(2, Hybridmesh->Dimension());
 }
 
 void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio) {
@@ -373,7 +368,6 @@ void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio) {
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZGeoEl *gel = gmesh->ElementVec()[iel];
         if (!gel) continue;
-
         int elMatId = gel->MaterialId();
         if (matIdsToDelete.find(elMatId) != matIdsToDelete.end()) {
             if (nElemsToBeKept == 0) nElemsToBeKept = iel;
@@ -381,7 +375,13 @@ void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio) {
             continue;
         }
 
-        REAL elemError = postProcessMesh->ElementSolution()(iel, fluxErrorCol);
+        if (gel->Dimension() != postProcessMesh->Dimension()) continue;
+
+        TPZCompEl *cel = gel->Reference();
+        if (!cel) continue;
+        int64_t celId = cel->Index();
+
+        REAL elemError = postProcessMesh->ElementSolution()(celId, fluxErrorCol);
         if (elemError > maxError) {
             maxError = elemError;
         }
@@ -398,8 +398,7 @@ void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio) {
         TPZGeoEl *gel = cel->Reference();
         if (!gel) DebugStop();
 
-        REAL elementError =
-            postProcessMesh->ElementSolution()(iel, fluxErrorCol);
+        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorCol);
         if (elementError > threshold) {
             TPZVec<TPZGeoEl *> sons;
             if (!gel->HasSubElement()) {

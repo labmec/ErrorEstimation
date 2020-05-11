@@ -2213,13 +2213,11 @@ void TPZHybridHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         TPZGeoElSide skelSide(gel, gel->NSides() - 1);
         TPZStack<TPZCompElSide> compNeighSides;
         skelSide.EqualLevelCompElementList(compNeighSides, 1, 0);
-        // TODO: If the mesh is refined it should break here, then we will need to call
-        //  LowerLevelCompElementList. I can't test it right now, so I'm leaving
-        //  like this. Gustavo 6/4/20
-        TPZCompElSide large = skelSide.LowerLevelCompElementList2(true);
-        int size = compNeighSides.size();
-        int sizeLower = compNeighSides.size();
-        if (compNeighSides.size() != 2) DebugStop();
+        if (compNeighSides.size() == 1) {
+            TPZCompElSide large = skelSide.LowerLevelCompElementList2(true);
+            if (!large) DebugStop();
+            compNeighSides.Push(large);
+        }
 
         for (int i = 0; i < compNeighSides.size(); i++) {
             TPZCompEl *neighCel = compNeighSides[i].Element();
