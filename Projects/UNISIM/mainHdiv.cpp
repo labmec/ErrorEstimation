@@ -1,5 +1,6 @@
 #include "Tools.h"
 
+#include <Analysis/pzanalysis.h>
 #include <Material/REAL/mixedpoisson.h>
 #include <Material/TPZNullMaterial.h>
 #include <Material/TPZVecL2.h>
@@ -10,12 +11,13 @@
 #include <Post/TPZVTKGeoMesh.h>
 #include <Pre/TPZGmshReader.h>
 #include <Pre/TPZHybridizeHDiv.h>
+#include <ProblemConfig.h>
+#include <Refine/TPZRefPatternTools.h>
+#include <StrMatrix/TPZSSpStructMatrix.h>
 #include <StrMatrix/pzstrmatrix.h>
+
 #include <libInterpolate/Interpolate.hpp>
 
-#include <Analysis/pzanalysis.h>
-#include <ProblemConfig.h>
-#include <StrMatrix/TPZSSpStructMatrix.h>
 #include <iostream>
 #include <map>
 #include <string>
@@ -28,7 +30,7 @@ void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename);
 void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, std::vector<double> &y,
                                std::vector<double> &z);
 
-void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name);
+void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT = true, bool printVTK = true);
 
 void UNISIMHDiv(TPZGeoMesh *gmesh);
 
@@ -42,19 +44,43 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &probl
 
 void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio);
 
+void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef);
+
 int main() {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
 
-    TPZGeoMesh *gmesh = CreateFlatGeoMesh();
+    gRefDBase.InitializeRefPatterns(2);
 
-    int nSteps = 4;
+    TPZGeoMesh *gmesh = CreateFlatGeoMesh();
+    int nDirectionalRefinements = 1;
+    ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
+
+    int nSteps = 1;
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
 
     return 0;
+}
+
+void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef) {
+    // Mat IDs of productors and injectors BCs
+    set<int> matids{-2, -3};
+
+    for (auto i = 0; i < nRef; i++) {
+        int nelements = gmesh->NElements();
+        cout << "Refinement step: " << i << "\nNumber of elements = " << nelements << '\n';
+        for (auto el = 0; el < nelements; el++) {
+            TPZGeoEl *element = gmesh->ElementVec()[el];
+            if (!element) continue;
+            TPZRefPatternTools::RefineDirectional(element, matids);
+        }
+        stringstream meshfilename;
+        meshfilename << "DirectionalRefinementGMesh" << i;
+        PrintGeometry(gmesh, meshfilename.str(), false, true);
+    }
 }
 
 void UNISIMHDiv(TPZGeoMesh *gmesh) {
@@ -75,7 +101,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
 
     std::stringstream gmeshFileName;
     gmeshFileName << config.dir_name << "/GeoMesh" << adaptivityStep;
-    PrintGeometry(gmesh, gmeshFileName.str());
+    PrintGeometry(gmesh, gmeshFileName.str(), false, true);
 
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
@@ -205,15 +231,19 @@ void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, 
     std::cout << "File successfully read!\n";
 }
 
-void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name) {
-    std::stringstream txt_name;
-    std::stringstream vtk_name;
-    txt_name << file_name << ".txt";
-    vtk_name << file_name << ".vtk";
-    std::ofstream textfile(txt_name.str().c_str());
-    gmesh->Print(textfile);
-    std::ofstream vtkfile(vtk_name.str().c_str());
-    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
+void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT, bool printVTK) {
+    if (printTXT) {
+        std::stringstream txt_name;
+        txt_name << file_name << ".txt";
+        std::ofstream textfile(txt_name.str().c_str());
+        gmesh->Print(textfile);
+    }
+    if (printVTK) {
+        std::stringstream vtk_name;
+        vtk_name << file_name << ".vtk";
+        std::ofstream vtkfile(vtk_name.str().c_str());
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
+    }
 }
 
 TPZCompMesh *CreatePressureCMesh(const ProblemConfig &problem) {
