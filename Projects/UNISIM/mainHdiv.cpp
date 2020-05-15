@@ -18,6 +18,10 @@
 
 #include <libInterpolate/Interpolate.hpp>
 
+#include <Analysis/pzanalysis.h>
+#include <ProblemConfig.h>
+#include <StrMatrix/TPZSSpStructMatrix.h>
+#include "pzcheckgeom.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -57,7 +61,28 @@ int main() {
     int nDirectionalRefinements = 1;
     ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
 
-    int nSteps = 1;
+
+    TPZManVector<REAL,3> nod0(3,0.);
+    gmesh->NodeVec()[0].GetCoordinates(nod0);
+    int64_t nnodes = gmesh->NNodes();
+    for (int64_t no = 0; no<nnodes; no++) {
+        TPZManVector<REAL, 3> co(3);
+        gmesh->NodeVec()[no].GetCoordinates(co);
+        for(int ic=0; ic<3; ic++) co[ic] -= nod0[ic];
+        gmesh->NodeVec()[no].SetCoord(co);
+    }
+//    {
+//        std::ofstream out("unisim.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+//        std::ofstream outgeo("gmesh.txt");
+//        gmesh->Print(outgeo);
+//        TPZCheckGeom check(gmesh);
+//        check.UniformRefine(1);
+//        std::ofstream out2("unisim2.vtk");
+//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
+//    }
+//    return 0;
+    int nSteps = 4;
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
@@ -143,8 +168,11 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
 
 TPZGeoMesh *CreateFlatGeoMesh() {
 
+#ifdef MACOSX
+    std::string gmshFile = "../InputData/UNISIMFlatMesh.msh";
+#else
     std::string gmshFile = "InputData/UNISIMFlatMesh.msh";
-
+#endif
     TPZGmshReader gmeshReader;
     TPZGeoMesh *gmesh;
 

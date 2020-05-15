@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     config.porder = 1;
     config.hdivmais = 1;
     config.makepressurecontinuous = true;
-    config.exact.fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
+    config.exact->fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
     config.problemname = "ESinSin";//"ArcTang";//"SinSin";//"SinSinNonHom";//
     bool random_refine = false;
     
