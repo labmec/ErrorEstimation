@@ -18,10 +18,6 @@
 
 #include <libInterpolate/Interpolate.hpp>
 
-#include <Analysis/pzanalysis.h>
-#include <ProblemConfig.h>
-#include <StrMatrix/TPZSSpStructMatrix.h>
-#include "pzcheckgeom.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -50,6 +46,8 @@ void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio);
 
 void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef);
 
+void MoveMeshToOrigin(TPZGeoMesh *gmesh);
+
 int main() {
 #ifdef LOG4CXX
     InitializePZLOG();
@@ -58,40 +56,31 @@ int main() {
     gRefDBase.InitializeRefPatterns(2);
 
     TPZGeoMesh *gmesh = CreateFlatGeoMesh();
-    TPZManVector<REAL,3> nod0(3,0.);
-    gmesh->NodeVec()[0].GetCoordinates(nod0);
-    int64_t nnodes = gmesh->NNodes();
-    for (int64_t no = 0; no<nnodes; no++) {
-        TPZManVector<REAL, 3> co(3);
-        gmesh->NodeVec()[no].GetCoordinates(co);
-        for(int ic=0; ic<3; ic++) co[ic] -= nod0[ic];
-        gmesh->NodeVec()[no].SetCoord(co);
-    }
-    {
-        std::ofstream out("unisim.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-    }
+    PrintGeometry(gmesh, "UNISIM", false, true);
+
     int nDirectionalRefinements = 5;
     ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
+    PrintGeometry(gmesh, "UNISIMAfterDirectionalRefinement", false, true);
 
-
-    {
-//        std::ofstream out("unisim.vtk");
-//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-//        std::ofstream outgeo("gmesh.txt");
-//        gmesh->Print(outgeo);
-//        TPZCheckGeom check(gmesh);
-//        check.UniformRefine(1);
-        std::ofstream out2("unisim2.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
-    }
-    return 0;
-    int nSteps = 4;
+    int nSteps = 7;
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
 
     return 0;
+}
+
+void MoveMeshToOrigin(TPZGeoMesh *gmesh) {
+    TPZManVector<REAL, 3> nod0(3, 0.);
+    gmesh->NodeVec()[0].GetCoordinates(nod0);
+    int64_t nnodes = gmesh->NNodes();
+    for (int64_t no = 0; no < nnodes; no++) {
+        TPZManVector<REAL, 3> co(3);
+        gmesh->NodeVec()[no].GetCoordinates(co);
+        for (int ic = 0; ic < 3; ic++)
+            co[ic] -= nod0[ic];
+        gmesh->NodeVec()[no].SetCoord(co);
+    }
 }
 
 void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef) {
@@ -172,11 +161,11 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
 
 TPZGeoMesh *CreateFlatGeoMesh() {
 
-#ifdef MACOSX
-    std::string gmshFile = "../InputData/UNISIMFlatMesh.msh";
-#else
     std::string gmshFile = "InputData/UNISIMFlatMesh.msh";
+#ifdef MACOSX
+    gmshFile = "../" + gmshFile;
 #endif
+
     TPZGmshReader gmeshReader;
     TPZGeoMesh *gmesh;
 
@@ -194,8 +183,11 @@ TPZGeoMesh *CreateFlatGeoMesh() {
     gmeshReader.SetFormatVersion("4.1");
     gmesh = gmeshReader.GeometricGmshMesh(gmshFile);
 
-    // std::string filename1 = "InputData/UNISIMPointCloud.txt";
-    // ModifyZCoordinates(gmesh, filename1);
+    // std::string filename = "InputData/UNISIMPointCloud.txt";
+    // ModifyZCoordinates(gmesh, filename);
+
+    MoveMeshToOrigin(gmesh);
+
     return gmesh;
 }
 
