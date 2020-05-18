@@ -298,7 +298,14 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
                 TPZGeoElSide bcSide(gel, gel->NSides() - 1);
                 TPZStack<TPZCompElSide> compNeighSides;
                 bcSide.EqualLevelCompElementList(compNeighSides, 1, 0);
-                if (compNeighSides.size() != 1) DebugStop();
+                if (compNeighSides.size() != 1) {
+                    DebugStop();
+                    // TODO I don't know what to do here
+                    continue;
+                    TPZCompElSide large = bcSide.LowerLevelCompElementList2(1);
+                    if (!large) DebugStop();
+                    compNeighSides.Push(large);
+                }
 
                 TPZCompEl *cel = compNeighSides[0].Element();
                 if (!cel) DebugStop();
