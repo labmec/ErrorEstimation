@@ -66,11 +66,11 @@ int main() {
     ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
     PrintGeometry(gmesh, "DebugMeshAfterDirectionalRefinement", false, true);
 
-    int nSteps = 7;
+    int nSteps = 1;
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
-
+    delete gmesh;
     return 0;
 }
 
@@ -120,7 +120,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     // TODO change back to UNISIM
     {
         config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::EX;
+        config.exact.operator*().fExact = TLaplaceExample1::EConst;
     }
 
     // TODO change back to UNISIM
@@ -139,7 +139,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     config.bcmaterialids.insert(-2);
     config.bcmaterialids.insert(-3);
 
-    config.gmesh = gmesh;
+    config.gmesh = new TPZGeoMesh(*gmesh);
 
     TPZMultiphysicsCompMesh *cmesh_HDiv = CreateMixedCMesh(config);
     cmesh_HDiv->InitializeBlock();
@@ -147,6 +147,9 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     // Hybridizes mesh
     TPZHybridizeHDiv hybrid;
     auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
+    delete cmesh_HDiv->MeshVector()[0];
+    delete cmesh_HDiv->MeshVector()[1];
+    delete cmesh_HDiv;
     HybridMesh->CleanUpUnconnectedNodes();
     HybridMesh->AdjustBoundaryElements();
 
@@ -155,20 +158,34 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     // Solves FEM problem
     SolveMixedHybridProblem(cmesh_HDiv, config);
 
-    // Estimates error
-    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-    HDivEstimate.fProblemConfig = config;
-    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-
-    HDivEstimate.fPostProcesswithHDiv = false;
-
-    HDivEstimate.PotentialReconstruction();
-
+    if(1)
+    {
+        std::ofstream out("MeshSol.txt");
+        cmesh_HDiv->Print(out);
+        TPZMultiphysicsCompMesh *mfmesh = dynamic_cast<TPZMultiphysicsCompMesh *>(cmesh_HDiv);
+        if(!mfmesh) DebugStop();
+        std::ofstream out2("FluxMesh.txt");
+        mfmesh->MeshVector()[0]->Print(out2);
+    }
     TPZManVector<REAL> elementerrors;
-    HDivEstimate.ComputeErrors(elementerrors);
+    {
+        // Estimates error
+        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+        HDivEstimate.fProblemConfig = config;
+        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
 
+        HDivEstimate.fPostProcesswithHDiv = false;
+
+        HDivEstimate.PotentialReconstruction();
+
+        HDivEstimate.ComputeErrors(elementerrors);
+    }
+    delete HybridMesh->MeshVector()[0];
+    delete HybridMesh->MeshVector()[1];
+    delete HybridMesh;
+    delete config.gmesh;
     // h-refinement
-    hAdaptivity(HDivEstimate, 0.5);
+//    hAdaptivity(HDivEstimate, 0.5);
     adaptivityStep++;
 }
 
@@ -533,9 +550,9 @@ TPZGeoMesh *CreateDebugGeoMesh() {
     nodeIDs[3] = 4;
     new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
     nodeIDs[0] = 4;
-    nodeIDs[1] = 6;
+    nodeIDs[1] = 7;
     nodeIDs[2] = 3;
-    nodeIDs[3] = 7;
+    nodeIDs[3] = 6;
     new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
     nodeIDs[0] = 5;
     nodeIDs[1] = 7;
