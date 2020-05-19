@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+#define NOPEDEBUGTEST
+
 TPZGeoMesh *CreateFlatGeoMesh();
 
 TPZGeoMesh *CreateDebugGeoMesh();
@@ -46,7 +48,7 @@ TPZCompMesh *CreatePressureCMesh(const ProblemConfig &problem);
 
 void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &problem);
 
-void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio);
+void hAdaptivity(TPZGeoMesh* gmesh, TPZVec<REAL>& elementErrors, REAL thresholdRatio);
 
 void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef);
 
@@ -58,15 +60,18 @@ int main() {
 #endif
 
     gRefDBase.InitializeRefPatterns(2);
-    // TODO change back to UNISIM
-    //TPZGeoMesh *gmesh = CreateFlatGeoMesh();
+    gRefDBase.InitializeAllUniformRefPatterns();
+#ifdef DEBUGTEST
     TPZGeoMesh *gmesh = CreateDebugGeoMesh();
+#else
+    TPZGeoMesh *gmesh = CreateFlatGeoMesh();
+#endif
     PrintGeometry(gmesh, "DebugMesh", false, true);
-    int nDirectionalRefinements = 0;
+    int nDirectionalRefinements = 3;
     ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
     PrintGeometry(gmesh, "DebugMeshAfterDirectionalRefinement", false, true);
 
-    int nSteps = 1;
+    int nSteps = 2;
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
@@ -89,8 +94,11 @@ void MoveMeshToOrigin(TPZGeoMesh *gmesh) {
 
 void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef) {
     // Mat IDs of productors and injectors BCs
-    //set<int> matids{-2, -3}; TODO change back to UNISIM
+#ifdef DEBUGTEST
     set<int> matids{-2};
+#else
+    set<int> matids{-2, -3};
+#endif
 
     for (auto i = 0; i < nRef; i++) {
         int nelements = gmesh->NElements();
@@ -117,15 +125,15 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     config.adaptivityStep = adaptivityStep;
     config.makepressurecontinuous = true;
 
-    // TODO change back to UNISIM
+#ifdef DEBUGTEST
     {
         config.exact = new TLaplaceExample1;
         config.exact.operator*().fExact = TLaplaceExample1::EConst;
     }
-
-    // TODO change back to UNISIM
-    //config.dir_name = "TesteUNISIM";
     config.dir_name = "DebugTest";
+#else
+    config.dir_name = "TesteUNISIM";
+#endif
     config.problemname = "UNISIM_Errors";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
@@ -185,7 +193,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     delete HybridMesh;
     delete config.gmesh;
     // h-refinement
-//    hAdaptivity(HDivEstimate, 0.5);
+    hAdaptivity(gmesh, elementerrors, 0.3);
     adaptivityStep++;
 }
 
@@ -335,6 +343,7 @@ TPZCompMesh *CreateFluxCMesh(const ProblemConfig &problem) {
         TPZFNMatrix<1, REAL> val1, val2;
         int bctype = 999;
         TPZBndCond *bc = fluxMat->CreateBC(fluxMat, bcID, bctype, val1, val2);
+
         cmesh->InsertMaterialObject(bc);
     }
 
@@ -351,11 +360,12 @@ TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem) {
 
     TPZMixedPoisson *mix = new TPZMixedPoisson(1, cmesh->Dimension());
 
-    // TODO change back to UNISIM
+#ifdef DEBUGTEST
     {
         mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
         mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
     }
+#endif
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
@@ -376,9 +386,10 @@ TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem) {
     // Injectors
     val2(0, 0) = 20.;
     TPZBndCond *injectors = mix->CreateBC(mix, -3, dirichlet, val1, val2);
-    // TODO change back to UNISIM
+#ifdef DEBUGTEST
     productors->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
     injectors->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+#endif
 
     cmesh->InsertMaterialObject(zeroFlux);
     cmesh->InsertMaterialObject(productors);
@@ -438,63 +449,22 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &probl
     an.PostProcess(0, Hybridmesh->Dimension());
 }
 
-void hAdaptivity(TPZHybridHDivErrorEstimator &estimator, REAL thresholdRatio) {
-    // Column of the flux error estimate on the element solution matrix
-    const int fluxErrorCol = 3;
-    // Column of the pressure error estimate on the element solution matrix
-    const int pressureErrorCol = 1;
-    const int errorCol = fluxErrorCol;
-
-    TPZCompMesh *postProcessMesh = &estimator.fPostProcMesh;
-    TPZGeoMesh *gmesh = postProcessMesh->Reference();
-    postProcessMesh->LoadReferences();
-
-    // Cleans geometric elements of interfaces and other auxiliary materials
-    // and iterates through element errors to get the maximum value
-    std::set<int> matIdsToDelete;
-    matIdsToDelete.insert(estimator.fHybridizer.fLagrangeInterface);
-    matIdsToDelete.insert(estimator.fHybridizer.fHDivWrapMatid);
-    matIdsToDelete.insert(estimator.fHybridizer.fInterfaceMatid);
+void hAdaptivity(TPZGeoMesh* gmesh, TPZVec<REAL>& elementErrors, REAL thresholdRatio) {
 
     REAL maxError = 0.;
-    int64_t nElemsToBeKept = 0;
 
     int64_t nelem = gmesh->NElements();
     for (int64_t iel = 0; iel < nelem; iel++) {
-        TPZGeoEl *gel = gmesh->ElementVec()[iel];
-        if (!gel) continue;
-        int elMatId = gel->MaterialId();
-        if (matIdsToDelete.find(elMatId) != matIdsToDelete.end()) {
-            if (nElemsToBeKept == 0) nElemsToBeKept = iel;
-            gmesh->DeleteElement(gel, iel);
-            continue;
-        }
-
-        if (gel->Dimension() != postProcessMesh->Dimension()) continue;
-
-        TPZCompEl *cel = gel->Reference();
-        if (!cel) continue;
-        int64_t celId = cel->Index();
-
-        REAL elemError = postProcessMesh->ElementSolution()(celId, errorCol);
-        if (elemError > maxError) {
-            maxError = elemError;
-        }
+        if (elementErrors[iel] > maxError) maxError = elementErrors[iel];
     }
 
     REAL threshold = thresholdRatio * maxError;
 
-    nelem = postProcessMesh->NElements();
     for (int64_t iel = 0; iel < nelem; iel++) {
-        TPZCompEl *cel = postProcessMesh->ElementVec()[iel];
-        if (!cel) continue;
-        if (cel->Dimension() != postProcessMesh->Dimension()) continue;
-
-        TPZGeoEl *gel = cel->Reference();
-        if (!gel) DebugStop();
-
-        REAL elementError = postProcessMesh->ElementSolution()(iel, errorCol);
+        REAL elementError = elementErrors[iel];
         if (elementError > threshold) {
+            TPZGeoEl *gel = gmesh->Element(iel);
+            if (!gel) DebugStop();
             TPZVec<TPZGeoEl *> sons;
             if (!gel->HasSubElement()) {
                 gel->Divide(sons);

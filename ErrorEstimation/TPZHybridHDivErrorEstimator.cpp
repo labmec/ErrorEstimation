@@ -101,10 +101,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 #endif
 
     an.PostProcessError(errorvec,true);//calculo do erro com sol exata e aprox e armazena no elementsolution
-    
-  //  TPZCompMesh *cmesh = &fPostProcMesh;
-   // cmesh->ElementSolution().Print("ElSolutionAposPosProcess",std::cout);
-    
+
+
     std::cout << "Computed errors " << errorvec << std::endl;
     
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
@@ -131,6 +129,16 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
 //    GlobalEffectivityIndex();
     
     PostProcessing(an);
+
+    elementerrors.resize(fPostProcMesh.Reference()->NElements());
+    for (int64_t i = 0; i < nelem; i++) {
+        TPZCompEl *cel = fPostProcMesh.Element(i);
+        if (!cel) continue;
+        TPZGeoEl* gel = fPostProcMesh.Element(i)->Reference();
+        if (!gel) continue;
+        elementerrors[gel->Index()] = fPostProcMesh.ElementSolution()(i, 3);
+    }
+
 }
 
 void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
@@ -1004,68 +1012,57 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
 }
 //compute de L2 projection of Dirichlet boundary condition for Hdi-H1 reconstruction
 void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh, int target_dim){
-    
+
     {
         std::ofstream out("PressureBeforeL2Projection.txt");
         pressuremesh->Print(out);
     }
-    if(target_dim==2){
-           std::cout<<"Not implemented for 2D interface"<<std::endl;
-           DebugStop();
-       }
-       
-       TPZGeoMesh *gmesh = pressuremesh->Reference();
-       gmesh->ResetReference();
-       int64_t nel = pressuremesh->NElements();
+    if (target_dim == 2) {
+        std::cout << "Not implemented for 2D interface" << std::endl;
+        DebugStop();
+    }
 
-       TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
+    TPZGeoMesh *gmesh = pressuremesh->Reference();
+    gmesh->ResetReference();
+    int64_t nel = pressuremesh->NElements();
 
-       TPZElementMatrix ekbc,efbc;
-       for(int iel=0; iel < nel; iel++) {
-           TPZCompEl *cel = elementvec[iel];
-           if(!cel) continue;
-           TPZGeoEl *gel = cel->Reference();
-           
-           int matid = gel->MaterialId();
-           TPZMaterial *mat = pressuremesh->FindMaterial(matid);
-           
+    TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
 
-           TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-           if (!bc || (bc->Type()!=0)) continue ;
-           
-           cel->CalcStiff(ekbc,efbc);
-           ekbc.Print(std::cout);
-           //efbc.Print(std::cout);
-    
-           ekbc.fMat.SolveDirect(efbc.fMat, ELU);
-           //efbc.Print(std::cout<<"Solution ");
-           
-           int count = 0;
-           int nc = cel->NConnects();
-           for (int ic = 0; ic < nc; ic++) {
-               TPZConnect &c = cel->Connect(ic);
-               int64_t seqnum = c.SequenceNumber();
-               int64_t pos = pressuremesh->Block().Position(seqnum);
-               int ndof = c.NShape() * c.NState();
-               for (int idf = 0; idf < ndof; idf++) {
-                   pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
-               }
-           }
-           
+    TPZElementMatrix ekbc, efbc;
+    for (int iel = 0; iel < nel; iel++) {
+        TPZCompEl *cel = elementvec[iel];
+        if (!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
 
+        int matid = gel->MaterialId();
+        TPZMaterial *mat = pressuremesh->FindMaterial(matid);
 
-       }
-       
-    
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        if (!bc || (bc->Type() != 0)) continue;
+
+        cel->CalcStiff(ekbc, efbc);
+        ekbc.fMat.SolveDirect(efbc.fMat, ELU);
+
+        int count = 0;
+        int nc = cel->NConnects();
+        for (int ic = 0; ic < nc; ic++) {
+            TPZConnect &c = cel->Connect(ic);
+            int64_t seqnum = c.SequenceNumber();
+            int64_t pos = pressuremesh->Block().Position(seqnum);
+            int ndof = c.NShape() * c.NState();
+            for (int idf = 0; idf < ndof; idf++) {
+                pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+            }
+        }
+    }
+
     {
         std::ofstream out("PressureAfterL2Projection.txt");
         pressuremesh->Print(out);
     }
-
 }
 
-void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
-    TPZCompMesh *pressuremesh, int target_dim) {
+void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh, int target_dim) {
 
     //{
     //    std::ofstream out("PressureBeforeL2Projection.txt");
@@ -1093,7 +1090,7 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
 
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc) continue;
-        if(bc->Type()==4 && bc->Val1()(0,0)==0) continue;
+        if(bc->Type()==4 && IsZero(bc->Val1()(0,0))) continue;
 
         int nc = cel->NConnects();
         int order = cel->Connect(nc - 1).Order();
@@ -1771,8 +1768,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     if(!fPostProcesswithHDiv){
         TPZCompMesh *pressuremesh = PressureMesh();
         int target_dim = 1;//ver se fica igual para dimensao maior
-        //ComputeBoundaryL2Projection(pressuremesh, target_dim );
-        NewComputeBoundaryL2Projection(pressuremesh, target_dim);
+        ComputeBoundaryL2Projection(pressuremesh, target_dim );
+        //NewComputeBoundaryL2Projection(pressuremesh, target_dim); // TODO
     }
     
 //    {
