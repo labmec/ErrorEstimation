@@ -118,6 +118,12 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     config.makepressurecontinuous = true;
 
     // TODO change back to UNISIM
+    {
+        config.exact = new TLaplaceExample1;
+        config.exact.operator*().fExact = TLaplaceExample1::EX;
+    }
+
+    // TODO change back to UNISIM
     //config.dir_name = "TesteUNISIM";
     config.dir_name = "DebugTest";
     config.problemname = "UNISIM_Errors";
@@ -328,6 +334,11 @@ TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem) {
 
     TPZMixedPoisson *mix = new TPZMixedPoisson(1, cmesh->Dimension());
 
+    // TODO change back to UNISIM
+    {
+        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
+        mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
+    }
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
@@ -348,6 +359,9 @@ TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem) {
     // Injectors
     val2(0, 0) = 20.;
     TPZBndCond *injectors = mix->CreateBC(mix, -3, dirichlet, val1, val2);
+    // TODO change back to UNISIM
+    productors->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+    injectors->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
 
     cmesh->InsertMaterialObject(zeroFlux);
     cmesh->InsertMaterialObject(productors);
