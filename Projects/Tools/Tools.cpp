@@ -782,10 +782,14 @@ void DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
                 TPZGeoElSide neighbour(gelside.Neighbour());
                 bool found = false;
                 while (neighbour != gelside) {
-                    if (neighbour.HasSubElement()) {
-                        geldivide.Push(gel);
-                        found = true;
-                        break;
+                    if (neighbour.HasSubElement())
+                    {
+                        if(neighbour.NSubElements() > 1)
+                        {
+                            geldivide.Push(gel);
+                            found = true;
+                            break;
+                        }
                     }
                     neighbour = neighbour.Neighbour();
                 }
@@ -796,6 +800,7 @@ void DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
             haschanged = true;
             for (int64_t i = 0; i < geldivide.size(); i++) {
                 TPZManVector<TPZGeoEl*> sub;
+                std::cout << "Dividing boundary element " << geldivide[i]->Index() << std::endl;
                 geldivide[i]->Divide(sub);
             }
         }

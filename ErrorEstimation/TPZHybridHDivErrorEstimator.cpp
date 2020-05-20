@@ -1765,8 +1765,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZCompMesh *pressuremesh = PressureMesh();
         int target_dim = 1; // TODO ver se fica igual para dimensao maior
         // TODO
-        //ComputeBoundaryL2Projection(pressuremesh, target_dim);
-        NewComputeBoundaryL2Projection(pressuremesh, target_dim);
+        ComputeBoundaryL2Projection(pressuremesh, target_dim);
+        //NewComputeBoundaryL2Projection(pressuremesh, target_dim);
     }
 
 //    {

@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#define DEBUGTEST
+//#define DEBUGTEST
 
 TPZGeoMesh *CreateFlatGeoMesh();
 
@@ -71,7 +71,7 @@ int main() {
     ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
     PrintGeometry(gmesh, "DebugMeshAfterDirectionalRefinement", false, true);
 
-    int nSteps = 1;
+    int nSteps = 4;
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
@@ -167,7 +167,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     // Solves FEM problem
     SolveMixedHybridProblem(cmesh_HDiv, config);
 
-    if(1)
+    if(0)
     {
         std::ofstream out("MeshSol.txt");
         cmesh_HDiv->Print(out);
