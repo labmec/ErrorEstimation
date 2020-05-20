@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#define NOPEDEBUGTEST
+#define DEBUGTEST
 
 TPZGeoMesh *CreateFlatGeoMesh();
 
@@ -71,7 +71,7 @@ int main() {
     ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
     PrintGeometry(gmesh, "DebugMeshAfterDirectionalRefinement", false, true);
 
-    int nSteps = 2;
+    int nSteps = 1;
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
@@ -86,8 +86,9 @@ void MoveMeshToOrigin(TPZGeoMesh *gmesh) {
     for (int64_t no = 0; no < nnodes; no++) {
         TPZManVector<REAL, 3> co(3);
         gmesh->NodeVec()[no].GetCoordinates(co);
-        for (int ic = 0; ic < 3; ic++)
+        for (int ic = 0; ic < 3; ic++) {
             co[ic] -= nod0[ic];
+        }
         gmesh->NodeVec()[no].SetCoord(co);
     }
 }
@@ -128,7 +129,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
 #ifdef DEBUGTEST
     {
         config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::EConst;
+        config.exact.operator*().fExact = TLaplaceExample1::EX;
     }
     config.dir_name = "DebugTest";
 #else
@@ -183,7 +184,9 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
         HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
 
         HDivEstimate.fPostProcesswithHDiv = false;
-
+#ifdef DEBUGTEST
+        HDivEstimate.SetAnalyticSolution(config.exact);
+#endif
         HDivEstimate.PotentialReconstruction();
 
         HDivEstimate.ComputeErrors(elementerrors);

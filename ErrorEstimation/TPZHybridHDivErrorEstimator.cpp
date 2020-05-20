@@ -210,7 +210,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
     if (mat) varindex = mat->VariableIndex("PressureFem");
     if (varindex != -1) {
         TPZStack<std::string> scalnames, vecnames;
-        if (mat->HasForcingFunctionExact()) {
+        if (fExact) {
             scalnames.Push("PressureExact");
             scalnames.Push("PressureErrorExact");
             scalnames.Push("EnergyErrorExact");
@@ -280,12 +280,12 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
                 int pressureMatId = bc->Material()->Id();
                 TPZMaterial *pressuremat =
                     pressureMesh->FindMaterial(pressureMatId);
-                TPZMaterial *bcmat = pressuremat->CreateBC(
+                TPZMaterial *newbc = pressuremat->CreateBC(
                     pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
-                if (fExact) {
-                    bcmat->SetForcingFunction(fExact->Exact());
+                if (bc->HasForcingFunction()) {
+                    newbc->SetForcingFunction(bc->ForcingFunction());
                 }
-                pressureMesh->InsertMaterialObject(bcmat);
+                pressureMesh->InsertMaterialObject(newbc);
                 bcMatIDs.insert(bc->Id());
             }
         }
@@ -379,7 +379,6 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
 
     // switch the material from mixed to TPZMixedHdivErrorEstimate...
     SwitchMaterialObjects();
-    
     
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
     mesh_vectors[0] = 0;
@@ -1070,7 +1069,7 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
     //}
 
     if (target_dim == 2) {
-        std::cout << "Not implemented for 2D interface" << std::endl;
+        std::cout << "Not implemented for 2D interface.\n";
         DebugStop();
     }
 
@@ -1090,7 +1089,7 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
 
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc) continue;
-        if(bc->Type()==4 && IsZero(bc->Val1()(0,0))) continue;
+        if (bc->Type() == 4 && IsZero(bc->Val1()(0, 0))) continue;
 
         int nc = cel->NConnects();
         int order = cel->Connect(nc - 1).Order();
@@ -1124,20 +1123,18 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
 
             int bcType = bc->Type();
             switch (bcType) {
-            case 0:
+            case 0: {
                 for (int ishape = 0; ishape < nshape; ishape++) {
                     efbc(ishape, 0) += weight * phi(ishape, 0) * u_D;
                     for (int jshape = 0; jshape < nshape; jshape++) {
-                        ekbc(ishape, jshape) +=
-                            weight * phi(ishape, 0) * phi(jshape, 0);
+                        ekbc(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
                     }
                 }
                 break;
-
-            case 4:
+            }
+            case 4: {
                 TPZCompEl *origCel = gel->Reference();
-                TPZMultiphysicsElement *multiphysicsCel =
-                    dynamic_cast<TPZMultiphysicsElement *>(origCel);
+                TPZMultiphysicsElement *multiphysicsCel = dynamic_cast<TPZMultiphysicsElement *>(origCel);
                 if (!multiphysicsCel) {
                     DebugStop();
                 }
@@ -1148,16 +1145,16 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
                 REAL InvKm = 1. / bc->Val1()(0, 0);
                 REAL g = bc->Val1()(1, 0);
                 for (int ishape = 0; ishape < nshape; ishape++) {
-                    efbc(ishape, 0) +=
-                        weight * (InvKm * (sol[0] + g) + u_D) * phi(ishape, 0);
+                    efbc(ishape, 0) += weight * (InvKm * (sol[0] + g) + u_D) * phi(ishape, 0);
                     for (int jshape = 0; jshape < nshape; jshape++) {
-                        ekbc(ishape, jshape) +=
-                            weight * phi(ishape, 0) * phi(jshape, 0);
+                        ekbc(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
                     }
                 }
-                    
-                    
                 break;
+            }
+            default:
+                std::cout << "Invalid BC type.\n";
+                DebugStop();
             }
         }
 
@@ -1727,7 +1724,6 @@ void TPZHybridHDivErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec
     TPZVec<REAL> xco;
     xco.resize(3);
     if (bc->HasForcingFunction()) {
-      
         gel->NodePtr(gelside.Side())->GetCoordinates(xco);
         bc->ForcingFunction()->Execute(xco, vals);
     } else {
@@ -1764,26 +1760,24 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 //        
 //    }
     
-    // L2 projection for Dirihlet boundary condition for H1 reconstruction
-    if(!fPostProcesswithHDiv){
+    // L2 projection for Dirichlet and Robin boundary condition for H1 reconstruction
+    if (!fPostProcesswithHDiv) {
         TPZCompMesh *pressuremesh = PressureMesh();
-        int target_dim = 1;//ver se fica igual para dimensao maior
-        ComputeBoundaryL2Projection(pressuremesh, target_dim );
-        //NewComputeBoundaryL2Projection(pressuremesh, target_dim); // TODO
+        int target_dim = 1; // TODO ver se fica igual para dimensao maior
+        // TODO
+        //ComputeBoundaryL2Projection(pressuremesh, target_dim);
+        NewComputeBoundaryL2Projection(pressuremesh, target_dim);
     }
-    
+
 //    {
-//
 //        std::ofstream out("PressureAverageMesh.txt");
 //        fPostProcMesh.MeshVector()[3]->Print(out);
 //        PlotLagrangeMultiplier("BeforeAverage");
 //    }
     
-    //calculando media das pressoes internas e valor nos vertices
-    int dim = fPostProcMesh.Dimension();
-    
-    
+    // Calculates average pressure on interface edges and vertices
     if (fProblemConfig.makepressurecontinuous) {
+        int dim = fPostProcMesh.Dimension();
         ComputeAveragePressures(dim - 1);
         // in three dimensions make the one-d polynoms compatible
         if (dim == 3) {
@@ -1800,7 +1794,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     ComputeNodalAverages();
     
 //    {
-//
 //        std::ofstream out("PressureNodalMesh.txt");
 //        fPostProcMesh.MeshVector()[1]->Print(out);
 //        PlotLagrangeMultiplier("AfterNodalAverage");
@@ -1881,25 +1874,21 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
          fPostProcMesh.Solution().Print("SolAfterLoadSolution");
     }
 #endif
-    
-    
+
     {
-        TPZManVector<TPZCompMesh *,2> meshvec(2);
+        TPZManVector<TPZCompMesh *, 2> meshvec(2);
         // fPostProcMesh[0] is the H1 or Hdiv mesh
         // fPostProcMesh[1] is the L2 mesh
 
-            meshvec[0] = fPostProcMesh.MeshVector()[0];
-            meshvec[1] = fPostProcMesh.MeshVector()[1];
-  
-        
-      //  fPostProcMesh.ElementSolution().Print("SolutionBefroreTranfer");
-        
+        meshvec[0] = fPostProcMesh.MeshVector()[0];
+        meshvec[1] = fPostProcMesh.MeshVector()[1];
+
+        //  fPostProcMesh.ElementSolution().Print("SolutionBefroreTranfer");
+
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
-        
+
         // fPostProcMesh.ElementSolution().Print("SolutionAfterTranfer");
-        
-        
-        
+
 #ifdef PZDEBUG2
 //        {
 //            std::ofstream out("PressureAfterTransfer.txt");
@@ -1911,9 +1900,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         VerifySolutionConsistency(PressureMesh());
 #endif
     }
-    
-    
-    
 }
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {
@@ -2036,10 +2022,9 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
             if (mixpoisson) {
                 TPZMixedHDivErrorEstimate<TPZMixedPoisson> *newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
 
-                if (fExact) {
-                    newmat->SetForcingFunction(fExact->Exact());
-                    newmat->SetForcingFunction(fExact->ForcingFunction());
-
+                if (mixpoisson->HasForcingFunction()) {
+                    newmat->SetForcingFunctionExact(mixpoisson->ForcingFunctionExact());
+                    newmat->SetForcingFunction(mixpoisson->ForcingFunction());
                 }
 
                 for (auto bcmat : fPostProcMesh.MaterialVec()) {
@@ -2063,9 +2048,9 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
             {
                 TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
 
-                if (fExact) {
-                    newmat->SetForcingFunctionExact(fExact->Exact());
-                    newmat->SetForcingFunction(fExact->ForcingFunction());
+                if (mixpoisson->HasForcingFunction()) {
+                    newmat->SetForcingFunctionExact(mixpoisson->ForcingFunctionExact());
+                    newmat->SetForcingFunction(mixpoisson->ForcingFunction());
                 }
 
                 for (auto bcmat : fPostProcMesh.MaterialVec()) {
