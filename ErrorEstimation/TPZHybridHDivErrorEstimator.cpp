@@ -40,6 +40,7 @@
 #include "TPZHDivErrorEstimateMaterial.h"
 
 #include "TPZCompMeshTools.h"
+#include "TPZPressureProjection.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -297,7 +298,7 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
             // to the computational element of its volumetric neighbour
             TPZGeoEl *gel = gmesh->Element(el);
             if (!gel) continue;
-            if (gel->HasSubElement()) continue;
+            if(gel->HasSubElement()) continue;
 
             // Filters BC elements
             int matID = gel->MaterialId();
@@ -1011,7 +1012,6 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
 }
 //compute de L2 projection of Dirichlet boundary condition for Hdi-H1 reconstruction
 void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh, int target_dim){
-
     {
         std::ofstream out("PressureBeforeL2Projection.txt");
         pressuremesh->Print(out);
@@ -1061,7 +1061,26 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
     }
 }
 
-void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh, int target_dim) {
+void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim){
+    
+    TPZGeoMesh *gmesh = fPostProcMesh.Reference();
+    gmesh->ResetReference();
+    
+    int64_t nel = fPostProcMesh.NElements();
+
+    TPZAdmChunkVector<TPZCompEl *> &elementvec = fPostProcMesh.ElementVec();
+
+    TPZElementMatrix ekbc,efbc;
+
+std:cout<<"nao sei fazer "<<std::endl;
+     
+ 
+}
+
+
+
+void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
+    TPZCompMesh *pressuremesh, int target_dim) {
 
     //{
     //    std::ofstream out("PressureBeforeL2Projection.txt");
@@ -1089,7 +1108,8 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
 
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc) continue;
-        if (bc->Type() == 4 && IsZero(bc->Val1()(0, 0))) continue;
+
+        if(bc->Type()==4 && IsZero(bc->Val1()(0,0))) continue;
 
         int nc = cel->NConnects();
         int order = cel->Connect(nc - 1).Order();
@@ -1111,6 +1131,7 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
             intp->Point(ip, pt, weight);
             intel->Shape(pt, phi, dshape);
             REAL u_D = 0.;
+            REAL g = 0.;
 
             if (bc->HasForcingFunction()) {
                 TPZManVector<STATE> result(3);
@@ -1119,6 +1140,13 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
                 gel->X(pt, x);
                 bc->ForcingFunction()->Execute(x, result, gradu);
                 u_D = result[0];
+//tem que calcular o g aqui..que é Kgradu.n
+                
+                TPZFNMatrix<9,REAL> PermTensor;
+                TPZFNMatrix<9,REAL> InvPermTensor;
+                
+        
+                
             }
 
             int bcType = bc->Type();
@@ -1142,8 +1170,8 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(TPZCompMesh *pr
                 TPZManVector<REAL> sol;
                 fluxCel->Solution(pt, 0, sol);
 
-                REAL InvKm = 1. / bc->Val1()(0, 0);
-                REAL g = bc->Val1()(1, 0);
+                REAL InvKm = 1./ bc->Val1()(0, 0);
+                REAL g = bc->Val1()(1, 0);//tem que ser Kgradu
                 for (int ishape = 0; ishape < nshape; ishape++) {
                     efbc(ishape, 0) += weight * (InvKm * (sol[0] + g) + u_D) * phi(ishape, 0);
                     for (int jshape = 0; jshape < nshape; jshape++) {
@@ -1766,6 +1794,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         int target_dim = 1; // TODO ver se fica igual para dimensao maior
         // TODO
         ComputeBoundaryL2Projection(pressuremesh, target_dim);
+       // ComputeBoundaryL2Projection(pressuremesh, target_dim );
+        BoundaryPressureProjection(pressuremesh, target_dim);
         //NewComputeBoundaryL2Projection(pressuremesh, target_dim);
     }
 
@@ -2414,7 +2444,7 @@ void TPZHybridHDivErrorEstimator::ComputePressureWeights() {
            }
            else if (bcmat->Type() == 4){
                this->fPressureweights[el] = bcmat->Val1()(0,0);//valor de Km
-               fMatid_weights[matid] = bcmat->Val2()(0,0);
+               fMatid_weights[matid] = bcmat->Val1()(0,0);
                
            }
            
