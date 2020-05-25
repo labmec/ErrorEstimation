@@ -74,7 +74,7 @@ void TPZPressureProjection::ContributeBC(
         {
             for(int j=0; j<3; j++)
             {
-                normflux += datavec[0].normal[i]*PermTensor(i,j)*gradu(j,0);
+                normflux += datavec[2].normal[i]*PermTensor(i,j)*gradu(j,0);
             }
         }
         
