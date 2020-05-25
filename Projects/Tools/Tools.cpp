@@ -6,12 +6,10 @@
 //
 
 #include "Tools.h"
-//#include "pzgengrid.h"
 #include "tpzarc3d.h"
 #include "tpzgeoblend.h"
 #include "TPZGeoLinear.h"
 #include "TPZGenGrid2D.h"
-
 #include <tuple>
 #include <memory>
 
@@ -138,9 +136,8 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
             break;
             }
             case -3:{
-            bctype = 4;// different from mixed (bctype 2) already implemented on TPZMatPoisson3d
+            bctype = 4;// different from mixed (bctype 2) already implemented on TPZMixedPoisson3d
             val1(0,0) = Km;
-            val1(1,0) = g;
 
                 
             break;
@@ -529,7 +526,7 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
     an.Solve();
     
     if (PostProcessingFEM) {
-        
+      /*
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("ExactPressure");
         scalnames.Push("Pressure");
@@ -542,10 +539,93 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
         int resolution = 2;
         an.PostProcess(resolution, Hybridmesh->Dimension());
+        */
+        if (problem.exact.operator*().Exact()) {
+            TPZManVector<REAL> errors(5, 0.);
+            an.SetThreadsForError(0);
+            an.SetExact(problem.exact.operator*().ExactSolution());
+            an.PostProcessError(errors, false);
+            /*Error on MixedPoisson
+             [0] L2 for pressure
+             [1] L2 for flux
+             [2] L2 for div(flux)
+             [3] Grad pressure (Semi H1)
+             [4] Hdiv norm
+             */
+
+            // Erro
+            ofstream myfile;
+            myfile.open("ErrorRobinCondition.txt", ios::app);
+            
+       //     ComputeError(Hybridmesh, myfile,problem);
+            
+            
+            myfile << "\n\n Error for Mixed formulation ";
+            myfile << "\n-------------------------------------------------- \n";
+            myfile << "Ndiv = " << problem.ndivisions
+                   << " Order k = " << problem.porder << " n "<<problem.hdivmais<< " K_R = "<<problem.Km<<" Ndofs = "<<Hybridmesh->NEquations() <<"\n";
+            myfile << "L2 pressure = " << errors[0] << "\n";
+            myfile << "L2 flux= " << errors[1] << "\n";
+            myfile << "L2 div(flux) = " << errors[2] << "\n";
+          //  myfile << "Semi H1 = " << errors[3] << "\n";
+           // myfile << "Hdiv norm = " << errors[4] << "\n";
+            
+            myfile.close();
+        }
+        
     }
     
     
 }
+
+void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream &out,const ProblemConfig &config)
+{
+    long nel = Hybridmesh->NElements();
+    int dim = Hybridmesh->Dimension();
+    TPZManVector<STATE,10> globerrors(10,0.);
+    for (long el=0; el<nel; el++) {
+        TPZCompEl *cel = Hybridmesh->ElementVec()[el];
+        if (!cel) {
+            continue;
+        }
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) continue;
+        TPZManVector<REAL,10> elerror(5,0.);
+        
+        int matId = gel->MaterialId();
+        
+
+        TPZMaterial *mat = Hybridmesh->FindMaterial(matId);
+        
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        
+//        if (bc && bc->Type()==4) {
+//
+//
+//
+//        }
+    
+        
+        
+//        if (!gel || gel->Dimension() != dim) {
+//            continue;
+//        }
+        
+        cel->EvaluateError(config.exact->ExactSolution(), elerror, NULL);
+
+        int nerr = elerror.size();
+        for (int i=0; i<nerr; i++) {
+            globerrors[i] += elerror[i]*elerror[i];
+        }
+        
+    }
+    // out << "Errors associated with HDiv space\n";
+    out << "L2 Norm for flux = "    << sqrt(globerrors[1]) << std::endl;
+    out << "L2 Norm for divergence = "    << sqrt(globerrors[2]) << std::endl;
+    out << "Hdiv Norm for flux = "    << sqrt(globerrors[3])  <<std::endl;
+    
+}
+
 
 void PlotLagrangeMultiplier(TPZCompMesh* cmesh, const ProblemConfig& problem) {
     
@@ -643,14 +723,25 @@ void SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config) {
 
         // Erro
         ofstream myfile;
-        myfile.open("MixedError.txt", ios::app);
-        myfile << "\n\n Error for Mixed formulation ";
-        myfile << "\n-------------------------------------------------- \n";
-        myfile << "Ndiv = " << config.ndivisions
-               << " Order k = " << config.porder << "\n";
-        myfile << "Energy norm = " << errors[0] << "\n";   // norma energia
-        myfile << "error norm L2 = " << errors[1] << "\n"; // norma L2
-        myfile << "Semi norm H1 = " << errors[2] << "\n";  // norma L2
+        /*Error on MixedPoisson
+           [0] L2 for pressure
+           [1] L2 for flux
+           [2] L2 for div(flux)
+           [3] Grad pressure (Semi H1)
+           [4] Hdiv norm
+           */
+
+          // Erro
+          myfile.open("ErrorMixed.txt", ios::app);
+          myfile << "\n\n Error for Mixed formulation ";
+          myfile << "\n-------------------------------------------------- \n";
+          myfile << "Ndiv = " << config.ndivisions
+                 << " Order k = " << config.porder << " n "<<config.hdivmais<< " K_R = "<<config.Km<<" Ndofs = "<<cmesh_HDiv->NEquations() <<"\n";
+          myfile << "L2 pressure = " << errors[0] << "\n";
+          myfile << "L2 flux= " << errors[1] << "\n";
+          myfile << "L2 div(flux) = " << errors[2] << "\n";
+        //  myfile << "Semi H1 = " << errors[3] << "\n";
+         // myfile << "Hdiv norm = " << errors[4] << "\n";
         myfile.close();
     }
 }
@@ -1216,3 +1307,58 @@ TPZGeoMesh* CreateSingleQuadMesh(TPZVec<int>& bcids) {
     return gmesh;
     
 }
+
+TPZGeoMesh* CreateQuadMeshRefTriang(TPZVec<int>& bcids) {
+    
+    TPZGeoMesh* gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+    int matID = 1;
+    
+    // Creates matrix with node coordinates
+    const int NodeNumber = 4;
+    REAL coordinates[NodeNumber][3] = {
+        {0.,  0., 0.},
+        {1.,  0., 0.},
+        {1.,  1., 0.},
+        {0.,  1., 0.}
+    };
+    
+    // Inserts coordinates in the TPZGeoMesh object
+    for (int i = 0; i < NodeNumber; i++) {
+        int64_t nodeID = gmesh->NodeVec().AllocateNewElement();
+        
+        TPZVec<REAL> nodeCoord(3);
+        nodeCoord[0] = coordinates[i][0];
+        nodeCoord[1] = coordinates[i][1];
+        nodeCoord[2] = coordinates[i][2];
+        
+        gmesh->NodeVec()[nodeID] = TPZGeoNode(i, nodeCoord, *gmesh);
+    }
+    
+    // Creates 2D elements
+    TPZManVector<int64_t> nodeIDs(3);
+    
+    nodeIDs[0] = 0;
+    nodeIDs[1] = 1;
+    nodeIDs[2] = 3;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+    nodeIDs[0] = 2;
+    nodeIDs[1] = 3;
+    nodeIDs[2] = 1;
+    
+    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+
+    // Creates line elements where boundary conditions will be inserted
+    nodeIDs.Resize(2);
+    for (int i = 0; i < NodeNumber; i++) {
+        nodeIDs[0] = i % NodeNumber;
+        nodeIDs[1] = (i + 1) % NodeNumber;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodeIDs, bcids[i], *gmesh);
+    }
+    
+    gmesh->BuildConnectivity();
+    
+    return gmesh;
+    
+}
+

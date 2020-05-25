@@ -63,8 +63,7 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(ECube);
 
     ProblemConfig config;
-    config.porder = 1;
-    config.hdivmais = 1;
+    
 
     config.dimension = 2;
     config.prefine = false;
@@ -75,15 +74,21 @@ int main(int argc, char *argv[]) {
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
 
     bool RunMark = false;
-    config.problemname = "EX";
+    config.problemname = "MixedRobin";
 
     config.dir_name = "TesteBoundaryCondition";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     int dim = config.dimension;
-
-    for (int ndiv = 0; ndiv < 1; ndiv++) {
+    
+    config.Km = 1;
+    config.hdivmais = 0;
+    
+for (int p = 1; p <2; p ++){
+        
+config.porder = p;
+    for (int ndiv = 1; ndiv < 2; ndiv++) {
 
         config.ndivisions = ndiv;
 
@@ -126,15 +131,19 @@ int main(int argc, char *argv[]) {
         }
 
         else {
-            //TPZManVector<int,4> bcids(4,-1);
             TPZManVector<int,4> bcids(4,-3);
+            //TPZManVector<int,4> bcids(3,-3);
             bcids[1] = -1;
-            config.coefG = 0.;
-            config.Km = 0.;//1.e12;
+            //constants fo Robin boundary conditions
+            // sigma.n=Km(u-u_d)-g
+            //Particular cases: 1) Km=0---> Neumann, 2) Km=infinity-->Dirichlet
+            config.coefG = 0.;//nao passar mais isso
+            //config.Km = 1.e-12;//pow(10,2);
+            
 
-          //  int nel = pow(2, ndiv);
+            int nel = 1;//pow(2, ndiv);
 
-            gmesh = CreateGeoMesh(2, bcids); // CreateTrapezoidalMesh(nelT,
+            gmesh = CreateGeoMesh(nel, bcids); //CreateQuadMeshRefTriang(bcids); //CreateSingleTriangleMesh(bcids);// CreateTrapezoidalMesh(nelT,
                              // nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
             config.bcmaterialids.insert(-1); // dirichlet
@@ -149,20 +158,23 @@ int main(int argc, char *argv[]) {
         {
             std::ofstream out("gmeshInit.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-            std::ofstream out2("gmeshInitial.txt");
+            std::ofstream out2("gmeshTo.txt");
             gmesh->Print(out2);
         }
 #endif
+        
+
+        
 
         TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
         *hybridEstimatorMesh = *gmesh;
 
-        //        UniformRefinement(config.ndivisions, gmesh);
-        //       DivideLowerDimensionalElements(gmesh);
+        UniformRefinement(config.ndivisions, gmesh);
+        DivideLowerDimensionalElements(gmesh);
 
         *config.gmesh = *gmesh;
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
         {
             std::ofstream out("gmesh.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -186,7 +198,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
-        // if(mixedsolution)SolveMixedProblem(cmesh_HDiv,config);
+       //  SolveMixedProblem(cmesh_HDiv,config);
 
         meshvec_HDiv = cmesh_HDiv->MeshVector();
 
@@ -231,7 +243,7 @@ int main(int argc, char *argv[]) {
             (HybridMesh)->Print(out);
         }
 #endif
-        //   PlotLagrangreMultiplier(meshvec_HDiv[1],config);
+        PlotLagrangeMultiplier(meshvec_HDiv[1],config);
 
         // reconstroi potencial e calcula o erro
         {
@@ -266,8 +278,7 @@ int main(int argc, char *argv[]) {
 
                 TPZManVector<REAL> elementerrors;
                 HDivEstimate.ComputeErrors(elementerrors);
-                hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh,
-                            config);
+               // hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh,config);
             }
         }
 
@@ -276,4 +287,5 @@ int main(int argc, char *argv[]) {
         delete meshvec_HDiv[1];
         // return 0;
     }
+}
 }

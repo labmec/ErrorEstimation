@@ -167,10 +167,6 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
         
         }
     }
-
-    
-
-
     
 }
 
@@ -201,27 +197,53 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
         solsigmafem(ip, 0) = datavec[2].sol[0][ip];
         normalsigma += datavec[2].sol[0][ip] * normal[ip];
     }
+    
+    REAL u_D = 0.;
+    REAL g = 0.;
+    REAL normflux = 0.;
+    
 
     // tem que resolver o UpdateBcValues para receber o g correto
     if (bc.Type() == 4 && bc.Val1()(0, 0)!=0) {
-        REAL u_D = 0.;
+        
         if (bc.HasForcingFunction()) {
             TPZManVector<STATE> res(3);
             TPZFNMatrix<9, STATE> gradu(dim, 1);
             bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
             u_D = res[0];
+            
+            
+            TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
+            GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
+            
+            
+            for(int i=0; i<3; i++)
+            {
+                for(int j=0; j<dim; j++)
+                {
+                    if(datavec[0].normal.size()== 0){
+                        
+                        std::cout<<"nao inicializa mesmo tendo feito isso no FillBoundaryConditionDataRequirement"<<std::endl;
+                    }
+                    
+                    normflux += datavec[0].normal[i]*PermTensor(i,j)*gradu(j,0);
+                }
+            }
+            
+            g = normflux;
+            
+            
 
         } else {
             // usualmente updatebc coloca o valor exato no val2
             u_D = bc.Val2()(0, 0);
         }
-
-        REAL g = bc.Val1()(1, 0);  // g
+        
         REAL Km = bc.Val1()(0, 0); // Km
-        REAL robinterm = Km * u_D + g + normalsigma;
+        REAL robinterm = Km * u_D - g + normalsigma;
 
         for (int iq = 0; iq < nphi_i; iq++) {
-            //<w,Km*u_D+g+sigma_i*n>
+            //<w,Km*u_D-g+sigma_i*n>
             ef(iq, 0) += robinterm * phi_i(iq, 0) * weight;
             for (int jq = 0; jq < nphi_i; jq++) {
                 //<w,Km*s_i>
