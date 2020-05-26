@@ -145,6 +145,8 @@ protected:
     void ComputeAverageFacePressures();
     
     void ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
+    void NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
+    void BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim);
     
     /// compute the average pressures of across edges of the H(div) mesh
     virtual void ComputeAveragePressures(int target_dim);
@@ -202,11 +204,8 @@ protected:
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
     
-  //  int IsH1Position(TPZVec<TPZMaterialData> &datavec);
-    
-    
-    
-    
+  //  int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
+
 protected:
     
     // compute the average of an element iel in the pressure mesh looking at its neighbours

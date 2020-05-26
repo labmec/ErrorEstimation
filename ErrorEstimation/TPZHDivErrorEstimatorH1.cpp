@@ -11,6 +11,10 @@
 #include "pzcondensedcompel.h"
 #include "pzbuildmultiphysicsmesh.h"
 
+#ifdef LOG4CXX
+static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+#endif
+
 /// create the post processed multiphysics mesh
 void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
 {
@@ -383,7 +387,12 @@ void TPZHDivErrorEstimatorH1::CopySolutionFromSkeleton()
                 // all elements must have at least one neighbour of type skeleton
                 if(ist == nst-1)
                 {
-                    std::cout << "Connect " << is << " from element el " << el << " was not updated \n";
+#ifdef LOG4CXX
+                    std::stringstream sout;
+                    sout << "Connect " << is << " from element el " << el
+                         << " was not updated \n";
+                    LOGPZ_DEBUG(logger, sout.str())
+#endif
                 }
             }
         }
