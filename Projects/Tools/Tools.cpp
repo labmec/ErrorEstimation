@@ -526,7 +526,7 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
     an.Solve();
     
     if (PostProcessingFEM) {
-      /*
+      
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("ExactPressure");
         scalnames.Push("Pressure");
@@ -539,7 +539,7 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
         int resolution = 2;
         an.PostProcess(resolution, Hybridmesh->Dimension());
-        */
+        
         if (problem.exact.operator*().Exact()) {
             TPZManVector<REAL> errors(5, 0.);
             an.SetThreadsForError(0);

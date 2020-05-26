@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 for (int p = 1; p <2; p ++){
         
 config.porder = p;
-    for (int ndiv = 1; ndiv < 2; ndiv++) {
+    for (int ndiv = 3; ndiv < 4; ndiv++) {
 
         config.ndivisions = ndiv;
 
@@ -134,11 +134,11 @@ config.porder = p;
             TPZManVector<int,4> bcids(4,-3);
             //TPZManVector<int,4> bcids(3,-3);
             bcids[1] = -1;
-            //constants fo Robin boundary conditions
+            //constants for Robin boundary conditions
             // sigma.n=Km(u-u_d)-g
             //Particular cases: 1) Km=0---> Neumann, 2) Km=infinity-->Dirichlet
-            config.coefG = 0.;//nao passar mais isso
-            //config.Km = 1.e-12;//pow(10,2);
+            //config.coefG = 0.;//nao passar mais isso
+            config.Km = 1.e12;//pow(10,2);
             
 
             int nel = 1;//pow(2, ndiv);
