@@ -177,7 +177,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
     /*
      Add Robin boundary condition for local problem
      ek+= <w,Km s_i>
-     ef+= <w,Km*u_d + g + sigma_i.n>
+     ef+= <w,Km*u_d - g + sigma_i.n>
      */
     int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
     int dim = datavec[H1functionposition].axes.Rows();
@@ -202,9 +202,9 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
     REAL g = 0.;
     REAL normflux = 0.;
     
-
-    // tem que resolver o UpdateBcValues para receber o g correto
-    if (bc.Type() == 4 && bc.Val1()(0, 0)!=0) {
+    if (bc.Type() == 4) {
+        
+        std::cout<<"Robin boundary part"<<std::endl;
         
         if (bc.HasForcingFunction()) {
             TPZManVector<STATE> res(3);
@@ -219,14 +219,10 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
             
             for(int i=0; i<3; i++)
             {
-                for(int j=0; j<dim; j++)
+                for(int j=0; j<3; j++)
                 {
-                    if(datavec[0].normal.size()== 0){
-                        
-                        std::cout<<"nao inicializa mesmo tendo feito isso no FillBoundaryConditionDataRequirement"<<std::endl;
-                    }
                     
-                    normflux += datavec[0].normal[i]*PermTensor(i,j)*gradu(j,0);
+                    normflux += datavec[2].normal[i]*PermTensor(i,j)*gradu(j,0);
                 }
             }
             
@@ -251,8 +247,8 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
             }
         }
     }
-    else if (bc.Type() == 1) {
-        std::cout << " BC type not implemented yet" << std::endl;
+    else {
+        std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
     }
 }
 

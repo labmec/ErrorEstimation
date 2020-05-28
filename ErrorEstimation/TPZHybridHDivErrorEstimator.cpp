@@ -1095,6 +1095,7 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
         if(!cel_orig) continue;
         TPZCondensedCompEl *cond = dynamic_cast<TPZCondensedCompEl *>(cel_orig);
         TPZCompEl *condref = cond->ReferenceCompEl();
+        if(!(condref->HasDependency())) continue;
         TPZElementGroup *celgr = dynamic_cast<TPZElementGroup *>(condref);
         if(!celgr) DebugStop();
         TPZStack<TPZCompEl *,5> elgrST = celgr->GetElGroup();
