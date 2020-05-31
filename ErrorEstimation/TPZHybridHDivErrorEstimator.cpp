@@ -131,6 +131,9 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     PostProcessing(an);
 
     elementerrors.resize(fPostProcMesh.Reference()->NElements());
+    for (int64_t i = 0; i < elementerrors.size(); i++) {
+        elementerrors[i] = 0;
+    }
     for (int64_t i = 0; i < nelem; i++) {
         TPZCompEl *cel = fPostProcMesh.Element(i);
         if (!cel) continue;
@@ -308,11 +311,6 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh()
                 bcSide.EqualLevelCompElementList(compNeighSides, 1, 0);
                 if (compNeighSides.size() != 1) {
                     DebugStop();
-                    // TODO I don't know what to do here
-                    continue;
-                    TPZCompElSide large = bcSide.LowerLevelCompElementList2(1);
-                    if (!large) DebugStop();
-                    compNeighSides.Push(large);
                 }
 
                 TPZCompEl *cel = compNeighSides[0].Element();

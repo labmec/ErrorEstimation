@@ -800,7 +800,6 @@ void DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
             haschanged = true;
             for (int64_t i = 0; i < geldivide.size(); i++) {
                 TPZManVector<TPZGeoEl*> sub;
-                std::cout << "Dividing boundary element " << geldivide[i]->Index() << std::endl;
                 geldivide[i]->Divide(sub);
             }
         }
