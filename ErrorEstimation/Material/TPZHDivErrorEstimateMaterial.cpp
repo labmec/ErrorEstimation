@@ -493,7 +493,7 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     {
         case 40://FluxFem
   
-            for(int i=0; i<dim; i++) Solout[i] = datavec[2].sol[0][i];
+            for(int i=0; i<3; i++) Solout[i] = datavec[2].sol[0][i];
 
             break;
         case 41:{//FluxReconstructed is grad U

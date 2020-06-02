@@ -24,10 +24,11 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <algorithm>
 
-//#define DEBUGTEST
+#define NOPEDEBUGTEST
 
-TPZGeoMesh *CreateFlatGeoMesh();
+TPZGeoMesh *CreateSurfaceGeoMesh();
 
 TPZGeoMesh *CreateDebugGeoMesh();
 
@@ -54,24 +55,40 @@ void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef);
 
 void MoveMeshToOrigin(TPZGeoMesh *gmesh);
 
+void SpreadMeshRefinement(TPZGeoMesh* gmesh);
+
+void RotateGeoMesh(TPZGeoMesh* gmesh, std::array<int, 2> coords_ids_to_swap);
+
+
 int main() {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
-
     gRefDBase.InitializeRefPatterns(2);
     gRefDBase.InitializeAllUniformRefPatterns();
 #ifdef DEBUGTEST
     TPZGeoMesh *gmesh = CreateDebugGeoMesh();
-#else
-    TPZGeoMesh *gmesh = CreateFlatGeoMesh();
-#endif
-    PrintGeometry(gmesh, "DebugMesh", false, true);
-    int nDirectionalRefinements = 3;
-    ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
-    PrintGeometry(gmesh, "DebugMeshAfterDirectionalRefinement", false, true);
+    std::string meshFileName{"DebugMesh"};
 
-    int nSteps = 4;
+    // TODO: if nDirectionalRefinements is equal to zero, the code fails during run time.
+    //  If not (i.e. equal to 1), the code does not break, but the results are wrong.
+    int nDirectionalRefinements = 0;
+    RotateGeoMesh(gmesh, {0, 2});
+#else
+    TPZGeoMesh *gmesh = CreateSurfaceGeoMesh();
+    std::string meshFileName{"UNISIMMesh"};
+    int nDirectionalRefinements = 3;
+#endif
+    PrintGeometry(gmesh, meshFileName, false, true);
+    ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
+    meshFileName.append("AfterDirectionalRef");
+    PrintGeometry(gmesh, meshFileName, false, true);
+
+#ifdef DEBUGTEST
+    int nSteps = 1;
+#else
+    int nSteps = 5;
+#endif
     for (int i = 0; i < nSteps; i++) {
         UNISIMHDiv(gmesh);
     }
@@ -103,12 +120,12 @@ void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef) {
 
     for (auto i = 0; i < nRef; i++) {
         int nelements = gmesh->NElements();
-        cout << "Refinement step: " << i << "\nNumber of elements = " << nelements << '\n';
         for (auto el = 0; el < nelements; el++) {
             TPZGeoEl *element = gmesh->ElementVec()[el];
             if (!element) continue;
             TPZRefPatternTools::RefineDirectional(element, matids);
         }
+        cout << "Refinement step: " << i << "\nNumber of elements = " << gmesh->NElements() << '\n';
         stringstream meshfilename;
         meshfilename << "DirectionalRefinementGMesh" << i;
         PrintGeometry(gmesh, meshfilename.str(), false, true);
@@ -127,13 +144,13 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     config.makepressurecontinuous = true;
 
 #ifdef DEBUGTEST
+    config.dir_name = "DebugTest";
     {
         config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::EX;
+        config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     }
-    config.dir_name = "DebugTest";
 #else
-    config.dir_name = "TesteUNISIM";
+    config.dir_name = "UNISIM_ModifiedZ";
 #endif
     config.problemname = "UNISIM_Errors";
     std::string command = "mkdir " + config.dir_name;
@@ -166,16 +183,9 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
 
     // Solves FEM problem
     SolveMixedHybridProblem(cmesh_HDiv, config);
+    std::cout << "Finished simulation!\n";
+    std::cout << "Starting error estimation procedure...\n";
 
-    if(0)
-    {
-        std::ofstream out("MeshSol.txt");
-        cmesh_HDiv->Print(out);
-        TPZMultiphysicsCompMesh *mfmesh = dynamic_cast<TPZMultiphysicsCompMesh *>(cmesh_HDiv);
-        if(!mfmesh) DebugStop();
-        std::ofstream out2("FluxMesh.txt");
-        mfmesh->MeshVector()[0]->Print(out2);
-    }
     TPZManVector<REAL> elementerrors;
     {
         // Estimates error
@@ -187,20 +197,22 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
 #ifdef DEBUGTEST
         HDivEstimate.SetAnalyticSolution(config.exact);
 #endif
+        std::cout << "Reconstructing potential...\n";
         HDivEstimate.PotentialReconstruction();
 
+        std::cout << "Computing errors...\n";
         HDivEstimate.ComputeErrors(elementerrors);
     }
     delete HybridMesh->MeshVector()[0];
     delete HybridMesh->MeshVector()[1];
     delete HybridMesh;
     delete config.gmesh;
-    // h-refinement
+    // h-refinement on elements with bigger errors
     hAdaptivity(gmesh, elementerrors, 0.3);
     adaptivityStep++;
 }
 
-TPZGeoMesh *CreateFlatGeoMesh() {
+TPZGeoMesh *CreateSurfaceGeoMesh() {
 
     std::string gmshFile = "InputData/UNISIMFlatMesh.msh";
 #ifdef MACOSX
@@ -224,8 +236,8 @@ TPZGeoMesh *CreateFlatGeoMesh() {
     gmeshReader.SetFormatVersion("4.1");
     gmesh = gmeshReader.GeometricGmshMesh(gmshFile);
 
-    // std::string filename = "InputData/UNISIMPointCloud.txt";
-    // ModifyZCoordinates(gmesh, filename);
+    std::string filename = "InputData/UNISIMPointCloud.txt";
+    ModifyZCoordinates(gmesh, filename);
 
     MoveMeshToOrigin(gmesh);
 
@@ -439,26 +451,18 @@ void SolveMixedHybridProblem(TPZCompMesh *Hybridmesh, const ProblemConfig &probl
 
     an.Assemble();
     an.Solve();
-
-    std::cout << "Writing output files...\n";
-
-    TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("Pressure");
-    vecnames.Push("Flux");
-
-    std::stringstream sout;
-    sout << problem.dir_name + "/FEM-Solution" << problem.porder << "-AdaptivityStep" << problem.adaptivityStep << ".vtk";
-    an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-    an.PostProcess(0, Hybridmesh->Dimension());
 }
 
 void hAdaptivity(TPZGeoMesh* gmesh, TPZVec<REAL>& elementErrors, REAL thresholdRatio) {
 
     REAL maxError = 0.;
-
+    std::cout << "Starting h-adaptivity procedure...\n"
+              << "Number of elements before refinement: " << gmesh->NElements() << '\n';
     int64_t nelem = gmesh->NElements();
     for (int64_t iel = 0; iel < nelem; iel++) {
-        if (elementErrors[iel] > maxError) maxError = elementErrors[iel];
+        if (elementErrors[iel] > maxError) {
+            maxError = elementErrors[iel];
+        }
     }
 
     REAL threshold = thresholdRatio * maxError;
@@ -468,13 +472,19 @@ void hAdaptivity(TPZGeoMesh* gmesh, TPZVec<REAL>& elementErrors, REAL thresholdR
         if (elementError > threshold) {
             TPZGeoEl *gel = gmesh->Element(iel);
             if (!gel) DebugStop();
+            if (gel->Dimension() != gmesh->Dimension()) DebugStop();
             TPZVec<TPZGeoEl *> sons;
             if (!gel->HasSubElement()) {
                 gel->Divide(sons);
             }
         }
     }
+
+    PrintGeometry(gmesh, "gmeshBeforeSpread");
+    SpreadMeshRefinement(gmesh);
     DivideLowerDimensionalElements(gmesh);
+
+    std::cout << "Number of elements after refinement: " << gmesh->NElements() << '\n';
 }
 
 TPZGeoMesh *CreateDebugGeoMesh() {
@@ -565,4 +575,80 @@ TPZGeoMesh *CreateDebugGeoMesh() {
     gmesh->BuildConnectivity();
 
     return gmesh;
+}
+
+// Refines elements that has two (or more) refined neighbours or a neighbour that has been refined twice
+void SpreadMeshRefinement(TPZGeoMesh *gmesh) {
+    bool hasChanged = true;
+    int dim = gmesh->Dimension();
+    while (hasChanged) {
+        hasChanged = false;
+
+        TPZStack<TPZGeoEl *> gelsToRefine;
+        int64_t nel = gmesh->NElements();
+        for (int64_t el = 0; el < nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if (!gel || gel->Dimension() != dim || gel->HasSubElement()) {
+                continue;
+            }
+
+            int nsides = gel->NSides();
+            int ncorner = gel->NCornerNodes();
+            int nRefinedNeighbours = 0;
+            bool needsRefinement = false;
+            for (int side = ncorner; side < nsides; side++) {
+                TPZGeoElSide gelside(gel, side);
+                TPZGeoElSide neighbour(gelside.Neighbour());
+                while (neighbour != gelside) {
+                    if (neighbour.HasSubElement() && neighbour.NSubElements() >= 1) {
+                        nRefinedNeighbours++;
+                        // Check if two neighbours have been refined
+                        if (nRefinedNeighbours >= 2) {
+                            needsRefinement = true;
+                        }
+
+                        TPZStack<TPZGeoElSide> subNeighs;
+                        neighbour.GetSubElements2(subNeighs);
+                        for (int i = 0; i < subNeighs.size(); i++) {
+                            // Check if an neighbour has been refined twice
+                            if (subNeighs[i].NSubElements() > 1) {
+                                needsRefinement = true;
+                                break;
+                            }
+                            if (needsRefinement) break;
+                        }
+                    }
+                    if (needsRefinement) break;
+                    neighbour = neighbour.Neighbour();
+                }
+                if (needsRefinement) {
+                    gelsToRefine.Push(gel);
+                    break;
+                }
+            }
+        }
+        if (gelsToRefine.size()) {
+            hasChanged = true;
+            for (int64_t i = 0; i < gelsToRefine.size(); i++) {
+                TPZManVector<TPZGeoEl *> subEls;
+                gelsToRefine[i]->Divide(subEls);
+            }
+        }
+    }
+}
+
+void RotateGeoMesh(TPZGeoMesh *gmesh, const std::array<int, 2> swap) {
+    // sanity checks
+    //assert(swap[0] != swap[1]);
+    assert(swap[0] >= 0 && swap[0] < 3);
+    assert(swap[1] >= 0 && swap[1] < 3);
+
+    int64_t nnodes = gmesh->NNodes();
+    TPZManVector<REAL, 3> coord(3);
+
+    for (int64_t inode = 0; inode < nnodes; inode++) {
+        gmesh->NodeVec()[inode].GetCoordinates(coord);
+        coord[swap[0]] = std::exchange(coord[swap[1]], coord[swap[0]]);
+        gmesh->NodeVec()[inode].SetCoord(coord);
+    }
 }
