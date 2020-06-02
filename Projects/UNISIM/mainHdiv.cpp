@@ -26,9 +26,9 @@
 #include <vector>
 #include <algorithm>
 
-#define DEBUGTEST
+#define NOPEDEBUGTEST
 
-TPZGeoMesh *CreateFlatGeoMesh();
+TPZGeoMesh *CreateSurfaceGeoMesh();
 
 TPZGeoMesh *CreateDebugGeoMesh();
 
@@ -72,10 +72,10 @@ int main() {
 
     // TODO: if nDirectionalRefinements is equal to zero, the code fails during run time.
     //  If not (i.e. equal to 1), the code does not break, but the results are wrong.
-    RotateGeoMesh(gmesh, {0, 2});
     int nDirectionalRefinements = 0;
+    RotateGeoMesh(gmesh, {0, 2});
 #else
-    TPZGeoMesh *gmesh = CreateFlatGeoMesh();
+    TPZGeoMesh *gmesh = CreateSurfaceGeoMesh();
     std::string meshFileName{"UNISIMMesh"};
     int nDirectionalRefinements = 3;
 #endif
@@ -147,10 +147,10 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     config.dir_name = "DebugTest";
     {
         config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::EConst;
+        config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     }
 #else
-    config.dir_name = "UNISIMSpreadLevel2Refinement";
+    config.dir_name = "UNISIM_ModifiedZ";
 #endif
     config.problemname = "UNISIM_Errors";
     std::string command = "mkdir " + config.dir_name;
@@ -212,7 +212,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     adaptivityStep++;
 }
 
-TPZGeoMesh *CreateFlatGeoMesh() {
+TPZGeoMesh *CreateSurfaceGeoMesh() {
 
     std::string gmshFile = "InputData/UNISIMFlatMesh.msh";
 #ifdef MACOSX
@@ -236,8 +236,8 @@ TPZGeoMesh *CreateFlatGeoMesh() {
     gmeshReader.SetFormatVersion("4.1");
     gmesh = gmeshReader.GeometricGmshMesh(gmshFile);
 
-    // std::string filename = "InputData/UNISIMPointCloud.txt";
-    // ModifyZCoordinates(gmesh, filename);
+    std::string filename = "InputData/UNISIMPointCloud.txt";
+    ModifyZCoordinates(gmesh, filename);
 
     MoveMeshToOrigin(gmesh);
 
