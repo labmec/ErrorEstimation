@@ -71,24 +71,25 @@ int main(int argc, char *argv[]) {
     config.TensorNonConst = false; // para problem 3d com tensor nao constante
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.exact.operator*().fExact = TLaplaceExample1::EX;//ESinSinDirNonHom;
 
     bool RunMark = false;
-    config.problemname = "MixedRobin";
+    config.problemname = "DirNonHomSemBCRec";
 
-    config.dir_name = "TesteBoundaryCondition";
+    config.dir_name = "ESinSinDirNonHo_BC";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     int dim = config.dimension;
     
-    config.Km = 1;
-    config.hdivmais = 0;
+    //config.Km = 1;
+    config.Km = 100;
+    config.hdivmais = 1;
     
 for (int p = 1; p <2; p ++){
         
 config.porder = p;
-    for (int ndiv = 3; ndiv < 4; ndiv++) {
+    for (int ndiv = 1; ndiv < 2; ndiv++) {
 
         config.ndivisions = ndiv;
 
@@ -131,19 +132,21 @@ config.porder = p;
         }
 
         else {
+            
             TPZManVector<int,4> bcids(4,-3);
+            //TPZManVector<int,4> bcids(4,-3);
             //TPZManVector<int,4> bcids(3,-3);
-            bcids[1] = -1;
+            //bcids[1] = -1;
             //constants for Robin boundary conditions
             // sigma.n=Km(u-u_d)-g
             //Particular cases: 1) Km=0---> Neumann, 2) Km=infinity-->Dirichlet
             //config.coefG = 0.;//nao passar mais isso
-            config.Km = 1.e12;//pow(10,2);
+            //config.Km = 1.e12;//pow(10,2);
             
 
-            int nel = 1;//pow(2, ndiv);
+            int nel = pow(2, ndiv);
 
-            gmesh = CreateGeoMesh(nel, bcids); //CreateQuadMeshRefTriang(bcids); //CreateSingleTriangleMesh(bcids);// CreateTrapezoidalMesh(nelT,
+            gmesh = CreateGeoMesh(nel, bcids); //CreateLShapeMesh(bcids);//CreateQuadMeshRefTriang(bcids); //CreateSingleTriangleMesh(bcids);// CreateTrapezoidalMesh(nelT,
                              // nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
             config.bcmaterialids.insert(-1); // dirichlet
@@ -169,10 +172,12 @@ config.porder = p;
         TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
         *hybridEstimatorMesh = *gmesh;
 
-        UniformRefinement(config.ndivisions, gmesh);
-        DivideLowerDimensionalElements(gmesh);
+       // UniformRefinement(config.ndivisions, gmesh);
+     //   DivideLowerDimensionalElements(gmesh);
 
         *config.gmesh = *gmesh;
+        
+        
 
 #ifdef PZDEBUG
         {
@@ -278,7 +283,7 @@ config.porder = p;
 
                 TPZManVector<REAL> elementerrors;
                 HDivEstimate.ComputeErrors(elementerrors);
-               // hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh,config);
+       //         hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh,config);
             }
         }
 
@@ -286,6 +291,7 @@ config.porder = p;
         delete meshvec_HDiv[0];
         delete meshvec_HDiv[1];
         // return 0;
+ 
     }
 }
 }

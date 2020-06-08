@@ -101,6 +101,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     }
 #endif
     
+    
+    
     an.PostProcessError(errorvec,true);//calculo do erro com sol exata e aprox e armazena no elementsolution
     
     
@@ -1084,20 +1086,19 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
     
     int64_t nel = fPostProcMesh.NElements();
     
-    TPZAdmChunkVector<TPZCompEl *> &elementvec = fPostProcMesh.ElementVec();
-    
     TPZElementMatrix ekbc,efbc;
     
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel_orig = fPostProcMesh.Element(el);
         if(!cel_orig) continue;
         TPZCondensedCompEl *cond = dynamic_cast<TPZCondensedCompEl *>(cel_orig);
+        if(!cond) continue;
         TPZCompEl *condref = cond->ReferenceCompEl();
-        if(!(condref->HasDependency())) continue;
         TPZElementGroup *celgr = dynamic_cast<TPZElementGroup *>(condref);
         if(!celgr) DebugStop();
         TPZStack<TPZCompEl *,5> elgrST = celgr->GetElGroup();
         int nelst = elgrST.size();
+        
         for (int elst = 0; elst<nelst; elst++)
         {
             TPZCompEl *cel = elgrST[elst];
@@ -1105,10 +1106,32 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
             TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
             if(!bnd) continue;
             cel->CalcStiff(ekbc, efbc);
+            ekbc.Print(std::cout);
+            efbc.Print(std::cout);
+            
+
+            
             if(ekbc.HasDependency()) DebugStop();
             ekbc.fMat.SolveDirect(efbc.fMat, ECholesky);
-            // copiar os valores de efbc.fMat
+            efbc.Print(std::cout << "Solution ");
+        
+            int nc = cel->NConnects();
+            int count = 0;
+            for (int ic = 0; ic < nc; ic++) {
+                TPZConnect &c = cel->Connect(ic);
+                int64_t seqnum = c.SequenceNumber();
+                int64_t pos = pressuremesh->Block().Position(seqnum);
+                int ndof = c.NShape() * c.NState();
+                for (int idf = 0; idf < ndof; idf++) {
+                    pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+                }
+            }
+            
+            
         }
+
+        
+        
     }
     
     
@@ -1879,11 +1902,11 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     ComputeNodalAverages();
     
-    //    {
-    //        std::ofstream out("PressureNodalMesh.txt");
-    //        fPostProcMesh.MeshVector()[1]->Print(out);
-    //        PlotLagrangeMultiplier("AfterNodalAverage");
-    //    }
+        {
+            std::ofstream out("PressureNodalMesh.txt");
+            fPostProcMesh.MeshVector()[1]->Print(out);
+            PlotLagrangeMultiplier("AfterNodalAverage");
+        }
     
     
     // in the case of hybrid hdiv, computing the error using h(div) spaces, nothing will be done
