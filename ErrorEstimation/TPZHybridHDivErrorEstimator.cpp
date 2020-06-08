@@ -1086,6 +1086,12 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
     
     int64_t nel = fPostProcMesh.NElements();
     
+    {
+        TPZCompMesh *pressmesh = fPostProcMesh.MeshVector()[1];
+        std::ofstream out("pressure.txt");
+        pressmesh->Print(out);
+    }
+    
     TPZElementMatrix ekbc,efbc;
     
     for (int64_t el = 0; el<nel; el++) {
@@ -1096,29 +1102,32 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
         TPZCompEl *condref = cond->ReferenceCompEl();
         TPZElementGroup *celgr = dynamic_cast<TPZElementGroup *>(condref);
         if(!celgr) DebugStop();
-        TPZStack<TPZCompEl *,5> elgrST = celgr->GetElGroup();
+        TPZVec<TPZCompEl *> elgrST = celgr->GetElGroup();
         int nelst = elgrST.size();
         
         for (int elst = 0; elst<nelst; elst++)
         {
             TPZCompEl *cel = elgrST[elst];
+            TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement*>(cel);
+            if(mphys == 0) DebugStop();
             TPZMaterial *mat = cel->Material();
             TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
             if(!bnd) continue;
             cel->CalcStiff(ekbc, efbc);
-            ekbc.Print(std::cout);
-            efbc.Print(std::cout);
+            ekbc.fMat.Print(std::cout);
+            efbc.fMat.Print(std::cout);
             
 
             
             if(ekbc.HasDependency()) DebugStop();
             ekbc.fMat.SolveDirect(efbc.fMat, ECholesky);
-            efbc.Print(std::cout << "Solution ");
+            efbc.fMat.Print("Solution",std::cout);
         
-            int nc = cel->NConnects();
+            TPZCompEl *celpressure = mphys->Element(1);
+            int nc = celpressure->NConnects();
             int count = 0;
             for (int ic = 0; ic < nc; ic++) {
-                TPZConnect &c = cel->Connect(ic);
+                TPZConnect &c = celpressure->Connect(ic);
                 int64_t seqnum = c.SequenceNumber();
                 int64_t pos = pressuremesh->Block().Position(seqnum);
                 int ndof = c.NShape() * c.NState();
@@ -1878,11 +1887,11 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         //NewComputeBoundaryL2Projection(pressuremesh, target_dim);
     }
     
-    //    {
-    //        std::ofstream out("PressureAverageMesh.txt");
-    //        fPostProcMesh.MeshVector()[3]->Print(out);
-    //        PlotLagrangeMultiplier("BeforeAverage");
-    //    }
+    {
+        std::ofstream out("PressureAverageMesh.txt");
+        fPostProcMesh.MeshVector()[1]->Print(out);
+        PlotLagrangeMultiplier("BeforeAverage");
+    }
     
     // Calculates average pressure on interface edges and vertices
     if (fProblemConfig.makepressurecontinuous) {
@@ -2048,7 +2057,7 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)
 {
-    const TPZStack<TPZCompEl *,5> &elgr = cel->GetElGroup();
+    const TPZVec<TPZCompEl *> &elgr = cel->GetElGroup();
     for(int i=0; i<elgr.size(); i++)
     {
         TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(elgr[i]);
