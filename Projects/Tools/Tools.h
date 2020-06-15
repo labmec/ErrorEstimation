@@ -106,3 +106,6 @@ TPZGeoMesh* CreateQuadLShapeMesh(TPZVec<int>& bcids);
 TPZGeoMesh* CreateSingleTriangleMesh(TPZVec<int>& bcids);
 
 TPZGeoMesh* CreateSingleQuadMesh(TPZVec<int>& bcids);
+
+TPZGeoMesh* CreateQuadMeshRefTriang(TPZVec<int>& bcids);
+void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream  &out,const ProblemConfig &config);

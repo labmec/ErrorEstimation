@@ -12,7 +12,6 @@
 #define TPZHDivErrorEstimateMaterial_hpp
 
 #include <stdio.h>
-//#include "TPZMatLaplacian.h"
 #include "mixedpoisson.h"
 
 
@@ -41,6 +40,12 @@ public:
     
     
     virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
+    virtual void FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec) override;
+    
+    virtual void UpdateBCValues(TPZVec<TPZMaterialData> &datavec);
+    
+    
+    
     
     bool fNeumannLocalProblem = true;
 
@@ -52,20 +57,15 @@ public:
     // error[2] - energy error computed with exact solution
     // error[3] - energy error computed with reconstructed solution
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
-    
-    
-   virtual  int VariableIndex(const std::string &name)override;
-   virtual int NSolutionVariables(int var)override;
-   virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
-    
-    //retur the first no n null material, this method is to identify de reconstruction with H1, with no uplift procedure
-    int IsH1Position(TPZVec<TPZMaterialData> &datavec);
- 
 
-    
-    
-    
+    virtual int VariableIndex(const std::string &name) override;
+    virtual int NSolutionVariables(int var) override;
+    virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var,
+                          TPZVec<STATE> &Solout) override;
 
+    // Returns the first non-null approximation space index, which will be the
+    // H1 reconstruction space
+    int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
 };
 
 #endif /* TPZHDivErrorEstimateMaterial_hpp */

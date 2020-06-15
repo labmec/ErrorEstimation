@@ -6,6 +6,8 @@ target_sources(ErrorEstimationLib PUBLIC
     TPZMHMHDivErrorEstimatorMaterial.h
     TPZMatLaplacianHybrid.cpp
     TPZMatLaplacianHybrid.h
+    TPZPressureProjection.h
+    TPZPressureProjection.cpp
 )
 
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_LIST_DIR})

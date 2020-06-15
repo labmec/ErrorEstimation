@@ -52,18 +52,19 @@
 
 bool neumann = true;
 bool h1solution = true;
+bool hybridh1 = true;
 
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
 //TPZCompMesh *CMeshH1(const ProblemConfig &problem);
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config);
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
 
-    for (int ndiv = 1; ndiv < 2; ndiv++) {
+    for (int ndiv = 1; ndiv < 5; ndiv++) {
 
         ProblemConfig config;
 
@@ -124,44 +125,41 @@ int main(int argc, char *argv[]) {
         SolveH1Problem(cmeshH1, config);
     }
 
-    TPZCreateMultiphysicsSpace createspace(gmesh);
-    
-    createspace.SetMaterialIds({1}, {-2,-1});
-    createspace.fH1Hybrid.fHybridizeBC = false;//opcao de hibridizar o contorno
-    createspace.ComputePeriferalMaterialIds();
+    if(hybridh1){
+        config.exact.operator*().fSignConvention = 1;
+        TPZCreateMultiphysicsSpace createspace(gmesh);
 
-    
-    std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
-    std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId.first<<std::endl;
-    std::cout <<" fMatWrapId - = "<<createspace.fH1Hybrid.fMatWrapId.second<<std::endl;
-    std::cout <<" fLagrangeMatid + = "<<createspace.fH1Hybrid.fLagrangeMatid.first<<std::endl;
-    std::cout <<" fLagrangeMatid - = "<<createspace.fH1Hybrid.fLagrangeMatid.second<<std::endl;
-    std::cout <<" fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl;
-        
+        createspace.SetMaterialIds({1}, {-2,-1});
+        createspace.fH1Hybrid.fHybridizeBC = false;//opcao de hibridizar o contorno
+        createspace.ComputePeriferalMaterialIds();
 
-    
-    
-    
-    TPZManVector<TPZCompMesh *> meshvec;
-        
-    
-    createspace.CreateAtomicMeshes(meshvec,config.porder,orderlagrange);
-    
-    TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(gmesh);
-    InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
-    createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
-    cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
-    
-    createspace.AddInterfaceElements(cmesh_H1Hybrid);
-    createspace.GroupandCondenseElements(cmesh_H1Hybrid);
-    
-    cmesh_H1Hybrid->InitializeBlock();
-    cmesh_H1Hybrid->ComputeNodElCon();
-        
-        
+
+        std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
+        std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId.first<<std::endl;
+        std::cout <<" fMatWrapId - = "<<createspace.fH1Hybrid.fMatWrapId.second<<std::endl;
+        std::cout <<" fLagrangeMatid + = "<<createspace.fH1Hybrid.fLagrangeMatid.first<<std::endl;
+        std::cout <<" fLagrangeMatid - = "<<createspace.fH1Hybrid.fLagrangeMatid.second<<std::endl;
+        std::cout <<" fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl;
+
+        TPZManVector<TPZCompMesh *> meshvec;
+            
+        createspace.CreateAtomicMeshes(meshvec,config.porder,orderlagrange);
+
+        TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(gmesh);
+        InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
+        createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
+        cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
+
+        createspace.AddInterfaceElements(cmesh_H1Hybrid);
+        createspace.GroupandCondenseElements(cmesh_H1Hybrid);
+
+        cmesh_H1Hybrid->InitializeBlock();
+        cmesh_H1Hybrid->ComputeNodElCon();
+            
+            
         //Solve Hybrid problem
         
-        SolveHybridH1Problem(cmesh_H1Hybrid,config);
+    SolveHybridH1Problem(cmesh_H1Hybrid,createspace.fH1Hybrid.fLagrangeMatid.first,config);
     
 //Post Processing for Lagrange Multiplier
 //    {
@@ -188,7 +186,7 @@ int main(int argc, char *argv[]) {
             
         }
 #endif
-
+    }
 
    }
     
@@ -351,10 +349,54 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
 
 }
 
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct ProblemConfig config){
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config){
+    
+        TPZAnalysis an(cmesh_H1Hybrid);
 
-    TPZAnalysis an(cmesh_H1Hybrid);
-    TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
+    #ifdef USING_MKL
+        TPZSymetricSpStructMatrix strmat(cmesh_H1Hybrid);
+        strmat.SetNumThreads(0);
+        //        strmat.SetDecomposeType(ELDLt);
+    #else
+        //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
+        //    strmat.SetNumThreads(2);
+        //    strmat.SetDecomposeType(ELDLt);
+        TPZSkylineStructMatrix strmat(cmesh_H1Hybrid);
+        strmat.SetNumThreads(0);
+    #endif
+        
+        
+        std::set<int> matIds;
+        
+        
+        for (auto matid : config.materialids) {
+            
+            matIds.insert(matid);
+        }
+        
+        
+        for (auto matidbc : config.bcmaterialids) {
+            
+            matIds.insert(matidbc);
+        }
+        
+        matIds.insert(InterfaceMatId);
+        
+        strmat.SetMaterialIds(matIds);
+        
+        an.SetStructuralMatrix(strmat);
+        
+        
+        TPZStepSolver<STATE>* direct = new TPZStepSolver<STATE>;
+        direct->SetDirect(ELDLt);
+        an.SetSolver(*direct);
+        delete direct;
+        direct = 0;
+        an.Assemble();
+        an.Solve();
+
+   /* TPZAnalysis an(cmesh_H1Hybrid);
+    //TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
     TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
     an.SetStructuralMatrix(skylstr);
     TPZStepSolver<STATE> step;
@@ -362,6 +404,10 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,struct Problem
     an.SetSolver(step);
 
     an.Run();
+    
+    */
+    
+    //Pos processamento
 
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
