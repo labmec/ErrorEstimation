@@ -64,6 +64,9 @@ int TPZMatLaplacianHybrid::VariableIndex(const std::string &name)
 
     if(name == "Pressure") return 44;
     if(name == "PressureExact") return 45;
+
+    if(name == "Flux") return 10;
+    if(name == "ExactFlux") return 13;
    
     
     return -1;
@@ -71,7 +74,7 @@ int TPZMatLaplacianHybrid::VariableIndex(const std::string &name)
 
 int TPZMatLaplacianHybrid::NSolutionVariables(int var){
     if(var == 44 || var==45) return 1;
-    
+    if(var == 10 || var==13) return fDim;
     
     else{
         
@@ -318,7 +321,10 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
         case 45://Pressure Exact
             Solout[0] = pressexact[0];
             break;
-      
+        case 10:
+        case 13:
+            TPZMatLaplacian::Solution(datavec[0],var,Solout);
+            break;
         default:
             DebugStop();
     }

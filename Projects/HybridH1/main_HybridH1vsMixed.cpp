@@ -14,7 +14,6 @@
 #include "tpzgeoelrefpattern.h"
 #include "tpzarc3d.h"
 
-
 #include "ProblemConfig.h"
 
 #include "mixedpoisson.h"
@@ -55,7 +54,7 @@ struct ErrorData
 {
     std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
-    int maxdiv = 5;
+    int maxdiv = 4;
 
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
@@ -95,20 +94,20 @@ void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 2;         // Potential and internal flux order
-    config.hdivmais = 3;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 1;  // p_order - H1HybridMinus = Flux order
+    config.porder = 4;         // Potential and internal flux order
+    config.hdivmais = 1;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = config.hdivmais+1;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
     config.exact.operator*().fSignConvention = 1;
 
-    config.problemname = "ESinSin";
+    config.problemname = "EArcTan";
 
-    config.dir_name = "HybridH1_ESinSin";
+    config.dir_name = "HybridH1_EArcTan";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -149,7 +148,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 1; ndiv < eData.maxdiv+2; ndiv++) {
+    for (int ndiv = 1+1; ndiv < eData.maxdiv+2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
@@ -596,10 +595,12 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
     ////PostProcess
 
-    if(eData.last && eData.post_proc) {
+    if(/*eData.last &&*/ eData.post_proc) {
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
+        vecnames.Push("Flux");
+        vecnames.Push("ExactFlux");
 
         int dim = 2;
         std::string plotname;
@@ -608,7 +609,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
             out << eData.plotfile /* << config.dir_name*/ << "/"
                 << "HybridH1" << config.porder << "_" << dim << "D_"
                 << config.problemname << "Ndiv_ " << config.ndivisions
-                << "HdivMais" << config.porder - config.H1Hybridminus << ".vtk";
+                << "HdybridMais_" << config.H1Hybridminus << "ref_" << 1/eData.h << " x " << 1/eData.h <<".vtk";
             plotname = out.str();
         }
         int resolution = 0;
@@ -646,7 +647,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     else StockErrors(an,cmesh_Mixed,eData.Erro,eData.Log,eData);
 
     ////PostProcess
-    if(eData.last && eData.post_proc) {
+    if(/*eData.last &&*/ eData.post_proc) {
 
         int dim = config.gmesh->Dimension();
         std::string plotname;
@@ -655,7 +656,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
             out << eData.plotfile /* << config.dir_name*/ << "/"
                 << "Mixed" << config.porder << "_" << dim << "D_"
                 << config.problemname << "Ndiv_ " << config.ndivisions
-                << "HdivMais" << config.hdivmais << ".vtk";
+                << "HdivMais" << config.hdivmais << "ref_" << 1/eData.h <<" x " << 1/eData.h << ".vtk";
             plotname = out.str();
         }
 
