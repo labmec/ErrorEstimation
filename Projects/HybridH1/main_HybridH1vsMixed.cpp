@@ -94,9 +94,9 @@ void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 4;         // Potential and internal flux order
+    config.porder = 6;         // Potential and internal flux order
     config.hdivmais = 1;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = config.hdivmais+1;  // p_order - H1HybridMinus = Flux order
+    config.H1Hybridminus = 1;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -607,9 +607,8 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         {
             std::stringstream out;
             out << eData.plotfile /* << config.dir_name*/ << "/"
-                << "HybridH1" << config.porder << "_" << dim << "D_"
-                << config.problemname << "Ndiv_ " << config.ndivisions
-                << "HdybridMais_" << config.H1Hybridminus << "ref_" << 1/eData.h << " x " << 1/eData.h <<".vtk";
+                << config.problemname << "_HybridH1_k-" << config.porder-config.H1Hybridminus
+                << "_Mais-" << config.H1Hybridminus << "_ref_" << 1/eData.h << " x " << 1/eData.h <<".vtk";
             plotname = out.str();
         }
         int resolution = 0;
@@ -654,9 +653,8 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
         {
             std::stringstream out;
             out << eData.plotfile /* << config.dir_name*/ << "/"
-                << "Mixed" << config.porder << "_" << dim << "D_"
-                << config.problemname << "Ndiv_ " << config.ndivisions
-                << "HdivMais" << config.hdivmais << "ref_" << 1/eData.h <<" x " << 1/eData.h << ".vtk";
+                << config.problemname << "_Mixed_k-" << config.porder - config.hdivmais
+                << "_Mais-" << config.hdivmais << "_ref-" << 1/eData.h <<" x " << 1/eData.h << ".vtk";
             plotname = out.str();
         }
 
