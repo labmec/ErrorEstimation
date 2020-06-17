@@ -21,7 +21,7 @@
 
 bool readGeoMeshFromFile = false;
 bool postProcessWithHDiv = false;
-int refinementSteps = 13;
+int refinementSteps = 4;
 
 void TracingTriangleBug(TPZMultiphysicsCompMesh* multiphysics);
 
@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
     config.makepressurecontinuous = true;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
 
     config.dir_name = "TriangularLShapeMesh";
     config.problemname = "ESinSinMark_UniRef";
@@ -74,11 +74,21 @@ int main(int argc, char* argv[]) {
 else
 
     {
-        TPZManVector<int, 4> bcIDs(8, -1);
-        gmeshOriginal = CreateLShapeMesh(bcIDs);//CreateGeoMesh(1, bcIDs);//
+        //TPZManVector<int, 4> bcIDs(8, -1);
+        TPZManVector<int,4> bcids(8,-3);
+        bcids[1] = -1;
+        //constants for Robin boundary conditions
+        // sigma.n=Km(u-u_d)-g
+        //Particular cases: 1) Km=0---> Neumann, 2) Km=infinity-->Dirichlet
+        //config.coefG = 0.;//nao passar mais isso
+        config.Km = 1.e12;//pow(10,2);
+        
+        gmeshOriginal = CreateLShapeMesh(bcids);//CreateGeoMesh(1, bcIDs);//
         config.materialids.insert(1);
-        config.bcmaterialids.insert(-1);
-        //UniformRefinement(3, gmeshOriginal);
+        config.bcmaterialids.insert(-1); // dirichlet
+        //config.bcmaterialids.insert(-2); // neumann
+        config.bcmaterialids.insert(-3); // Robin
+
         
     }
     
@@ -102,7 +112,14 @@ else
     
         config.adaptivityStep = iSteps;
         
-        UniformRefinement(iSteps, gmeshOriginal);
+   //     UniformRefinement(iSteps, gmeshOriginal);
+        
+        #ifdef PZDEBUG
+                {
+                    std::ofstream out("gmeshToSolve.vtk");
+                    TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
+                }
+        #endif
         
     
         
@@ -159,6 +176,12 @@ else
             TPZManVector<REAL> elementerrors;
             HDivEstimate.ComputeErrors(elementerrors);
             hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal, config);
+            #ifdef PZDEBUG
+                    {
+                        std::ofstream out("gmeshAdapty.vtk");
+                        TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
+                    }
+            #endif
     }
     
    // return 0;

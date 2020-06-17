@@ -93,7 +93,7 @@ void TPZPressureProjection::ContributeBC(
         
         REAL Km = bc.Val1()(0, 0); // Km
         REAL InvKm = 1./Km;
-        REAL robinterm = InvKm*(normalsigma+g)+u_D;
+        REAL robinterm = InvKm*(normalsigma-g)+u_D;
 
         for (int iq = 0; iq < nphi_i; iq++) {
             ef(iq, 0) += robinterm * phi_i(iq, 0) * weight;

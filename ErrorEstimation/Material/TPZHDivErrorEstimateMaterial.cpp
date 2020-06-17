@@ -204,8 +204,6 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
     
     if (bc.Type() == 4) {
         
-        std::cout<<"Robin boundary part"<<std::endl;
-        
         if (bc.HasForcingFunction()) {
             TPZManVector<STATE> res(3);
             TPZFNMatrix<9, STATE> gradu(dim, 1);
@@ -226,7 +224,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
                 }
             }
             
-            g = normflux;
+            g = (-1.)*normflux;
             
             
 

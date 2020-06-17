@@ -87,7 +87,7 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
     invK.Identity();
     
     STATE Km = problem.Km;
-    STATE g = problem.coefG;
+
     
     if (problem.TensorNonConst && problem.gmesh->Dimension() == 3) {
         for (int i = 0; i < 3; i++) {
@@ -526,7 +526,7 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
     an.Solve();
     
     if (PostProcessingFEM) {
-      
+      /*
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("ExactPressure");
         scalnames.Push("Pressure");
@@ -539,7 +539,7 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
         int resolution = 2;
         an.PostProcess(resolution, Hybridmesh->Dimension());
-        
+        */
         if (problem.exact.operator*().Exact()) {
             TPZManVector<REAL> errors(5, 0.);
             an.SetThreadsForError(0);
@@ -567,6 +567,7 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
             myfile << "L2 pressure = " << errors[0] << "\n";
             myfile << "L2 flux= " << errors[1] << "\n";
             myfile << "L2 div(flux) = " << errors[2] << "\n";
+            myfile << "L2 flux +L2 pressure "<< errors[0] + errors[1]<<"\n";
           //  myfile << "Semi H1 = " << errors[3] << "\n";
            // myfile << "Hdiv norm = " << errors[4] << "\n";
             
@@ -958,7 +959,7 @@ void hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, Proble
     std::cout << "max error " << maxError << "\n";
     
     // Refines elements which error are bigger than 30% of the maximum error
-    REAL threshold = 0.3 * maxError;
+    REAL threshold = 0.2 * maxError;
     
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
@@ -1361,3 +1362,41 @@ TPZGeoMesh* CreateQuadMeshRefTriang(TPZVec<int>& bcids) {
     
 }
 
+//void VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out,  const ProblemConfig& problem)
+//{
+//
+//    long nel = hdivmesh->NElements();
+//    int dim = hdivmesh->Dimension();
+//    TPZManVector<REAL,10> globerrors(10,0.);
+//    int found = 0;
+//    for (long el=0; el<nel; el++) {
+//        TPZCompEl *cel = hdivmesh->ElementVec()[el];
+//        if (!cel) continue;
+//
+//        TPZGeoEl *gel = cel->Reference();
+//       // if (!gel || gel->Dimension() != dim) continue;
+//
+//
+//        int nnodes = gel->NNodes();
+//        for(int in = 0; in < nnodes; in++)
+//        {
+//
+//                TPZManVector<REAL,10> elerror(10,0.);
+//                cel->EvaluateError(problem.exact->Exact(), elerror, NULL);
+//                int nerr = elerror.size();
+//                for (int i=0; i<nerr; i++)
+//                {
+//                    globerrors[i] += elerror[i]*elerror[i];
+//                }
+//                found++;
+//            }
+//
+//    }
+//    out << "\nErrors associated with HDiv space\n";
+//    out << "L2 Norm for flux = "    << sqrt(globerrors[1]) << endl;
+//
+//    if(found!=2)
+//    {
+//        DebugStop();
+//    }
+//}
