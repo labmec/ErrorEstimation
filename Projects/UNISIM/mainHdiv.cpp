@@ -39,7 +39,7 @@ void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, 
 
 void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT = true, bool printVTK = true);
 
-void UNISIMHDiv(TPZGeoMesh *gmesh);
+void UNISIMHDiv(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results);
 
 TPZMultiphysicsCompMesh *CreateMixedCMesh(const ProblemConfig &problem);
 
@@ -70,8 +70,6 @@ int main() {
     TPZGeoMesh *gmesh = CreateDebugGeoMesh();
     std::string meshFileName{"DebugMesh"};
 
-    // TODO: if nDirectionalRefinements is equal to zero, the code fails during run time.
-    //  If not (i.e. equal to 1), the code does not break, but the results are wrong.
     int nDirectionalRefinements = 0;
     RotateGeoMesh(gmesh, {0, 2});
 #else
@@ -87,10 +85,14 @@ int main() {
 #ifdef DEBUGTEST
     int nSteps = 1;
 #else
-    int nSteps = 5;
+    int nSteps = 8;
+    std::vector<std::pair<REAL, int64_t>> results; // Stores error and nDOF
 #endif
     for (int i = 0; i < nSteps; i++) {
-        UNISIMHDiv(gmesh);
+        UNISIMHDiv(gmesh, results);
+    }
+    for (size_t i = 0; i < results.size(); i++) {
+        std::cout << "Step: " << i << " Energy Error: " << results[i].first << " nDOF: " << results[i].second << '\n';
     }
     delete gmesh;
     return 0;
@@ -132,7 +134,7 @@ void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef) {
     }
 }
 
-void UNISIMHDiv(TPZGeoMesh *gmesh) {
+void UNISIMHDiv(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results) {
 
     static int adaptivityStep = 0;
 
@@ -150,7 +152,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
         config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     }
 #else
-    config.dir_name = "UNISIM_ModifiedZ";
+    config.dir_name = "UNISIM_Flat_AdaptivityMore";
 #endif
     config.problemname = "UNISIM_Errors";
     std::string command = "mkdir " + config.dir_name;
@@ -183,9 +185,11 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
 
     // Solves FEM problem
     SolveMixedHybridProblem(cmesh_HDiv, config);
+    int64_t neq = cmesh_HDiv->NEquations();
     std::cout << "Finished simulation!\n";
     std::cout << "Starting error estimation procedure...\n";
 
+    TPZManVector<REAL, 6> errorVec;
     TPZManVector<REAL> elementerrors;
     {
         // Estimates error
@@ -201,7 +205,7 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
         HDivEstimate.PotentialReconstruction();
 
         std::cout << "Computing errors...\n";
-        HDivEstimate.ComputeErrors(elementerrors);
+        HDivEstimate.ComputeErrors(errorVec, elementerrors, true);
     }
     delete HybridMesh->MeshVector()[0];
     delete HybridMesh->MeshVector()[1];
@@ -209,6 +213,8 @@ void UNISIMHDiv(TPZGeoMesh *gmesh) {
     delete config.gmesh;
     // h-refinement on elements with bigger errors
     hAdaptivity(gmesh, elementerrors, 0.3);
+    //UniformRefinement(1, gmesh);
+    results.emplace_back(errorVec[1], neq);
     adaptivityStep++;
 }
 
@@ -237,7 +243,7 @@ TPZGeoMesh *CreateSurfaceGeoMesh() {
     gmesh = gmeshReader.GeometricGmshMesh(gmshFile);
 
     std::string filename = "InputData/UNISIMPointCloud.txt";
-    ModifyZCoordinates(gmesh, filename);
+    //ModifyZCoordinates(gmesh, filename);
 
     MoveMeshToOrigin(gmesh);
 

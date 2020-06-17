@@ -55,7 +55,7 @@ TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator() {
 
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
-void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, bool store) {
+void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REAL> &elementerrors, bool store = true) {
     TPZAnalysis an(&fPostProcMesh, false);
     
     if (fExact) {
@@ -75,9 +75,13 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
         
     }
 #endif
-    
-    
-    TPZManVector<REAL> errorvec(6, 0.);
+
+    int64_t nErrorCols = 6;
+    errorVec.resize(nErrorCols);
+    for (int64_t i = 0; i < nErrorCols; i++) {
+        errorVec[i] = 0;
+    }
+
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
@@ -101,10 +105,9 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     }
 #endif
     
-    an.PostProcessError(errorvec,true);//calculo do erro com sol exata e aprox e armazena no elementsolution
-    
-    
-    std::cout << "Computed errors " << errorvec << std::endl;
+    an.PostProcessError(errorVec, store);//calculo do erro com sol exata e aprox e armazena no elementsolution
+
+    std::cout << "Computed errors " << errorVec << std::endl;
     
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
@@ -116,12 +119,12 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.porder << " Order n= "<< fProblemConfig.hdivmais<<"\n";
     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
-    myfile << "Global estimator = " << errorvec[3] << "\n";
-    myfile << "Global exact error = " << errorvec[2] << "\n";
-    myfile <<"|uex-ufem|= "<<errorvec[0] << "\n";
-    myfile <<"|ufem-urec| = "<<errorvec[1] << "\n";
-    myfile <<"Residual ErrorL2= "<<errorvec[4] << "\n";
-    myfile <<"Global Index = "<< sqrt(errorvec[3]+errorvec[4])/errorvec[2];
+    myfile << "Global estimator = " << errorVec[3] << "\n";
+    myfile << "Global exact error = " << errorVec[2] << "\n";
+    myfile <<"|uex-ufem|= "<< errorVec[0] << "\n";
+    myfile <<"|ufem-urec| = "<< errorVec[1] << "\n";
+    myfile <<"Residual ErrorL2= "<< errorVec[4] << "\n";
+    myfile <<"Global Index = "<< sqrt(errorVec[3]+ errorVec[4])/ errorVec[2];
     
     myfile.close();
     
@@ -132,8 +135,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL> &elementerrors, boo
     PostProcessing(an);
     
     elementerrors.resize(fPostProcMesh.Reference()->NElements());
-    for (int64_t i = 0; i < elementerrors.size(); i++) {
-        elementerrors[i] = 0;
+    for (REAL & elementerror : elementerrors) {
+        elementerror = 0;
     }
     for (int64_t i = 0; i < nelem; i++) {
         TPZCompEl *cel = fPostProcMesh.Element(i);
@@ -1849,9 +1852,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZCompMesh *pressuremesh = PressureMesh();
         int target_dim = 1; // TODO ver se fica igual para dimensao maior
                             // TODO
-//        ComputeBoundaryL2Projection(pressuremesh, target_dim);
+        ComputeBoundaryL2Projection(pressuremesh, target_dim);
         // ComputeBoundaryL2Projection(pressuremesh, target_dim );
-        BoundaryPressureProjection(pressuremesh, target_dim);
+       // BoundaryPressureProjection(pressuremesh, target_dim);
         //NewComputeBoundaryL2Projection(pressuremesh, target_dim);
     }
     

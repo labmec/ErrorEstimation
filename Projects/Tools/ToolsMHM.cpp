@@ -671,15 +671,10 @@ int MHMTest(ProblemConfig &Conf) {
         std::string command = "mkdir " + Conf.dir_name;
         system(command.c_str());
 
-
-
-
-
-        TPZManVector<REAL> errors;
-
-        ErrorEstimator.ComputeErrors(errors);
-
-
+        TPZManVector<REAL, 6> errors;
+        TPZManVector<REAL> elementerrors;
+        bool store_errors = true;
+        ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
     }
 
     return 0;

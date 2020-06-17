@@ -104,8 +104,8 @@ struct TPZHybridHDivErrorEstimator
     }
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
-    virtual void ComputeErrors(TPZVec<REAL> &elementerrors, bool store = true);
-    
+    virtual void ComputeErrors(TPZVec<REAL> &errorVec, TPZVec<REAL> &elementerrors, bool store);
+
     //reconstruction of potential using hybrid solution on enrichement space
     virtual void PotentialReconstruction();
     
