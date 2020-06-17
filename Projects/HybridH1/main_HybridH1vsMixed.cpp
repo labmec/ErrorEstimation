@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 1+1; ndiv < eData.maxdiv+2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 1; ndiv < eData.maxdiv+2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
