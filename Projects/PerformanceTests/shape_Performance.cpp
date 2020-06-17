@@ -9,7 +9,8 @@
 #include "pzgenericshape.h"
 #include "pzshapepoint.h"
 
-extern int64_t counter;
+//extern int64_t counter;
+int64_t counter;
 
 #include "boost/date_time/posix_time/posix_time.hpp"
 
