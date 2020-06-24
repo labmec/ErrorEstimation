@@ -15,29 +15,28 @@ int64_t counter;
 #include "boost/date_time/posix_time/posix_time.hpp"
 
 template<class TSHAPE>
-void TimeComparaison();
+void TimeComparison();
 template<class TSHAPE>
-void TimeComparaison(TPZVec<int> &orders);
+void TimeComparison(TPZVec<int> &orders);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
 //    TPZManVector<int,27> orders(19,5);
-//    TimeComparaison<pzshape::TPZShapeCube>(orders);
+//    TimeComparison<pzshape::TPZShapeCube>(orders);
 //
 //    return 1;
-    
-    TimeComparaison<pzshape::TPZShapeLinear>();
-    TimeComparaison<pzshape::TPZShapeTriang>();
-    TimeComparaison<pzshape::TPZShapeQuad>();
-//    TimeComparaison<pzshape::TPZShapePoint>();
 
+    TimeComparison<pzshape::TPZShapeLinear>();
+    TimeComparison<pzshape::TPZShapeTriang>();
+    TimeComparison<pzshape::TPZShapeQuad>();
+//    TimeComparison<pzshape::TPZShapePoint>();
 
-    TimeComparaison<pzshape::TPZShapeTetra>();
-    TimeComparaison<pzshape::TPZShapeCube>();
-    TimeComparaison<pzshape::TPZShapePrism>();
-    TimeComparaison<pzshape::TPZShapePiram>();
+    TimeComparison<pzshape::TPZShapeTetra>();
+    TimeComparison<pzshape::TPZShapeCube>();
+    TimeComparison<pzshape::TPZShapePrism>();
+    TimeComparison<pzshape::TPZShapePiram>();
     
 
     return 0;
@@ -45,7 +44,7 @@ int main(int argc, char *argv[]) {
 }
 
 template<class TSHAPE>
-void TimeComparaison()
+void TimeComparison()
 {
     const int ncorner = TSHAPE::NCornerNodes;
     const int nsides = TSHAPE::NSides;
@@ -53,16 +52,16 @@ void TimeComparaison()
     
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     std::cout << "orders = " << orders << std::endl;
-    TimeComparaison<TSHAPE>(orders);
+    TimeComparison<TSHAPE>(orders);
     orders.Fill(2);
     std::cout << "orders = " << orders << std::endl;
-    TimeComparaison<TSHAPE>(orders);
+    TimeComparison<TSHAPE>(orders);
     orders.Fill(1);
     if(nsides-ncorner > 1)
     {
         orders[nsides-ncorner-1] = 3;
         std::cout << "orders = " << orders << std::endl;
-        TimeComparaison<TSHAPE>(orders);
+        TimeComparison<TSHAPE>(orders);
     }
     if(TSHAPE::Dimension > 1)
     {
@@ -70,7 +69,7 @@ void TimeComparaison()
         orders.Fill(1);
         for(int i=0; i<nsides1; i++) orders[i] = 5;
         std::cout << "orders = " << orders << std::endl;
-        TimeComparaison<TSHAPE>(orders);
+        TimeComparison<TSHAPE>(orders);
     }
     if(TSHAPE::Dimension > 2)
     {
@@ -79,15 +78,15 @@ void TimeComparaison()
         orders.Fill(1);
         for(int i=nsides1; i<nsides1+nsides2; i++) orders[i] = 5;
         std::cout << "orders = " << orders << std::endl;
-        TimeComparaison<TSHAPE>(orders);
+        TimeComparison<TSHAPE>(orders);
     }
     orders.Fill(5);
     std::cout << "orders = " << orders << std::endl;
-    TimeComparaison<TSHAPE>(orders);
+    TimeComparison<TSHAPE>(orders);
 }
 
 template<class TSHAPE>
-void TimeComparaison(TPZVec<int> &orders)
+void TimeComparison(TPZVec<int> &orders)
 {
     const int ncorner = TSHAPE::NCornerNodes;
     const int nsides = TSHAPE::NSides;
