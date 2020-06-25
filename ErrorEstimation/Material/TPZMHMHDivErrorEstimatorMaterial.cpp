@@ -53,19 +53,18 @@ void TPZMHMHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialDat
 }
 
 int TPZMHMHDivErrorEstimateMaterial::IsH1Position(TPZVec<TPZMaterialData> &datavec){
-    
+
     int nvec = datavec.NElements();
-    int firstNoNullposition =0;
-    
+    int firstNoNullposition = -1;
+
     for(int ivec = 0; ivec < nvec ; ivec++){
         TPZMaterialData::MShapeFunctionType shapetype = datavec[ivec].fShapeType;
         if(shapetype != TPZMaterialData::EEmpty){
             firstNoNullposition = ivec;
             return firstNoNullposition;
         }
-        
     }
-    
+    return firstNoNullposition;
 }
 
 void TPZMHMHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)

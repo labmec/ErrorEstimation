@@ -24,9 +24,10 @@ int main(int argc, char *argv[]) {
     results << ":: MHM Performance Test Results ::\n\n";
     results << "Coarse Grid    Internal Refinements    Microelements       Elapsed Time\n";
 
-    for (int nCoarseDiv = 1; nCoarseDiv < 10; nCoarseDiv++) {
-        for (int nFineRefs = 1; nFineRefs < 5; nFineRefs++) {
-            TestMHMPerformance(nCoarseDiv, nFineRefs, results);
+    std::set<int> coarseDivisions = {200, 500, 1000, 2500, 3200};
+    for (auto div : coarseDivisions) {
+        for (int nFineRefs = 0; nFineRefs < 1; nFineRefs++) {
+            TestMHMPerformance(div, nFineRefs, results);
         }
         results << '\n';
     }
@@ -64,6 +65,7 @@ void TestMHMPerformance(int nCoarseDivisions, int nInternalRefinements, std::str
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
 
+    if (0)
     {
         std::stringstream fileName;
         fileName << "MHM_Coarse_" << nCoarseDivisions << "x" << nCoarseDivisions << "_InternalRef_"
@@ -75,6 +77,7 @@ void TestMHMPerformance(int nCoarseDivisions, int nInternalRefinements, std::str
     UniformRefinement(nInternalRefinements, gmesh);
     DivideLowerDimensionalElements(gmesh);
 
+    if (0)
     {
         std::stringstream fileName;
         fileName << "MHM_Fine_" << nCoarseDivisions << "x" << nCoarseDivisions << "_InternalRef_"
@@ -125,7 +128,9 @@ void TestMHMPerformance(int nCoarseDivisions, int nInternalRefinements, std::str
         ptime end_time = microsec_clock::local_time();
         time_duration t = end_time - start_time;
 
-        results << setw(9) << nCoarseDivisions << "x" << nCoarseDivisions << setw(24) << nInternalRefinements
+        std::stringstream s;
+        s << nCoarseDivisions << "x" << nCoarseDivisions;
+        results << setw(11) << std::right << s.str() << setw(24) << nInternalRefinements
                 << setw(17) << nCoarseDivisions * nCoarseDivisions * (pow(4, nInternalRefinements)) << "    " << t
                 << '\n';
     }
