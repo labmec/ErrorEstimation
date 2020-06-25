@@ -22,10 +22,10 @@ int main(int argc, char *argv[]) {
 
     std::stringstream results;
     results << ":: MHM Performance Test Results ::\n\n";
-    results << "Coarse Grid    Internal Refinements    Elapsed Time\n";
+    results << "Coarse Grid    Internal Refinements    Microelements       Elapsed Time\n";
 
-    for (int nCoarseDiv = 1; nCoarseDiv < 8; nCoarseDiv++) {
-        for (int nFineRefs = 1; nFineRefs < 4; nFineRefs++) {
+    for (int nCoarseDiv = 1; nCoarseDiv < 10; nCoarseDiv++) {
+        for (int nFineRefs = 1; nFineRefs < 5; nFineRefs++) {
             TestMHMPerformance(nCoarseDiv, nFineRefs, results);
         }
         results << '\n';
@@ -125,7 +125,8 @@ void TestMHMPerformance(int nCoarseDivisions, int nInternalRefinements, std::str
         ptime end_time = microsec_clock::local_time();
         time_duration t = end_time - start_time;
 
-        results << "        " << nCoarseDivisions << "x" << nCoarseDivisions
-        << "                       " << nInternalRefinements << "    " << t << '\n';
+        results << setw(9) << nCoarseDivisions << "x" << nCoarseDivisions << setw(24) << nInternalRefinements
+                << setw(17) << nCoarseDivisions * nCoarseDivisions * (pow(4, nInternalRefinements)) << "    " << t
+                << '\n';
     }
 }
