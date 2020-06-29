@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     results << ":: MHM Performance Test Results ::\n\n";
     results << "Coarse Grid    Internal Refinements    Microelements       Elapsed Time\n";
 
-    std::set<int> coarseDivisions = {200, 500, 1000, 2500, 3200};
+    std::set<int> coarseDivisions = {50, 75, 100, 125, 150, 175, 200};
     for (auto div : coarseDivisions) {
         for (int nFineRefs = 0; nFineRefs < 1; nFineRefs++) {
             TestMHMPerformance(div, nFineRefs, results);
@@ -133,5 +133,6 @@ void TestMHMPerformance(int nCoarseDivisions, int nInternalRefinements, std::str
         results << setw(11) << std::right << s.str() << setw(24) << nInternalRefinements
                 << setw(17) << nCoarseDivisions * nCoarseDivisions * (pow(4, nInternalRefinements)) << "    " << t
                 << '\n';
+        std::cout << results.str();
     }
 }
