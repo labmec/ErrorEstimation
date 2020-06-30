@@ -174,6 +174,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
     TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
     TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
 
+    return;
     /*
      Add Robin boundary condition for local problem
      ek+= <w,Km s_i>
@@ -191,20 +192,15 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
     TPZManVector<REAL, 3> normal = datavec[2].normal;
 
     REAL normalsigma = 0.;
-    int nsol = datavec[2].sol[0].size(); // ver pq nao é vetorial
-
-    for (int ip = 0; ip < nsol; ip++) {
-        solsigmafem(ip, 0) = datavec[2].sol[0][ip];
-        normalsigma += datavec[2].sol[0][ip] * normal[ip];
-    }
+    normalsigma = datavec[2].sol[0][0];
     
     REAL u_D = 0.;
     REAL g = 0.;
     REAL normflux = 0.;
     
-    if (bc.Type() == 4) {
+    
         
-        if (bc.HasForcingFunction()) {
+    if (bc.HasForcingFunction()) {
             TPZManVector<STATE> res(3);
             TPZFNMatrix<9, STATE> gradu(dim, 1);
             bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
@@ -232,9 +228,13 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
             // usualmente updatebc coloca o valor exato no val2
             u_D = bc.Val2()(0, 0);
         }
-        
+    
+    
+    switch (bc.Type()) {
+        case (4):{
+       
         REAL Km = bc.Val1()(0, 0); // Km
-        REAL robinterm = Km * u_D - g + normalsigma;
+            REAL robinterm = Km * u_D /*- g+ normalsigma*/;
 
         for (int iq = 0; iq < nphi_i; iq++) {
             //<w,Km*u_D-g+sigma_i*n>
@@ -244,10 +244,32 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
                 ek(iq, jq) += weight * Km * phi_i(iq, 0) * phi_i(jq, 0);
             }
         }
-    }
-    else {
+            break;
+        }
+
+
+    
+    /*
+        case( 0):{
+        
+        for (int iq = 0; iq < nphi_i; iq++) {
+            ef(iq, 0) += gBigNumber*u_D * phi_i(iq, 0) * weight;
+            for (int jq = 0; jq < nphi_i; jq++) {
+                ek(iq, jq) += gBigNumber*weight *  phi_i(iq, 0) * phi_i(jq, 0);
+            }
+        }
+        
+            break;
+        }*/
+    
+        default:{
+
         std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
+            break;
+        }
     }
+            
+            
 }
 
 
@@ -535,5 +557,8 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     }
 }
 
-
+void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors){
+    DebugStop();
+    
+}
 

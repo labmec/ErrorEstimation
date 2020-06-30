@@ -918,7 +918,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
-               // std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
+                std::cout<<"MatId "<<gneigh.Element()->MaterialId()<<"\n";
 
                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                 if (!intelneigh) DebugStop();

@@ -71,18 +71,22 @@ int main(int argc, char *argv[]) {
     config.TensorNonConst = false; // para problem 3d com tensor nao constante
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EX;//ESinSinDirNonHom;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
 
     bool RunMark = false;
-    config.problemname = "DirNonHomSemBCRec";
+    config.problemname = "ESinSin";
 
-    config.dir_name = "ESinSinDirNonHo_BC";
+    config.dir_name = "EPIC";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     int dim = config.dimension;
     
-    //config.Km = 1;
+    TPZManVector<int,4> bcids(4,-1);
+    bcids[0] = -1;
+    config.bcmaterialids.insert(-3);//Robin
+    config.bcmaterialids.insert(-1);//Dirichlet
+
     config.Km = 100;
     config.hdivmais = 1;
     
@@ -133,10 +137,10 @@ config.porder = p;
 
         else {
             
-            TPZManVector<int,4> bcids(4,-3);
+          //  TPZManVector<int,4> bcids(4,-3);
             //TPZManVector<int,4> bcids(4,-3);
             //TPZManVector<int,4> bcids(3,-3);
-            //bcids[1] = -1;
+          //  bcids[1] = -1;
             //constants for Robin boundary conditions
             // sigma.n=Km(u-u_d)-g
             //Particular cases: 1) Km=0---> Neumann, 2) Km=infinity-->Dirichlet
@@ -144,14 +148,14 @@ config.porder = p;
             //config.Km = 1.e12;//pow(10,2);
             
 
-            int nel = pow(2, ndiv);
+            int nel = 1;//pow(2, ndiv);
 
             gmesh = CreateGeoMesh(nel, bcids); //CreateLShapeMesh(bcids);//CreateQuadMeshRefTriang(bcids); //CreateSingleTriangleMesh(bcids);// CreateTrapezoidalMesh(nelT,
                              // nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
-            config.bcmaterialids.insert(-1); // dirichlet
+            //config.bcmaterialids.insert(-1); // dirichlet
             //config.bcmaterialids.insert(-2); // neumann
-            config.bcmaterialids.insert(-3); // Robin
+           // config.bcmaterialids.insert(-3); // Robin
             config.gmesh = new TPZGeoMesh;
             *config.gmesh = *gmesh;
             gmesh->SetDimension(dim);
@@ -172,8 +176,8 @@ config.porder = p;
         TPZGeoMesh *hybridEstimatorMesh = new TPZGeoMesh();
         *hybridEstimatorMesh = *gmesh;
 
-       // UniformRefinement(config.ndivisions, gmesh);
-     //   DivideLowerDimensionalElements(gmesh);
+        UniformRefinement(config.ndivisions, gmesh);
+        DivideLowerDimensionalElements(gmesh);
 
         *config.gmesh = *gmesh;
         
@@ -242,13 +246,15 @@ config.porder = p;
 
         SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, true);
 
-#ifdef PZDEBUG
+        
+
+#ifdef PZDEBUG2
         {
             std::ofstream out("OriginalHybridMesh.txt");
             (HybridMesh)->Print(out);
         }
 #endif
-        PlotLagrangeMultiplier(meshvec_HDiv[1],config);
+      //  PlotLagrangeMultiplier(meshvec_HDiv[1],config);
 
         // reconstroi potencial e calcula o erro
         {

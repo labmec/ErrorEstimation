@@ -47,6 +47,7 @@ public:
     virtual void  Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     virtual void ContributeHdiv(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef);
     virtual int IsH1Position(TPZVec<TPZMaterialData> &datavec);
+    
  
 
     

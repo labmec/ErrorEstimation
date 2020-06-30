@@ -13,6 +13,8 @@
 #include <tuple>
 #include <memory>
 
+#include "pzcondensedcompel.h"
+#include "pzelementgroup.h"
 
 TPZCompMesh* CreatePressureMesh(const ProblemConfig& problem) {
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
@@ -120,7 +122,7 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
         
     
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(2, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
         int bctype;
     
         switch (matid) {
@@ -137,7 +139,7 @@ TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem) {
             }
             case -3:{
             bctype = 4;// different from mixed (bctype 2) already implemented on TPZMixedPoisson3d
-            val1(0,0) = Km;
+            val1(0,0) = Km ;
 
                 
             break;
@@ -526,7 +528,7 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
     an.Solve();
     
     if (PostProcessingFEM) {
-      /*
+      
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("ExactPressure");
         scalnames.Push("Pressure");
@@ -537,9 +539,9 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
         sout << problem.dir_name << "/" << "OriginalHybrid_Order_" << problem.porder << "Nref_" << problem.ndivisions
              << "NAdapStep_" << problem.adaptivityStep << ".vtk";
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-        int resolution = 2;
+        int resolution = 0;
         an.PostProcess(resolution, Hybridmesh->Dimension());
-        */
+        
         if (problem.exact.operator*().Exact()) {
             TPZManVector<REAL> errors(5, 0.);
             an.SetThreadsForError(0);
@@ -554,10 +556,18 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
              */
 
             // Erro
-            ofstream myfile;
-            myfile.open("ErrorRobinCondition.txt", ios::app);
             
-       //     ComputeError(Hybridmesh, myfile,problem);
+            //
+            std::ofstream out("ErrosTeste.txt");
+            
+            
+            VectorEnergyNorm(Hybridmesh, out,problem);
+            
+            //
+            
+            ofstream myfile;
+            myfile.open("ErrorFemProblem.txt", ios::app);
+            
             
             
             myfile << "\n\n Error for Mixed formulation ";
@@ -591,6 +601,7 @@ void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream &out,const ProblemConfi
         }
         TPZGeoEl *gel = cel->Reference();
         if(!gel) continue;
+        
         TPZManVector<REAL,10> elerror(5,0.);
         
         int matId = gel->MaterialId();
@@ -598,19 +609,12 @@ void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream &out,const ProblemConfi
 
         TPZMaterial *mat = Hybridmesh->FindMaterial(matId);
         
+        if(matId != 1 || matId != 4) continue;
+        
+        
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         
-//        if (bc && bc->Type()==4) {
-//
-//
-//
-//        }
-    
-        
-        
-//        if (!gel || gel->Dimension() != dim) {
-//            continue;
-//        }
+
         
         cel->EvaluateError(config.exact->ExactSolution(), elerror, NULL);
 
@@ -845,7 +849,7 @@ TPZMultiphysicsCompMesh* HybridSolveProblem(TPZMultiphysicsCompMesh* cmesh_HDiv,
     }
 #endif
     
-    PlotLagrangeMultiplier(HybridMesh->MeshVector()[1], config);
+   // PlotLagrangeMultiplier(HybridMesh->MeshVector()[1], config);
     
     cmesh_HDiv = HybridMesh;
     
@@ -1362,41 +1366,59 @@ TPZGeoMesh* CreateQuadMeshRefTriang(TPZVec<int>& bcids) {
     
 }
 
-//void VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out,  const ProblemConfig& problem)
-//{
-//
-//    long nel = hdivmesh->NElements();
-//    int dim = hdivmesh->Dimension();
-//    TPZManVector<REAL,10> globerrors(10,0.);
-//    int found = 0;
-//    for (long el=0; el<nel; el++) {
-//        TPZCompEl *cel = hdivmesh->ElementVec()[el];
-//        if (!cel) continue;
-//
-//        TPZGeoEl *gel = cel->Reference();
-//       // if (!gel || gel->Dimension() != dim) continue;
-//
-//
-//        int nnodes = gel->NNodes();
-//        for(int in = 0; in < nnodes; in++)
-//        {
-//
-//                TPZManVector<REAL,10> elerror(10,0.);
-//                cel->EvaluateError(problem.exact->Exact(), elerror, NULL);
-//                int nerr = elerror.size();
-//                for (int i=0; i<nerr; i++)
-//                {
-//                    globerrors[i] += elerror[i]*elerror[i];
-//                }
-//                found++;
-//            }
-//
-//    }
-//    out << "\nErrors associated with HDiv space\n";
-//    out << "L2 Norm for flux = "    << sqrt(globerrors[1]) << endl;
-//
-//    if(found!=2)
-//    {
-//        DebugStop();
-//    }
-//}
+void VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out,  const ProblemConfig& problem)
+{
+    
+    
+    //
+     TPZGeoMesh *gmesh = hdivmesh->Reference();
+     gmesh->ResetReference();
+     int dim = gmesh->Dimension();
+
+     int64_t nel = hdivmesh->NElements();
+     
+     
+     // loop over the elements
+     for (int64_t el = 0; el < nel; el++) {
+         TPZCompEl *cel = hdivmesh->Element(el);
+         if (!cel) continue;
+         TPZGeoEl *gel = cel->Reference();
+         if (!gel) continue;
+         int matId = gel->MaterialId();
+         std::cout<<"matId "<<matId<<"\n";
+         
+         
+         int nsides = gel->NSides();
+         for (int side = 0; side < nsides; side++) {
+             TPZGeoElSide gelside(gel, nsides - 1);
+             TPZStack<TPZCompElSide> equal;
+             int onlyinterpolated = 1;
+             int removeduplicated = 0;
+             gelside.EqualLevelCompElementList(equal, onlyinterpolated, removeduplicated);
+             int nequal = equal.size();
+             if(nequal==0) continue;
+
+             for (int ieq = 0; ieq < nequal; ieq++) {
+                 TPZCompEl *celneigh = equal[ieq].Element();
+                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
+                 TPZVec<REAL> errors(5,0.);
+
+                intelneigh->EvaluateError(problem.exact->ExactSolution(),errors,false);
+   
+
+             }
+         }
+     }
+    
+    
+    //
+    
+    
+    
+//        nkaux[iel] = residuo2;
+//        out << "\nErrors associated with flux on element Ek\n";
+//        out << "L2 Norm flux = "    << nkaux[iel] << endl;
+        
+      
+
+}
