@@ -234,7 +234,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
         case (4):{
        
         REAL Km = bc.Val1()(0, 0); // Km
-            REAL robinterm = Km * u_D /*- g+ normalsigma*/;
+            REAL robinterm = Km * u_D - g+ normalsigma;
 
         for (int iq = 0; iq < nphi_i; iq++) {
             //<w,Km*u_D-g+sigma_i*n>
@@ -557,8 +557,80 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     }
 }
 
-void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors){
-    DebugStop();
+void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc){
+    
+
+    errors.Resize(NEvalErrors());
+    errors.Fill(0.0);
+    
+    
+
+    
+    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
+    
+    int H1functionposition = 0;
+    H1functionposition = FirstNonNullApproxSpaceIndex(data);
+
+    REAL normalsigmafem = 0.,normalsigmarec = 0.;
+    normalsigmafem = data[2].sol[0][0];
+    
+    REAL u_D = 0.;
+    REAL normflux = 0.;
+    
+    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
+    TPZFNMatrix<9,REAL> fluxrec(fDim,0);
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
+    
+    normalsigmarec = fluxrec(0,0);//ja sai com normal?
+    
+    
+    TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
+    
+        
+    if (bc.HasForcingFunction()) {
+            TPZManVector<STATE> res(3);
+            TPZFNMatrix<9, STATE> gradu(this->Dimension(), 1);
+            bc.ForcingFunction()->Execute(data[H1functionposition].x, res, gradu);
+            u_D = res[0];
+            
+            
+            
+            GetPermeabilities(data[0].x, PermTensor, InvPermTensor);
+            
+            
+            for(int i=0; i<3; i++)
+            {
+                for(int j=0; j<3; j++)
+                {
+                    
+                    normflux += data[2].normal[i]*PermTensor(i,j)*gradu(j,0);
+                }
+            }
+            
+        } else {
+            // usualmente updatebc coloca o valor exato no val2
+            u_D = bc.Val2()(0, 0);
+        }
+    
+    
+    
+    
+    if (bc.Type() == 4) {
+
+       
+        REAL Km = bc.Val1()(0, 0);
+        REAL InvKm = 1./Km;
+        REAL errorEstimated =0.,errorReal = 0.;
+        errorEstimated = InvKm * (normalsigmarec - normalsigmafem)* (normalsigmarec - normalsigmafem);
+        errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
+        errors[2] = errorReal;
+        errors[3] = errorEstimated;
+        
+        
+
+    }
+         
+        
     
 }
 

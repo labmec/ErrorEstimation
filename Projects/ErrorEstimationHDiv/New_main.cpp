@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     config.bcmaterialids.insert(-1);//Dirichlet
 
     config.Km = 100;
-    config.hdivmais = 1;
+    config.hdivmais = 3;
     
 for (int p = 1; p <2; p ++){
         
@@ -270,7 +270,8 @@ config.porder = p;
                 HDivEstimate.PotentialReconstruction();
 
                 TPZManVector<REAL> elementerrors;
-                HDivEstimate.ComputeErrors(elementerrors);
+                TPZVec<REAL> errorVec;
+                HDivEstimate.ComputeErrors(errorVec,elementerrors,true);
 
             }
 
@@ -288,7 +289,8 @@ config.porder = p;
                 HDivEstimate.PotentialReconstruction();
 
                 TPZManVector<REAL> elementerrors;
-                HDivEstimate.ComputeErrors(elementerrors);
+                TPZVec<REAL> errorVec;
+                HDivEstimate.ComputeErrors(errorVec,elementerrors,true);
        //         hAdaptivity(&HDivEstimate.fPostProcMesh, hybridEstimatorMesh,config);
             }
         }
