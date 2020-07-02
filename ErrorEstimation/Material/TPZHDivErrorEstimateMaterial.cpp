@@ -334,15 +334,6 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     int H1functionposition = 0;
     H1functionposition = FirstNonNullApproxSpaceIndex(data);
 
-   
-    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
-    TPZFNMatrix<9,REAL> fluxrec(3,0);
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
-    
-    for(int id=0 ; id<3; id++) {
-        fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
-    }
-    
     
     TPZVec<STATE> divsigma(1);
     
@@ -381,6 +372,16 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
             gradpressure(i,0) = du_exact[i];
         }
         PermTensor.Multiply(gradpressure,fluxexactneg);
+    }
+    
+    
+    
+    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
+    TPZFNMatrix<9,REAL> fluxrec(3,0);
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
+    
+    for(int id=0 ; id<3; id++) {
+        fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
     }
     
      PermTensor.Multiply(fluxreconstructed2,fluxreconstructed);
@@ -559,77 +560,81 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
 
 void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc){
     
+    if(bc.Type()== 4){
+    
 
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
     
     
-
-    
     TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
-    
+    TPZManVector<STATE,3> fluxfem(3);
+        
     int H1functionposition = 0;
     H1functionposition = FirstNonNullApproxSpaceIndex(data);
 
     REAL normalsigmafem = 0.,normalsigmarec = 0.;
-    normalsigmafem = data[2].sol[0][0];
+    normalsigmafem = data[2].sol[0][0];// sigma.n
+
+
     
     REAL u_D = 0.;
     REAL normflux = 0.;
-    
-    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
-    TPZFNMatrix<9,REAL> fluxrec(fDim,0);
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
-    
-    normalsigmarec = fluxrec(0,0);//ja sai com normal?
-    
+        
+        TPZManVector<STATE,3> fluxrec(fDim);
+        this->Solution(data,VariableIndex("FluxReconstructed"), fluxrec);
+        
+        std::cout<<"flux_rec "<<fluxrec[0]<<" , "<<fluxrec[1]<<"\n";
+        
     
     TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
-    
-        
+    TPZManVector<STATE> res(3);
+    TPZFNMatrix<9, STATE> gradu(this->Dimension(), 1);
+
     if (bc.HasForcingFunction()) {
-            TPZManVector<STATE> res(3);
-            TPZFNMatrix<9, STATE> gradu(this->Dimension(), 1);
             bc.ForcingFunction()->Execute(data[H1functionposition].x, res, gradu);
-            u_D = res[0];
-            
-            
-            
             GetPermeabilities(data[0].x, PermTensor, InvPermTensor);
-            
-            
-            for(int i=0; i<3; i++)
-            {
-                for(int j=0; j<3; j++)
-                {
-                    
-                    normflux += data[2].normal[i]*PermTensor(i,j)*gradu(j,0);
-                }
-            }
+        
             
         } else {
             // usualmente updatebc coloca o valor exato no val2
             u_D = bc.Val2()(0, 0);
         }
-    
-    
-    
-    
-    if (bc.Type() == 4) {
+        
+        
+        for(int i=0; i<3; i++)
+        {
+            for(int j=0; j<3; j++)
+            {
+                
+                normflux += data[2].normal[i]*PermTensor(i,j)*gradu(j,0);
+            }
+        }
+        
+        std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
+        
+        for(int j=0; j<fDim; j++)
+        {
 
+            normalsigmarec += data[2].normal[j]*fluxrec[j];
+        }
+
+        
+        
        
-        REAL Km = bc.Val1()(0, 0);
-        REAL InvKm = 1./Km;
-        REAL errorEstimated =0.,errorReal = 0.;
-        errorEstimated = InvKm * (normalsigmarec - normalsigmafem)* (normalsigmarec - normalsigmafem);
-        errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
-        errors[2] = errorReal;
-        errors[3] = errorEstimated;
+    REAL Km = bc.Val1()(0, 0);
+    REAL InvKm = 1./Km;
+    REAL errorEstimated =0.,errorReal = 0.;
+    std::cout<<"normalsigmarec "<<normalsigmarec<<"\n";
+    std::cout<<"normalsigmafem "<<normalsigmafem<<"\n";
+    std::cout<<"----------"<<"\n";
+    errorEstimated = InvKm * (normalsigmarec - normalsigmafem)* (normalsigmarec - normalsigmafem);
+    errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
+    errors[2] = errorReal;
+    errors[3] = errorEstimated;
         
         
-
     }
-         
         
     
 }

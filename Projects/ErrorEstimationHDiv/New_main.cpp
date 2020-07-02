@@ -82,8 +82,8 @@ int main(int argc, char *argv[]) {
 
     int dim = config.dimension;
     
-    TPZManVector<int,4> bcids(4,-1);
-    bcids[0] = -1;
+    TPZManVector<int,4> bcids(4,-3);
+    //bcids[0] = -1;
     config.bcmaterialids.insert(-3);//Robin
     config.bcmaterialids.insert(-1);//Dirichlet
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 for (int p = 1; p <2; p ++){
         
 config.porder = p;
-    for (int ndiv = 1; ndiv < 2; ndiv++) {
+    for (int ndiv = 0; ndiv < 1; ndiv++) {
 
         config.ndivisions = ndiv;
 
