@@ -54,7 +54,7 @@ struct ErrorData
 {
     std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
-    int maxdiv = 4;
+    int maxdiv = 3;
 
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
@@ -102,10 +102,10 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     config.prefine = false;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTan/*ESinSin*/;
     config.exact.operator*().fSignConvention = 1;
 
-    config.problemname = "EArcTan";
+    config.problemname = "EArcTan"/*"ESinSin"*/;
 
     config.dir_name = "HybridH1_EArcTan";
     std::string command = "mkdir " + config.dir_name;
@@ -600,7 +600,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
         vecnames.Push("Flux");
-        vecnames.Push("ExactFlux");
+        vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
 
         int dim = 2;
         std::string plotname;
@@ -662,7 +662,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
         scalnames.Push("Pressure");
         scalnames.Push("ExactPressure");
         vecnames.Push("Flux");
-        vecnames.Push("ExactFlux");
+        vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
 
         int resolution = 0;
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);

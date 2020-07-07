@@ -67,14 +67,15 @@ int TPZMatLaplacianHybrid::VariableIndex(const std::string &name)
 
     if(name == "Flux") return 10;
     if(name == "ExactFlux") return 13;
-   
-    
+
+    if(name == "ExactFluxShiftedOrigin") return 23;
+
     return -1;
 }
 
 int TPZMatLaplacianHybrid::NSolutionVariables(int var){
     if(var == 44 || var==45) return 1;
-    if(var == 10 || var==13) return fDim;
+    if(var == 10 || var==13 || var == 23) return fDim;
     
     else{
         
@@ -323,6 +324,7 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
             break;
         case 10:
         case 13:
+        case 23:
             TPZMatLaplacian::Solution(datavec[0],var,Solout);
             break;
         default:

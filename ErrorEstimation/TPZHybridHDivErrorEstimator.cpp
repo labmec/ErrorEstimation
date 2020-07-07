@@ -1097,7 +1097,7 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
         TPZCompEl *condref = cond->ReferenceCompEl();
         TPZElementGroup *celgr = dynamic_cast<TPZElementGroup *>(condref);
         if(!celgr) DebugStop();
-        TPZStack<TPZCompEl *,5> elgrST = celgr->GetElGroup();
+        TPZVec<TPZCompEl*> elgrST = celgr->GetElGroup();
         int nelst = elgrST.size();
         for (int elst = 0; elst<nelst; elst++)
         {
@@ -2026,7 +2026,7 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)
 {
-    const TPZStack<TPZCompEl *,5> &elgr = cel->GetElGroup();
+    const TPZVec<TPZCompEl *> &elgr = cel->GetElGroup();
     for(int i=0; i<elgr.size(); i++)
     {
         TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(elgr[i]);
