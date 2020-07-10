@@ -65,6 +65,7 @@ int TPZMatLaplacianHybrid::VariableIndex(const std::string &name)
     if(name == "Pressure") return 44;
     if(name == "PressureExact") return 45;
    
+    return TPZMatLaplacian::VariableIndex(name);
     
     return -1;
 }
@@ -75,7 +76,7 @@ int TPZMatLaplacianHybrid::NSolutionVariables(int var){
     
     else{
         
-        DebugStop();
+        return TPZMatLaplacian::NSolutionVariables(var);
         return 0;
         
     }
@@ -147,7 +148,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
     ek(phr+1,phr) -= weight;
     
     if (this->IsSymetric()){
-        if ( !ek.VerifySymmetry(1.e-10) ) cout << __PRETTY_FUNCTION__ << "\nMATRIZ NAO SIMETRICA" << endl;
+        if ( !ek.VerifySymmetry(1.e-10) ) std::cout << __PRETTY_FUNCTION__ << "\nMATRIZ NAO SIMETRICA" << std::endl;
     }
 }
 
@@ -252,7 +253,7 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
     {
         switch (bc.Type()) {
             case 0 :            // Dirichlet condition
-                for(in = 0 ; in < phr_primal; in++) {
+                for(in = 0 ; in < phr_fl; in++) {
                     ef(in,0) += v2[0] * (STATE)(phi_u(in,0) * weight);
                 }
                 break;
@@ -285,6 +286,12 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
      datavec[2] Interface Mesh
      datavec[3] Interface Mesh
      **/
+    DebugStop();
+    if(var == 0)
+    {
+        TPZMatLaplacian::Solution(datavec[0],var,Solout);
+        return;
+    }
     
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
     TPZFNMatrix<9,REAL> InvPermTensor = fInvK;
