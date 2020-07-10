@@ -64,15 +64,18 @@ int TPZMatLaplacianHybrid::VariableIndex(const std::string &name)
 
     if(name == "Pressure") return 44;
     if(name == "PressureExact") return 45;
-   
-    return TPZMatLaplacian::VariableIndex(name);
-    
+
+    if(name == "Flux") return 10;
+    if(name == "ExactFlux") return 13;
+
+    if(name == "ExactFluxShiftedOrigin") return 23;
+
     return -1;
 }
 
 int TPZMatLaplacianHybrid::NSolutionVariables(int var){
     if(var == 44 || var==45) return 1;
-    
+    if(var == 10 || var==13 || var == 23) return fDim;
     
     else{
         
@@ -253,24 +256,24 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
     {
         switch (bc.Type()) {
             case 0 :            // Dirichlet condition
-                for(in = 0 ; in < phr_fl; in++) {
-                    ef(in,0) += v2[0] * (STATE)(phi_u(in,0) * weight);
+                for(in = 0 ; in < phr_hybrid; in++) {
+                    ef(in,0) += v2[0] * (STATE)(phi_flux(in,0) * weight);
                 }
                 break;
             case 1 :            // Neumann condition
-                for(in = 0 ; in < phr_primal; in++) {
-                    ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
-                    for (jn = 0 ; jn < phr_primal; jn++) {
-                        ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
+                for(in = 0 ; in < phr_hybrid; in++) {
+                    ef(in,0) += (STATE)(gBigNumber* phi_flux(in,0) * weight) * v2[0];
+                    for (jn = 0 ; jn < phr_hybrid; jn++) {
+                        ek(in,jn) += gBigNumber * phi_flux(in,0) * phi_flux(jn,0) * weight;
                     }
                 }
                 break;
             case 2 :        // mixed condition
                 DebugStop();
-                for(in = 0 ; in < phr_primal; in++) {
-                    ef(in, 0) += v2[0] * (STATE)(phi_u(in, 0) * weight);
-                    for (jn = 0 ; jn < phi_u.Rows(); jn++) {
-                        ek(in,jn) += 1./bc.Val1()(0,0) * (STATE)(phi_u(in,0) * phi_u(jn,0) * weight);     // peso de contorno => integral de contorno
+                for(in = 0 ; in < phr_hybrid; in++) {
+                    ef(in, 0) += v2[0] * (STATE)(phi_flux(in, 0) * weight);
+                    for (jn = 0 ; jn < phi_flux.Rows(); jn++) {
+                        ek(in,jn) += 1./bc.Val1()(0,0) * (STATE)(phi_flux(in,0) * phi_flux(jn,0) * weight);     // peso de contorno => integral de contorno
                     }
                 }
                 break;
@@ -325,7 +328,11 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
         case 45://Pressure Exact
             Solout[0] = pressexact[0];
             break;
-      
+        case 10:
+        case 13:
+        case 23:
+            TPZMatLaplacian::Solution(datavec[0],var,Solout);
+            break;
         default:
             DebugStop();
     }
