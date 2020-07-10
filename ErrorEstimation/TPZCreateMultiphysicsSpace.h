@@ -22,7 +22,7 @@ class TPZCreateMultiphysicsSpace
 {
 public:
     /// types of spaces this class can create
-    enum MSpaceType {Enone, EH1Hybrid, EH1HybridHybrid};
+    enum MSpaceType {Enone, EH1Hybrid, EH1HybridSquared};
     
 private:
     
@@ -52,18 +52,26 @@ public:
     /// All parameters needed for creating a hybrid H1 space
     struct TConfigH1Hybrid
     {
-        /// the material id of the boundary elements that serve as a placeholder for the interface elements
-        std::pair<int,int> fMatWrapId = {-1,-1};
+        /// the material id of  elements created on the sides that serve as a placeholder for the interface elements
+        int fMatWrapId = -1;
         
         /// material id of the dim-1 flux elements
         int fFluxMatId = -1;
 
-        
         /// material id of left and right lagrange multipliers
         std::pair<int, int> fLagrangeMatid = {-1,-1};
         
+        /// material for the lagrange multiplier between flux and interface pressure
+        int fSecondLagrangeMatid = {-1};
+        
+        /// material id of the pressure interface element
+        int fInterfacePressure = -1;
+        
         /// indicated whether the boundary conditions should be hybridized as well
         bool fHybridizeBC = false;
+        
+        bool fHybridSquared = false;
+        /// indicates whether a second hybridizations will be applied
         
         /// default constructor
         TConfigH1Hybrid(){}
@@ -77,11 +85,10 @@ public:
     
     void SetPOrder(int order){
         fDefaultPOrder = order;
-        
     }
     
-    void SetLagrangeOrder(int order){
-        
+    void SetLagrangeOrder(int order)
+    {
         fDefaultLagrangeOrder = order;
     }
     
@@ -98,7 +105,7 @@ public:
     /// = operator
     TPZCreateMultiphysicsSpace &operator=(const TPZCreateMultiphysicsSpace &copy);
     
-    /// Indicate to create Hybridized H1 meshes
+    /// Configure the Hybridized H1 meshes
     void SetH1Hybridized(const TConfigH1Hybrid &config);
     
     /// Compute Periferal Material ids
@@ -125,11 +132,14 @@ public:
     
 private:
     
-    /// Create the pressure mesh
-    TPZCompMesh *CreatePressureMesh(int pressureOrder);
+    /// Create geometric elements needed for the computational elements
+    void AddGeometricWrapElements();
     
-    /// Create the flux mesh
-    TPZCompMesh *CreateFluxMesh(int lagrangeOrder);
+    /// Create the pressure mesh with order fDefaultOrder
+    TPZCompMesh *CreatePressureMesh();
+    
+    /// Create the flux mesh with order fDefaultLagrangeOrder
+    TPZCompMesh *CreateBoundaryFluxMesh();
 
     /// create the geometric elements for the lagrange multipliers
     // these elements will go with the largest H1 element

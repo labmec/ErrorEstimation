@@ -58,9 +58,12 @@ void TPZCreateMultiphysicsSpace::SetH1Hybridized(const TConfigH1Hybrid &config)
 /// create meshes and elements for all geometric elements
 void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec, int pressureOrder, int lagrangeorder)
 {
-    TPZCompMesh *pressure = CreatePressureMesh(pressureOrder);
-    CreateLagrangeGeometricElements(pressure);//create approximation space for 1D geometric element
-    TPZCompMesh *fluxmesh = CreateFluxMesh(lagrangeorder);
+    AddGeometricWrapElements();
+    SetPOrder(pressureOrder);
+    SetLagrangeOrder(lagrangeorder);
+    TPZCompMesh *pressure = CreatePressureMesh();
+//    CreateLagrangeGeometricElements(pressure);
+    TPZCompMesh *fluxmesh = CreateBoundaryFluxMesh();
     TPZCompMesh *gspace = new TPZCompMesh(fGeoMesh);
     {
         InsertNullSpaceMaterialIds(gspace);
@@ -69,7 +72,7 @@ void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshv
         gspace->AutoBuild();
         int64_t nconnects = gspace->NConnects();
         for (int ic = 0; ic<nconnects; ic++) {
-            gspace->ConnectVec()[ic].SetLagrangeMultiplier(1);
+            gspace->ConnectVec()[ic].SetLagrangeMultiplier(2);
         }
     }
     TPZCompMesh *average = new TPZCompMesh(fGeoMesh);
@@ -80,7 +83,7 @@ void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshv
         average->AutoBuild();
         int64_t nconnects = average->NConnects();
         for (int ic = 0; ic<nconnects; ic++) {
-            average->ConnectVec()[ic].SetLagrangeMultiplier(4);
+            average->ConnectVec()[ic].SetLagrangeMultiplier(5);
         }
 }
 
@@ -113,6 +116,9 @@ bool TPZCreateMultiphysicsSpace::ShouldCreateFluxElement(TPZGeoElSide &gelside, 
 // these elements will go with the largest H1 element
 void TPZCreateMultiphysicsSpace::CreateLagrangeGeometricElements(TPZCompMesh *pressure)
 {
+    // this method shouldn t be called anymore. All geometric elements are created in
+    // AddGeometricWrapElements
+    DebugStop();
     TPZGeoMesh *gmesh = pressure->Reference();
     gmesh->ResetReference();
     pressure->LoadReferences();
@@ -182,9 +188,14 @@ static TPZGeoElSide HasBCNeighbour(const TPZGeoElSide &gelside, const std::set<i
 /// create the pressure boundary elements if the boundary is not hybridized
 void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pressure)
 {
-    if (fSpaceType != EH1Hybrid) {
+    if (fSpaceType != EH1Hybrid && fSpaceType != EH1HybridSquared) {
         DebugStop();
     }
+#ifdef PZDEBUG
+    std::map<int,int> numcreated;
+#endif
+    // create elements connected to the pressure elements, the neighbour of each pressure
+    // element should be either matwrap or boundary condition
     pressure->Reference()->ResetReference();
     pressure->ApproxSpace().CreateDisconnectedElements(false);
     int64_t nel = pressure->NElements();
@@ -195,6 +206,9 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
         int porder = intel->GetPreferredOrder();
         TPZGeoEl *gel = cel->Reference();
         if(!gel) DebugStop();
+        int matid = gel->MaterialId();
+        // loop only over volumetric elements
+        if(fMaterialIds.find(matid) == fMaterialIds.end()) continue;
         if (gel->Dimension() != fDimension) {
             DebugStop();
         }
@@ -203,46 +217,59 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
         for (int side = ncorner; side < nsides; side++) {
             if(gel->SideDimension(side) != fDimension-1) continue;
             TPZGeoElSide gelside(gel,side);
-            TPZGeoElSide neighbour = HasBCNeighbour(gelside, fBCMaterialIds);
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            TPZGeoElSide bcneighbour = HasBCNeighbour(gelside, fBCMaterialIds);
+            // the boundary condition element should be the first neighbour
+            if(fH1Hybrid.fHybridizeBC == false && bcneighbour && bcneighbour != neighbour) DebugStop();
+            if(!bcneighbour && neighbour.Element()->MaterialId() != fH1Hybrid.fMatWrapId) DebugStop();
             pressure->SetDefaultOrder(porder);
-            TPZGeoEl * gelcreate = 0;
             int dir = gel->NormalOrientation(side);
-            int wrapmat = 0;
-            if(dir == 1)
-            {
-                wrapmat = fH1Hybrid.fMatWrapId.first;
-            }
-            else if(dir == -1)
-            {
-                wrapmat = fH1Hybrid.fMatWrapId.second;
-            }
-            else
-            {
-                DebugStop();
-            }
+            int wrapmat = fH1Hybrid.fMatWrapId;
             // if neighbour exists then create the wrap conditionally
-            if(neighbour && fH1Hybrid.fHybridizeBC == false)
-            {
-                gelcreate = neighbour.Element();
-            }
-            else
-            {
-                // create a geometric element neighbouring to the element
-                TPZGeoElBC gbc(gelside,wrapmat);
-                gelcreate = gbc.CreatedElement();
-            }
-            if(gelcreate)
             {
                 // load the element reference so that the created element will share the connects
                 cel->LoadElementReference();
                 int64_t index;
-                TPZCompEl *bc_cel = pressure->ApproxSpace().CreateCompEl(gelcreate, *pressure, index);
+                TPZCompEl *bc_cel = pressure->ApproxSpace().CreateCompEl(neighbour.Element(), *pressure, index);
                 // reset the references so that future elements will not share connects
+#ifdef PZDEBUG
+                numcreated[neighbour.Element()->MaterialId()]++;
+#endif
                 gel->ResetReference();
                 bc_cel->Reference()->ResetReference();
             }
         }
     }
+    if(fSpaceType == EH1HybridSquared && fH1Hybrid.fHybridizeBC)
+    {
+        // be sure to verify on first execution
+        DebugStop();
+        // create boundary elements in the pressure space
+        int64_t nel = fGeoMesh->NElements();
+        pressure->SetDefaultOrder(fDefaultLagrangeOrder);
+        for(int64_t el = 0; el<nel; el++)
+        {
+            TPZGeoEl *gel = fGeoMesh->Element(el);
+            int matid = gel->MaterialId();
+            if(fBCMaterialIds.find(matid) == fBCMaterialIds.end()) continue;
+            int64_t index;
+            TPZCompEl *cel = pressure->ApproxSpace().CreateCompEl(gel, *pressure, index);
+#ifdef PZDEBUG
+            numcreated[matid]++;
+#endif
+            int nc = cel->NConnects();
+            for(int ic=0; ic<nc; ic++)
+            {
+                cel->Connect(ic).SetLagrangeMultiplier(6);
+            }
+            gel->ResetReference();
+        }
+    }
+#ifdef PZDEBUG
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    for(auto it : numcreated) std::cout << "Material ID " << it.first << " number of elements created " << it.second << std::endl;
+        
+#endif
 }
 
 /// insert the pressure material ids
@@ -254,7 +281,7 @@ void TPZCreateMultiphysicsSpace::InsertPressureMaterialIds(TPZCompMesh *pressure
         nullmat->SetNStateVariables(1);
         pressure->InsertMaterialObject(nullmat);
     }
-    if(fSpaceType == EH1Hybrid && fH1Hybrid.fHybridizeBC == false)
+    if(fSpaceType == EH1HybridSquared || (fSpaceType == EH1Hybrid && fH1Hybrid.fHybridizeBC == false))
     {
         for (auto matid:fBCMaterialIds) {
             TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
@@ -264,28 +291,31 @@ void TPZCreateMultiphysicsSpace::InsertPressureMaterialIds(TPZCompMesh *pressure
         }
     }
     {
-        TPZNullMaterial *nullmat = new TPZNullMaterial(fH1Hybrid.fMatWrapId.first);
+        TPZNullMaterial *nullmat = new TPZNullMaterial(fH1Hybrid.fMatWrapId);
         nullmat->SetDimension(fDimension);
         nullmat->SetNStateVariables(1);
         pressure->InsertMaterialObject(nullmat);
     }
-    {
-        TPZNullMaterial *nullmat = new TPZNullMaterial(fH1Hybrid.fMatWrapId.second);
-        nullmat->SetDimension(fDimension);
-        nullmat->SetNStateVariables(1);
-        pressure->InsertMaterialObject(nullmat);
-    }
+//    {
+//        TPZNullMaterial *nullmat = new TPZNullMaterial(fH1Hybrid.fMatWrapId.second);
+//        nullmat->SetDimension(fDimension);
+//        nullmat->SetNStateVariables(1);
+//        pressure->InsertMaterialObject(nullmat);
+//    }
 }
 
 /// insert flux material ids
 void TPZCreateMultiphysicsSpace::InsertFluxMaterialIds(TPZCompMesh *fluxmesh)
 {
-    if (fSpaceType == EH1Hybrid) {
+    if (fSpaceType == EH1Hybrid || fSpaceType == EH1HybridSquared) {
         int matid = fH1Hybrid.fFluxMatId;
         TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
         nullmat->SetDimension(fDimension-1);
         nullmat->SetNStateVariables(1);
         fluxmesh->InsertMaterialObject(nullmat);
+    }
+    else {
+        DebugStop();
     }
     if(fSpaceType == EH1Hybrid && fH1Hybrid.fHybridizeBC == true)
     {
@@ -311,47 +341,61 @@ void TPZCreateMultiphysicsSpace::InsertNullSpaceMaterialIds(TPZCompMesh *nullspa
 }
 
 /// Create the pressure mesh
-TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh(int pressureOrder)
+TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh()
 {
+    
     // create the pressure mesh
     TPZCompMesh *pressure = new TPZCompMesh(fGeoMesh);
     InsertPressureMaterialIds(pressure);
     pressure->ApproxSpace().SetAllCreateFunctionsContinuous();
     pressure->ApproxSpace().CreateDisconnectedElements(true);
     
-    SetPOrder(pressureOrder);
     pressure->SetDefaultOrder(fDefaultPOrder);
     pressure->AutoBuild(fMaterialIds);
-    CreatePressureBoundaryElements(pressure);
     int64_t nelem = pressure->NElements();
-    if(fDimension != 2)
-    {
-        std::cout << "fix me\n";
-        DebugStop();
-    }
     for (int64_t el = 0; el<nelem; el++) {
         TPZCompEl *cel = pressure->Element(el);
+        TPZGeoEl *gel = cel->Reference();
         int nconnects = cel->NConnects();
-        for (int ic=2; ic<nconnects; ic++) {
-            cel->Connect(ic).SetLagrangeMultiplier(2);
+        cel->Connect(0).SetLagrangeMultiplier(3);
+        for (int ic=1; ic<nconnects; ic++) {
+            cel->Connect(ic).SetLagrangeMultiplier(1);
         }
     }
+    // se nao condensar tem que mudar o nivel de lagrange multiplier de um connect
+    if(fSpaceType == EH1HybridSquared)
+    {
+        std::set<int> matids;
+        if(fH1Hybrid.fHybridizeBC) matids = fBCMaterialIds;
+        matids.insert(fH1Hybrid.fInterfacePressure);
+        pressure->SetDefaultOrder(fDefaultLagrangeOrder);
+        pressure->AutoBuild(matids);
+    }
+    int64_t nelem_big = pressure->NElements();
+    for (int64_t el = nelem; el<nelem_big; el++) {
+        TPZCompEl *cel = pressure->Element(el);
+        TPZGeoEl *gel = cel->Reference();
+        int nconnects = cel->NConnects();
+        for (int ic=0; ic<nconnects; ic++) {
+            cel->Connect(ic).SetLagrangeMultiplier(6);
+        }
+    }
+    CreatePressureBoundaryElements(pressure);
     return pressure;
 }
 
 /// Create the flux mesh for 1D-elements
-TPZCompMesh *TPZCreateMultiphysicsSpace::CreateFluxMesh(int lagrangeOrder)
+TPZCompMesh *TPZCreateMultiphysicsSpace::CreateBoundaryFluxMesh()
 {
     TPZCompMesh *fluxmesh = new TPZCompMesh(fGeoMesh);
     InsertFluxMaterialIds(fluxmesh);
     fluxmesh->ApproxSpace().SetAllCreateFunctionsHDiv(fDimension);
     
-    SetLagrangeOrder(lagrangeOrder);
     fluxmesh->SetDefaultOrder(fDefaultLagrangeOrder);
     fluxmesh->AutoBuild();
     int64_t nconnects = fluxmesh->NConnects();
     for (int ic=0; ic<nconnects; ic++) {
-        fluxmesh->ConnectVec()[ic].SetLagrangeMultiplier(3);
+        fluxmesh->ConnectVec()[ic].SetLagrangeMultiplier(4);
     }
     return fluxmesh;
 }
@@ -368,23 +412,23 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
-        if(matid != fH1Hybrid.fMatWrapId.first && matid != fH1Hybrid.fMatWrapId.second) continue;
+//        if(matid != fH1Hybrid.fMatWrapId.first && matid != fH1Hybrid.fMatWrapId.second) continue;
+        if(matid != fH1Hybrid.fMatWrapId) continue;
         TPZCompEl *fluxel = FindFluxElement(cel);
         TPZGeoEl *fluxgel = fluxel->Reference();
-        // determine if the interface should be positive or negative...
-        int interfacematid = 0;
-        if (matid == fH1Hybrid.fMatWrapId.first) {
-            interfacematid = fH1Hybrid.fLagrangeMatid.first;
-        }
-        else
+        TPZGeoElSide gelside(gel);
+        TPZGeoElSide neighbour = gelside.Neighbour();
+        int neighmat = neighbour.Element()->MaterialId();
+        if(neighmat != fH1Hybrid.fLagrangeMatid.first && neighmat != fH1Hybrid.fLagrangeMatid.second)
         {
-            interfacematid = fH1Hybrid.fLagrangeMatid.second;
+            DebugStop();
         }
+        // determine if the interface should be positive or negative...
+        int interfacematid = neighmat;
         int64_t index;
         TPZCompElSide celwrap(cel,gel->NSides()-1);
         TPZCompElSide fluxside(fluxel,fluxgel->NSides()-1);
-        TPZGeoElBC gbc(gel,gel->NSides()-1,interfacematid);
-        new TPZMultiphysicsInterfaceElement(*mphys,gbc.CreatedElement(),index,celwrap,fluxside);
+        new TPZMultiphysicsInterfaceElement(*mphys,neighbour.Element(),index,celwrap,fluxside);
     }
 }
 
@@ -418,7 +462,7 @@ void TPZCreateMultiphysicsSpace::GroupandCondenseElements(TPZMultiphysicsCompMes
     int64_t nconnects = cmesh->NConnects();
     for (int64_t ic = 0; ic<nconnects; ic++) {
         TPZConnect &c = cmesh->ConnectVec()[ic];
-        if(c.LagrangeMultiplier() == 4) c.IncrementElConnected();
+        if(c.LagrangeMultiplier() == 5) c.IncrementElConnected();
     }
     nel = cmesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
@@ -492,10 +536,13 @@ void TPZCreateMultiphysicsSpace::ComputePeriferalMaterialIds(int base)
     int matid_base = max_matid-remain + base;
     if (fSpaceType == EH1Hybrid) {
         fH1Hybrid.fFluxMatId = matid_base;
-        fH1Hybrid.fMatWrapId.first = matid_base+base;
-        fH1Hybrid.fMatWrapId.second = matid_base+base+1;
+//        fH1Hybrid.fMatWrapId.first = matid_base+base;
+//        fH1Hybrid.fMatWrapId.second = matid_base+base+1;
+        fH1Hybrid.fMatWrapId = matid_base+base;
         fH1Hybrid.fLagrangeMatid.first = matid_base + 2*base;
         fH1Hybrid.fLagrangeMatid.second = matid_base + 2*base+1;
+        fH1Hybrid.fSecondLagrangeMatid = matid_base + 3*base;
+        fH1Hybrid.fInterfacePressure = matid_base + 4*base;
     }
 }
 
@@ -515,14 +562,180 @@ void TPZCreateMultiphysicsSpace::InsertPeriferalMaterialObjects(TPZMultiphysicsC
     if(fSpaceType == EH1Hybrid)
     {
         InsertNullMaterial(fH1Hybrid.fFluxMatId, fDimension-1, 1, mphys);
-        InsertNullMaterial(fH1Hybrid.fMatWrapId.first, fDimension-1, 1, mphys);
-        InsertNullMaterial(fH1Hybrid.fMatWrapId.second, fDimension-1, 1, mphys);
+//        InsertNullMaterial(fH1Hybrid.fMatWrapId.first, fDimension-1, 1, mphys);
+//        InsertNullMaterial(fH1Hybrid.fMatWrapId.second, fDimension-1, 1, mphys);
+        InsertNullMaterial(fH1Hybrid.fMatWrapId, fDimension-1, 1, mphys);
+        TPZLagrangeMultiplier *lag1 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.first, fDimension-1, 1);
+        mphys->InsertMaterialObject(lag1);
+        TPZLagrangeMultiplier *lag2 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.second, fDimension-1, 1);
+        lag2->SetMultiplier(-1.);
+        mphys->InsertMaterialObject(lag2);
     }
-    TPZLagrangeMultiplier *lag1 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.first, fDimension-1, 1);
-    mphys->InsertMaterialObject(lag1);
-    TPZLagrangeMultiplier *lag2 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.second, fDimension-1, 1);
-    lag2->SetMultiplier(-1.);
-    mphys->InsertMaterialObject(lag2);
+    else if (fSpaceType == EH1HybridSquared) {
+        InsertNullMaterial(fH1Hybrid.fMatWrapId, fDimension-1, 1, mphys);
+        InsertNullMaterial(fH1Hybrid.fFluxMatId, fDimension-1, 1, mphys);
+        InsertNullMaterial(fH1Hybrid.fInterfacePressure, fDimension-1, 1, mphys);
+        TPZLagrangeMultiplier *lag1 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.first, fDimension-1, 1);
+        mphys->InsertMaterialObject(lag1);
+        TPZLagrangeMultiplier *lag2 = new TPZLagrangeMultiplier(fH1Hybrid.fSecondLagrangeMatid, fDimension-1, 1);
+        lag2->SetMultiplier(1.);
+        mphys->InsertMaterialObject(lag2);
+    }
+    else {
+        DebugStop();
+    }
 
 }
 
+/// Create geometric elements needed for the computational elements
+void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
+{
+#ifdef PZDEBUG
+    std::map<int,int> numcreated;
+#endif
+    int64_t nel = fGeoMesh->NElements();
+    int dim = fGeoMesh->Dimension();
+    for(int64_t el = 0; el<nel; el++)
+    {
+        TPZGeoEl *gel = fGeoMesh->Element(el);
+        if(!gel || gel->HasSubElement() || gel->Dimension() != dim) continue;
+        int nsides = gel->NSides();
+        int side = 0;
+        for(int d=0; d<dim-1; d++) side += gel->NSides(d);
+        // loop over the sides of dimension dim-1
+        for(; side < nsides-1; side++)
+        {
+            TPZGeoElSide gelside(gel,side);
+            // we want to create side elements of type
+            // first fMatWrapId
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            int neighmat = neighbour.Element()->MaterialId();
+#ifdef PZDEBUG
+            {
+                if(neighmat == fH1Hybrid.fMatWrapId)
+                {
+                    std::cout << __PRETTY_FUNCTION__ << " should be called only once!\n";
+                    DebugStop();
+                }
+            }
+#endif
+            // if the neighbour is a boundary condition and no hybridization is applied
+            // do not create the wrap layers
+            bool HasBCNeighbour = (fBCMaterialIds.find(neighmat) != fBCMaterialIds.end());
+            if(fH1Hybrid.fHybridizeBC == false && HasBCNeighbour)
+            {
+                // no interface will be created between the element and a flux space
+                continue;
+            }
+            // first fH1Hybrid.fMatWrapId
+            TPZGeoElBC(gelside, fH1Hybrid.fMatWrapId);
+            neighbour = gelside.Neighbour();
+#ifdef PZDEBUG
+            numcreated[fH1Hybrid.fMatWrapId]++;
+            if(neighbour.Element()->MaterialId() != fH1Hybrid.fMatWrapId)
+            {
+                DebugStop();
+            }
+#endif
+            if(fSpaceType == EH1Hybrid)
+            {
+                // then, depending on orientation fH1Hybrid.fLagrangeMatid.first or second
+                int dir = gel->NormalOrientation(side);
+                if(dir == 1)
+                {
+                    TPZGeoElBC(neighbour,fH1Hybrid.fLagrangeMatid.first);
+#ifdef PZDEBUG
+                    numcreated[fH1Hybrid.fLagrangeMatid.first]++;
+#endif
+                } else {
+                    TPZGeoElBC(neighbour,fH1Hybrid.fLagrangeMatid.second);
+#ifdef PZDEBUG
+                    numcreated[fH1Hybrid.fLagrangeMatid.second]++;
+#endif
+                }
+            } else if(fSpaceType == EH1HybridSquared) {
+                TPZGeoElBC(neighbour,fH1Hybrid.fLagrangeMatid.first);
+                neighbour = neighbour.Neighbour();
+                // if a second hybridization is applied
+                // add a flux element fH1Hybrid.fFluxMatId
+                // add a flux element
+                TPZGeoElBC(neighbour,fH1Hybrid.fFluxMatId);
+#ifdef PZDEBUG
+                numcreated[fH1Hybrid.fFluxMatId]++;
+#endif
+            } else {
+                // only two cases handled so far
+                DebugStop();
+            }
+        }
+    }
+    nel = fGeoMesh->NElements();
+    for(int64_t el = 0; el<nel; el++)
+    {
+        TPZGeoEl *gel = fGeoMesh->Element(el);
+        if(!gel || gel->HasSubElement() || gel->Dimension() != dim-1) continue;
+        int matid = gel->MaterialId();
+        TPZGeoElSide gelside(gel,gel->NSides()-1);
+        auto lagrange = fH1Hybrid.fLagrangeMatid;
+        bool islagrange = (matid == lagrange.first || matid == lagrange.second);
+        bool isflux = matid == fH1Hybrid.fFluxMatId;
+        if(fSpaceType == EH1Hybrid && islagrange)
+        {
+            TPZGeoElSidePartition partition(gelside);
+            if(partition.HasHigherLevelNeighbour(lagrange.first) ||
+               partition.HasHigherLevelNeighbour(lagrange.second))
+            {
+                // create the flux element
+                TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
+#ifdef PZDEBUG
+                numcreated[fH1Hybrid.fFluxMatId]++;
+#endif
+            }
+            else if(!gelside.HasNeighbour(fH1Hybrid.fFluxMatId))
+            {
+                // create the flux element
+                TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
+#ifdef PZDEBUG
+                numcreated[fH1Hybrid.fFluxMatId]++;
+#endif
+            }
+        }
+        if(fSpaceType == EH1HybridSquared && isflux)
+        {
+            // we need to include three layers of geometric elements
+            // if there is fH1Hybrid.fInterfacePressure element as neighbour dont create
+            if(gelside.HasNeighbour(fH1Hybrid.fInterfacePressure)) continue;
+            // if there is a higher level connected element, dont create
+            TPZGeoElSidePartition partition(gelside);
+            if(partition.HasHigherLevelNeighbour(fH1Hybrid.fFluxMatId)) continue;
+            // now we can create the elements
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            int neighmat = neighbour.Element()->MaterialId();
+            bool HasBCNeighbour = (fBCMaterialIds.find(neighmat) != fBCMaterialIds.end());
+
+            // lagrange element
+            TPZGeoElBC gbc1(gelside, fH1Hybrid.fSecondLagrangeMatid);
+            // if the flux is neighbour, the lagrange multiplier will be between the flux and the
+            // boundary condition
+            if(HasBCNeighbour) continue;
+            neighbour = gelside.Neighbour();
+            // pressure element
+            TPZGeoElBC gbc2(neighbour,fH1Hybrid.fInterfacePressure);
+            neighbour = neighbour.Neighbour();
+            // lagrange element
+            TPZGeoElBC gbc3(neighbour,fH1Hybrid.fSecondLagrangeMatid);
+#ifdef PZDEBUG
+            numcreated[fH1Hybrid.fSecondLagrangeMatid]++;
+            numcreated[fH1Hybrid.fInterfacePressure]++;
+            numcreated[fH1Hybrid.fSecondLagrangeMatid]++;
+#endif
+        }
+    }
+#ifdef PZDEBUG
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    for(auto it : numcreated)
+    {
+        std::cout << "Material id " << it.first << " number of elements created " << it.second << std::endl;
+    }
+#endif
+}

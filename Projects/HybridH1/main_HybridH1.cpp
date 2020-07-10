@@ -51,7 +51,7 @@
 
 
 bool neumann = true;
-bool h1solution = true;
+bool h1solution = false;
 bool hybridh1 = true;
 
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     InitializePZLOG();
 #endif
 
-    for (int ndiv = 1; ndiv < 5; ndiv++) {
+    for (int ndiv = 0; ndiv < 5; ndiv++) {
 
         ProblemConfig config;
 
@@ -130,13 +130,12 @@ int main(int argc, char *argv[]) {
         TPZCreateMultiphysicsSpace createspace(gmesh);
 
         createspace.SetMaterialIds({1}, {-2,-1});
-        createspace.fH1Hybrid.fHybridizeBC = false;//opcao de hibridizar o contorno
+        createspace.fH1Hybrid.fHybridizeBC = true;//opcao de hibridizar o contorno
         createspace.ComputePeriferalMaterialIds();
 
 
         std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
-        std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId.first<<std::endl;
-        std::cout <<" fMatWrapId - = "<<createspace.fH1Hybrid.fMatWrapId.second<<std::endl;
+        std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId<<std::endl;
         std::cout <<" fLagrangeMatid + = "<<createspace.fH1Hybrid.fLagrangeMatid.first<<std::endl;
         std::cout <<" fLagrangeMatid - = "<<createspace.fH1Hybrid.fLagrangeMatid.second<<std::endl;
         std::cout <<" fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl;
@@ -150,13 +149,28 @@ int main(int argc, char *argv[]) {
         createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
         cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
 
+#ifdef PZDEBUG
+    {
+        std::ofstream out("gmeshIncremented.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+        std::ofstream out2("gmeshIncremented.txt");
+        gmesh->Print(out2);
+        
+    }
+#endif
+
         createspace.AddInterfaceElements(cmesh_H1Hybrid);
         createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
         cmesh_H1Hybrid->InitializeBlock();
         cmesh_H1Hybrid->ComputeNodElCon();
-            
-            
+        
+#ifdef PZDEBUG
+        {
+            std::ofstream out("mphysicsmesh.txt");
+            cmesh_H1Hybrid->Print(out);
+        }
+#endif
         //Solve Hybrid problem
         
     SolveHybridH1Problem(cmesh_H1Hybrid,createspace.fH1Hybrid.fLagrangeMatid.first,config);
@@ -351,19 +365,19 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
 
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config){
     
-        TPZAnalysis an(cmesh_H1Hybrid);
+    TPZAnalysis an(cmesh_H1Hybrid);
 
-    #ifdef USING_MKL
-        TPZSymetricSpStructMatrix strmat(cmesh_H1Hybrid);
-        strmat.SetNumThreads(0);
-        //        strmat.SetDecomposeType(ELDLt);
-    #else
-        //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
-        //    strmat.SetNumThreads(2);
-        //    strmat.SetDecomposeType(ELDLt);
-        TPZSkylineStructMatrix strmat(cmesh_H1Hybrid);
-        strmat.SetNumThreads(0);
-    #endif
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(cmesh_H1Hybrid);
+    strmat.SetNumThreads(0);
+    //        strmat.SetDecomposeType(ELDLt);
+#else
+    //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
+    //    strmat.SetNumThreads(2);
+    //    strmat.SetDecomposeType(ELDLt);
+    TPZSkylineStructMatrix strmat(cmesh_H1Hybrid);
+    strmat.SetNumThreads(0);
+#endif
         
         
         std::set<int> matIds;
