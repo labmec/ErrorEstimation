@@ -5,6 +5,7 @@
 //
 
 #include <Mesh/pzgmesh.h>
+#include <Pre/TPZGenGrid3D.h>
 #include <Pre/TPZMHMixedMeshControl.h>
 #include <TPZMFSolutionTransfer.h>
 #include <Tools.h>
@@ -14,34 +15,35 @@
 void RunSinSinProblem();
 void RunOscillatoryProblem();
 void Run3DProblem();
-void RunSingularPoblem();
+void RunSingularProblem();
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
-TPZGeoMesh *CreateCubeGeoMesh();
-TPZGeoMesh *CreateLGeoMesh();
+TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &coarseIndexes);
+TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &coarseIndexes);
 
 TPZMultiphysicsCompMesh *CreateMixedCompMesh(const ProblemConfig &problem);
 TPZCompMesh *CreateFluxCompMesh(const ProblemConfig &problem);
 TPZCompMesh *CreatePressureCompMesh(const ProblemConfig &problem);
-void SubstructureCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef);
+void SubstructureCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
+                          TPZVec<int64_t> coarseIndexes);
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 
-void EstimateError(const ProblemConfig &config, const TPZMHMixedMeshControl *mhm);
+void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 
 int main() {
     InitializePZLOG();
 
     RunSinSinProblem();
     RunOscillatoryProblem();
+    //Run3DProblem();
+  //  RunSingularProblem();
 
     return 0;
 }
 
 void RunSinSinProblem() {
-
     ProblemConfig config;
-
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
@@ -53,8 +55,8 @@ void RunSinSinProblem() {
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
 
-    int nCoarseDiv = 4;
-    int nInternalRef = 4;
+    int nCoarseDiv = 2;
+    int nInternalRef = 2;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir " + config.dir_name;
@@ -63,18 +65,20 @@ void RunSinSinProblem() {
     TPZMultiphysicsCompMesh *multiphysicsMesh = CreateMixedCompMesh(config);
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-    SubstructureCompMesh(mhm, config, nInternalRef);
+    TPZVec<int64_t> coarseIndexes;
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    SubstructureCompMesh(mhm, config, nInternalRef, coarseIndexes);
+
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
 }
 
 void RunOscillatoryProblem() {
     ProblemConfig config;
-
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EBubble;
-    config.problemname = "Bubble";
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
+    config.problemname = "ArcTan";
     config.dir_name = "CILAMCE";
     config.porder = 1;
     config.hdivmais = 1;
@@ -92,15 +96,77 @@ void RunOscillatoryProblem() {
     TPZMultiphysicsCompMesh *multiphysicsMesh = CreateMixedCompMesh(config);
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-    SubstructureCompMesh(mhm, config, nInternalRef);
+    TPZVec<int64_t> coarseIndexes;
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    SubstructureCompMesh(mhm, config, nInternalRef, coarseIndexes);
+
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
-
 }
 
-void Run3DProblem() {}
+void Run3DProblem() {
+    ProblemConfig config;
+    config.dimension = 3;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.problemname = "SinSinCube";
+    config.dir_name = "CILAMCE";
+    config.porder = 1;
+    config.hdivmais = 1;
+    config.ndivisions = 2;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
 
-void RunSingularPoblem() {}
+    int nCoarseDiv = 4;
+    int nInternalRef = 4;
+
+    TPZStack<int64_t> coarseIndexes;
+    config.gmesh = CreateCubeGeoMesh(nCoarseDiv, nInternalRef, coarseIndexes);
+
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    TPZMultiphysicsCompMesh *multiphysicsMesh = CreateMixedCompMesh(config);
+
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    SubstructureCompMesh(mhm, config, nInternalRef, coarseIndexes);
+
+    SolveMHMProblem(mhm, config);
+//    EstimateError(config, mhm);
+}
+
+void RunSingularProblem() {
+    ProblemConfig config;
+    config.dimension = 3;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTanSingular;
+    config.problemname = "SingularLShape";
+    config.dir_name = "CILAMCE";
+    config.porder = 1;
+    config.hdivmais = 1;
+    config.ndivisions = 2;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+
+    int nCoarseRef = 4;
+    int nInternalRef = 4;
+
+    TPZStack<int64_t> coarseIndexes;
+    config.gmesh = CreateLShapeGeoMesh(nCoarseRef, nInternalRef, coarseIndexes);
+
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    TPZMultiphysicsCompMesh *multiphysicsMesh = CreateMixedCompMesh(config);
+
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    SubstructureCompMesh(mhm, config, nInternalRef, coarseIndexes);
+
+    SolveMHMProblem(mhm, config);
+//    EstimateError(config, mhm);
+}
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
 
@@ -113,6 +179,114 @@ TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
     return gmesh;
 }
 
+TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &coarseIndexes) {
+
+    auto *gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(3);
+    int matID = 1;
+
+    // Creates matrix with node coordinates
+    const int NodeNumber = 8;
+    REAL coordinates[NodeNumber][3] = {
+        {0., 0., 0.},
+        {1., 0., 0.},
+        {0., 1., 0.},
+        {1., 1., 0.},
+        {0., 0., 1.},
+        {1., 0., 1.},
+        {0., 1., 1.},
+        {1., 1., 1.}
+    };
+
+    // Inserts coordinates in the TPZGeoMesh object
+    for (int i = 0; i < NodeNumber; i++) {
+        int64_t nodeID = gmesh->NodeVec().AllocateNewElement();
+
+        TPZVec<REAL> nodeCoord(3);
+        nodeCoord[0] = coordinates[i][0];
+        nodeCoord[1] = coordinates[i][1];
+        nodeCoord[2] = coordinates[i][2];
+
+        gmesh->NodeVec()[nodeID] = TPZGeoNode(i, nodeCoord, *gmesh);
+    }
+
+    // Creates cube element
+    TPZManVector<int64_t> nodeIDs(8);
+    nodeIDs[0] = 0;
+    nodeIDs[1] = 1;
+    nodeIDs[2] = 3;
+    nodeIDs[3] = 2;
+    nodeIDs[4] = 4;
+    nodeIDs[5] = 5;
+    nodeIDs[6] = 7;
+    nodeIDs[7] = 6;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoCube>(nodeIDs, matID, *gmesh);
+
+    // Creates boundary faces
+    nodeIDs.Resize(4);
+    matID = -1;
+    nodeIDs[0] = 0;
+    nodeIDs[1] = 1;
+    nodeIDs[2] = 3;
+    nodeIDs[3] = 2;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
+    nodeIDs[0] = 4;
+    nodeIDs[1] = 5;
+    nodeIDs[2] = 7;
+    nodeIDs[3] = 6;
+    new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
+
+    for (int i = 0; i < 4; i++) {
+        nodeIDs[0] = (0 + i) % 8;
+        nodeIDs[1] = (1 + i) % 8;
+        nodeIDs[2] = (5 + i) % 8;
+        nodeIDs[3] = (4 + i) % 8;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
+    }
+
+    gmesh->BuildConnectivity();
+
+    UniformRefinement(nCoarseRef, gmesh);
+    DivideLowerDimensionalElements(gmesh);
+
+    int64_t nElem = gmesh->NElements();
+
+    coarseIndexes.clear();
+    for (int64_t i = 0; i < nElem; i++) {
+        TPZGeoEl *gel = gmesh->Element(i);
+        if (gel->Dimension() != gmesh->Dimension() || gel->NSubElements() > 0) continue;
+        coarseIndexes.Push(i);
+    }
+
+    UniformRefinement(nInternalRef, gmesh);
+
+    return gmesh;
+}
+
+TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &coarseIndexes) {
+
+    TPZVec<int> bcIDs(8, 1);
+    TPZGeoMesh *gmesh = CreateQuadLShapeMesh(bcIDs);
+
+    gmesh->BuildConnectivity();
+
+    UniformRefinement(nCoarseRef, gmesh);
+    DivideLowerDimensionalElements(gmesh);
+
+    int64_t nElem = gmesh->NElements();
+
+    coarseIndexes.clear();
+    for (int64_t i = 0; i < nElem; i++) {
+        TPZGeoEl *gel = gmesh->Element(i);
+        if (gel->Dimension() != gmesh->Dimension() || gel->NSubElements() > 0) continue;
+        coarseIndexes.Push(i);
+    }
+
+    UniformRefinement(nInternalRef, gmesh);
+
+    return gmesh;
+}
+
 TPZMultiphysicsCompMesh *CreateMixedCompMesh(const ProblemConfig &problem) {
 
     auto *cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
@@ -120,25 +294,6 @@ TPZMultiphysicsCompMesh *CreateMixedCompMesh(const ProblemConfig &problem) {
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
-
-    STATE Km = problem.Km;
-
-    if (problem.TensorNonConst && problem.gmesh->Dimension() == 3) {
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                if (i == j) {
-                    K(i, j) = 2.;
-                    invK(i, j) = 3. / 4.;
-                } else {
-                    K(i, j) = 1.;
-                    invK(i, j) = (-1.) / 4.;
-                }
-            }
-        }
-    }
-
-    //    K.Print(std::cout);
-    //    invK.Print(std::cout);
 
     for (auto matid : problem.materialids) {
         auto *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
@@ -155,19 +310,10 @@ TPZMultiphysicsCompMesh *CreateMixedCompMesh(const ProblemConfig &problem) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
 
         int bctype;
-        switch (matid) {
-        case -1: {
+        if (matid == -1) {
             bctype = 0;
-            break;
-        }
-        case -2: {
+        } else {
             bctype = 1;
-            break;
-        }
-        default: {
-            bctype = -99;
-            DebugStop();
-        }
         }
 
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
@@ -209,7 +355,7 @@ TPZCompMesh *CreateFluxCompMesh(const ProblemConfig &problem) {
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
         int bctype;
-        if (matid == -1 || matid == 2) {
+        if (matid == -1) {
             bctype = 0;
         } else {
             bctype = 1;
@@ -247,14 +393,10 @@ TPZCompMesh *CreatePressureCompMesh(const ProblemConfig &problem) {
     return cmesh;
 }
 
-void SubstructureCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef) {
+void SubstructureCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
+                          TPZVec<int64_t> coarseIndexes) {
 
-    TPZAutoPointer<TPZGeoMesh> gmeshauto(config.gmesh);
-
-    TPZVec<int64_t> elementIndexes;
-    ComputeCoarseIndices(gmeshauto.operator->(), elementIndexes);
-
-    mhm->DefinePartitionbyCoarseIndices(elementIndexes);
+    mhm->DefinePartitionbyCoarseIndices(coarseIndexes);
 
     // Indicate material indices to the MHM control structure
     mhm->fMaterialIds = config.materialids;
@@ -314,8 +456,8 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
         DebugStop();
     }
 
-    TLaplaceExample1 analytic = config.exact.operator*();
-    an.SetExact(analytic.ExactSolution());
+    TLaplaceExample1 *analytic = &config.exact.operator*();
+    an.SetExact(analytic->ExactSolution());
 
     scalnames.Push("Pressure");
     scalnames.Push("ExactPressure");
@@ -323,14 +465,14 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     vecnames.Push("ExactFlux");
 
     int resolution = 0;
-    std::string plotname = "MHMResults.vtk";
+    std::string plotname = config.dir_name + "/" + config.problemname + "Results.vtk";
     an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname);
     an.PostProcess(resolution, cmesh->Dimension());
 
-    TPZManVector<REAL> errors(4, 0.);
-    an.SetThreadsForError(2);
-    an.SetExact(analytic.ExactSolution());
-    an.PostProcessError(errors, false);
+    //TPZManVector<REAL> errors(4, 0.);
+    //an.SetThreadsForError(2);
+    //an.SetExact(analytic->ExactSolution());
+    //an.PostProcessError(errors, false);
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
