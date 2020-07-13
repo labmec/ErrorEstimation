@@ -18,6 +18,13 @@
 #include "TPZMultiphysicsInterfaceEl.h"
 #include "TPZHybridizeHDiv.h"
 
+#include "pzlog.h"
+
+#ifdef LOG4CXX
+static LoggerPtr logger(Logger::getLogger("CreateMultiphysicsSpace"));
+#endif
+
+
 TPZCreateMultiphysicsSpace::TPZCreateMultiphysicsSpace(TPZGeoMesh *gmesh, MSpaceType spacetype) :
             fSpaceType(spacetype), fGeoMesh(gmesh) {
     fDimension = gmesh->Dimension();
@@ -188,7 +195,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
     if (fSpaceType != EH1Hybrid && fSpaceType != EH1HybridSquared) {
         DebugStop();
     }
-#ifdef PZDEBUG
+#ifdef LOG4CXX
     std::map<int,int> numcreated;
 #endif
     // create elements connected to the pressure elements, the neighbour of each pressure
@@ -229,7 +236,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
                 int64_t index;
                 TPZCompEl *bc_cel = pressure->ApproxSpace().CreateCompEl(neighbour.Element(), *pressure, index);
                 // reset the references so that future elements will not share connects
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                 numcreated[neighbour.Element()->MaterialId()]++;
 #endif
                 gel->ResetReference();
@@ -250,7 +257,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
             if(fBCMaterialIds.find(matid) == fBCMaterialIds.end()) continue;
             int64_t index;
             TPZCompEl *cel = pressure->ApproxSpace().CreateCompEl(gel, *pressure, index);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
             numcreated[matid]++;
 #endif
             int nc = cel->NConnects();
@@ -262,10 +269,14 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
         }
         pressure->ExpandSolution();
     }
-#ifdef PZDEBUG
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    for(auto it : numcreated) std::cout << "Material ID " << it.first << " number of elements created " << it.second << std::endl;
-        
+#ifdef LOG4CXX
+    if(logger->isDebugEnabled())
+    {
+        std::stringstream sout;
+        sout << __PRETTY_FUNCTION__ << std::endl;
+        for(auto it : numcreated) sout << "Material ID " << it.first << " number of elements created " << it.second << std::endl;
+        LOGPZ_DEBUG(logger,sout.str())
+    }
 #endif
 }
 
@@ -361,8 +372,12 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh()
             cel->Connect(ic).SetLagrangeMultiplier(1);
         }
     }
-#ifdef PZDEBUG
-    std::cout << "Number of volumetric pressure elements created " << nelem << std::endl;
+#ifdef LOG4CXX
+    {
+        std::stringstream sout;
+        sout << "Number of volumetric pressure elements created " << nelem << std::endl;
+        LOGPZ_DEBUG(logger, sout.str())
+    }
 #endif
     // se nao condensar tem que mudar o nivel de lagrange multiplier de um connect
     if(fSpaceType == EH1HybridSquared)
@@ -382,8 +397,12 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh()
             cel->Connect(ic).SetLagrangeMultiplier(6);
         }
     }
-#ifdef PZDEBUG
-    std::cout << "Number of lower dimensional pressure elements created " << nelem_big-nelem << std::endl;
+#ifdef LOG4CXX
+    {
+        std::stringstream sout;
+        sout << "Number of lower dimensional pressure elements created " << nelem_big-nelem << std::endl;
+        LOGPZ_DEBUG(logger, sout.str())
+    }
 #endif
     CreatePressureBoundaryElements(pressure);
     return pressure;
@@ -408,7 +427,7 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreateBoundaryFluxMesh()
 /// add interface elements to the multiphysics space
 void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *mphys)
 {
-#ifdef PZDEBUG
+#ifdef LOG4CXX
     std::map<int,int> numcreated;
 #endif
     TPZGeoMesh *gmesh = mphys->Reference();
@@ -438,11 +457,11 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
             TPZCompElSide celwrap(cel,gel->NSides()-1);
             TPZGeoElSide fluxgelside(fluxgel);
             TPZCompElSide fluxside = fluxgelside.Reference();
-            std::cout << "Creating interface from wrap element " << gel->Index() << " using neighbour " << neighbour.Element()->Index() <<
-             " and flux element " << fluxgel->Index() << std::endl;
+//            std::cout << "Creating interface from wrap element " << gel->Index() << " using neighbour " << neighbour.Element()->Index() <<
+//             " and flux element " << fluxgel->Index() << std::endl;
             if(neighbour.Element()->Reference()) DebugStop();
             new TPZMultiphysicsInterfaceElement(*mphys,neighbour.Element(),index,celwrap,fluxside);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
             numcreated[neighmat]++;
 #endif
         }
@@ -477,7 +496,7 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
                     int64_t index;
                     if(secondlagrange.Element()->Reference()) DebugStop();
                     new TPZMultiphysicsInterfaceElement(*mphys,secondlagrange.Element(),index,celflux,pressure);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                     numcreated[secondlagrange.Element()->MaterialId()]++;
 #endif
                 }
@@ -487,7 +506,7 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
                 TPZCompElSide pressure = pressureinterface.Reference();
                 if(!celflux || !pressure) DebugStop();
                 int64_t index;
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                 numcreated[firstlagrange.Element()->MaterialId()]++;
 #endif
                 if(firstlagrange.Element()->Reference()) DebugStop();
@@ -495,8 +514,15 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
             }
         }
     }
-    std::cout << __PRETTY_FUNCTION__ << "Number of computational interface elements created by material id\n";
-    for(auto it : numcreated) std::cout << "Material id " << it.first << " number of elements created " << it.second << std::endl;
+#ifdef LOG4CXX
+    if(logger->isDebugEnabled())
+    {
+        std::stringstream sout;
+        sout << __PRETTY_FUNCTION__ << "Number of computational interface elements created by material id\n";
+        for(auto it : numcreated) sout << "Material id " << it.first << " number of elements created " << it.second << std::endl;
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
 }
 
 /// group and condense the elements
@@ -667,7 +693,7 @@ void TPZCreateMultiphysicsSpace::InsertLagranceMaterialObjects(TPZMultiphysicsCo
 /// Create geometric elements needed for the computational elements
 void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
 {
-#ifdef PZDEBUG
+#ifdef LOG4CXX
     std::map<int,int> numcreated;
 #endif
     int64_t nel = fGeoMesh->NElements();
@@ -707,7 +733,7 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
             // first fH1Hybrid.fMatWrapId
             TPZGeoElBC(gelside, fH1Hybrid.fMatWrapId);
             neighbour = gelside.Neighbour();
-#ifdef PZDEBUG
+#ifdef LOG4CXX
             numcreated[fH1Hybrid.fMatWrapId]++;
             if(neighbour.Element()->MaterialId() != fH1Hybrid.fMatWrapId)
             {
@@ -721,18 +747,18 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
                 if(dir == 1)
                 {
                     TPZGeoElBC(neighbour,fH1Hybrid.fLagrangeMatid.first);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                     numcreated[fH1Hybrid.fLagrangeMatid.first]++;
 #endif
                 } else {
                     TPZGeoElBC(neighbour,fH1Hybrid.fLagrangeMatid.second);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                     numcreated[fH1Hybrid.fLagrangeMatid.second]++;
 #endif
                 }
             } else if(fSpaceType == EH1HybridSquared) {
                 TPZGeoElBC(neighbour,fH1Hybrid.fLagrangeMatid.first);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                 numcreated[fH1Hybrid.fLagrangeMatid.first]++;
 #endif
                 neighbour = neighbour.Neighbour();
@@ -742,7 +768,7 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
                 if(!HasBCNeighbour || fH1Hybrid.fHybridizeBCLevel == 2)
                 {
                     TPZGeoElBC(neighbour,fH1Hybrid.fFluxMatId);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                     numcreated[fH1Hybrid.fFluxMatId]++;
 #endif
                 }
@@ -770,7 +796,7 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
             {
                 // create the flux element
                 TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                 numcreated[fH1Hybrid.fFluxMatId]++;
 #endif
             }
@@ -778,7 +804,7 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
             {
                 // create the flux element
                 TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
                 numcreated[fH1Hybrid.fFluxMatId]++;
 #endif
             }
@@ -800,7 +826,7 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
             TPZGeoElBC gbc1(gelside, fH1Hybrid.fSecondLagrangeMatid);
             // if the flux is neighbour, the lagrange multiplier will be between the flux and the
             // boundary condition
-#ifdef PZDEBUG
+#ifdef LOG4CXX
             numcreated[fH1Hybrid.fSecondLagrangeMatid]++;
 #endif
             if(HasBCNeighbour) continue;
@@ -810,17 +836,21 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
             neighbour = neighbour.Neighbour();
             // lagrange element
             TPZGeoElBC gbc3(neighbour,fH1Hybrid.fSecondLagrangeMatid);
-#ifdef PZDEBUG
+#ifdef LOG4CXX
             numcreated[fH1Hybrid.fInterfacePressure]++;
             numcreated[fH1Hybrid.fSecondLagrangeMatid]++;
 #endif
         }
     }
-#ifdef PZDEBUG
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    for(auto it : numcreated)
+#ifdef LOG4CXX
     {
-        std::cout << "Material id " << it.first << " number of elements created " << it.second << std::endl;
+        std::stringstream sout;
+        sout << __PRETTY_FUNCTION__ << std::endl;
+        for(auto it : numcreated)
+        {
+            sout << "Material id " << it.first << " number of elements created " << it.second << std::endl;
+        }
+        LOGPZ_DEBUG(logger, sout.str())
     }
 #endif
 }
@@ -852,7 +882,7 @@ void TPZCreateMultiphysicsSpace::AssociateElements(TPZCompMesh *cmesh, TPZVec<in
             groupindex[cindex] = cel->Index();
         }
     }
-    std::cout << "Groups of connects " << groupindex << std::endl;
+//    std::cout << "Groups of connects " << groupindex << std::endl;
     int numloops = 1;
     if(fSpaceType == EH1HybridSquared) numloops = 2;
     // this loop will associate a first layer of interface elements to the group
@@ -870,11 +900,11 @@ void TPZCreateMultiphysicsSpace::AssociateElements(TPZCompMesh *cmesh, TPZVec<in
         cel->BuildConnectList(connectlist);
         int matid = cel->Reference()->MaterialId();
         int64_t celindex = cel->Index();
-        std::cout << "Analysing element " << celindex << " matid " << matid;
-        std::cout << " connect list " << connectlist << std::endl;
+//        std::cout << "Analysing element " << celindex << " matid " << matid;
+//        std::cout << " connect list " << connectlist << std::endl;
         TPZVec<int> connectgroup(connectlist.size());
         for(int i=0; i<connectlist.size(); i++) connectgroup[i] = groupindex[connectlist[i]];
-        std::cout << "groupindexes " << connectgroup << std::endl;
+//        std::cout << "groupindexes " << connectgroup << std::endl;
         int64_t groupfound = -1;
         for (auto cindex : connectlist) {
             if (groupindex[cindex] != -1) {
@@ -892,10 +922,10 @@ void TPZCreateMultiphysicsSpace::AssociateElements(TPZCompMesh *cmesh, TPZVec<in
         }
         if(fSpaceType == EH1HybridSquared && matid == fH1Hybrid.fLagrangeMatid.first)
         {
-            std::cout << "Changing connect indexes group for element " << celindex;
+//            std::cout << "Changing connect indexes group for element " << celindex;
             for(auto cindex : connectlist)
             {
-                std::cout << " cindex " << cindex << " from " << groupindex[cindex] << " to " << groupfound << std::endl;
+//                std::cout << " cindex " << cindex << " from " << groupindex[cindex] << " to " << groupfound << std::endl;
                 groupindex[cindex] = groupfound;
             }
         }
