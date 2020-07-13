@@ -14,7 +14,6 @@
 #include "tpzgeoelrefpattern.h"
 #include "tpzarc3d.h"
 
-
 #include "ProblemConfig.h"
 
 #include "mixedpoisson.h"
@@ -53,15 +52,15 @@ bool neumann = true;
 
 struct ErrorData
 {
-    std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro;
+    std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro, timer;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
-    int maxdiv = 5;
+    int maxdiv = 2;
 
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed";
+    int mode = 4;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed";
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -87,6 +86,7 @@ void InvertError(string file);
 void FillErrors(ofstream &table,string f1,string f2,string f3);
 void FillErrors(ofstream &table,string f,int mode);
 void FillLegend(ofstream &table,int hash_count, int it_count);
+void FlushTime(ErrorData &eData, clock_t start);
 ////Command Line Entry
 ////The command line entry is useful for consecutive runs
 ////One can build a .sh documment to run all of them.
@@ -95,22 +95,22 @@ void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 2;         // Potential and internal flux order
-    config.hdivmais = 3;       // p_order - hdivmais = External flux order
+    config.porder = 6;         // Potential and internal flux order
+    config.hdivmais = 1;       // p_order - hdivmais = External flux order
     config.H1Hybridminus = 1;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTan/*ESinSin*/;
     config.exact.operator*().fSignConvention = 1;
 
-    config.problemname = "ESinSin";
+    config.problemname = "EArcTan"/*"ESinSin"*/;
 
-    config.dir_name = "HybridH1_ESinSin";
-    std::string command = "mkdir " + config.dir_name;
-    system(command.c_str());
+    //config.dir_name = "HybridH1_EArcTan";
+    //std::string command = "mkdir " + config.dir_name;
+    //system(command.c_str());
 
     // geometric mesh
     TPZManVector<int, 4> bcids(4, -1);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 1; ndiv < eData.maxdiv+2; ndiv++) {
+    for (int ndiv = 1; ndiv < eData.maxdiv+2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
@@ -164,6 +164,8 @@ int main(int argc, char *argv[]) {
             config.gmesh->Print(out2);
         }
 
+        const clock_t start = clock();
+
         //H1
         TPZCompMesh *cmeshH1 = CMeshH1(config);
         TPZCompMeshTools::CreatedCondensedElements(cmeshH1, false, false);
@@ -177,6 +179,7 @@ int main(int argc, char *argv[]) {
             int interfaceMatID = -10;
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData);
+            FlushTime(eData,start);
         }
 
         //Mixed
@@ -184,7 +187,10 @@ int main(int argc, char *argv[]) {
         if(eData.mode == 1 || eData.mode == 4) {
             CreateMixedComputationalMesh(cmesh_mixed, eData, config);
             SolveMixedProblem(cmesh_mixed, config, eData);
+            FlushTime(eData,start);
         }
+
+        //finish clock
 
             if(eData.last && eData.post_proc) {
                 const clock_t begin_time = clock();
@@ -203,15 +209,22 @@ int main(int argc, char *argv[]) {
                 std::cout << "printing comp mesh time: " << float( clock () - begin_time )/CLOCKS_PER_SEC <<endl;
             }
 
-    eData.hLog = eData.h;
-    eData.exp *=2;
+        eData.hLog = eData.h;
+        eData.exp *=2;
     }
+    std::string command = "cp Erro.txt " + eData.plotfile + "/Erro.txt";
+    system(command.c_str());
 
     std::cout << "Total Time: " <<float( clock () - begin_iter )/CLOCKS_PER_SEC <<"\n";
-    //Not ready yet
     FlushTable(eData,argv);
 
     return 0.;
+}
+
+void FlushTime(ErrorData &eData, clock_t start){
+    float timer = float( clock () - start )/CLOCKS_PER_SEC;
+    eData.timer << "Simulation time (" << eData.h << "x" << eData.h <<"): " << timer << "\n";
+    eData.timer.flush();
 }
 
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorData &eData, ProblemConfig &config){
@@ -342,6 +355,15 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
 
     std::string command = "mkdir " + eData.plotfile;
     system(command.c_str());
+
+    std::string timer_name = eData.plotfile + "/timer.txt";
+
+    if( remove(timer_name.c_str()) != 0)
+        perror( "Error deleting file" );
+    else
+        puts( "Error log successfully deleted" );
+
+    eData.timer.open(timer_name, std::ofstream::app);
 }
 
 void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config){
@@ -596,19 +618,20 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
     ////PostProcess
 
-    if(eData.last && eData.post_proc) {
+    if(/*eData.last &&*/ eData.post_proc) {
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
+        vecnames.Push("Flux");
+        vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
 
         int dim = 2;
         std::string plotname;
         {
             std::stringstream out;
             out << eData.plotfile /* << config.dir_name*/ << "/"
-                << "HybridH1" << config.porder << "_" << dim << "D_"
-                << config.problemname << "Ndiv_ " << config.ndivisions
-                << "HdivMais" << config.porder - config.H1Hybridminus << ".vtk";
+                << config.problemname << "_HybridH1_k-" << config.porder-config.H1Hybridminus
+                << "_Mais-" << config.H1Hybridminus << "_ref_" << 1/eData.h << " x " << 1/eData.h <<".vtk";
             plotname = out.str();
         }
         int resolution = 0;
@@ -646,16 +669,15 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     else StockErrors(an,cmesh_Mixed,eData.Erro,eData.Log,eData);
 
     ////PostProcess
-    if(eData.last && eData.post_proc) {
+    if(/*eData.last &&*/ eData.post_proc) {
 
         int dim = config.gmesh->Dimension();
         std::string plotname;
         {
             std::stringstream out;
             out << eData.plotfile /* << config.dir_name*/ << "/"
-                << "Mixed" << config.porder << "_" << dim << "D_"
-                << config.problemname << "Ndiv_ " << config.ndivisions
-                << "HdivMais" << config.hdivmais << ".vtk";
+                << config.problemname << "_Mixed_k-" << config.porder - config.hdivmais
+                << "_Mais-" << config.hdivmais << "_ref-" << 1/eData.h <<" x " << 1/eData.h << ".vtk";
             plotname = out.str();
         }
 
@@ -663,7 +685,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
         scalnames.Push("Pressure");
         scalnames.Push("ExactPressure");
         vecnames.Push("Flux");
-        vecnames.Push("ExactFlux");
+        vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
 
         int resolution = 0;
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
@@ -938,7 +960,7 @@ void FillLegend(ofstream &table,int hash_count,int it_count){
         table << "\n";
         break;
     case (1):
-        table << "H1-error" << ",";
+        table << "semiH1-error" << ",";
         break;
     case (2):
         table << "L2-error" << ",";
@@ -950,7 +972,7 @@ void FillLegend(ofstream &table,int hash_count,int it_count){
         if (it_count == 5)
             table << "h" << ",";
         else
-            table << "H1-rate" << ",";
+            table << "semiH1-rate" << ",";
         break;
     case (5):
         if (it_count == 6)
