@@ -1602,7 +1602,8 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         REAL weight = fPressureweights[index];
         
         if(IsZero(weight)) {
-            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(intel1->Material());
+            TPZMaterial *mat = intel1->Material();
+            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
             if (!bc) DebugStop();
             else{
                 
@@ -1930,8 +1931,10 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         PlotLagrangeMultiplier("BeforeNodalAverage");
     }
     
-    ComputeNodalAverages();
-    
+    if(fProblemConfig.makepressurecontinuous)
+    {
+        ComputeNodalAverages();
+    }
     {
         std::ofstream out("PressureNodalMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
