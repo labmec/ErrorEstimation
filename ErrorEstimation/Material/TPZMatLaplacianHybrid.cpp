@@ -289,7 +289,6 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
      datavec[2] Interface Mesh
      datavec[3] Interface Mesh
      **/
-    DebugStop();
     if(var == 0)
     {
         TPZMatLaplacian::Solution(datavec[0],var,Solout);

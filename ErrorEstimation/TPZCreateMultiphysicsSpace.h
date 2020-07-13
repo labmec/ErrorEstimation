@@ -68,7 +68,7 @@ public:
         int fInterfacePressure = -1;
         
         /// indicated whether the boundary conditions should be hybridized as well
-        bool fHybridizeBC = false;
+        int fHybridizeBCLevel = 0;
         
         bool fHybridSquared = false;
         /// indicates whether a second hybridizations will be applied
@@ -114,6 +114,9 @@ public:
     
     /// Insert the periferal material objects (for wrapmatid, fluxmatid and lagrange matid
     void InsertPeriferalMaterialObjects(TPZMultiphysicsCompMesh *mphys);
+    
+    /// insert the lagrange material objects
+    void InsertLagranceMaterialObjects(TPZMultiphysicsCompMesh *mphys);
     
     /// Initialize the material ids and bc material ids
     void SetMaterialIds(const std::set<int> &matids, const std::set<int> &bc_matids)
@@ -162,6 +165,13 @@ private:
     
     /// if there a neighbouring element with matid == lagrangematid -> return true
     bool ShouldCreateFluxElement(TPZGeoElSide &gelside, int lagrangematid);
+    
+    /// associate an element group index with the computational elements
+    // the grouping of elements depends on the type of mesh created
+    // in all cases the volumetric elements nucleate groups
+    // interface elements that shape connects with a group are incorporated to the group
+    // if(hybridizeSquare) then the elements that have flux degrees of freedom will be incorporated
+    void AssociateElements(TPZCompMesh *cmesh, TPZVec<int64_t> &elementgroup);
 
 };
 
