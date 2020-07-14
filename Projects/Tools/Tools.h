@@ -69,7 +69,9 @@ void DivideLowerDimensionalElements(TPZGeoMesh* gmesh);
 
 void MultiPhysicsCompel(const ProblemConfig& config);
 
-void RandomRefine(ProblemConfig& config, int numelrefine);
+/// numelrefine : number of elements to refine
+/// depth : refinement depth of the mesh
+void RandomRefine(ProblemConfig& config, int numelrefine, int depth);
 
 std::tuple<TPZCompMesh*, TPZVec<TPZCompMesh*> >
 CreatePostProcessingMesh(TPZCompMesh* cmesh_HDiv, TPZVec<TPZCompMesh*>& meshvec_HDiv, TPZHybridizeHDiv& hybridize);

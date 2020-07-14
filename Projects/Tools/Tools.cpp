@@ -315,26 +315,32 @@ void MultiPhysicsHybrid(const ProblemConfig& config) {
     
 }
 
-void RandomRefine(ProblemConfig& config, int numelrefine) {
+void RandomRefine(ProblemConfig& config, int numelrefine, int depth) {
     
     int64_t nel = config.gmesh->NElements();
     if (numelrefine > nel / 2) {
-        numelrefine = 1;
+        numelrefine = nel/2;
     }
-    int count = 0;
-    while (count < numelrefine) {
-        int64_t elindex = rand() % nel;
-        TPZGeoEl* gel = config.gmesh->Element(elindex);
-        if (gel && gel->Dimension() == config.gmesh->Dimension() && !gel->Father()) {
-            TPZStack<TPZGeoEl*> subels;
-            gel->Divide(subels);
-            count++;
+    for (int id=0; id<depth; id++)
+    {
+        nel = config.gmesh->NElements();
+        int count = 0;
+        while (count < numelrefine) {
+            int64_t elindex = rand() % nel;
+            TPZGeoEl* gel = config.gmesh->Element(elindex);
+            int level = gel->Level();
+            if (gel && gel->Dimension() == config.gmesh->Dimension() && gel->Level() == id) {
+                TPZStack<TPZGeoEl*> subels;
+                gel->Divide(subels);
+                count++;
+            }
         }
     }
     nel = config.gmesh->NElements();
     bool changed = true;
     while (changed) {
         changed = false;
+        nel = config.gmesh->NElements();
         for (int64_t el = 0; el < nel; el++) {
             TPZGeoEl* gel = config.gmesh->Element(el);
             if (gel && gel->Dimension() < config.gmesh->Dimension()) {
@@ -352,7 +358,6 @@ void RandomRefine(ProblemConfig& config, int numelrefine) {
             }
         }
     }
-    
 }
 
 
