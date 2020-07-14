@@ -101,7 +101,8 @@ int main(int argc, char *argv[]) {
         
     
     UniformRefinement(config.ndivisions, gmesh);
-    // RandomRefine(config, config.ndivisions);
+    int refinement_depth = 2;
+    RandomRefine(config, 1, refinement_depth);
     
 #ifdef PZDEBUG
     {
@@ -141,6 +142,7 @@ int main(int argc, char *argv[]) {
         std::cout <<" fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl;
         std::cout << "fSecond Lagrange MatID = " <<createspace.fH1Hybrid.fSecondLagrangeMatid<<std::endl;
         std::cout << "fInterfacePressure = " <<createspace.fH1Hybrid.fInterfacePressure<<std::endl;
+        std::cout << "fIBC hybridization level = " <<createspace.fH1Hybrid.fHybridizeBCLevel<<std::endl;
 
         TPZManVector<TPZCompMesh *> meshvec;
             
@@ -181,6 +183,13 @@ int main(int argc, char *argv[]) {
             }
         }
 #endif
+        cmesh_H1Hybrid->ComputeNodElCon();
+        #ifdef PZDEBUG
+                {
+                    std::ofstream out("mphysicsmeshBeforeCondense.txt");
+                    cmesh_H1Hybrid->Print(out);
+                }
+        #endif
         createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
         cmesh_H1Hybrid->InitializeBlock();
