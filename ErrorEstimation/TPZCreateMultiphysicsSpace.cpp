@@ -594,10 +594,13 @@ void TPZCreateMultiphysicsSpace::GroupandCondenseElements(TPZMultiphysicsCompMes
         //        std::cout << std::endl;
     }
     cmesh->ComputeNodElCon();
-    int64_t nconnects = cmesh->NConnects();
-    for (int64_t ic = 0; ic<nconnects; ic++) {
-        TPZConnect &c = cmesh->ConnectVec()[ic];
-        if(c.LagrangeMultiplier() == 5) c.IncrementElConnected();
+    if(fSpaceType == EH1Hybrid)
+    {
+        int64_t nconnects = cmesh->NConnects();
+        for (int64_t ic = 0; ic<nconnects; ic++) {
+            TPZConnect &c = cmesh->ConnectVec()[ic];
+            if(c.LagrangeMultiplier() == 5) c.IncrementElConnected();
+        }
     }
     nel = cmesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
