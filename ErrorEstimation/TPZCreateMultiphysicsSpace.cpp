@@ -244,7 +244,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
             }
         }
     }
-    if(fSpaceType == EH1HybridSquared && fH1Hybrid.fHybridizeBCLevel == 2)
+    if(0 && fSpaceType == EH1HybridSquared && fH1Hybrid.fHybridizeBCLevel == 2)
     {
         // be sure to verify on first execution
         // create boundary elements in the pressure space
@@ -269,6 +269,33 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
         }
         pressure->ExpandSolution();
     }
+#ifdef PZDEBUG
+    {
+        int err = 0;
+        std::map<int64_t,int64_t> gelindexes;
+        int64_t nel = pressure->NElements();
+        for(int64_t el = 0; el<nel; el++)
+        {
+            TPZCompEl *cel = pressure->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            int64_t index = gel->Index();
+            auto it = gelindexes.find(index);
+            if(it != gelindexes.end())
+            {
+                std::cout << "Geometric element " << index << " matid " << gel->MaterialId() << " points to many computational elements " <<
+                " pressure el " << it->second << " and " << el << std::endl;
+                err = 1;
+            }
+            else
+            {
+                gelindexes[index] = el;
+            }
+        }
+        if(err) {
+            DebugStop();
+        }
+    }
+#endif
 #ifdef LOG4CXX
     if(logger->isDebugEnabled())
     {
@@ -373,6 +400,7 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh()
         }
     }
 #ifdef LOG4CXX
+    if(logger->isDebugEnabled())
     {
         std::stringstream sout;
         sout << "Number of volumetric pressure elements created " << nelem << std::endl;
@@ -398,6 +426,7 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreatePressureMesh()
         }
     }
 #ifdef LOG4CXX
+    if(logger->isDebugEnabled())
     {
         std::stringstream sout;
         sout << "Number of lower dimensional pressure elements created " << nelem_big-nelem << std::endl;
@@ -487,7 +516,20 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
                 if(fluxcandidate == gelsideflux) {
                     // we have to find a larger (lower level) flux element
                     fluxcandidate = gelsideflux.HasLowerLevelNeighbour(fH1Hybrid.fFluxMatId);
-                    if(!fluxcandidate) DebugStop();
+                    if(!fluxcandidate)
+                    {
+                        TPZManVector<REAL,3> x(3,0.);
+                        gelsideflux.CenterX(x);
+                        std::cout << "gelsideflux center " << x << std::endl;
+                        fluxcandidate = gelsideflux.HasLowerLevelNeighbour(fH1Hybrid.fFluxMatId);
+                        DebugStop();
+                    }
+#ifdef PZDEBUG
+                    if(fluxcandidate == gelsideflux)
+                    {
+                        DebugStop();
+                    }
+#endif
                 }
                 {
                     TPZCompElSide celflux = fluxcandidate.Reference();
@@ -843,6 +885,7 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
         }
     }
 #ifdef LOG4CXX
+    if(logger->isDebugEnabled())
     {
         std::stringstream sout;
         sout << __PRETTY_FUNCTION__ << std::endl;
