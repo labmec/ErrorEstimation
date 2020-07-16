@@ -12,7 +12,7 @@
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
 
-void RunSinSinProblem();
+void RunCosCosProblem();
 void RunOscillatoryProblem();
 void Run3DProblem();
 void RunSingularProblem();
@@ -34,7 +34,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 int main() {
     InitializePZLOG();
 
-    RunSinSinProblem();
+    RunCosCosProblem();
     RunOscillatoryProblem();
     //Run3DProblem();
   //  RunSingularProblem();
@@ -42,18 +42,19 @@ int main() {
     return 0;
 }
 
-void RunSinSinProblem() {
+void RunCosCosProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
-    config.problemname = "SinSin";
+    config.exact.operator*().fExact = TLaplaceExample1::ECosCos;
+    config.problemname = "CosCos";
     config.dir_name = "CILAMCE";
     config.porder = 1;
     config.hdivmais = 1;
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
 
     int nCoarseDiv = 2;
     int nInternalRef = 2;
@@ -85,6 +86,7 @@ void RunOscillatoryProblem() {
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
 
     int nCoarseDiv = 4;
     int nInternalRef = 4;
@@ -116,6 +118,7 @@ void Run3DProblem() {
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
 
     int nCoarseDiv = 4;
     int nInternalRef = 4;
@@ -148,6 +151,7 @@ void RunSingularProblem() {
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
 
     int nCoarseRef = 4;
     int nInternalRef = 4;

@@ -857,13 +857,8 @@ void TPZHybridHDivErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *p
 
 /// return a pointer to the pressure mesh
 TPZCompMesh *TPZHybridHDivErrorEstimator::PressureMesh() {
-    
     return fPostProcMesh.MeshVector()[1];
-    
-    
-    
 }
-
 
 /// compute the average pressures of the hybridized form of the H(div) mesh
 void TPZHybridHDivErrorEstimator::ComputeAverageFacePressures() {
@@ -1041,7 +1036,7 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
         
         cel->CalcStiff(ekbc, efbc);
         ekbc.fMat.SolveDirect(efbc.fMat, ELU);
-        efbc.fMat.Print("Solution",std::cout);
+        //efbc.fMat.Print("Solution",std::cout);
         int count = 0;
         int nc = cel->NConnects();
         for (int ic = 0; ic < nc; ic++) {
@@ -1062,7 +1057,7 @@ void TPZHybridHDivErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *press
 }
 
 void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim){
-    
+    // TODO remove unused target_dim variable
     //    std::ofstream out("PressureProjBefore.txt");
     //    pressuremesh->Print(out);
     
@@ -1088,8 +1083,7 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
     
     gmesh->ResetReference();
     
-    int64_t nel = fPostProcMesh.NElements();
-    
+
     //    {
     //        TPZCompMesh *pressmesh = fPostProcMesh.MeshVector()[1];
     //        std::ofstream out("pressure.txt");
@@ -1097,7 +1091,8 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
     //    }
     
     TPZElementMatrix ekbc,efbc;
-    
+
+    int64_t nel = fPostProcMesh.NElements();
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel_orig = fPostProcMesh.Element(el);
         if(!cel_orig) continue;
@@ -1108,7 +1103,7 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
         if(!celgr) continue;//DebugStop();
         TPZVec<TPZCompEl *> elgrST = celgr->GetElGroup();
         int nelst = elgrST.size();
-        
+
         for (int elst = 0; elst<nelst; elst++)
         {
             TPZCompEl *cel = elgrST[elst];
@@ -1878,8 +1873,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     if (fPostProcMesh.MeshVector().size()) {
         DebugStop();
     }
-    
-    //Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
+
+    // Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
     // for the border fluxes
     //    {
     //
@@ -1887,28 +1882,27 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     //        fOriginal->MeshVector()[1]->Print(out);
     //
     //    }
-    
+
     CreatePostProcessingMesh();
     
     //    {
-    //
     //        std::ofstream out("PressureOriginalPostProcessing.txt");
     //        fOriginal->MeshVector()[1]->Print(out);
     //        std::ofstream out2("PressureRecPostProcessing.txt");
     //        fPostProcMesh.MeshVector()[1]->Print(out2);
-    //
+    //        std::ofstream outgvtk("gmesh.vtk");
+    //        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), outgvtk);
     //    }
     
     // L2 projection for Dirichlet and Robin boundary condition for H1 reconstruction
     if (!fPostProcesswithHDiv) {
         TPZCompMesh *pressuremesh = PressureMesh();
-        int target_dim = 1; // TODO ver se fica igual para dimensao maior
-                            // TODO
-                            //   ComputeBoundaryL2Projection(pressuremesh, target_dim);
-        BoundaryPressureProjection(pressuremesh, target_dim);
-        
+        int target_dim = 1;
+        // TODO ver se fica igual para dimensao maior
+        ComputeBoundaryL2Projection(pressuremesh, target_dim);
+        //BoundaryPressureProjection(pressuremesh, target_dim);
     }
-    
+
     {
         std::ofstream out("PressureAverageMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
@@ -2062,18 +2056,14 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {
     
-    
-    TPZCompMesh *pressure = NULL;
-    
-    
-    if (reconstructed == false){
+    TPZCompMesh *pressure = nullptr;
+
+    if (!reconstructed) {
         pressure = fOriginal->MeshVector()[1];
-    }
-    else{
+    } else {
         pressure = PressureMesh();
     }
-    
-    
+
     std::ofstream out2("PressuretoStateGraph.txt");
     pressure->Print(out2);
     
@@ -2081,7 +2071,8 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
         TPZAnalysis an(pressure, false);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
-        
+        scalnames.Push("Pressure");
+
         int dim = pressure->Reference()->Dimension() - 1;
         std::string plotname;
         {
