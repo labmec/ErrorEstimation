@@ -34,7 +34,8 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 int main() {
     InitializePZLOG();
 
-    RunCosCosProblem();
+//    RunCosCosProblem();
+ //   RunSinSinProblem();
     RunOscillatoryProblem();
     //Run3DProblem();
   //  RunSingularProblem();
@@ -88,7 +89,7 @@ void RunOscillatoryProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 4;
+    int nCoarseDiv = 2;
     int nInternalRef = 4;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 

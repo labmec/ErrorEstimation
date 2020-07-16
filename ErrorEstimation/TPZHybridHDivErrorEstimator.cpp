@@ -1773,10 +1773,50 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     TPZFMatrix<REAL> dataIeff(nrows,1);
     
     //    REAL oscilatorytherm = 0;
-    
+    int dim = cmesh->Dimension();
     cmesh->ElementSolution().Resize(nrows, ncols+2);
     REAL oscilatorytherm = 0;
-    
+
+    for (int64_t el = 0; el < nrows; el++) {
+        
+        TPZCompEl *cel = cmesh->Element(el);
+        if(!cel) continue;
+        TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(subcmesh)
+        {
+            ComputeEffectivityIndices(subcmesh);
+        }
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) continue;
+        if(gel->Dimension() != dim) continue;
+        int nsides = gel->NSides();
+        for(int is = 0; is<nsides; is++)
+        {
+            if(gel->SideDimension(is) != dim-1) continue;
+            TPZStack<TPZCompElSide> equal;
+            TPZGeoElSide gelside(gel,is);
+            gelside.EqualLevelCompElementList(equal, 0, 0);
+            if(equal.size() != 1) DebugStop();
+            TPZGeoElSide neighbour = equal[0].Reference();
+            if(neighbour.Element()->Dimension() != dim-1) continue;
+            int64_t neighindex = neighbour.Element()->Index();
+            for (int i = 0; i < 3; i += 2) {
+                
+                //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
+                
+                REAL NeighbourErrorEstimate = cmesh->ElementSolution()(neighindex, i + 1);
+                REAL NeighbourErrorExact = cmesh->ElementSolution()(neighindex, i);
+                REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
+                REAL ErrorExact = cmesh->ElementSolution()(el, i);
+                REAL sumErrorExact = sqrt(NeighbourErrorExact*NeighbourErrorExact+ErrorExact*ErrorExact);
+                REAL sumErrorEstimate = sqrt(NeighbourErrorEstimate*NeighbourErrorEstimate+ErrorEstimate*ErrorEstimate);
+                cmesh->ElementSolution()(neighindex,i+1) = 0.;
+                cmesh->ElementSolution()(neighindex,i) = 0.;
+                cmesh->ElementSolution()(el,i) = sumErrorExact;
+                cmesh->ElementSolution()(el,i+1) = sumErrorEstimate;
+            }
+        }
+    }
     for (int64_t el = 0; el < nrows; el++) {
         
         TPZCompEl *cel = cmesh->Element(el);
