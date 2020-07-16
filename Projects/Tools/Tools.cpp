@@ -563,15 +563,13 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
             // Erro
             
             //
-            std::ofstream out("ErrosTeste.txt");
             
             
-            VectorEnergyNorm(Hybridmesh, out,problem);
             
             //
             
             ofstream myfile;
-            myfile.open("ErrorFemProblem.txt", ios::app);
+            myfile.open("ErrorBCFemProblem.txt", ios::app);
             
             
             

@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
     bool RunMark = false;
     config.problemname = "ESinSin";
 
-    config.dir_name = "EPIC";
+    config.dir_name = "RobinBC";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 for (int p = 1; p <2; p ++){
         
 config.porder = p;
-    for (int ndiv = 0; ndiv < 1; ndiv++) {
+    for (int ndiv = 4; ndiv < 5; ndiv++) {
 
         config.ndivisions = ndiv;
 
@@ -244,7 +244,7 @@ config.porder = p;
         }
 #endif
 
-        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, true);
+        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, false);
 
         
 

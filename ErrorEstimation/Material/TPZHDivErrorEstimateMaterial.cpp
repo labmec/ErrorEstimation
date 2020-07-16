@@ -174,7 +174,6 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
     TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
     TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
 
-    return;
     /*
      Add Robin boundary condition for local problem
      ek+= <w,Km s_i>
@@ -234,7 +233,9 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
         case (4):{
        
         REAL Km = bc.Val1()(0, 0); // Km
-            REAL robinterm = Km * u_D - g+ normalsigma;
+            REAL InvKm = 1./Km;
+           // std::cout<< " g "<< g<< " normalsigma "<<normalsigma<<"\n";
+            REAL robinterm = (Km * u_D - g+ normalsigma);
 
         for (int iq = 0; iq < nphi_i; iq++) {
             //<w,Km*u_D-g+sigma_i*n>
@@ -573,12 +574,13 @@ void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZV
     int H1functionposition = 0;
     H1functionposition = FirstNonNullApproxSpaceIndex(data);
 
-    REAL normalsigmafem = 0.,normalsigmarec = 0.;
+    REAL normalsigmafem = 0.,normalsigmarec = 0.,urec=0.;;
     normalsigmafem = data[2].sol[0][0];// sigma.n
+    urec = data[H1functionposition].sol[0][0];
 
 
     
-    REAL u_D = 0.;
+    REAL u_D = 0.,g = 0.;
     REAL normflux = 0.;
         
         TPZManVector<STATE,3> fluxrec(fDim);
@@ -594,6 +596,7 @@ void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZV
     if (bc.HasForcingFunction()) {
             bc.ForcingFunction()->Execute(data[H1functionposition].x, res, gradu);
             GetPermeabilities(data[0].x, PermTensor, InvPermTensor);
+        u_D = res[0];
         
             
         } else {
@@ -608,26 +611,28 @@ void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZV
             {
                 
                 normflux += data[2].normal[i]*PermTensor(i,j)*gradu(j,0);
+            
             }
         }
+        g = (-1)*normflux;
         
         std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
-        
-        for(int j=0; j<fDim; j++)
-        {
 
-            normalsigmarec += data[2].normal[j]*fluxrec[j];
-        }
 
         
+         
         
        
     REAL Km = bc.Val1()(0, 0);
     REAL InvKm = 1./Km;
+    std::cout<<"Km "<<Km<<" InvKm "<<InvKm<<"\n";
     REAL errorEstimated =0.,errorReal = 0.;
-    std::cout<<"normalsigmarec "<<normalsigmarec<<"\n";
-    std::cout<<"normalsigmafem "<<normalsigmafem<<"\n";
-    std::cout<<"----------"<<"\n";
+        
+        normalsigmarec = Km*(urec-u_D)+g;
+        
+//    std::cout<<"normalsigmarec "<<normalsigmarec<<"\n";
+//    std::cout<<"normalsigmafem "<<normalsigmafem<<"\n";
+//    std::cout<<"----------"<<"\n";
     errorEstimated = InvKm * (normalsigmarec - normalsigmafem)* (normalsigmarec - normalsigmafem);
     errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
     errors[2] = errorReal;
