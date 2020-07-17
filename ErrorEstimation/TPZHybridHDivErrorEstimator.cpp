@@ -1796,16 +1796,32 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             TPZStack<TPZCompElSide> equal;
             TPZGeoElSide gelside(gel,is);
             gelside.EqualLevelCompElementList(equal, 0, 0);
-            if(equal.size() != 1){
-                std::cout<<"Number of neighbour "<<equal.size()<<"\n";
-                DebugStop();
+//            if(equal.size() != 1){
+//                std::cout<<"Number of neighbour "<<equal.size()<<"\n";
+//                DebugStop();
+//            }
+            TPZGeoElSide neighbour;
+            TPZCompElSide selected;
+            for(int i=0; i<equal.size(); i++)
+            {
+                TPZGeoEl *gequal = equal[i].Element()->Reference();
+                int eldim = gequal->Dimension();
+                if(eldim != dim-1) continue;
+                int elmatid = gequal->MaterialId();
+                if(fProblemConfig.bcmaterialids.find(elmatid) != fProblemConfig.bcmaterialids.end())
+                {
+                    neighbour = equal[i].Reference();
+                    selected = equal[i];
+                    break;
+                }
             }
-            TPZGeoElSide neighbour = equal[0].Reference();
-            if(neighbour.Element()->Dimension() != dim-1) continue;
-            int64_t neighindex = neighbour.Element()->Index();
+
+            if(!neighbour) continue;
+            if(neighbour.Element()->Dimension() != dim-1) DebugStop();
+            int64_t neighindex = selected.Element()->Index();
             for (int i = 0; i < 3; i += 2) {
                 
-                std::cout<<"linha = "<<el<< " col = "<<4 + i / 2<<" neinEl "<< neighindex<< std::endl;
+//                std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
                 
                 REAL NeighbourErrorEstimate = cmesh->ElementSolution()(neighindex, i + 1);
                 REAL NeighbourErrorExact = cmesh->ElementSolution()(neighindex, i);
