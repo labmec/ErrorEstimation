@@ -1796,13 +1796,16 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             TPZStack<TPZCompElSide> equal;
             TPZGeoElSide gelside(gel,is);
             gelside.EqualLevelCompElementList(equal, 0, 0);
-            if(equal.size() != 1) DebugStop();
+            if(equal.size() != 1){
+                std::cout<<"Number of neighbour "<<equal.size()<<"\n";
+                DebugStop();
+            }
             TPZGeoElSide neighbour = equal[0].Reference();
             if(neighbour.Element()->Dimension() != dim-1) continue;
             int64_t neighindex = neighbour.Element()->Index();
             for (int i = 0; i < 3; i += 2) {
                 
-                //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
+                std::cout<<"linha = "<<el<< " col = "<<4 + i / 2<<" neinEl "<< neighindex<< std::endl;
                 
                 REAL NeighbourErrorEstimate = cmesh->ElementSolution()(neighindex, i + 1);
                 REAL NeighbourErrorExact = cmesh->ElementSolution()(neighindex, i);
