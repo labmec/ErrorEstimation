@@ -6,7 +6,7 @@ add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(HybridH1)
 add_subdirectory(ErrorEstimationMHM)
-add_subdirectory(PerformanceTests)
+#add_subdirectory(PerformanceTests)
 add_subdirectory(MRCM)
 
 
