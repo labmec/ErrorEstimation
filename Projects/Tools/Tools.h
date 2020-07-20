@@ -85,7 +85,7 @@ void MultiPhysicsHybrid(const ProblemConfig& config);
 void Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder);
 
 
-void SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemConfig& problem, bool PostProcessingFEM);
+void SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, const ProblemConfig& problem, bool PostProcessingFEM);
 
 void SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config);
 

@@ -375,7 +375,8 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     
     {
         fPostProcMesh.DeleteMaterial(fHybridizer.fHDivWrapMatid);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid);
+        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.first);
+        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.second);
         fPostProcMesh.DeleteMaterial(fHybridizer.fLagrangeInterface);
     }
     
@@ -2170,6 +2171,7 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
     int dim = fOriginal->Dimension();
     // identify the material id for interface elements
     int64_t nel = fOriginal->NElements();
+    int numint_found = 0;
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = fOriginal->Element(el);
         TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(cel);
@@ -2180,8 +2182,17 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
         }
         if (interf) {
             int matid = interf->Reference()->MaterialId();
-            fHybridizer.fInterfaceMatid = matid;
-            break;
+            if(numint_found == 0)
+            {
+                fHybridizer.fInterfaceMatid.first = matid;
+                numint_found++;
+                break;
+            }
+            else if(numint_found == 1 && fHybridizer.fInterfaceMatid.first != matid) {
+                fHybridizer.fInterfaceMatid.second = matid;
+                numint_found++;
+                break;
+            }
         }
     }
     /// identify the material id of the pressure

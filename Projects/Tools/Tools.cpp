@@ -485,7 +485,7 @@ void Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 }
 
 void
-SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemConfig& problem, bool PostProcessingFEM) {
+SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, const ProblemConfig& problem, bool PostProcessingFEM) {
     
     
     TPZAnalysis an(Hybridmesh);
@@ -517,8 +517,9 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, int InterfaceMatId, const ProblemCon
         matIds.insert(matidbc);
     }
     
-    matIds.insert(InterfaceMatId);
-    
+    matIds.insert(InterfaceMatId.first);
+    matIds.insert(InterfaceMatId.second);
+
     strmat.SetMaterialIds(matIds);
     
     an.SetStructuralMatrix(strmat);

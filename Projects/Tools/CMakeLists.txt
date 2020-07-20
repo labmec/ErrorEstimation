@@ -6,6 +6,8 @@ add_library(Tools
     ToolsMHM.h
     meshgen.cpp
     meshgen.h
+    TPZMRCMLagrangeMultiplier.h
+    TPZMRCMLagrangeMultiplier.cpp
 	
 )
 target_link_libraries(Tools ErrorEstimationLib)
