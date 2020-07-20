@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
     
     int n=hybrid.fLagrangeInterface;
     int n1=hybrid.fHDivWrapMatid;
-    int n2=hybrid.fInterfaceMatid;
+    std::pair<int,int> n2=hybrid.fInterfaceMatid;
     
     std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
     std::cout <<" LagrangeInterface = "<<n<<std::endl;
@@ -415,8 +415,8 @@ int main(int argc, char *argv[]) {
         
         HDivEstimate.PotentialReconstruction();
         
-        TPZManVector<REAL> elementerrors;
-        HDivEstimate.ComputeErrors(elementerrors);
+        TPZManVector<REAL> elementerrors,errvec;
+        HDivEstimate.ComputeErrors(errvec,elementerrors,true);
 
         hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh, config);
     }

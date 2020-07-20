@@ -135,7 +135,9 @@ int main(int argc, char *argv[]) {
         HDivEstimate.PotentialReconstruction();
         
         TPZManVector<REAL> elementerrors;
-        HDivEstimate.ComputeErrors(elementerrors);
+        TPZManVector<REAL> errvec;
+        bool store = true;
+        HDivEstimate.ComputeErrors(errvec,elementerrors,store);
         
     }
     

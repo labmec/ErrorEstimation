@@ -260,7 +260,7 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     TPZCreateMultiphysicsSpace createspace(config.gmesh);
 
     createspace.SetMaterialIds({1}, {-2,-1});
-    createspace.fH1Hybrid.fHybridizeBC = true;//opcao de hibridizar o contorno
+    createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
 
     TPZManVector<TPZCompMesh *> meshvec;

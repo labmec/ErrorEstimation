@@ -174,7 +174,9 @@ else
         
             HDivEstimate.PotentialReconstruction();
             TPZManVector<REAL> elementerrors;
-            HDivEstimate.ComputeErrors(elementerrors);
+            TPZManVector<REAL> errorvec;
+            bool store = true;
+            HDivEstimate.ComputeErrors(errorvec,elementerrors,store);
             hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal, config);
             #ifdef PZDEBUG
                     {

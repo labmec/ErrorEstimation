@@ -176,8 +176,8 @@ void RunMarkHDivEstimation(ProblemConfig &config,
 
     HDivEstimate.PotentialReconstruction();
 
-    TPZManVector<REAL> elementerrors;
-    HDivEstimate.ComputeErrors(elementerrors);
+    TPZManVector<REAL> elementerrors, errvec;
+    HDivEstimate.ComputeErrors(errvec,elementerrors,true);
 }
 
 void RunHybridHDivEstimation(ProblemConfig &config,
@@ -195,8 +195,8 @@ void RunHybridHDivEstimation(ProblemConfig &config,
 
     HDivEstimate.PotentialReconstruction();
 
-    TPZManVector<REAL> elementerrors;
-    HDivEstimate.ComputeErrors(elementerrors);
+    TPZManVector<REAL> elementerrors, errvec;
+    HDivEstimate.ComputeErrors(errvec,elementerrors,true);
 }
 
 void ConfigureGeoMesh(const int nDivisions, const BCType &bcType,
