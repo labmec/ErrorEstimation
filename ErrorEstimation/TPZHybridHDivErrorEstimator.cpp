@@ -1754,7 +1754,8 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
      **/
     
     TPZCompMesh *cmesh = &fPostProcMesh;
-    
+    cmesh->Reference()->ResetReference();
+    cmesh->LoadReferences();
     int64_t nrows = cmesh->ElementSolution().Rows();
     int64_t ncols = cmesh->ElementSolution().Cols();
     
