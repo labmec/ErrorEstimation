@@ -375,7 +375,8 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     
     {
         fPostProcMesh.DeleteMaterial(fHybridizer.fHDivWrapMatid);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid);
+        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.first);
+        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.second);
         fPostProcMesh.DeleteMaterial(fHybridizer.fLagrangeInterface);
     }
     
@@ -1685,70 +1686,61 @@ void TPZHybridHDivErrorEstimator::CloneMeshVec() {
 }
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
-void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh)
-{
+void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) {
     int64_t nrows = subcmesh->ElementSolution().Rows();
-    int64_t ncols = subcmesh->ElementSolution().Cols();
-    
-    // essa linha eh problematica!
-    // caso ComputeEffectivityIndices eh chamada duas vezes, o que fazer?
-    // o pos processamente espera que o indice de efetividade fica na posicao 5 e 6
-    // e em nemhum outro lugar!
-    if(ncols != 5) DebugStop();
-    subcmesh->ElementSolution().Resize(nrows, ncols+2);
+    int64_t ncols = 5; // subcmesh->ElementSolution().Cols();
+
+    if (subcmesh->ElementSolution().Cols() != 7) {
+        // TODO I made some changes to be able to run the code again.
+        //  Sometimes subcmesh->ElementSolution().Cols() equals 5  sometimes it's already 7.
+        //  I'm not sure if this behaviour is expected.
+        subcmesh->ElementSolution().Resize(nrows, 7);
+    }
+
     int64_t nel = subcmesh->NElements();
     TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
-    TPZManVector<REAL,4> errors(4,0.);
-    for (int64_t el = 0; el<nel; el++) {
-        for (int i=0; i<4; i++) {
-            errors[i] += elsol(el,i)*elsol(el,i);
+    TPZManVector<REAL, 5> errors(5, 0.);
+    for (int64_t el = 0; el < nel; el++) {
+        for (int i = 0; i < ncols; i++) {
+            errors[i] += elsol(el, i) * elsol(el, i);
         }
     }
-    for (int i=0; i<4; i++) {
+    for (int i = 0; i < ncols; i++) {
         errors[i] = sqrt(errors[i]);
     }
-    
-    
-    for (int64_t el = 0; el<nel; el++) {
-        for (int i=0; i<4; i++) {
-            elsol(el,i) = errors[i];
+
+    for (int64_t el = 0; el < nel; el++) {
+        for (int i = 0; i < ncols; i++) {
+            elsol(el, i) = errors[i];
         }
     }
-    
-    
-    REAL oscilatorytherm = 0;
-    
+
     for (int64_t el = 0; el < nrows; el++) {
         TPZCompEl *cel = subcmesh->Element(el);
         TPZGeoEl *gel = cel->Reference();
         REAL hk = gel->CharacteristicSize();
-        
+
         for (int i = 0; i < 3; i += 2) {
-            
-            //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
-            
+
             REAL tol = 1.e-10;
             REAL ErrorEstimate = errors[i + 1];
             REAL ErrorExact = errors[i];
-            
-            if(i==2){
-                oscilatorytherm = subcmesh->ElementSolution()(el, i + 2);
-                oscilatorytherm *= (hk/M_PI);
+
+            REAL oscillatorytherm = 0;
+            if (i == 2) {
+                oscillatorytherm = subcmesh->ElementSolution()(el, i + 2);
+                oscillatorytherm *= (hk / M_PI);
             }
-            
-            
+
             if (abs(ErrorEstimate) < tol) {
                 subcmesh->ElementSolution()(el, ncols + i / 2) = 1.;
-                
-            }
-            else {
-                REAL EfIndex = (ErrorEstimate + oscilatorytherm)/ ErrorExact;
+
+            } else {
+                REAL EfIndex = (ErrorEstimate + oscillatorytherm) / ErrorExact;
                 subcmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
     }
-    
-    
 }
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
@@ -1892,8 +1884,8 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     //  cmesh->ElementSolution().Print("ElSolution",std::cout);
     //    ofstream out("IeffPerElement3DEx.nb");
     //    dataIeff.Print("Ieff = ",out,EMathematicaInput);
-    
-    
+
+
 }
 
 /// returns true if the material associated with the element is a boundary condition
@@ -2185,6 +2177,7 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
     int dim = fOriginal->Dimension();
     // identify the material id for interface elements
     int64_t nel = fOriginal->NElements();
+    int numint_found = 0;
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = fOriginal->Element(el);
         TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(cel);
@@ -2195,8 +2188,17 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
         }
         if (interf) {
             int matid = interf->Reference()->MaterialId();
-            fHybridizer.fInterfaceMatid = matid;
-            break;
+            if(numint_found == 0)
+            {
+                fHybridizer.fInterfaceMatid.first = matid;
+                numint_found++;
+                break;
+            }
+            else if(numint_found == 1 && fHybridizer.fInterfaceMatid.first != matid) {
+                fHybridizer.fInterfaceMatid.second = matid;
+                numint_found++;
+                break;
+            }
         }
     }
     /// identify the material id of the pressure

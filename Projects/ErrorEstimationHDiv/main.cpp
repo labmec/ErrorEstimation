@@ -106,7 +106,8 @@ int main(int argc, char *argv[]) {
     
     if(random_refine){
         int numelrefine=4;
-        RandomRefine(config,numelrefine);
+        int depth = 1;
+        RandomRefine(config,numelrefine,depth);
   
     }
     
@@ -218,7 +219,9 @@ int main(int argc, char *argv[]) {
         HDivEstimate.fUpliftPostProcessMesh = 0;
         HDivEstimate.SetAnalyticSolution(config.exact);
         TPZManVector<REAL> elementerrors;
-        HDivEstimate.ComputeErrors(elementerrors);
+        TPZManVector<REAL> errvec;
+        bool store = true;
+        HDivEstimate.ComputeErrors(errvec,elementerrors,store);
     }
 
     return 0;

@@ -80,8 +80,8 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(TPZVec<TPZMaterialData> &datave
         MixedMat::fForcingFunction->Execute(datavec[1].x,res);
         force = fSignConvention*res[0];
     }
-    TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvK;
+    TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorPerm;
+    TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvPerm;
     //int rtens = 2*fDim;
     if(MixedMat::fPermeabilityFunction){
         PermTensor.Redim(3,3);
@@ -153,8 +153,8 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, TPZV
     this->Solution(data,MixedMat::VariableIndex("Flux"), flux);
     this->Solution(data,MixedMat::VariableIndex("Pressure"), pressure);
 
-    TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorK;
-    TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvK;
+    TPZFNMatrix<9,REAL> PermTensor = MixedMat::fTensorPerm;
+    TPZFNMatrix<9,REAL> InvPermTensor = MixedMat::fInvPerm;
     //int rtens = 2*fDim;
     if(MixedMat::fPermeabilityFunction){
         PermTensor.Redim(3,3);

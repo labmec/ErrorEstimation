@@ -22,6 +22,7 @@
 #include "TPZMatLaplacianHybrid.h"
 #include "TPZVecL2.h"
 #include "pzbndcond.h"
+#include "TPZNullMaterial.h"
 
 #include "pzintel.h"
 
@@ -54,6 +55,8 @@ bool neumann = true;
 bool h1solution = false;
 bool hybridh1 = true;
 
+void InsertFluxMultipliers(TPZHybridizeHDiv &hybridize, TPZVec<TPZCompMesh *> &meshvec);
+
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
 //TPZCompMesh *CMeshH1(const ProblemConfig &problem);
@@ -64,7 +67,7 @@ int main(int argc, char *argv[]) {
     InitializePZLOG();
 #endif
 
-    for (int ndiv = 0; ndiv < 1; ndiv++) {
+    for (int ndiv = 0; ndiv < 5; ndiv++) {
 
         ProblemConfig config;
 
@@ -101,8 +104,8 @@ int main(int argc, char *argv[]) {
         
     
     UniformRefinement(config.ndivisions, gmesh);
-    int refinement_depth = 3;
-    RandomRefine(config, 5, refinement_depth);
+    int refinement_depth = 2;
+    RandomRefine(config, 1, refinement_depth);
     
 #ifdef PZDEBUG
     {
@@ -128,10 +131,10 @@ int main(int argc, char *argv[]) {
 
     if(hybridh1){
         config.exact.operator*().fSignConvention = 1;
-        TPZCreateMultiphysicsSpace createspace(gmesh,TPZCreateMultiphysicsSpace::EH1Hybrid);
+        TPZCreateMultiphysicsSpace createspace(gmesh,TPZCreateMultiphysicsSpace::EH1HybridSquared);
 
         createspace.SetMaterialIds({1}, {-2,-1});
-        createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
+        createspace.fH1Hybrid.fHybridizeBCLevel = 2;//opcao de hibridizar o contorno
         createspace.ComputePeriferalMaterialIds();
 
 
@@ -166,28 +169,6 @@ int main(int argc, char *argv[]) {
     }
 #endif
         cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
-
-#ifdef PZDEBUG
-        {
-            std::map<int,int> matelem;
-            int64_t nel = cmesh_H1Hybrid->NElements();
-            for (int64_t el = 0; el<nel; el++) {
-                TPZCompEl *cel = cmesh_H1Hybrid->Element(el);
-                TPZGeoEl *gel = cel->Reference();
-//                TPZManVector<REAL,3> center(3);
-//                TPZGeoElSide gelside(gel);
-//                gelside.CenterX(center);
-//                std::cout << "Matid " << gel->MaterialId() << " center " << center << std::endl;
-                matelem[gel->MaterialId()]++;
-            }
-            std::cout << __PRETTY_FUNCTION__ << " number of computational elements by material \n";
-            for (auto it : matelem) {
-                std::cout << "Material id " << it.first << " number of elements " << it.second << std::endl;
-            }
-        }
-#endif
-
-
         createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
         createspace.AddInterfaceElements(cmesh_H1Hybrid);
 #ifdef PZDEBUG
@@ -206,12 +187,12 @@ int main(int argc, char *argv[]) {
         }
 #endif
         cmesh_H1Hybrid->ComputeNodElCon();
-#ifdef PZDEBUG
-        {
-            std::ofstream out("mphysicsmeshBeforeCondense.txt");
-            cmesh_H1Hybrid->Print(out);
-        }
-#endif
+        #ifdef PZDEBUG
+                {
+                    std::ofstream out("mphysicsmeshBeforeCondense.txt");
+                    cmesh_H1Hybrid->Print(out);
+                }
+        #endif
         createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
         cmesh_H1Hybrid->InitializeBlock();
@@ -510,7 +491,147 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         myfile << "energy norm = " << errorvec[3] << "\n";
         myfile.close();
 
-
-
-
 }
+
+void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config){
+
+    int dim = config.gmesh->Dimension();
+    int matID = 1;
+    int dirichlet = 0;
+    int neumann = 1;
+
+    int flux_order = config.porder - config.hdivmais;
+    cmesh_flux->SetDefaultOrder(flux_order);
+    cmesh_flux->SetDimModel(config.gmesh->Dimension());
+
+    cmesh_flux->SetAllCreateFunctionsHDiv();
+
+    TPZNullMaterial *material = new TPZNullMaterial(matID);
+    material->SetDimension(dim);
+    cmesh_flux->InsertMaterialObject(material);
+
+    //(EE)Create Boundary conditions
+    TPZFMatrix<STATE> val1(2,2,0.), val2(2,1,0.);
+
+    //(PROPRIETARY)
+    TPZMaterial *BCond0 = material->CreateBC(material,-1,dirichlet,val1,val2);
+    cmesh_flux->InsertMaterialObject(BCond0);
+
+    TPZMaterial *BCond1 = material->CreateBC(material,-2,neumann,val1,val2);
+    cmesh_flux->InsertMaterialObject(BCond1);
+
+    cmesh_flux->AutoBuild();
+    cmesh_flux->InitializeBlock();
+}
+
+void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
+    int matID = 1;
+    int dim = config.gmesh->Dimension();
+
+    int potential_order = config.porder - config.hdivmais;
+    cmesh_p->SetDefaultOrder(potential_order);
+    //cmesh_p->SetDefaultOrder(config.porder);
+    //cmesh_p->SetDefaultOrder(config.porder + config.hdivmais);
+    cmesh_p->SetDimModel(dim);
+
+    cmesh_p->SetAllCreateFunctionsContinuous(); //H1 functions
+    cmesh_p->ApproxSpace().CreateDisconnectedElements(true);
+
+    TPZNullMaterial *material = new TPZNullMaterial(matID);
+    material->SetDimension(dim);
+    cmesh_p->InsertMaterialObject(material);
+
+    cmesh_p->AutoBuild();
+    cmesh_p->ExpandSolution();
+
+    TPZAdmChunkVector<TPZConnect> &nodeIt = cmesh_p->ConnectVec();
+    for(auto &nodo : nodeIt){
+        nodo.SetLagrangeMultiplier(1);
+    }
+}
+
+void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config){
+
+    int dim = config.gmesh->Dimension();
+    int matID = 1;
+    int dirichlet = 0;
+    int neumann = 1;
+
+    cmesh_mixed -> SetDefaultOrder(config.porder);
+    cmesh_mixed -> SetDimModel(dim);
+    cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
+
+    TPZMixedPoisson *material = new TPZMixedPoisson(matID,dim); //Using standard PermealityTensor = Identity.
+    material->SetForcingFunction(config.exact.operator*().ForcingFunction());
+    material->SetForcingFunctionExact(config.exact.operator*().Exact());
+    cmesh_mixed->InsertMaterialObject(material);
+
+    //Boundary Conditions
+    TPZFMatrix<STATE> val1(2,2,0.), val2(2,1,0.);
+
+    TPZMaterial *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
+    BCond0->SetForcingFunction(config.exact.operator*().Exact());
+
+    TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+
+    cmesh_mixed->InsertMaterialObject(BCond0);
+    cmesh_mixed->InsertMaterialObject(BCond1);
+}
+
+
+
+void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ProblemConfig &config){
+
+    int matID = 1;
+    int dim = config.gmesh->Dimension();
+
+    //Flux mesh creation
+    TPZCompMesh *cmesh_flux = new TPZCompMesh(config.gmesh);
+    BuildFluxMesh(cmesh_flux, config);
+
+    //Potential mesh creation
+    TPZCompMesh *cmesh_p = new TPZCompMesh(config.gmesh);
+    BuildPotentialMesh(cmesh_p, config);
+
+    //Multiphysics mesh build
+    InsertMaterialMixed(cmesh_Mixed, config);
+    TPZManVector<int> active(2, 1);
+    TPZManVector<TPZCompMesh *, 2> meshvector(2);
+    meshvector[0] = cmesh_flux;
+    meshvector[1] = cmesh_p;
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0], config.hdivmais); //Increases internal flux order by "hdivmais"
+    TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);//Set the pressure order the same as the internal flux
+
+    
+    {
+        TPZHybridizeHDiv hybridize;
+        REAL Lagrange_term_multiplier = -1.;
+        TPZManVector<TPZCompMesh *, 3> meshvec_Hybrid = meshvector;
+        hybridize.InsertPeriferalMaterialObjects(cmesh_Mixed, Lagrange_term_multiplier);
+        hybridize.InsertPeriferalMaterialObjects(meshvec_Hybrid);
+//        TPZManVector<int> active = cmesh_Mixed->GetActiveApproximationSpaces();
+        hybridize.HybridizeInternalSides(meshvec_Hybrid);
+        InsertFluxMultipliers(hybridize, meshvec_Hybrid);
+        cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
+        hybridize.CreateInterfaceElements(cmesh_Mixed);
+    }
+
+    
+    bool keeponelagrangian = true, keepmatrix = false;
+    TPZCompMeshTools::CreatedCondensedElements(cmesh_Mixed, keeponelagrangian, keepmatrix);
+    cmesh_Mixed->LoadReferences();
+    cmesh_Mixed->InitializeBlock();
+}
+
+void InsertFluxMultipliers(TPZHybridizeHDiv &hybrid, TPZVec<TPZCompMesh *> &meshvec)
+{
+    TPZCompMesh *flux = meshvec[0];
+    TPZGeoMesh *gmesh = flux->Reference();
+    TPZNullMaterial *nullmat = new TPZNullMaterial(hybrid.fLagrangeInterface);
+    flux->InsertMaterialObject(nullmat);
+    std::set<int> matids;
+    matids.insert(hybrid.fLagrangeInterface);
+    gmesh->ResetReference();
+    flux->AutoBuild(matids);
+}
+

@@ -635,7 +635,11 @@ TPZCompEl *TPZCreateMultiphysicsSpace::FindFluxElement(TPZCompEl *wrapelement)
         }
     }
     TPZCompElSide cellarge = gelside.LowerLevelCompElementList2(0);
-    if(!cellarge) DebugStop();
+    if(!cellarge){
+        gelside.Print(std::cout);
+        cellarge = gelside.LowerLevelCompElementList2(0);
+        DebugStop();
+    }
     {
         TPZStack<TPZCompElSide> celstack;
         TPZGeoElSide gellarge = cellarge.Reference();
@@ -830,22 +834,27 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
         if(!gel || gel->HasSubElement() || gel->Dimension() != dim-1) continue;
         int matid = gel->MaterialId();
         TPZGeoElSide gelside(gel,gel->NSides()-1);
+        TPZGeoElSide neighbour(gelside.Neighbour());
+        // if the neighbour is a boundary condition and no hybridization is applied
+        // do not create the wrap layers
+        int neighmat = neighbour.Element()->MaterialId();
+        bool HasBCNeighbour = (fBCMaterialIds.find(neighmat) != fBCMaterialIds.end());
+
         auto lagrange = fH1Hybrid.fLagrangeMatid;
         bool islagrange = (matid == lagrange.first || matid == lagrange.second);
-        bool isflux = matid == fH1Hybrid.fFluxMatId;
+        bool isflux = (matid == fH1Hybrid.fFluxMatId);
         if(fSpaceType == EH1Hybrid && islagrange)
         {
-            TPZGeoElSidePartition partition(gelside);
-            if(partition.HasHigherLevelNeighbour(lagrange.first) ||
-               partition.HasHigherLevelNeighbour(lagrange.second))
+            bool ShouldCreateFlux =  ! HasBCNeighbour;
+            if(gelside.HasLowerLevelNeighbour(fH1Hybrid.fFluxMatId))
             {
                 // create the flux element
-                TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
+//                TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
 #ifdef LOG4CXX
-                numcreated[fH1Hybrid.fFluxMatId]++;
+//                numcreated[fH1Hybrid.fFluxMatId]++;
 #endif
             }
-            else if(!gelside.HasNeighbour(fH1Hybrid.fFluxMatId))
+            else if(ShouldCreateFlux && !gelside.HasNeighbour(fH1Hybrid.fFluxMatId))
             {
                 // create the flux element
                 TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
