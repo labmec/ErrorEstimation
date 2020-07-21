@@ -60,7 +60,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 4;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed";
+    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed";
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -272,6 +272,7 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
     cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
 
+    createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
     createspace.AddInterfaceElements(cmesh_H1Hybrid);
     createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
@@ -623,7 +624,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
         vecnames.Push("Flux");
-        vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
+//        vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
 
         int dim = 2;
         std::string plotname;

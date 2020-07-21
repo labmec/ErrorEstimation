@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     InitializePZLOG();
 #endif
 
-    for (int ndiv = 0; ndiv < 5; ndiv++) {
+    for (int ndiv = 0; ndiv < 1; ndiv++) {
 
         ProblemConfig config;
 
@@ -101,8 +101,8 @@ int main(int argc, char *argv[]) {
         
     
     UniformRefinement(config.ndivisions, gmesh);
-    int refinement_depth = 2;
-    RandomRefine(config, 1, refinement_depth);
+    int refinement_depth = 3;
+    RandomRefine(config, 5, refinement_depth);
     
 #ifdef PZDEBUG
     {
@@ -128,10 +128,10 @@ int main(int argc, char *argv[]) {
 
     if(hybridh1){
         config.exact.operator*().fSignConvention = 1;
-        TPZCreateMultiphysicsSpace createspace(gmesh,TPZCreateMultiphysicsSpace::EH1HybridSquared);
+        TPZCreateMultiphysicsSpace createspace(gmesh,TPZCreateMultiphysicsSpace::EH1Hybrid);
 
         createspace.SetMaterialIds({1}, {-2,-1});
-        createspace.fH1Hybrid.fHybridizeBCLevel = 2;//opcao de hibridizar o contorno
+        createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
         createspace.ComputePeriferalMaterialIds();
 
 
@@ -166,6 +166,28 @@ int main(int argc, char *argv[]) {
     }
 #endif
         cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
+
+#ifdef PZDEBUG
+        {
+            std::map<int,int> matelem;
+            int64_t nel = cmesh_H1Hybrid->NElements();
+            for (int64_t el = 0; el<nel; el++) {
+                TPZCompEl *cel = cmesh_H1Hybrid->Element(el);
+                TPZGeoEl *gel = cel->Reference();
+//                TPZManVector<REAL,3> center(3);
+//                TPZGeoElSide gelside(gel);
+//                gelside.CenterX(center);
+//                std::cout << "Matid " << gel->MaterialId() << " center " << center << std::endl;
+                matelem[gel->MaterialId()]++;
+            }
+            std::cout << __PRETTY_FUNCTION__ << " number of computational elements by material \n";
+            for (auto it : matelem) {
+                std::cout << "Material id " << it.first << " number of elements " << it.second << std::endl;
+            }
+        }
+#endif
+
+
         createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
         createspace.AddInterfaceElements(cmesh_H1Hybrid);
 #ifdef PZDEBUG
@@ -184,12 +206,12 @@ int main(int argc, char *argv[]) {
         }
 #endif
         cmesh_H1Hybrid->ComputeNodElCon();
-        #ifdef PZDEBUG
-                {
-                    std::ofstream out("mphysicsmeshBeforeCondense.txt");
-                    cmesh_H1Hybrid->Print(out);
-                }
-        #endif
+#ifdef PZDEBUG
+        {
+            std::ofstream out("mphysicsmeshBeforeCondense.txt");
+            cmesh_H1Hybrid->Print(out);
+        }
+#endif
         createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
         cmesh_H1Hybrid->InitializeBlock();
