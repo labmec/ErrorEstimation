@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 for (int p = 1; p <2; p ++){
         
 config.porder = p;
-    for (int ndiv = 1; ndiv < 2; ndiv++) {
+    for (int ndiv = 2; ndiv < 3; ndiv++) {
 
         config.ndivisions = ndiv;
 

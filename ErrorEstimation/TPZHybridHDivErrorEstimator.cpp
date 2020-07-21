@@ -1821,7 +1821,13 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             int64_t neighindex = selected.Element()->Index();
             for (int i = 0; i < 3; i += 2) {
                 
-//                std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
+
+                std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
+                
+                if(neighindex > nrows){
+                    std::cout<<" neighindex= "<< neighindex<<" nrows "<<nrows<<"\n";
+                    DebugStop();
+                }
                 
                 REAL NeighbourErrorEstimate = cmesh->ElementSolution()(neighindex, i + 1);
                 REAL NeighbourErrorExact = cmesh->ElementSolution()(neighindex, i);
