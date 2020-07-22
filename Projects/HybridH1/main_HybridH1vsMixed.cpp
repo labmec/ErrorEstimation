@@ -13,6 +13,7 @@
 #include "tpzquadratictrig.h"
 #include "tpzgeoelrefpattern.h"
 #include "tpzarc3d.h"
+#include "TPZGenGrid2D.h"
 
 #include "ProblemConfig.h"
 
@@ -54,7 +55,11 @@ struct ErrorData
 {
     std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro, timer;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
-    int maxdiv = 2;
+    int maxdiv = 3;
+
+    bool isMultiK = 1;
+    REAL perm_Q1 = 5;
+    REAL perm_Q2 = 1;
 
     REAL hLog = -1, h = -1000;
     int numErrors = 4;
@@ -67,10 +72,16 @@ struct ErrorData
     int exp = 2; // Initial exponent of mesh refinement (numElem = 2*2^exp)
 };
 ////Insert materials
-void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
+void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config,ErrorData &eData);
 void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config);
+void BuildFluxMesh_MultiK(TPZCompMesh *cmesh_flux, ProblemConfig &config);
 void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config);
-void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config);
+void BuildPotentialMesh_MultiK(TPZCompMesh *cmesh_p, ProblemConfig &config);
+void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config,ErrorData &eData);
+void SetMultiPermeMaterials(TPZGeoMesh* gmesh);
+void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL permQ1, REAL permQ2,ProblemConfig &config);
+void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL permQ1, REAL permQ2,ProblemConfig &config);
+TPZGeoMesh* CreateGeoMesh_OriginCentered(int nel, TPZVec<int>& bcids);
 ////Computational mesh and FEM solvers
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId,ErrorData &eData, ProblemConfig &config);
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorData &eData, ProblemConfig &config);
@@ -96,17 +107,17 @@ void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     config.porder = 6;         // Potential and internal flux order
-    config.hdivmais = 1;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 1;  // p_order - H1HybridMinus = Flux order
+    config.hdivmais = 5;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = 5;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EArcTan/*ESinSin*/;
+    config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*//*ESinSin*/;
     config.exact.operator*().fSignConvention = 1;
 
-    config.problemname = "EArcTan"/*"ESinSin"*/;
+    config.problemname = "ESteklovNonConst"/*"EArcTan"*//*"ESinSin"*/;
 
     //config.dir_name = "HybridH1_EArcTan";
     //std::string command = "mkdir " + config.dir_name;
@@ -114,12 +125,18 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
 
     // geometric mesh
     TPZManVector<int, 4> bcids(4, -1);
-    TPZGeoMesh *gmesh = CreateGeoMesh(1, bcids);
+    TPZGeoMesh *gmesh;
+    if(eData.isMultiK == false) gmesh = CreateGeoMesh(1, bcids); //rectangular mesh [0,1]x[0,1], matID = 1;
+    else {
+        gmesh = CreateGeoMesh_OriginCentered(1, bcids); //rectangular mesh [-1,1]x[-1,1], matID_Q1-Q3 = alpha, matID_Q2-Q4 = beta
+    }
     UniformRefinement(config.ndivisions, gmesh);
 
     config.gmesh = gmesh;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+    config.materialids.insert(2);config.materialids.insert(3);
+    config.bcmaterialids.insert(-5);config.bcmaterialids.insert(-6);config.bcmaterialids.insert(-8);config.bcmaterialids.insert(-9);
 
     if(eData.argc != 1) {
         config.porder = atoi(argv[2]);
@@ -156,6 +173,10 @@ int main(int argc, char *argv[]) {
         ProblemConfig config;
         Configure(config,ndiv,eData,argv);
         std::cout <<"HyybridH1Minus = " << config.H1Hybridminus << "\n\n\n\n";
+        if(eData.isMultiK){
+            SetMultiPermeMaterials(config.gmesh);
+        }
+
 
         if(eData.last && eData.post_proc) {
             std::ofstream out(eData.plotfile + "/gmesh.vtk");
@@ -192,22 +213,22 @@ int main(int argc, char *argv[]) {
 
         //finish clock
 
-            if(eData.last && eData.post_proc) {
-                const clock_t begin_time = clock();
-                if(eData.mode == 1 || eData.mode == 3){
-                    std::ofstream out2(eData.plotfile + "/H1HybridMesh.txt");
-                    cmesh_H1Hybrid->Print(out2);
-                }
-                if(eData.mode == 1 || eData.mode == 2) {
-                    std::ofstream out3(eData.plotfile + "/H1Mesh.txt");
-                    cmeshH1->Print(out3);
-                }
-                if(eData.mode == 1 || eData.mode == 4) {
-                    std::ofstream out4(eData.plotfile + "/MixedMesh.txt");
-                    cmesh_mixed->Print(out4);
-                }
-                std::cout << "printing comp mesh time: " << float( clock () - begin_time )/CLOCKS_PER_SEC <<endl;
+        if(eData.last && eData.post_proc) {
+            const clock_t begin_time = clock();
+            if(eData.mode == 1 || eData.mode == 3){
+                std::ofstream out2(eData.plotfile + "/H1HybridMesh.txt");
+                cmesh_H1Hybrid->Print(out2);
             }
+            if(eData.mode == 1 || eData.mode == 2) {
+                std::ofstream out3(eData.plotfile + "/H1Mesh.txt");
+                cmeshH1->Print(out3);
+            }
+            if(eData.mode == 1 || eData.mode == 4) {
+                std::ofstream out4(eData.plotfile + "/MixedMesh.txt");
+                cmesh_mixed->Print(out4);
+            }
+            std::cout << "printing comp mesh time: " << float( clock () - begin_time )/CLOCKS_PER_SEC <<endl;
+        }
 
         eData.hLog = eData.h;
         eData.exp *=2;
@@ -219,6 +240,194 @@ int main(int argc, char *argv[]) {
     FlushTable(eData,argv);
 
     return 0.;
+}
+
+void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_mixed, REAL permQ1, REAL permQ2,ProblemConfig &config){
+    int matID_Q1 = 2;
+    int matID_Q2 = 3;
+    int dim = config.gmesh->Dimension();
+    int dirichlet = 0;
+
+    cmesh_mixed -> SetDefaultOrder(config.porder);
+    cmesh_mixed -> SetDimModel(dim);
+    cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
+
+    TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
+    mat1->fExact = TLaplaceExample1::EArcTan/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::EArcTan/*EArcTan*/;
+    mat1->fSignConvention = 1;
+    mat2->fSignConvention = 1;
+    TPZFNMatrix<9,REAL> K, invK;
+    K.Resize(3,3); invK.Resize(3,3);
+    K.Identity();invK.Identity();
+    K(0,0) = K(1,1) = permQ1;
+    invK(0,0) = invK(1,1) = 1./permQ1;
+    mat1->setPermeabilyTensor(K,invK);
+    K(0,0) = K(1,1) = permQ2;
+    invK(0,0) = invK(1,1) =  1./permQ2;
+    mat2->setPermeabilyTensor(K,invK);
+
+    TPZMixedPoisson *material_Q1 = new TPZMixedPoisson(matID_Q1,dim); //Using standard PermealityTensor = Identity.
+    TPZMixedPoisson *material_Q2 = new TPZMixedPoisson(matID_Q2,dim);
+    material_Q1->SetForcingFunction(config.exact.operator*().ForcingFunction());
+    material_Q1->SetForcingFunctionExact(config.exact.operator*().Exact());
+    material_Q2->SetForcingFunction(config.exact.operator*().ForcingFunction());
+    material_Q2->SetForcingFunctionExact(config.exact.operator*().Exact());
+
+    material_Q1->SetPermeability(permQ1);
+    material_Q2->SetPermeability(permQ2);
+
+    cmesh_mixed->InsertMaterialObject(material_Q1);
+    cmesh_mixed->InsertMaterialObject(material_Q2);
+
+    //Boundary Conditions
+    TPZFMatrix<STATE> val1(2,2,0.), val2(2,1,0.);
+
+    TPZMaterial *BCond0_Q1 = material_Q1->CreateBC(material_Q1, -5, dirichlet, val1, val2);
+    BCond0_Q1->SetForcingFunction(config.exact.operator*().Exact());
+
+    TPZMaterial *BCond0_Q2 = material_Q2->CreateBC(material_Q2, -6, dirichlet, val1, val2);
+    BCond0_Q2->SetForcingFunction(config.exact.operator*().Exact());
+
+    TPZMaterial *BCond1_Q1 = material_Q1->CreateBC(material_Q1, -8, neumann, val1, val2);
+    TPZMaterial *BCond1_Q2 = material_Q1->CreateBC(material_Q2, -9, neumann, val1, val2);
+
+    cmesh_mixed->InsertMaterialObject(BCond0_Q1);
+    cmesh_mixed->InsertMaterialObject(BCond0_Q2);
+    cmesh_mixed->InsertMaterialObject(BCond1_Q1);
+    cmesh_mixed->InsertMaterialObject(BCond1_Q2);
+}
+
+void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL permQ1, REAL permQ2,ProblemConfig &config){
+
+    TPZGeoMesh* gmesh = cmesh_H1Hybrid->Reference();
+    int matID_Q1 = 2;
+    int matID_Q2 = 3;
+    int dim = gmesh->Dimension();
+    int dirichlet = 0;
+
+    TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
+    mat1->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
+    mat1->fSignConvention = 1;
+    mat2->fSignConvention = 1;
+    TPZFNMatrix<9,REAL> K, invK;
+    K.Resize(3,3); invK.Resize(3,3);
+    K.Identity();invK.Identity();
+    K(0,0) = K(1,1) = permQ1;
+    invK(0,0) = invK(1,1) = 1./permQ1;
+    mat1->setPermeabilyTensor(K,invK);
+    K(0,0) = K(1,1) = permQ2;
+    invK(0,0) = invK(1,1) =  1./permQ2;
+    mat2->setPermeabilyTensor(K,invK);
+
+    TPZMatLaplacianHybrid *material_Q1 = new TPZMatLaplacianHybrid(matID_Q1, dim);
+    TPZMatLaplacianHybrid *material_Q2 = new TPZMatLaplacianHybrid(matID_Q2, dim);
+
+    material_Q1->SetPermeability(permQ1);
+    material_Q2->SetPermeability(permQ2);
+
+    cmesh_H1Hybrid->InsertMaterialObject(material_Q1);
+    cmesh_H1Hybrid->InsertMaterialObject(material_Q2);
+
+    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+
+        //material_Q1->SetForcingFunction(config.exact.operator*().ForcingFunction());
+        //material_Q1->SetForcingFunctionExact(config.exact.operator*().Exact());
+        material_Q1->SetForcingFunction(mat1->ForcingFunction());
+        material_Q1->SetForcingFunctionExact(mat1->Exact());
+
+        //material_Q2->SetForcingFunction(config.exact.operator*().ForcingFunction());
+        //material_Q2->SetForcingFunctionExact(config.exact.operator*().Exact());
+        material_Q2->SetForcingFunction(mat2->ForcingFunction());
+        material_Q2->SetForcingFunctionExact(mat2->Exact());
+    }
+
+    // Inserts boundary conditions
+    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 1.);
+    TPZMaterial *BCond0_Q1 = material_Q1->CreateBC(material_Q1, -5, dirichlet, val1, val2);
+    TPZMaterial *BCond0_Q2 = material_Q2->CreateBC(material_Q2, -6, dirichlet, val1, val2);
+    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+        //BCond0_Q1->SetForcingFunction(config.exact.operator*().Exact());
+        //BCond0_Q2->SetForcingFunction(config.exact.operator*().Exact());
+        BCond0_Q1->SetForcingFunction(mat1->Exact());
+        BCond0_Q2->SetForcingFunction(mat2->Exact());
+    }
+    val2.Zero();
+    TPZMaterial *BCond1_Q1 = material_Q1->CreateBC(material_Q1, -8, neumann, val1, val2);
+    TPZMaterial *BCond1_Q2 = material_Q1->CreateBC(material_Q1, -9, neumann, val1, val2);
+
+    cmesh_H1Hybrid->InsertMaterialObject(BCond0_Q1);
+    cmesh_H1Hybrid->InsertMaterialObject(BCond0_Q2);
+    cmesh_H1Hybrid->InsertMaterialObject(BCond1_Q1);
+    cmesh_H1Hybrid->InsertMaterialObject(BCond1_Q2);
+
+    /*config.materialids.insert(matID_Q1);
+    config.materialids.insert(matID_Q2);
+    config.bcmaterialids.insert(-5);
+    config.bcmaterialids.insert(-6);
+    config.bcmaterialids.insert(-8);
+    config.bcmaterialids.insert(-9);*/
+}
+
+void SetMultiPermeMaterials(TPZGeoMesh* gmesh){
+
+    //TPZGeoMesh* gmesh = cmesh_H1Hybrid->Reference();
+    TPZAdmChunkVector<TPZGeoEl *> &elvec = gmesh->ElementVec();
+    int numEl = elvec.NElements();
+    TPZVec<int64_t> nodeInd;
+    int numberNodes;
+    TPZManVector<REAL,2> elCenterCoord = {0.,0.};
+
+    //Getting center coordinates of the element
+    for(int ind = 0; ind < numEl; ind++) {
+        TPZGeoEl *gel = elvec[ind];
+        gel->GetNodeIndices(nodeInd);
+        numberNodes = gel->NNodes();
+        elCenterCoord[0] = elCenterCoord[1] = 0.;
+        for (int nodeIter = 0; nodeIter < numberNodes; nodeIter++) {
+            TPZGeoNode nodo = gmesh->NodeVec()[nodeInd[nodeIter]];
+            elCenterCoord[0] += nodo.Coord(0);
+            elCenterCoord[1] += nodo.Coord(1);
+        }
+        elCenterCoord[0] /= numberNodes;
+        elCenterCoord[1] /= numberNodes;
+
+        // Changing the permeability
+        //std::cout <<"el: " << ind  << "x_ave: " << elCenterCoord[0] << "y_ave: " << elCenterCoord[1] << std::endl;
+        if((elCenterCoord[0] >=0. && elCenterCoord[1] >= 0.) || (elCenterCoord[0] < 0. && elCenterCoord[1] <= 0.)) { // first/third quadrants
+            if(gel->Dimension() == gmesh->Dimension()) { /*if(gel->MaterialId() == 1)*/ gel->SetMaterialId(2);}
+            else {/*if (gel->MaterialId() < 0 && gel->MaterialId() > -5)*/ gel->SetMaterialId(-5);} // Assumes dirichlet boundary condition
+        }
+        else{
+            if(gel->Dimension() == gmesh->Dimension())  { /*if(gel->MaterialId() == 1)*/ gel->SetMaterialId(3);}
+            else {/*if (gel->MaterialId() < 0 && gel->MaterialId() > -5)*/ gel->SetMaterialId(-6);}// Assumes dirichlet boundary condition
+        }
+    }
+    gmesh->ResetConnectivities();
+    gmesh->BuildConnectivity();
+    //gmesh->Print(std::cout);
+}
+
+TPZGeoMesh* CreateGeoMesh_OriginCentered(int nel, TPZVec<int>& bcids) {
+
+    TPZManVector<int> nx(2, nel);
+    TPZManVector<REAL> x0(3, -1.), x1(3, 1.);
+    x1[2] = x0[2] = 0.;
+    TPZGenGrid2D gen(nx, x0, x1, 1, 0);
+
+    //TPZGenGrid2D gen(nx, x0, x1);
+    gen.SetRefpatternElements(true);
+    TPZGeoMesh* gmesh = new TPZGeoMesh;
+    gen.Read(gmesh);
+    gen.SetBC(gmesh, 4, bcids[0]);
+    gen.SetBC(gmesh, 5, bcids[1]);
+    gen.SetBC(gmesh, 6, bcids[2]);
+    gen.SetBC(gmesh, 7, bcids[3]);
+
+    gmesh->SetDimension(2);
+
+    return gmesh;
 }
 
 void FlushTime(ErrorData &eData, clock_t start){
@@ -241,7 +450,7 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     BuildPotentialMesh(cmesh_p, config);
 
     //Multiphysics mesh build
-    InsertMaterialMixed(cmesh_Mixed, config);
+    InsertMaterialMixed(cmesh_Mixed, config,eData);
     TPZManVector<int> active(2, 1);
     TPZManVector<TPZCompMesh *, 2> meshvector(2);
     meshvector[0] = cmesh_flux;
@@ -257,9 +466,10 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
 }
 
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID , ErrorData &eData, ProblemConfig &config){
-    TPZCreateMultiphysicsSpace createspace(config.gmesh);
+    //SetMultiPermeHybridH1(cmesh_H1Hybrid);
+    TPZCreateMultiphysicsSpace createspace(config.gmesh,TPZCreateMultiphysicsSpace::EH1Hybrid);
 
-    createspace.SetMaterialIds({1}, {-2,-1});
+    createspace.SetMaterialIds({1,2,3}, {-6,-5,-2,-1});
     createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
 
@@ -268,11 +478,11 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     int lagrangeOrder = config.porder - config.H1Hybridminus;
     createspace.CreateAtomicMeshes(meshvec,config.porder,lagrangeOrder);
 
-    InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
+    InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config,eData);
     createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
     cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
-
     createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
+
     createspace.AddInterfaceElements(cmesh_H1Hybrid);
     createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
@@ -280,6 +490,7 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     cmesh_H1Hybrid->ComputeNodElCon();
 
     interFaceMatID = createspace.fH1Hybrid.fLagrangeMatid.first;
+
 }
 
 void InitializeOutstream(ErrorData &eData, char *argv[]){
@@ -333,24 +544,24 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
     }
     else{
         switch(eData.mode) {
-        case 2:
-            out << "Quad_" << config.problemname << "___porder_"
-                << config.porder;
-            eData.plotfile = out.str();
-            break;
-        case 3:
-            out << "Quad_" << config.problemname << "___porder_"
-                << config.porder << "___H1Hybridminus_" << config.H1Hybridminus;
-            eData.plotfile = out.str();
-            break;
-        case 4:
-            out << "Quad_" << config.problemname << "___porder_"
-                << config.porder << "___hdivmais_" << config.hdivmais;
-            eData.plotfile = out.str();
-            break;
-        default:
-            std::cout << "Invalid mode number";
-            break;
+            case 2:
+                out << "Quad_" << config.problemname << "___porder_"
+                    << config.porder;
+                eData.plotfile = out.str();
+                break;
+            case 3:
+                out << "Quad_" << config.problemname << "___porder_"
+                    << config.porder << "___H1Hybridminus_" << config.H1Hybridminus;
+                eData.plotfile = out.str();
+                break;
+            case 4:
+                out << "Quad_" << config.problemname << "___porder_"
+                    << config.porder << "___hdivmais_" << config.hdivmais;
+                eData.plotfile = out.str();
+                break;
+            default:
+                std::cout << "Invalid mode number";
+                break;
         }
     }
 
@@ -394,9 +605,43 @@ void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config){
     TPZMaterial *BCond1 = material->CreateBC(material,-2,neumann,val1,val2);
     cmesh_flux->InsertMaterialObject(BCond1);
 
+    //This part is for multi-K problemas
+    BuildFluxMesh_MultiK(cmesh_flux,config);
+
     cmesh_flux->AutoBuild();
     cmesh_flux->InitializeBlock();
 }
+
+void BuildFluxMesh_MultiK(TPZCompMesh *cmesh_flux, ProblemConfig &config) {
+
+    int dim = config.gmesh->Dimension();
+    int matID_Q1 = 2;
+    int matID_Q2 = 3;
+    int dirichlet = 0;
+    int neumann = 1;
+
+    TPZNullMaterial *material_Q1 = new TPZNullMaterial(matID_Q1);
+    TPZNullMaterial *material_Q2 = new TPZNullMaterial(matID_Q2);
+    material_Q1->SetDimension(dim);
+    material_Q2->SetDimension(dim);
+    cmesh_flux->InsertMaterialObject(material_Q1);
+    cmesh_flux->InsertMaterialObject(material_Q2);
+
+    //(EE)Create Boundary conditions
+    TPZFMatrix<STATE> val1(2, 2, 0.), val2(2, 1, 0.);
+
+    //(PROPRIETARY)
+    TPZMaterial *BCond0_Q1 = material_Q1->CreateBC(material_Q1, -5, dirichlet, val1, val2);
+    TPZMaterial *BCond0_Q2 = material_Q1->CreateBC(material_Q2, -6, dirichlet, val1, val2);
+    cmesh_flux->InsertMaterialObject(BCond0_Q1);
+    cmesh_flux->InsertMaterialObject(BCond0_Q2);
+
+    TPZMaterial *BCond1_Q1 = material_Q1->CreateBC(material_Q1, -8, neumann, val1, val2);
+    TPZMaterial *BCond1_Q2 = material_Q2->CreateBC(material_Q2, -9, neumann, val1, val2);
+    cmesh_flux->InsertMaterialObject(BCond1_Q1);
+    cmesh_flux->InsertMaterialObject(BCond1_Q2);
+}
+
 
 void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
     int matID = 1;
@@ -404,8 +649,6 @@ void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
 
     int potential_order = config.porder - config.hdivmais;
     cmesh_p->SetDefaultOrder(potential_order);
-    //cmesh_p->SetDefaultOrder(config.porder);
-    //cmesh_p->SetDefaultOrder(config.porder + config.hdivmais);
     cmesh_p->SetDimModel(dim);
 
     cmesh_p->SetAllCreateFunctionsContinuous(); //H1 functions
@@ -413,6 +656,8 @@ void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
 
     TPZNullMaterial *material = new TPZNullMaterial(matID); material->SetDimension(dim);
     cmesh_p->InsertMaterialObject(material);
+
+    BuildPotentialMesh_MultiK(cmesh_p, config);
 
     cmesh_p->AutoBuild();
     cmesh_p->ExpandSolution();
@@ -423,35 +668,53 @@ void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
     }
 }
 
-void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config){
+void BuildPotentialMesh_MultiK(TPZCompMesh *cmesh_p, ProblemConfig &config){
+    int matID_Q1 = 2;
+    int matID_Q2 = 3;
+    int dim = config.gmesh->Dimension();
+
+    TPZNullMaterial *material_Q1 = new TPZNullMaterial(matID_Q1); material_Q1->SetDimension(dim);
+    cmesh_p->InsertMaterialObject(material_Q1);
+
+    TPZNullMaterial *material_Q2 = new TPZNullMaterial(matID_Q2); material_Q2->SetDimension(dim);
+    cmesh_p->InsertMaterialObject(material_Q2);
+}
+
+void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config, ErrorData &eData){
 
     int dim = config.gmesh->Dimension();
     int matID = 1;
     int dirichlet = 0;
     int neumann = 1;
 
-    cmesh_mixed -> SetDefaultOrder(config.porder);
-    cmesh_mixed -> SetDimModel(dim);
-    cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
+    if(!eData.isMultiK) {
+        cmesh_mixed->SetDefaultOrder(config.porder);
+        cmesh_mixed->SetDimModel(dim);
+        cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
 
-    TPZMixedPoisson *material = new TPZMixedPoisson(matID,dim); //Using standard PermealityTensor = Identity.
-    material->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    material->SetForcingFunctionExact(config.exact.operator*().Exact());
-    cmesh_mixed->InsertMaterialObject(material);
+        TPZMixedPoisson *material = new TPZMixedPoisson(matID, dim); //Using standard PermealityTensor = Identity.
+        material->SetForcingFunction(config.exact.operator*().ForcingFunction());
+        material->SetForcingFunctionExact(config.exact.operator*().Exact());
+        cmesh_mixed->InsertMaterialObject(material);
 
-    //Boundary Conditions
-    TPZFMatrix<STATE> val1(2,2,0.), val2(2,1,0.);
+        //Boundary Conditions
+        TPZFMatrix<STATE> val1(2, 2, 0.), val2(2, 1, 0.);
 
-    TPZMaterial *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
-    BCond0->SetForcingFunction(config.exact.operator*().Exact());
+        TPZMaterial *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
+        BCond0->SetForcingFunction(config.exact.operator*().Exact());
 
-    TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+        TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
-    cmesh_mixed->InsertMaterialObject(BCond0);
-    cmesh_mixed->InsertMaterialObject(BCond1);
+        cmesh_mixed->InsertMaterialObject(BCond0);
+        cmesh_mixed->InsertMaterialObject(BCond1);
+    }
+
+    else {
+        CreateMaterialMultiK_Mixed(cmesh_mixed, eData.perm_Q1, eData.perm_Q2, config);
+    }
 }
 
-void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig &config)
+void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig &config, ErrorData &eData)
 {
     TPZGeoMesh *gmesh = cmesh_H1Hybrid->Reference();
     int dim = gmesh->Dimension();
@@ -460,29 +723,36 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
     int neumann = 1;
 
     // Creates Poisson material
-    TPZMatLaplacianHybrid *material = new TPZMatLaplacianHybrid(matID, dim);
+    if(!eData.isMultiK) {
+        TPZMatLaplacianHybrid *material = new TPZMatLaplacianHybrid(matID, dim);
 
-    cmesh_H1Hybrid->InsertMaterialObject(material);
-    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-        material->SetForcingFunction(
-            config.exact.operator*().ForcingFunction());
-        material->SetForcingFunctionExact(config.exact.operator*().Exact());
+        material->SetPermeability(1.);
+
+        cmesh_H1Hybrid->InsertMaterialObject(material);
+        if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+            material->SetForcingFunction(
+                    config.exact.operator*().ForcingFunction());
+            material->SetForcingFunctionExact(config.exact.operator*().Exact());
+        }
+        //    TPZMaterial * mat(material);
+        //    cmesh->InsertMaterialObject(mat);
+
+        // Inserts boundary conditions
+        TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 1.);
+        TPZMaterial *BCond0 =
+                material->CreateBC(material, -1, dirichlet, val1, val2);
+        if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+            BCond0->SetForcingFunction(config.exact.operator*().Exact());
+        }
+        val2.Zero();
+        TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+
+        cmesh_H1Hybrid->InsertMaterialObject(BCond0);
+        cmesh_H1Hybrid->InsertMaterialObject(BCond1);
     }
-    //    TPZMaterial * mat(material);
-    //    cmesh->InsertMaterialObject(mat);
-
-    // Inserts boundary conditions
-    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 1.);
-    TPZMaterial *BCond0 =
-        material->CreateBC(material, -1, dirichlet, val1, val2);
-    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-        BCond0->SetForcingFunction(config.exact.operator*().Exact());
+    else {
+        CreateMaterialMultiK_Hybrid(cmesh_H1Hybrid, eData.perm_Q1, eData.perm_Q2, config);
     }
-    val2.Zero();
-    TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
-
-    cmesh_H1Hybrid->InsertMaterialObject(BCond0);
-    cmesh_H1Hybrid->InsertMaterialObject(BCond1);
 }
 
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData){
@@ -495,7 +765,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(cmeshH1);
-    strmat.SetNumThreads(0);
+    strmat.SetNumThreads(8);
     //        strmat.SetDecomposeType(ELDLt);
 #else
     TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
@@ -599,7 +869,6 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     TPZStepSolver<STATE> step;
     step.SetDirect(ELDLt);
     an.SetSolver(step);
-
     an.Run();*/
 
     int64_t nelem = cmesh_H1Hybrid->NElements();
@@ -624,7 +893,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
         vecnames.Push("Flux");
-//        vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
+        //vecnames.Push(/*"ExactFlux"*/"ExactFluxShiftedOrigin");
 
         int dim = 2;
         std::string plotname;
@@ -647,9 +916,38 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     bool optBW = true;
 
     std::cout << "Solving Mixed " << std::endl;
-
     TPZAnalysis an(cmesh_Mixed, optBW); //Cria objeto de análise que gerenciará a analise do problema
-    TPZSkylineStructMatrix matskl(cmesh_Mixed); //caso simetrico ***
+
+    //MKL solver
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(cmesh_Mixed);
+    strmat.SetNumThreads(8);
+    //        strmat.SetDecomposeType(ELDLt);
+#else
+    //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
+        //    strmat.SetNumThreads(2);
+        //    strmat.SetDecomposeType(ELDLt);
+        TPZSkylineStructMatrix strmat(cmesh_H1Hybrid);
+        strmat.SetNumThreads(0);
+#endif
+    //std::set<int> matIds;
+    //for (auto matid : config.materialids) matIds.insert(matid);
+    //for (auto matidbc : config.bcmaterialids) matIds.insert(matidbc);
+
+    //matIds.insert(InterfaceMatId);
+    //strmat.SetMaterialIds(matIds);
+    an.SetStructuralMatrix(strmat);
+
+    TPZStepSolver<STATE>* direct = new TPZStepSolver<STATE>;
+    direct->SetDirect(ELDLt);
+    an.SetSolver(*direct);
+    delete direct;
+    direct = 0;
+    an.Assemble();
+    an.Solve();
+
+    //Previous solver
+    /*TPZSkylineStructMatrix matskl(cmesh_Mixed); //caso simetrico ***
     int numthreads = 0;
     matskl.SetNumThreads(numthreads);
     an.SetStructuralMatrix(matskl);
@@ -657,7 +955,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     step.SetDirect(ELDLt);
     an.SetSolver(step);
     an.Assemble();//Assembla a matriz de rigidez (e o vetor de carga) global
-    an.Solve();
+    an.Solve();*/
 
     ////Calculo do erro
     std::cout << "Computing Error MIXED " << std::endl;
@@ -743,24 +1041,24 @@ void FlushTable(ErrorData &eData, char *argv[]){
         table << "domain" << "," << "[0 1]x[0 1]" << "\n";
         table << "Case" << "," << config.problemname << "\n";
         switch(eData.mode) {
-        case 2:
-            table << "Approximation" << "," << "H1" << "\n";
-            table << "Internal order"  << "," << config.porder << "\n";
-            table << "---" << "," << "---" <<  "\n\n";
-            table << "Norm" << "," << "H1" << "\n";
-            break;
-        case 3:
-            table << "Approximation" << "," << "HybridH1" << "\n";
-            table << "Internal order"  << "," << config.porder << "\n";
-            table << "External flux" << "," << config.porder - config.H1Hybridminus <<  "\n\n";
-            table << "Norm" << "," << "HybridH1" << "\n";
-            break;
-        case 4:
-            table << "Approximation" << "," << "Mixed" << "\n";
-            table << "Internal order" << "," << config.porder << "\n";
-            table << "External flux" << "," << config.porder - config.hdivmais <<  "\n\n";
-            table << "Norm" << "," << "Mixed" << "\n";
-            break;
+            case 2:
+                table << "Approximation" << "," << "H1" << "\n";
+                table << "Internal order"  << "," << config.porder << "\n";
+                table << "---" << "," << "---" <<  "\n\n";
+                table << "Norm" << "," << "H1" << "\n";
+                break;
+            case 3:
+                table << "Approximation" << "," << "HybridH1" << "\n";
+                table << "Internal order"  << "," << config.porder << "\n";
+                table << "External flux" << "," << config.porder - config.H1Hybridminus <<  "\n\n";
+                table << "Norm" << "," << "HybridH1" << "\n";
+                break;
+            case 4:
+                table << "Approximation" << "," << "Mixed" << "\n";
+                table << "Internal order" << "," << config.porder << "\n";
+                table << "External flux" << "," << config.porder - config.hdivmais <<  "\n\n";
+                table << "Norm" << "," << "Mixed" << "\n";
+                break;
         }
 
         FillErrors(table, file, eData.mode);
@@ -781,8 +1079,8 @@ void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh, ofstream &Erro, TPZVec<RE
     if ((*Log)[0] != -1) {
         for (int j = 0; j < 3; j++) {
             (*eData.rate)[j] =
-                (log10(Errors[j]) - log10((*Log)[j])) /
-                (log10(eData.h) - log10(eData.hLog));
+                    (log10(Errors[j]) - log10((*Log)[j])) /
+                    (log10(eData.h) - log10(eData.hLog));
             Erro << "rate " << j << ": " << (*eData.rate)[j] << std::endl;
         }
     }
@@ -805,8 +1103,8 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
     if ((*Log)[0] != -1) {
         for (int j = 0; j < 3; j++) {
             (*eData.rate)[j] =
-                (log10(Errors[j]) - log10((*Log)[j])) /
-                (log10(eData.h) - log10(eData.hLog));
+                    (log10(Errors[j]) - log10((*Log)[j])) /
+                    (log10(eData.h) - log10(eData.hLog));
             Erro << "rate " << j << ": " << (*eData.rate)[j] << std::endl;
         }
     }
@@ -839,33 +1137,33 @@ void InvertError(string file){
         if (Line.find("#") != string::npos) hash_count = 0;
 
         switch (hash_count) {
-        case (1):
-            sErro = Line;
-            temp << Line << endl;
-            continue;
-        case (2):
-            temp << sErro << endl;
-            erro.push_back(Line);
-            break;
-        case (4):
-            if (it_count == 5)
+            case (1):
+                sErro = Line;
                 temp << Line << endl;
-            else{
-                sRate = Line;
-                temp << Line << endl;
+                continue;
+            case (2):
+                temp << sErro << endl;
+                erro.push_back(Line);
+                break;
+            case (4):
+                if (it_count == 5)
+                    temp << Line << endl;
+                else{
+                    sRate = Line;
+                    temp << Line << endl;
                 }
-            break;
-        case (5):
-            if (it_count == 6)
+                break;
+            case (5):
+                if (it_count == 6)
+                    temp << Line << endl;
+                else {
+                    temp << sRate << endl;
+                    rate.push_back(Line);
+                }
+                break;
+            default:
                 temp << Line << endl;
-            else {
-                temp << sRate << endl;
-                rate.push_back(Line);
-            }
-            break;
-        default:
-            temp << Line << endl;
-            break;
+                break;
         }
     }
     temp.close();
@@ -887,21 +1185,21 @@ void InvertError(string file){
         if (Line.find("#") != string::npos) hash_count = 0;
 
         switch (hash_count) {
-        case (1):
-            Erro << erro[erro_counter] << endl;
-            erro_counter++;
-            break;
-        case (4):
-            if (it_count == 5)
+            case (1):
+                Erro << erro[erro_counter] << endl;
+                erro_counter++;
+                break;
+            case (4):
+                if (it_count == 5)
+                    Erro << Line << endl;
+                else{
+                    Erro << rate[rate_counter] << endl;
+                    rate_counter++;
+                }
+                break;
+            default:
                 Erro << Line << endl;
-            else{
-                Erro << rate[rate_counter] << endl;
-                rate_counter++;
-            }
-            break;
-        default:
-            Erro << Line << endl;
-            continue;
+                continue;
         }
     }
     itemp.close();
@@ -957,41 +1255,41 @@ void FillErrors(ofstream &table,string f1,string f2,string f3){
 
 void FillLegend(ofstream &table,int hash_count,int it_count){
     switch (hash_count) {
-    case (0):
-        table << "\n";
-        break;
-    case (1):
-        table << "semiH1-error" << ",";
-        break;
-    case (2):
-        table << "L2-error" << ",";
-        break;
-    case (3):
-        table << "3rd-error" << ",";
-        break;
-    case (4):
-        if (it_count == 5)
+        case (0):
+            table << "\n";
+            break;
+        case (1):
+            table << "semiH1-error" << ",";
+            break;
+        case (2):
+            table << "L2-error" << ",";
+            break;
+        case (3):
+            table << "3rd-error" << ",";
+            break;
+        case (4):
+            if (it_count == 5)
+                table << "h" << ",";
+            else
+                table << "semiH1-rate" << ",";
+            break;
+        case (5):
+            if (it_count == 6)
+                table << "DOF" << ",";
+            else
+                table << "L2-rate" << ",";
+            break;
+        case (6):
+            table << "3rd-rate" << ",";
+            break;
+        case (7):
             table << "h" << ",";
-        else
-            table << "semiH1-rate" << ",";
-        break;
-    case (5):
-        if (it_count == 6)
+            break;
+        case (8):
             table << "DOF" << ",";
-        else
-            table << "L2-rate" << ",";
-        break;
-    case (6):
-        table << "3rd-rate" << ",";
-        break;
-    case (7):
-        table << "h" << ",";
-        break;
-    case (8):
-        table << "DOF" << ",";
-        break;
-    default:
-        break;
+            break;
+        default:
+            break;
     }
 }
 
