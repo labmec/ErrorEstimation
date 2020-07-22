@@ -65,7 +65,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed";
+    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -83,13 +83,14 @@ void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL p
 void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL permQ1, REAL permQ2,ProblemConfig &config);
 TPZGeoMesh* CreateGeoMesh_OriginCentered(int nel, TPZVec<int>& bcids);
 ////Computational mesh and FEM solvers
-void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId,ErrorData &eData, ProblemConfig &config);
+void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId,ErrorData &eData, ProblemConfig &config,int hybridLevel);
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorData &eData, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData);
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig config, struct ErrorData &eData);
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig config, struct ErrorData &eData,int hybridLevel);
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct ErrorData &eData);
 void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, ErrorData &eData);
 void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, ErrorData &eData);
+void nElementsPerMaterial(TPZMultiphysicsCompMesh *cmesh);
 ////Output setup
 void FlushTable(ErrorData &eData,char *argv[]);
 void CleanErrors(string file);
@@ -197,17 +198,38 @@ int main(int argc, char *argv[]) {
         //HybridH1
         TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(config.gmesh);
         if(eData.mode == 1 || eData.mode == 3){
+            clock_t start = clock();
             int interfaceMatID = -10;
-            CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config);
-            SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData);
+            int hybridLevel = 1;
+            CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
+            SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
             FlushTime(eData,start);
+            //Debugging -- Delete me
+            cmesh_H1Hybrid ->ShortPrint(std::cout);
+            std::cout << cmesh_H1Hybrid ->NEquations();
+            nElementsPerMaterial(cmesh_H1Hybrid);
         }
 
         //Mixed
         TPZMultiphysicsCompMesh *cmesh_mixed = new TPZMultiphysicsCompMesh(config.gmesh);
         if(eData.mode == 1 || eData.mode == 4) {
+            clock_t start = clock();
             CreateMixedComputationalMesh(cmesh_mixed, eData, config);
             SolveMixedProblem(cmesh_mixed, config, eData);
+            FlushTime(eData,start);
+        }
+
+        //HybridSquared
+        TPZMultiphysicsCompMesh *cmesh_HybridSquared = new TPZMultiphysicsCompMesh(config.gmesh);
+        if(eData.mode == 1 || eData.mode == 5){
+            clock_t start = clock();
+            int interfaceMatID = -10;
+            int hybridLevel = 2;
+            CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
+            cmesh_HybridSquared->ShortPrint(std::cout); nElementsPerMaterial(cmesh_H1Hybrid);
+            SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
+            cmesh_HybridSquared->ShortPrint(std::cout);
+            std::cout << cmesh_HybridSquared->NEquations();
             FlushTime(eData,start);
         }
 
@@ -240,6 +262,25 @@ int main(int argc, char *argv[]) {
     FlushTable(eData,argv);
 
     return 0.;
+}
+
+void nElementsPerMaterial(TPZMultiphysicsCompMesh *cmesh){
+    cmesh->LoadReferences();
+    std::map<int,int> matelem;
+    int64_t nel = cmesh->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = cmesh->Element(el);
+        TPZGeoEl *gel = cel->Reference();
+//                TPZManVector<REAL,3> center(3);
+//                TPZGeoElSide gelside(gel);
+//                gelside.CenterX(center);
+//                std::cout << "Matid " << gel->MaterialId() << " center " << center << std::endl;
+        matelem[gel->MaterialId()]++;
+    }
+    std::cout << __PRETTY_FUNCTION__ << " number of computational elements by material \n";
+    for (auto it : matelem) {
+        std::cout << "Material id " << it.first << " number of elements " << it.second << std::endl;
+    }
 }
 
 void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_mixed, REAL permQ1, REAL permQ2,ProblemConfig &config){
@@ -465,9 +506,18 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     cmesh_Mixed->InitializeBlock();
 }
 
-void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID , ErrorData &eData, ProblemConfig &config){
-    //SetMultiPermeHybridH1(cmesh_H1Hybrid);
-    TPZCreateMultiphysicsSpace createspace(config.gmesh,TPZCreateMultiphysicsSpace::EH1Hybrid);
+void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID , ErrorData &eData, ProblemConfig &config,int hybridLevel){
+    auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
+    if(hybridLevel == 2) {
+        spaceType = TPZCreateMultiphysicsSpace::EH1HybridSquared;
+    }
+    else if(hybridLevel != 1) {
+        DebugStop();
+    }
+
+    TPZCreateMultiphysicsSpace createspace(config.gmesh, spaceType);
+    //TPZCreateMultiphysicsSpace createspace(config.gmesh);
+    std::cout << cmesh_H1Hybrid->NEquations();
 
     createspace.SetMaterialIds({1,2,3}, {-6,-5,-2,-1});
     createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
@@ -557,6 +607,11 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
             case 4:
                 out << "Quad_" << config.problemname << "___porder_"
                     << config.porder << "___hdivmais_" << config.hdivmais;
+                eData.plotfile = out.str();
+                break;
+            case 5:
+                out << "Quad_" << config.problemname << "___porder_"
+                    << config.porder << "___HybridSquaredminus_" << config.H1Hybridminus;
                 eData.plotfile = out.str();
                 break;
             default:
@@ -828,7 +883,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 
     std::cout << "FINISHED!" << std::endl;
 }
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig config,struct ErrorData &eData){
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig config,struct ErrorData &eData,int hybridLevel){
 
     config.exact.operator*().fSignConvention = 1;
 
@@ -897,10 +952,13 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
         int dim = 2;
         std::string plotname;
+        std::string hybridType;
+        if(hybridLevel == 1) hybridType = "_HybridH1_k-";
+        else hybridType = "_HybridSquared_k-";
         {
             std::stringstream out;
             out << eData.plotfile /* << config.dir_name*/ << "/"
-                << config.problemname << "_HybridH1_k-" << config.porder-config.H1Hybridminus
+                << config.problemname << hybridType << config.porder-config.H1Hybridminus
                 << "_Mais-" << config.H1Hybridminus << "_ref_" << 1/eData.h << " x " << 1/eData.h <<".vtk";
             plotname = out.str();
         }
@@ -1034,7 +1092,7 @@ void FlushTable(ErrorData &eData, char *argv[]){
         string file = "Erro.txt";
         CleanErrors(file);
 
-        if(eData.mode == 3 || eData.mode == 4) InvertError(file);
+        if(eData.mode == 3 || eData.mode == 4 || eData.mode == 5) InvertError(file);
 
         table << "Geometry" << "," << "Quadrilateral" << "\n";
         table << "Refinement" << "," << "Uniform" << "\n";
@@ -1058,6 +1116,12 @@ void FlushTable(ErrorData &eData, char *argv[]){
                 table << "Internal order" << "," << config.porder << "\n";
                 table << "External flux" << "," << config.porder - config.hdivmais <<  "\n\n";
                 table << "Norm" << "," << "Mixed" << "\n";
+                break;
+            case 5:
+                table << "Approximation" << "," << "HybridSquared" << "\n";
+                table << "Internal order"  << "," << config.porder << "\n";
+                table << "External flux" << "," << config.porder - config.H1Hybridminus <<  "\n\n";
+                table << "Norm" << "," << "HybridSquared" << "\n";
                 break;
         }
 
