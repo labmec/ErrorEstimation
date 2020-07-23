@@ -35,8 +35,8 @@ int main() {
 
     //RunCosCosProblem();
     //RunOscillatoryProblem();
-    //Run3DProblem();
-    RunSingularProblem();
+    Run3DProblem();
+    //RunSingularProblem();
 
     return 0;
 }
@@ -129,8 +129,8 @@ void Run3DProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 2;
-    int nInternalRef = 2;
+    int nCoarseDiv = 1;
+    int nInternalRef = 1;
 
     TPZStack<int64_t> mhmIndexes;
     config.gmesh = CreateCubeGeoMesh(nCoarseDiv, nInternalRef, mhmIndexes);
@@ -145,11 +145,11 @@ void Run3DProblem() {
     }
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-    bool definePartitionByCoarseIndexes = false;
+    bool definePartitionByCoarseIndexes = true;
     SubstructureCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, mhmIndexes);
 
     SolveMHMProblem(mhm, config);
-//    EstimateError(config, mhm);
+    EstimateError(config, mhm);
 }
 
 void RunSingularProblem() {
@@ -309,40 +309,6 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
         std::cout << mhmIndexes[i] << '\n';
     }
     std::cout << '\n';
-
-
-
-#ifdef PLAN_B
-    UniformRefinement(nCoarseRef + nInternalRef, gmesh);
-    DivideLowerDimensionalElements(gmesh);
-
-    int64_t nElemInEachMHM = pow(4, nInternalRef);
-
-    nElem = gmesh->NElements();
-    mhmIndexes.Resize(nElem, -1);
-    for (int64_t i = 0; i < nElem; i++) {
-        std::cout << mhmIndexes[i] << '\n';
-    }
-    std::cout << '\n';
-
-    for (int64_t i = 0; i < nElem; i++) {
-        TPZGeoEl *gel = gmesh->Element(i);
-        if (gel->Dimension() != gmesh->Dimension() || gel->NSubElements() > 0) continue;
-
-        // At this point i is the index of the first micro element
-        for (int64_t j = i; j < nElem; j++) {
-            gel = gmesh->Element(j);
-            if (gel->Dimension() != gmesh->Dimension()) break;
-            mhmIndexes[j] = (j - i) / nElemInEachMHM;
-        }
-        break;
-    }
-
-    for (int64_t i = 0; i < nElem; i++) {
-        std::cout << mhmIndexes[i] << '\n';
-    }
-    std::cout << '\n';
-#endif
 
     return gmesh;
 }
