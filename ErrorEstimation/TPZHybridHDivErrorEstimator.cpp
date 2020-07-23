@@ -2019,7 +2019,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         {
             std::ofstream out("MultiphysicsAfterTransfer.txt");
             fPostProcMesh.Print(out);
-            PlotState("MultiphysicsAfterTransfer2D.vtk", 2, &fPostProcMesh);
+            PlotState("MultiphysicsAfterTransfer2D.vtk", fPostProcMesh.Dimension(), &fPostProcMesh);
         }
         
         

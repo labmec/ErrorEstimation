@@ -476,6 +476,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
     // creating discontinuous skeleton on H1 mesh
 
     TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    skeletonMat->SetDimension(dim - 1);
     pressure->InsertMaterialObject(skeletonMat);
     
     set<int> matIdskeleton;
@@ -866,7 +867,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
 //        pressuremesh->Print(out);
 //    }
 
-    PlotState("PressureBeforeCopyskeleton.vtk", 2, &fPostProcMesh);
+    PlotState("PressureBeforeCopyskeleton.vtk", pressuremesh->Dimension(), &fPostProcMesh);
 
     pressuremesh->Reference()->ResetReference();
 
