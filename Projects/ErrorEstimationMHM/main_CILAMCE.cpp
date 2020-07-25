@@ -14,6 +14,7 @@
 
 void RunCosCosProblem();
 void RunOscillatoryProblem();
+void RunNonConvexProblem();
 void Run3DProblem();
 void RunSingularProblem();
 
@@ -22,8 +23,9 @@ TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes);
 
 void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
-void SubstructureCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
-                          bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes);
+void InsertUNISIMMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
+void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
+                       bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes);
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 
@@ -35,7 +37,8 @@ int main() {
 
     //RunCosCosProblem();
     //RunOscillatoryProblem();
-    Run3DProblem();
+    RunNonConvexProblem();
+    //Run3DProblem();
     //RunSingularProblem();
 
     return 0;
@@ -72,7 +75,7 @@ void RunCosCosProblem() {
     TPZManVector<int64_t> coarseIndexes;
     ComputeCoarseIndices(config.gmesh, coarseIndexes);
     bool definePartitionByCoarseIndexes = true;
-    SubstructureCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
@@ -109,7 +112,44 @@ void RunOscillatoryProblem() {
     TPZManVector<int64_t> coarseIndexes;
     ComputeCoarseIndices(config.gmesh, coarseIndexes);
     bool definePartitionByCoarseIndexes = true;
-    SubstructureCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+
+    SolveMHMProblem(mhm, config);
+    EstimateError(config, mhm);
+}
+
+void RunNonConvexProblem() {
+    ProblemConfig config;
+    config.dimension = 2;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.problemname = "NonConvex";
+    config.dir_name = "CILAMCE";
+    config.porder = 1;
+    config.hdivmais = 1;
+    config.ndivisions = 0;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+
+    int nDiv = 1;
+    int nInternalRef = 0;
+
+    TPZVec<int64_t> coarseIndexes;
+    config.gmesh = CreateLMHMMesh(nDiv, coarseIndexes);
+
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    bool definePartitionByCoarseIndexes = false;
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
@@ -129,7 +169,7 @@ void Run3DProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 1;
+    int nCoarseDiv = 3;
     int nInternalRef = 1;
 
     TPZStack<int64_t> mhmIndexes;
@@ -146,7 +186,7 @@ void Run3DProblem() {
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
     bool definePartitionByCoarseIndexes = true;
-    SubstructureCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, mhmIndexes);
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, mhmIndexes);
 
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
@@ -177,7 +217,7 @@ void RunSingularProblem() {
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
     bool definePartitionByCoarseIndexes = true;
-    SubstructureCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, mhmIndexes);
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, mhmIndexes);
 
     {
         std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
@@ -313,8 +353,8 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
     return gmesh;
 }
 
-void SubstructureCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
-                          bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes) {
+void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
+                       bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes) {
 
     if (definePartitionByCoarseIndex) {
         mhm->DefinePartitionbyCoarseIndices(mhmIndexes);
@@ -335,10 +375,8 @@ void SubstructureCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &confi
     mhm->SetHdivmaismaisPOrder(config.hdivmais);
 
     // Refine skeleton elements
-    if (definePartitionByCoarseIndex) {
-        mhm->DivideSkeletonElements(nInternalRef);
-        mhm->DivideBoundarySkeletonElements();
-    }
+    mhm->DivideSkeletonElements(nInternalRef);
+    mhm->DivideBoundarySkeletonElements();
 
     // Creates MHM mesh
     bool substructure = true;
@@ -459,4 +497,32 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
         cmesh.InsertMaterialObject(bc);
     }
+}
+
+void InsertUNISIMMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config) {
+    TPZCompMesh &cmesh = control.CMesh();
+
+    int dim = control.GMesh()->Dimension();
+    cmesh.SetDimModel(dim);
+
+    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+
+    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
+    K.Identity();
+    invK.Identity();
+
+    mat->SetPermeabilityTensor(K, invK);
+
+    cmesh.InsertMaterialObject(mat);
+
+    int bctype = 0;
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+
+    val1(0, 0) = 10;
+    TPZBndCond *bc = mat->CreateBC(mat, -1, bctype, val1, val2);
+    cmesh.InsertMaterialObject(bc);
+
+    val1(0, 0) = -20;
+    bc = mat->CreateBC(mat, -2, bctype, val1, val2);
+    cmesh.InsertMaterialObject(bc);
 }
