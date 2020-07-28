@@ -23,7 +23,6 @@ TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes);
 
 void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
-void InsertUNISIMMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
                        bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes);
 
@@ -497,32 +496,4 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
         cmesh.InsertMaterialObject(bc);
     }
-}
-
-void InsertUNISIMMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config) {
-    TPZCompMesh &cmesh = control.CMesh();
-
-    int dim = control.GMesh()->Dimension();
-    cmesh.SetDimModel(dim);
-
-    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
-
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    invK.Identity();
-
-    mat->SetPermeabilityTensor(K, invK);
-
-    cmesh.InsertMaterialObject(mat);
-
-    int bctype = 0;
-    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
-
-    val1(0, 0) = 10;
-    TPZBndCond *bc = mat->CreateBC(mat, -1, bctype, val1, val2);
-    cmesh.InsertMaterialObject(bc);
-
-    val1(0, 0) = -20;
-    bc = mat->CreateBC(mat, -2, bctype, val1, val2);
-    cmesh.InsertMaterialObject(bc);
 }
