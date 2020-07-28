@@ -1731,6 +1731,7 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subc
                 oscillatorytherm = subcmesh->ElementSolution()(el, i + 2);
                 oscillatorytherm *= (hk / M_PI);
             }
+            oscillatorytherm = 0;
 
             if (abs(ErrorEstimate) < tol) {
                 subcmesh->ElementSolution()(el, ncols + i / 2) = 1.;
@@ -1768,7 +1769,6 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     //    REAL oscilatorytherm = 0;
     int dim = cmesh->Dimension();
     cmesh->ElementSolution().Resize(nrows, ncols+2);
-    REAL oscilatorytherm = 0;
 
     for (int64_t el = 0; el < nrows; el++) {
         
@@ -1860,22 +1860,20 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             TPZGeoEl *gel = cel->Reference();
             
             REAL hk = gel->CharacteristicSize();
-            
-            if(i==2){
+
+            REAL oscilatorytherm = 0;
+            if (i == 2) {
                 oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
-                oscilatorytherm *= (hk/M_PI);
+                oscilatorytherm *= (hk / M_PI);
             }
-            
-            
+
             if (abs(ErrorEstimate) < tol) {
                 cmesh->ElementSolution()(el, ncols + i / 2) = 1.;
                 dataIeff(el,0)=1.;
-                
             }
             else {
-                REAL EfIndex = (ErrorEstimate +oscilatorytherm)/ ErrorExact;
+                REAL EfIndex = (ErrorEstimate + oscilatorytherm)/ ErrorExact;
                 dataIeff(el,0)= EfIndex;
-                
                 cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
