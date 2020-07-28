@@ -196,6 +196,25 @@ void UniformRefinement(int nDiv, TPZGeoMesh* gmesh) {
     }
 }
 
+// This overload takes the dimension of the elements to be refined.
+// The function DivideLowerDimensionalElements must be called afterwards to guarantee mesh consistency.
+void UniformRefinement(int nDiv, int dim, TPZGeoMesh* gmesh) {
+
+    TPZManVector<TPZGeoEl*> children;
+    for (int division = 0; division < nDiv; division++) {
+
+        int64_t nels = gmesh->NElements();
+
+        for (int64_t elem = 0; elem < nels; elem++) {
+
+            TPZGeoEl* gel = gmesh->Element(elem);
+
+            if (!gel || gel->HasSubElement()) continue;
+            if (gel->Dimension() != dim) continue;
+            gel->Divide(children);
+        }
+    }
+}
 
 TPZGeoMesh* CreateGeoMesh(int nel, TPZVec<int>& bcids) {
     

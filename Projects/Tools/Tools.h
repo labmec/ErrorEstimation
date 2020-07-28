@@ -59,6 +59,8 @@ void ComputeAveragePressure(TPZCompMesh* pressure, TPZCompMesh* pressureHybrid, 
 
 void UniformRefinement(int nDiv, TPZGeoMesh* gmesh);
 
+void UniformRefinement(int nDiv, int dim, TPZGeoMesh* gmesh);
+
 TPZGeoMesh* CreateTrapezoidalMesh(int nelx, int nely, REAL Lx, REAL Ly, TPZVec<int>& bcids);
 
 /// Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids

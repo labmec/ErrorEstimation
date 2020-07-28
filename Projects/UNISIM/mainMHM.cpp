@@ -75,21 +75,22 @@ void UNISIMMHM(TPZGeoMesh *gmesh) {
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
-    std::stringstream gmeshFileName;
-    gmeshFileName << config.dir_name << "/GeoMesh";
-    PrintGeometry(gmesh, gmeshFileName.str(), false, true);
-
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.bcmaterialids.insert(-2);
     config.bcmaterialids.insert(-3);
 
     config.gmesh = gmesh;
-    int nInternalRef = 0;
-    UniformRefinement(nInternalRef, gmesh);
-
     TPZVec<int64_t> coarseIndexes;
     ComputeCoarseIndices(gmesh, coarseIndexes);
+
+    int nInternalRef = 0;
+    UniformRefinement(nInternalRef, 2, gmesh);
+    DivideLowerDimensionalElements(gmesh);
+
+    std::stringstream gmeshFileName;
+    gmeshFileName << config.dir_name << "/GeoMesh";
+    PrintGeometry(gmesh, gmeshFileName.str(), false, true);
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
     bool definePartitionByCoarseIndexes = true;
@@ -161,23 +162,31 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     int dim = control.GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+    auto *mix = new TPZMixedPoisson(1, dim);
 
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
 
-    mat->SetPermeabilityTensor(K, invK);
+    mix->SetPermeabilityTensor(K, invK);
 
-    cmesh.InsertMaterialObject(mat);
+    cmesh.InsertMaterialObject(mix);
 
-    for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
-        int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
-        cmesh.InsertMaterialObject(bc);
-    }
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+    int dirichlet = 0;
+
+    // Zero flux (reservoir boundary)
+    TPZBndCond *zeroFlux = mix->CreateBC(mix, -1, dirichlet, val1, val2);
+    // Productors
+    val2(0, 0) = -10.;
+    TPZBndCond *productors = mix->CreateBC(mix, -2, dirichlet, val1, val2);
+    // Injectors
+    val2(0, 0) = 20.;
+    TPZBndCond *injectors = mix->CreateBC(mix, -3, dirichlet, val1, val2);
+
+    cmesh.InsertMaterialObject(zeroFlux);
+    cmesh.InsertMaterialObject(productors);
+    cmesh.InsertMaterialObject(injectors);
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
@@ -247,6 +256,7 @@ void RemoveGelsOfGivenMaterial(TPZGeoMesh *gmesh, int matId) {
         TPZGeoEl* gel = gmesh->Element(i);
         if (gel->MaterialId() == matId) {
             gmesh->DeleteElement(gel, i);
+            std::cout << "i: " << i << '\n';
         }
     }
 }
