@@ -1726,18 +1726,17 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subc
             REAL ErrorEstimate = errors[i + 1];
             REAL ErrorExact = errors[i];
 
-            REAL oscillatorytherm = 0;
+            REAL oscillatoryterm = 0;
             if (i == 2) {
-                oscillatorytherm = subcmesh->ElementSolution()(el, i + 2);
-                oscillatorytherm *= (hk / M_PI);
+                oscillatoryterm = subcmesh->ElementSolution()(el, i + 2);
+                oscillatoryterm *= (hk / M_PI);
             }
-            oscillatorytherm = 0;
 
             if (abs(ErrorEstimate) < tol) {
                 subcmesh->ElementSolution()(el, ncols + i / 2) = 1.;
 
             } else {
-                REAL EfIndex = (ErrorEstimate + oscillatorytherm) / ErrorExact;
+                REAL EfIndex = (ErrorEstimate + oscillatoryterm) / ErrorExact;
                 subcmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
