@@ -22,7 +22,7 @@ class TPZCreateMultiphysicsSpace
 {
 public:
     /// types of spaces this class can create
-    enum MSpaceType {Enone, EH1Hybrid, EH1HybridSquared};
+    enum MSpaceType {Enone, EH1Hybrid, EH1HybridSquared, EMCRM};
     
 private:
     

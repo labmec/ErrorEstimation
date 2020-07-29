@@ -55,7 +55,7 @@ struct ErrorData
 {
     std::ofstream ErroH1,ErroHybridH1,ErroMixed,Erro, timer;
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
-    int maxdiv = 3;
+    int maxdiv = 0;
 
     bool isMultiK = 1;
     REAL perm_Q1 = 5;
@@ -204,10 +204,14 @@ int main(int argc, char *argv[]) {
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
             FlushTime(eData,start);
+            {
+                std::ofstream out("compmesh.txt");
+                cmesh_H1Hybrid->Print(out);
+            }
             //Debugging -- Delete me
-            cmesh_H1Hybrid ->ShortPrint(std::cout);
+//            cmesh_H1Hybrid ->ShortPrint(std::cout);
             std::cout << cmesh_H1Hybrid ->NEquations();
-            nElementsPerMaterial(cmesh_H1Hybrid);
+//            nElementsPerMaterial(cmesh_H1Hybrid);
         }
 
         //Mixed
@@ -226,7 +230,8 @@ int main(int argc, char *argv[]) {
             int interfaceMatID = -10;
             int hybridLevel = 2;
             CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
-            cmesh_HybridSquared->ShortPrint(std::cout); nElementsPerMaterial(cmesh_H1Hybrid);
+            cmesh_HybridSquared->ShortPrint(std::cout);
+            nElementsPerMaterial(cmesh_H1Hybrid);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
             cmesh_HybridSquared->ShortPrint(std::cout);
             std::cout << cmesh_HybridSquared->NEquations();
@@ -539,6 +544,9 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     cmesh_H1Hybrid->InitializeBlock();
     cmesh_H1Hybrid->ComputeNodElCon();
 
+    int64_t neq = cmesh_H1Hybrid->NEquations();
+    std::cout << "Number of equations " << neq << std::endl;
+    
     interFaceMatID = createspace.fH1Hybrid.fLagrangeMatid.first;
 
 }
