@@ -338,7 +338,10 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
-    
+
+    TPZFNMatrix<9, STATE> dsolxy(3, 1);
+    TPZAxesTools<STATE>::Axes2XYZ(data[1].dsol[0], dsolxy, data[1].axes);
+
     
     TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
 
@@ -354,7 +357,7 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     else{
 
         for(int i=0; i< 3;i++){
-        fluxreconstructed[i] = (-1)*data[1].dsol[0][i];
+            fluxreconstructed[i] = (-1)*dsolxy(i, 0);
         }
         
         
