@@ -74,15 +74,16 @@ int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
-    
+
     for (int ndiv = 0; ndiv < 3; ndiv++) {
         
         ProblemConfig config;
-        
+        // Internal hDiv order
         config.porder = 4;
         config.ndivisions = ndiv;
         config.dimension = 2;
         config.prefine = false;
+        // Penalty term to make the normal component of the fluxes compatible
         config.fMRCMBeta = 10;
         config.hdivmais = 0;
         
