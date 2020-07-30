@@ -49,7 +49,7 @@
 #include <tuple>
 #include <memory>
 
-
+#include <array>
 
 
 bool neumann = true;
@@ -64,269 +64,284 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
 //TPZCompMesh *CMeshH1(const ProblemConfig &problem);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config);
-void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed, ProblemConfig &config);
+void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig &config, std::stringstream& results);
 
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ProblemConfig &config);
 void SwitchLagrangeMultipliers(TPZCompMesh *cmesh, ProblemConfig &config);
 
 
 int main(int argc, char *argv[]) {
+
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
 
-    for (int ndiv = 0; ndiv < 3; ndiv++) {
-        
-        ProblemConfig config;
-        // Internal hDiv order
-        config.porder = 4;
-        config.ndivisions = ndiv;
-        config.dimension = 2;
-        config.prefine = false;
-        // Penalty term to make the normal component of the fluxes compatible
-        config.fMRCMBeta = 10;
-        config.hdivmais = 0;
-        
-        int orderlagrange = 1;
-        config.H1Hybridminus = config.porder-orderlagrange;
-        
-        config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
-        
-        config.problemname = "ESinSin k=1 e lagrange order 1";
-        
-        config.dir_name = "MRCM_SINSIN";
-        std::string command = "mkdir " + config.dir_name;
-        system(command.c_str());
-        
-        // geometric mesh
-        TPZManVector<int, 4> bcids(4, -1);
-        TPZGeoMesh *gmesh = CreateGeoMesh(2, bcids);
-        //    if(1)
-        //    {
-        //        TPZManVector<TPZGeoEl *> sub;
-        //        gmesh->Element(0)->Divide(sub);
-        //        DivideLowerDimensionalElements(gmesh);
-        //    }
-        
-        config.gmesh = gmesh;
-        config.materialids.insert(1);
-        config.bcmaterialids.insert(-1);
-        
-        
-        
-        UniformRefinement(config.ndivisions, gmesh);
-        //        int refinement_depth = 2;
-        //        RandomRefine(config, 1, refinement_depth);
-        
+    std::stringstream results;
+    results << "MRCM ESinSin Results\n";
+  std::array<STATE, 8> beta_values{0.01, 0.1, 1, 10, 100, 1000, 10000, 1000000};
+
+    for (STATE beta_value : beta_values) {
+        results << "Beta: " << beta_value << '\n';
+        for (int order = 2; order < 6; order++) {
+            results << "Order: " << order << ' ';
+
+            ProblemConfig config;
+            config.fMRCMBeta = beta_value;
+
+            // Internal hDiv order
+            config.porder = order;
+            config.dimension = 2;
+            config.prefine = false;
+            // Penalty term to make the normal component of the fluxes compatible
+            config.hdivmais = 0;
+
+            int orderlagrange = 1;
+            config.H1Hybridminus = config.porder - orderlagrange;
+
+            results << "Order Lagrange: " << orderlagrange << ' ';
+            results << "H1HybridMinus: " << config.H1Hybridminus << '\n';
+
+            for (int ndiv = 1; ndiv < 6; ndiv++) {
+                results << "h: " << 1/pow(2, ndiv) << "    ";
+
+                config.ndivisions = ndiv;
+                config.exact = new TLaplaceExample1;
+                config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+
+                config.problemname = "ESinSin k=1 e lagrange order 1";
+
+                std::stringstream dirname;
+                dirname << "MRCM_SINSIN_PORDER_" << config.porder << "_BETA" << beta_value;
+                config.dir_name = dirname.str();
+                std::string command = "mkdir " + config.dir_name;
+                system(command.c_str());
+
+                // geometric mesh
+                TPZManVector<int, 4> bcids(4, -1);
+                TPZGeoMesh *gmesh = CreateGeoMesh(2, bcids);
+                //    if(1)
+                //    {
+                //        TPZManVector<TPZGeoEl *> sub;
+                //        gmesh->Element(0)->Divide(sub);
+                //        DivideLowerDimensionalElements(gmesh);
+                //    }
+
+                config.gmesh = gmesh;
+                config.materialids.insert(1);
+                config.bcmaterialids.insert(-1);
+
+                UniformRefinement(config.ndivisions, gmesh);
+                //        int refinement_depth = 2;
+                //        RandomRefine(config, 1, refinement_depth);
+
 #ifdef PZDEBUG
-        {
-            std::ofstream out("gmesh.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-            std::ofstream out2("gmeshInitial.txt");
-            gmesh->Print(out2);
-            
-        }
-#endif
-        
-        //problema H1
-        if(h1solution) {
-            
-            config.exact.operator*().fSignConvention = -1;
-            TPZCompMesh *cmeshH1 = CMeshH1(config);
-            {
-                ofstream arg1("CompMeshH1.txt");
-                cmeshH1->Print(arg1);
-            }
-            SolveH1Problem(cmeshH1, config);
-        }
-        
-        if(hybridh1){
-            config.exact.operator*().fSignConvention = 1;
-            TPZCreateMultiphysicsSpace createspace(gmesh,TPZCreateMultiphysicsSpace::EH1HybridSquared);
-            
-            createspace.SetMaterialIds({1}, {-2,-1});
-            createspace.fH1Hybrid.fHybridizeBCLevel = 2;//opcao de hibridizar o contorno
-            createspace.ComputePeriferalMaterialIds();
-            
-            
-            std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
-            std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId<<std::endl;
-            std::cout <<" fLagrangeMatid + = "<<createspace.fH1Hybrid.fLagrangeMatid.first<<std::endl;
-            std::cout <<" fLagrangeMatid - = "<<createspace.fH1Hybrid.fLagrangeMatid.second<<std::endl;
-            std::cout <<" fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl;
-            std::cout << "fSecond Lagrange MatID = " <<createspace.fH1Hybrid.fSecondLagrangeMatid<<std::endl;
-            std::cout << "fInterfacePressure = " <<createspace.fH1Hybrid.fInterfacePressure<<std::endl;
-            std::cout << "fIBC hybridization level = " <<createspace.fH1Hybrid.fHybridizeBCLevel<<std::endl;
-            
-            TPZManVector<TPZCompMesh *> meshvec;
-            
-            createspace.CreateAtomicMeshes(meshvec,config.porder,orderlagrange);
-            
-            TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(gmesh);
-            InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
-            createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
-            
-#ifdef PZDEBUG
-            {
-                std::ofstream out3("pressure.txt");
-                meshvec[0]->Print(out3);
-                std::ofstream out4("flux.txt");
-                meshvec[1]->Print(out4);
-                std::ofstream out("gmeshIncremented.vtk");
-                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-                std::ofstream out2("gmeshIncremented.txt");
-                gmesh->Print(out2);
-                
-            }
-#endif
-            cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
-            createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
-            createspace.AddInterfaceElements(cmesh_H1Hybrid);
-#ifdef PZDEBUG
-            {
-                std::map<int,int> matelem;
-                int64_t nel = cmesh_H1Hybrid->NElements();
-                for (int64_t el = 0; el<nel; el++) {
-                    TPZCompEl *cel = cmesh_H1Hybrid->Element(el);
-                    TPZGeoEl *gel = cel->Reference();
-                    matelem[gel->MaterialId()]++;
+                {
+                    std::ofstream out("gmesh.vtk");
+                    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+                    std::ofstream out2("gmeshInitial.txt");
+                    gmesh->Print(out2);
                 }
-                std::cout << __PRETTY_FUNCTION__ << " number of computational elements by material \n";
-                for (auto it : matelem) {
-                    std::cout << "Material id " << it.first << " number of elements " << it.second << std::endl;
+#endif
+
+                // problema H1
+                if (h1solution) {
+
+                    config.exact.operator*().fSignConvention = -1;
+                    TPZCompMesh *cmeshH1 = CMeshH1(config);
+                    {
+                        ofstream arg1("CompMeshH1.txt");
+                        cmeshH1->Print(arg1);
+                    }
+                    SolveH1Problem(cmeshH1, config);
                 }
-            }
-#endif
-            cmesh_H1Hybrid->ComputeNodElCon();
+
+                if (hybridh1) {
+                    config.exact.operator*().fSignConvention = 1;
+                    TPZCreateMultiphysicsSpace createspace(gmesh, TPZCreateMultiphysicsSpace::EH1HybridSquared);
+
+                    createspace.SetMaterialIds({1}, {-2, -1});
+                    createspace.fH1Hybrid.fHybridizeBCLevel = 2; // opcao de hibridizar o contorno
+                    createspace.ComputePeriferalMaterialIds();
+
+                    std::cout << "---Original PerifericalMaterialId --- " << std::endl;
+                    std::cout << " fMatWrapId + = " << createspace.fH1Hybrid.fMatWrapId << std::endl;
+                    std::cout << " fLagrangeMatid + = " << createspace.fH1Hybrid.fLagrangeMatid.first << std::endl;
+                    std::cout << " fLagrangeMatid - = " << createspace.fH1Hybrid.fLagrangeMatid.second << std::endl;
+                    std::cout << " fFluxMatId = " << createspace.fH1Hybrid.fFluxMatId << std::endl;
+                    std::cout << "fSecond Lagrange MatID = " << createspace.fH1Hybrid.fSecondLagrangeMatid << std::endl;
+                    std::cout << "fInterfacePressure = " << createspace.fH1Hybrid.fInterfacePressure << std::endl;
+                    std::cout << "fIBC hybridization level = " << createspace.fH1Hybrid.fHybridizeBCLevel << std::endl;
+
+                    TPZManVector<TPZCompMesh *> meshvec;
+
+                    createspace.CreateAtomicMeshes(meshvec, config.porder, orderlagrange);
+
+                    TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(gmesh);
+                    InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
+                    createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
+
 #ifdef PZDEBUG
-            {
-                std::ofstream out("mphysicsmeshBeforeCondense.txt");
-                cmesh_H1Hybrid->Print(out);
-            }
+                    {
+                        std::ofstream out3("pressure.txt");
+                        meshvec[0]->Print(out3);
+                        std::ofstream out4("flux.txt");
+                        meshvec[1]->Print(out4);
+                        std::ofstream out("gmeshIncremented.vtk");
+                        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+                        std::ofstream out2("gmeshIncremented.txt");
+                        gmesh->Print(out2);
+                    }
 #endif
-            createspace.GroupandCondenseElements(cmesh_H1Hybrid);
-            
-            cmesh_H1Hybrid->InitializeBlock();
-            cmesh_H1Hybrid->ComputeNodElCon();
-            
+                    cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
+                    createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
+                    createspace.AddInterfaceElements(cmesh_H1Hybrid);
 #ifdef PZDEBUG
-            {
-                std::ofstream out("mphysicsmesh.txt");
-                cmesh_H1Hybrid->Print(out);
-            }
+                    {
+                        std::map<int, int> matelem;
+                        int64_t nel = cmesh_H1Hybrid->NElements();
+                        for (int64_t el = 0; el < nel; el++) {
+                            TPZCompEl *cel = cmesh_H1Hybrid->Element(el);
+                            TPZGeoEl *gel = cel->Reference();
+                            matelem[gel->MaterialId()]++;
+                        }
+                        std::cout << __PRETTY_FUNCTION__ << " number of computational elements by material \n";
+                        for (auto it : matelem) {
+                            std::cout << "Material id " << it.first << " number of elements " << it.second << std::endl;
+                        }
+                    }
 #endif
-            //Solve Hybrid problem
-            
-            SolveHybridH1Problem(cmesh_H1Hybrid,createspace.fH1Hybrid.fLagrangeMatid.first,config);
-            
-            //Post Processing for Lagrange Multiplier
-            //    {
-            //        TPZAnalysis an(meshvec[1],false);
-            //
-            //        TPZStack<std::string> scalnames, vecnames;
-            //        scalnames.Push("State");
-            //
-            //        int dim = 1;
-            //        std::string plotname("LagrangeMultiplier.vtk");
-            //        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-            //        an.PostProcess(0, dim);
-            //
-            //
-            //    }
-            
+                    cmesh_H1Hybrid->ComputeNodElCon();
 #ifdef PZDEBUG
-            {
-                
-                std::ofstream out2("H1HybridMesh.txt");
-                cmesh_H1Hybrid->Print(out2);
-                std::ofstream out3("gmeshHybridH1.vtk");
-                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
-                
-            }
+                    {
+                        std::ofstream out("mphysicsmeshBeforeCondense.txt");
+                        cmesh_H1Hybrid->Print(out);
+                    }
 #endif
-        }
-        
-        if(mcrn)
-        {
-            TPZMultiphysicsCompMesh *cmesh_MCRN = new TPZMultiphysicsCompMesh(gmesh);
-            config.exact.operator*().fSignConvention = 1;
-            CreateMixedComputationalMesh(cmesh_MCRN, config);
-            TPZVec<TPZCompMesh *> meshvec = cmesh_MCRN->MeshVector();
-//            TPZCreateMultiphysicsSpace createspace(gmesh,TPZCreateMultiphysicsSpace::EH1HybridSquared);
-//
-//            createspace.SetMaterialIds({1}, {-2,-1});
-//            createspace.fH1Hybrid.fHybridizeBCLevel = 2;//opcao de hibridizar o contorno
-//            createspace.ComputePeriferalMaterialIds();
-//
-//
-//            std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
-//            std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId<<std::endl;
-//            std::cout <<" fLagrangeMatid + = "<<createspace.fH1Hybrid.fLagrangeMatid.first<<std::endl;
-//            std::cout <<" fLagrangeMatid - = "<<createspace.fH1Hybrid.fLagrangeMatid.second<<std::endl;
-//            std::cout <<" fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl;
-//            std::cout << "fSecond Lagrange MatID = " <<createspace.fH1Hybrid.fSecondLagrangeMatid<<std::endl;
-//            std::cout << "fInterfacePressure = " <<createspace.fH1Hybrid.fInterfacePressure<<std::endl;
-//            std::cout << "fIBC hybridization level = " <<createspace.fH1Hybrid.fHybridizeBCLevel<<std::endl;
-//
-//            TPZManVector<TPZCompMesh *> meshvec;
-//
-//            createspace.CreateAtomicMeshes(meshvec,config.porder,orderlagrange);
-//
-//            InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
-//            createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
-            
+                    createspace.GroupandCondenseElements(cmesh_H1Hybrid);
+
+                    cmesh_H1Hybrid->InitializeBlock();
+                    cmesh_H1Hybrid->ComputeNodElCon();
+
 #ifdef PZDEBUG
-            {
-                meshvec[0]->ComputeNodElCon();
-                std::ofstream out3("flux.txt");
-                meshvec[0]->Print(out3);
-                std::ofstream out4("pressure.txt");
-                meshvec[1]->ComputeNodElCon();
-                meshvec[1]->Print(out4);
-                std::ofstream out("gmeshIncremented.vtk");
-                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-                std::ofstream out2("gmeshIncremented.txt");
-                gmesh->Print(out2);
-                
-            }
+                    {
+                        std::ofstream out("mphysicsmesh.txt");
+                        cmesh_H1Hybrid->Print(out);
+                    }
+#endif
+                    // Solve Hybrid problem
+
+                    SolveHybridH1Problem(cmesh_H1Hybrid, createspace.fH1Hybrid.fLagrangeMatid.first, config);
+
+                    // Post Processing for Lagrange Multiplier
+                    //    {
+                    //        TPZAnalysis an(meshvec[1],false);
+                    //
+                    //        TPZStack<std::string> scalnames, vecnames;
+                    //        scalnames.Push("State");
+                    //
+                    //        int dim = 1;
+                    //        std::string plotname("LagrangeMultiplier.vtk");
+                    //        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+                    //        an.PostProcess(0, dim);
+                    //
+                    //
+                    //    }
+
+#ifdef PZDEBUG
+                    {
+
+                        std::ofstream out2("H1HybridMesh.txt");
+                        cmesh_H1Hybrid->Print(out2);
+                        std::ofstream out3("gmeshHybridH1.vtk");
+                        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
+                    }
+#endif
+                }
+
+                if (mcrn) {
+                    TPZMultiphysicsCompMesh *cmesh_MCRN = new TPZMultiphysicsCompMesh(gmesh);
+                    config.exact.operator*().fSignConvention = 1;
+                    CreateMixedComputationalMesh(cmesh_MCRN, config);
+                    TPZVec<TPZCompMesh *> meshvec = cmesh_MCRN->MeshVector();
+                    //            TPZCreateMultiphysicsSpace
+                    //            createspace(gmesh,TPZCreateMultiphysicsSpace::EH1HybridSquared);
+                    //
+                    //            createspace.SetMaterialIds({1}, {-2,-1});
+                    //            createspace.fH1Hybrid.fHybridizeBCLevel = 2;//opcao de hibridizar o contorno
+                    //            createspace.ComputePeriferalMaterialIds();
+                    //
+                    //
+                    //            std::cout<<"---Original PerifericalMaterialId --- "<<std::endl;
+                    //            std::cout <<" fMatWrapId + = "<<createspace.fH1Hybrid.fMatWrapId<<std::endl;
+                    //            std::cout <<" fLagrangeMatid + =
+                    //            "<<createspace.fH1Hybrid.fLagrangeMatid.first<<std::endl; std::cout <<" fLagrangeMatid
+                    //            - = "<<createspace.fH1Hybrid.fLagrangeMatid.second<<std::endl; std::cout <<"
+                    //            fFluxMatId = "<<createspace.fH1Hybrid.fFluxMatId<<std::endl; std::cout << "fSecond
+                    //            Lagrange MatID = " <<createspace.fH1Hybrid.fSecondLagrangeMatid<<std::endl; std::cout
+                    //            << "fInterfacePressure = " <<createspace.fH1Hybrid.fInterfacePressure<<std::endl;
+                    //            std::cout << "fIBC hybridization level = "
+                    //            <<createspace.fH1Hybrid.fHybridizeBCLevel<<std::endl;
+                    //
+                    //            TPZManVector<TPZCompMesh *> meshvec;
+                    //
+                    //            createspace.CreateAtomicMeshes(meshvec,config.porder,orderlagrange);
+                    //
+                    //            InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
+                    //            createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
+
+#ifdef PZDEBUG
+                    {
+                        meshvec[0]->ComputeNodElCon();
+                        std::ofstream out3("flux.txt");
+                        meshvec[0]->Print(out3);
+                        std::ofstream out4("pressure.txt");
+                        meshvec[1]->ComputeNodElCon();
+                        meshvec[1]->Print(out4);
+                        std::ofstream out("gmeshIncremented.vtk");
+                        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+                        std::ofstream out2("gmeshIncremented.txt");
+                        gmesh->Print(out2);
+                    }
 #endif
 //            cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
 //            createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
 //            createspace.AddInterfaceElements(cmesh_H1Hybrid);
 #ifdef PZDEBUG
-            {
-                std::map<int,int> matelem;
-                int64_t nel = cmesh_MCRN->NElements();
-                for (int64_t el = 0; el<nel; el++) {
-                    TPZCompEl *cel = cmesh_MCRN->Element(el);
-                    if(!cel) continue;
-                    TPZGeoEl *gel = cel->Reference();
-                    if(!gel) continue;
-                    matelem[gel->MaterialId()]++;
-                }
-                std::cout << __PRETTY_FUNCTION__ << " number of computational elements by material \n";
-                for (auto it : matelem) {
-                    std::cout << "Material id " << it.first << " number of elements " << it.second << std::endl;
+                    {
+                        std::map<int, int> matelem;
+                        int64_t nel = cmesh_MCRN->NElements();
+                        for (int64_t el = 0; el < nel; el++) {
+                            TPZCompEl *cel = cmesh_MCRN->Element(el);
+                            if (!cel) continue;
+                            TPZGeoEl *gel = cel->Reference();
+                            if (!gel) continue;
+                            matelem[gel->MaterialId()]++;
+                        }
+                        std::cout << __PRETTY_FUNCTION__ << " number of computational elements by material \n";
+                        for (auto it : matelem) {
+                            std::cout << "Material id " << it.first << " number of elements " << it.second << std::endl;
+                        }
+                    }
+#endif
+                    cmesh_MCRN->ComputeNodElCon();
+                    //            createspace.GroupandCondenseElements(cmesh_H1Hybrid);
+
+                    cmesh_MCRN->InitializeBlock();
+                    cmesh_MCRN->ComputeNodElCon();
+                    std::cout << "Beta " << config.fMRCMBeta << std::endl;
+                    std::cout << "order " << config.porder << std::endl;
+                    std::cout << "lagrange order " << orderlagrange << std::endl;
+                    std::cout << "HDivMais " << config.hdivmais << std::endl;
+                    SolveMixedProblem(cmesh_MCRN, config, results);
                 }
             }
-#endif
-            cmesh_MCRN->ComputeNodElCon();
-//            createspace.GroupandCondenseElements(cmesh_H1Hybrid);
-            
-            cmesh_MCRN->InitializeBlock();
-            cmesh_MCRN->ComputeNodElCon();
-            std::cout << "Beta " << config.fMRCMBeta << std::endl;
-            std::cout << "order " << config.porder << std::endl;
-            std::cout << "lagrange order " << orderlagrange << std::endl;
-            std::cout << "HDivMais " << config.hdivmais << std::endl;
-            SolveMixedProblem(cmesh_MCRN, config);
         }
-        
     }
-    
+    std::ofstream outFile("MRCM-Results.txt");
+    outFile << results.rdbuf();
+    outFile.close();
+
     return 0.;
-    
 }
 
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig &config)
@@ -779,7 +794,7 @@ void SwitchLagrangeMultipliers(TPZCompMesh *cmesh, ProblemConfig &config)
     }
 }
 
-void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig &config) {
+void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig &config, std::stringstream& results) {
 
     config.exact.operator*().fSignConvention = 1;
     bool optBW = true;
@@ -842,8 +857,8 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
             std::stringstream out;
             out << config.dir_name << "/"
                 << config.problemname << "_Mixed_k-" << config.porder
-                << "_Mais-" << config.hdivmais << "_ref-" << config.gmesh->NElements()
-            << "_beta-" << config.fMRCMBeta << ".vtk";
+                << "_Mais-" << config.hdivmais << "_nElem-" << config.gmesh->NElements()
+            << "-nDiv" << config.ndivisions << "_beta-" << config.fMRCMBeta << ".vtk";
             plotname = out.str();
         }
 
@@ -863,6 +878,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
     
     std::cout << "Computed errors " << errorvec << std::endl;
-
+    results << "Pressure L2-error: " << errorvec[0] << "    ";
+    results << "Flux L2-error: " << errorvec[1] << '\n';
 }
 
