@@ -49,8 +49,6 @@
 #include <memory>
 #include <stack>
 
-#include TPZH
-
 bool neumann = true;
 
 struct ErrorData

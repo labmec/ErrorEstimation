@@ -1946,7 +1946,7 @@ void TPZHybridH1ErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec<S
     }
 }
 
-void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
+void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
     
     if (fPostProcMesh.MeshVector().size()) {
         DebugStop();
