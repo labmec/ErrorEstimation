@@ -49,6 +49,8 @@
 #include <memory>
 #include <stack>
 
+#include TPZH
+
 bool neumann = true;
 
 struct ErrorData
@@ -65,7 +67,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode = 4;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -107,9 +109,9 @@ void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 6;         // Potential and internal flux order
-    config.hdivmais = 5;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 5;  // p_order - H1HybridMinus = Flux order
+    config.porder = 3;         // Potential and internal flux order
+    config.hdivmais = 2;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = 2;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -157,6 +159,17 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
  * @brief using the Command Line. Check BashFile.sh within HybridH1 directory.
  */
 int main(int argc, char *argv[]) {
+
+    //Testing random stuff (begin)
+    TPZManVector<int, 4> bcids(4, -1);
+    TPZGeoMesh *geomesh = CreateGeoMesh(1, bcids);
+    UniformRefinement(1, geomesh);
+    TPZGeoEl *gel = geomesh->Element(0);
+    TPZGeoElSide gelside(gel, gel->NSides() - 1);
+    gelside.LowerLevelCompElementList2(1);
+
+
+    //Testing random stuff (end)
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
@@ -204,10 +217,6 @@ int main(int argc, char *argv[]) {
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
             FlushTime(eData,start);
-            //Debugging -- Delete me
-            cmesh_H1Hybrid ->ShortPrint(std::cout);
-            std::cout << cmesh_H1Hybrid ->NEquations();
-            nElementsPerMaterial(cmesh_H1Hybrid);
         }
 
         //Mixed
@@ -226,13 +235,9 @@ int main(int argc, char *argv[]) {
             int interfaceMatID = -10;
             int hybridLevel = 2;
             CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
-            cmesh_HybridSquared->ShortPrint(std::cout); nElementsPerMaterial(cmesh_H1Hybrid);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
-            cmesh_HybridSquared->ShortPrint(std::cout);
-            std::cout << cmesh_HybridSquared->NEquations();
             FlushTime(eData,start);
         }
-
         //finish clock
 
         if(eData.last && eData.post_proc) {
