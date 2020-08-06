@@ -124,7 +124,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<R
     myfile <<"|uex-ufem|= "<< errorVec[0] << "\n";
     myfile <<"|ufem-urec| = "<< errorVec[1] << "\n";
     myfile <<"Residual ErrorL2= "<< errorVec[4] << "\n";
-    myfile <<"Global Index = "<< sqrt(errorVec[3]+ errorVec[4])/ errorVec[2];
+    myfile <<"Global Index = "<< (errorVec[3]+ errorVec[4])/ errorVec[2];
     
     myfile.close();
     
@@ -1764,8 +1764,16 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     
     
     TPZFMatrix<REAL> dataIeff(nrows,1);
+    dataIeff.Zero();
+    TPZFMatrix<REAL> InnerEstimated(nrows,1);
+    InnerEstimated.Zero();
+    TPZFMatrix<REAL> InnerExact(nrows,1);
+    InnerExact.Zero();
+    TPZFMatrix<REAL> BoundEstimated(nrows,1);
+    BoundEstimated.Zero();
+    TPZFMatrix<REAL> BoundExact(nrows,1);
+    BoundExact.Zero();
     
-    //    REAL oscilatorytherm = 0;
     int dim = cmesh->Dimension();
     cmesh->ElementSolution().Resize(nrows, ncols+2);
 
@@ -1794,6 +1802,7 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
 //            }
             TPZGeoElSide neighbour;
             TPZCompElSide selected;
+            //filtra os vizinhos que sao do tipo BC
             for(int i=0; i<equal.size(); i++)
             {
                 TPZGeoEl *gequal = equal[i].Element()->Reference();
@@ -1813,8 +1822,9 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             int64_t neighindex = selected.Element()->Index();
             for (int i = 0; i < 3; i += 2) {
                 
+                
 
-                std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
+//                std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
                 
                 if(neighindex > nrows){
                     std::cout<<" neighindex= "<< neighindex<<" nrows "<<nrows<<"\n";
@@ -1825,6 +1835,27 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
                 REAL NeighbourErrorExact = cmesh->ElementSolution()(neighindex, i);
                 REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
                 REAL ErrorExact = cmesh->ElementSolution()(el, i);
+                
+                InnerEstimated(el,0) = ErrorEstimate;
+                InnerExact(el,0) = ErrorExact;
+                BoundExact(el,0) = NeighbourErrorExact;
+                BoundEstimated(el,0) = NeighbourErrorEstimate;
+                
+  
+    
+    #ifdef LOG4CXX
+    if (logger->isDebugEnabled()) {
+        std::stringstream sout;
+        sout<<"El "<<el<<" dim "<<dim<<" ErrorEstimate "<<ErrorEstimate<<" ErrorExact "<<ErrorExact<<"\n";
+        sout<<"neighbour "<<neighindex<<" dim "<<neighbour.Element()->Dimension()<<" NeighbourErrorEstimate "<<NeighbourErrorEstimate<<" NeighbourErrorExact "<<NeighbourErrorExact<<"\n";
+                    
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+    #endif
+
+    
+
+                
                 REAL sumErrorExact = sqrt(NeighbourErrorExact*NeighbourErrorExact+ErrorExact*ErrorExact);
                 REAL sumErrorEstimate = sqrt(NeighbourErrorEstimate*NeighbourErrorEstimate+ErrorEstimate*ErrorEstimate);
                 cmesh->ElementSolution()(neighindex,i+1) = 0.;
@@ -1856,9 +1887,18 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
             REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
             REAL ErrorExact = cmesh->ElementSolution()(el, i);
             
+#ifdef LOG4CXX
+if (logger->isDebugEnabled()) {
+    std::stringstream sout;
+    sout<<"El "<<el<<" dim "<<gel->Dimension()<<" ErrorEstimate "<<ErrorEstimate<<" ErrorExact "<<ErrorExact<<"\n";
+    LOGPZ_DEBUG(logger, sout.str())
+}
+#endif
+            
             TPZGeoEl *gel = cel->Reference();
             
             REAL hk = gel->CharacteristicSize();
+
 
             REAL oscilatorytherm = 0;
             if (i == 2) {
@@ -1866,22 +1906,41 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
                 oscilatorytherm *= (hk / M_PI);
             }
 
+            
+
             if (abs(ErrorEstimate) < tol) {
+              //  std::cout<<"abs(ErrorEstimate) "<<abs(ErrorEstimate)<<"\n";
                 cmesh->ElementSolution()(el, ncols + i / 2) = 1.;
                 dataIeff(el,0)=1.;
             }
             else {
-                REAL EfIndex = (ErrorEstimate + oscilatorytherm)/ ErrorExact;
+
+                
+                REAL EfIndex = (ErrorEstimate +oscilatorytherm)/ ErrorExact;
                 dataIeff(el,0)= EfIndex;
                 cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
+            
+          //  std::cout<<"Ieff "<<cmesh->ElementSolution()(el, ncols + i / 2)<<"\n";
         }
         
     }
     
-    //  cmesh->ElementSolution().Print("ElSolution",std::cout);
-    //    ofstream out("IeffPerElement3DEx.nb");
-    //    dataIeff.Print("Ieff = ",out,EMathematicaInput);
+     // cmesh->ElementSolution().Print("ElSolution",std::cout);
+    {
+        ofstream out("IeffPerElement.nb");
+        dataIeff.Print("Ieff = ",out,EMathematicaInput);
+        ofstream out1("InnerEstimated.nb");
+        InnerEstimated.Print("InnerEstimated = ",out1,EMathematicaInput);
+        ofstream out2("InnerExact.nb");
+        InnerExact.Print("InnerExact = ",out2,EMathematicaInput);
+        ofstream out3("BoundExact.nb");
+        BoundExact.Print("BoundExact = ",out3,EMathematicaInput);
+        ofstream out4("BoundEstimated.nb");
+        BoundEstimated.Print("BoundEstimated = ",out4,EMathematicaInput);
+        
+    }
+    
 
 
 }
@@ -1949,6 +2008,11 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     //        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), outgvtk);
     //    }
     
+    {
+        bool reconstructed = false;
+        PlotLagrangeMultiplier("OriginalPressure",reconstructed);
+    }
+    
     // L2 projection for Dirichlet and Robin boundary condition for H1 reconstruction
     if (!fPostProcesswithHDiv) {
         TPZCompMesh *pressuremesh = PressureMesh();
@@ -1959,8 +2023,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
 
     {
-        std::ofstream out("PressureAverageMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+     //   std::ofstream out("PressureAverageMesh.txt");
+    //    fPostProcMesh.MeshVector()[1]->Print(out);
+        
         PlotLagrangeMultiplier("BeforeAverage");
     }
     
@@ -1975,8 +2040,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
     
     {
-        std::ofstream out("PressureAverageMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+    //    std::ofstream out("PressureAverageMesh.txt");
+   //     fPostProcMesh.MeshVector()[1]->Print(out);
+        
         PlotLagrangeMultiplier("BeforeNodalAverage");
     }
     
@@ -1985,8 +2051,9 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         ComputeNodalAverages();
     }
     {
-        std::ofstream out("PressureNodalMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+ //       std::ofstream out("PressureNodalMesh.txt");
+ //       fPostProcMesh.MeshVector()[1]->Print(out);
+        
         PlotLagrangeMultiplier("AfterNodalAverage");
     }
     
@@ -2005,19 +2072,21 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         
         
         
-        {
-            std::ofstream out("MultiphysicsBeforeTransfer.txt");
-            fPostProcMesh.Print(out);
-            //  PlotState("MultiphysicsBeforeTransfer2D.vtk", 2, &fPostProcMesh);
-        }
+//        {
+//            std::ofstream out("MultiphysicsBeforeTransfer.txt");
+//            fPostProcMesh.Print(out);
+//            //  PlotState("MultiphysicsBeforeTransfer2D.vtk", 2, &fPostProcMesh);
+//        }
         
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
         
-        {
-            std::ofstream out("MultiphysicsAfterTransfer.txt");
-            fPostProcMesh.Print(out);
-            PlotState("MultiphysicsAfterTransfer2D.vtk", fPostProcMesh.Dimension(), &fPostProcMesh);
-        }
+
+//        {
+//            std::ofstream out("MultiphysicsAfterTransfer.txt");
+//            fPostProcMesh.Print(out);
+//            PlotState("MultiphysicsAfterTransfer2D.vtk", 2, &fPostProcMesh);
+//        }
+
         
         
     }
@@ -2027,7 +2096,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     
     
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
         fPostProcMesh.Print(out);
@@ -2107,6 +2176,10 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         VerifySolutionConsistency(PressureMesh());
 #endif
     }
+    
+    
+    PlotLagrangeMultiplier("FinalSkeletonPressure");
+    
 }
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {

@@ -586,7 +586,7 @@ void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZV
         TPZManVector<STATE,3> fluxrec(fDim);
         this->Solution(data,VariableIndex("FluxReconstructed"), fluxrec);
         
-        std::cout<<"flux_rec "<<fluxrec[0]<<" , "<<fluxrec[1]<<"\n";
+  //      std::cout<<"flux_rec "<<fluxrec[0]<<" , "<<fluxrec[1]<<"\n";
         
     
     TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
@@ -616,7 +616,7 @@ void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZV
         }
         g = (-1)*normflux;
         
-        std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
+ //       std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
 
 
         
@@ -625,16 +625,17 @@ void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZV
        
     REAL Km = bc.Val1()(0, 0);
     REAL InvKm = 1./Km;
-    std::cout<<"Km "<<Km<<" InvKm "<<InvKm<<"\n";
+ //   std::cout<<"Km "<<Km<<" InvKm "<<InvKm<<"\n";
     REAL errorEstimated =0.,errorReal = 0.;
         
         normalsigmarec = Km*(urec-u_D)+g;
         
-//    std::cout<<"normalsigmarec "<<normalsigmarec<<"\n";
-//    std::cout<<"normalsigmafem "<<normalsigmafem<<"\n";
-//    std::cout<<"----------"<<"\n";
+//std::cout<<"normalsigmarec "<<normalsigmarec<<" normalsigmafem "<<normalsigmafem<<"\n";
+
     errorEstimated = InvKm * (normalsigmarec - normalsigmafem)* (normalsigmarec - normalsigmafem);
-    errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
+//std::cout<<"normflux "<<normflux<< " normalsigmafem "<<normalsigmafem<<"\n";
+//        std::cout<<"----------"<<"\n";
+    errorReal = InvKm * (normflux + normalsigmafem)* (normflux + normalsigmafem);
     errors[2] = errorReal;
     errors[3] = errorEstimated;
         

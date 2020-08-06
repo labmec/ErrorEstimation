@@ -74,21 +74,22 @@ int main(int argc, char *argv[]) {
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
 
     bool RunMark = false;
-    config.problemname = "ESinSin";
+    config.problemname = "ESinSin_Cilamce";
 
-    config.dir_name = "RobinBC";
+    config.dir_name = "Cilamce";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     int dim = config.dimension;
     
-    TPZManVector<int,4> bcids(4,-3);
-    //bcids[0] = -1;
+//    TPZManVector<int,4> bcids(8,-3);
+//    bcids[0] = -1;
+    TPZManVector<int,4> bcids(4,-1);
     config.bcmaterialids.insert(-3);//Robin
     config.bcmaterialids.insert(-1);//Dirichlet
 
     config.Km = 100;
-    config.hdivmais = 3;
+    config.hdivmais = 1;
     
 for (int p = 1; p <2; p ++){
         
@@ -150,7 +151,7 @@ config.porder = p;
 
             int nel = 1;//pow(2, ndiv);
 
-            gmesh = CreateGeoMesh(nel, bcids); //CreateLShapeMesh(bcids);//CreateQuadMeshRefTriang(bcids); //CreateSingleTriangleMesh(bcids);// CreateTrapezoidalMesh(nelT,
+            gmesh =CreateGeoMesh(nel, bcids); // CreateLShapeMesh(bcids);//CreateSingleTriangleMesh(bcids);//CreateQuadMeshRefTriang(bcids); // CreateTrapezoidalMesh(nelT,
                              // nelT, 1.,1.,bcids);//CreateLCircleGeoMesh();//
             config.materialids.insert(1);
             //config.bcmaterialids.insert(-1); // dirichlet
@@ -244,7 +245,7 @@ config.porder = p;
         }
 #endif
 
-        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, false);
+        SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config, true);
 
         
 
@@ -284,7 +285,7 @@ config.porder = p;
                 HDivEstimate.SetAnalyticSolution(config.exact);
                 HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
 
-                HDivEstimate.fPostProcesswithHDiv = false;
+                HDivEstimate.fPostProcesswithHDiv = true;
 
                 HDivEstimate.PotentialReconstruction();
 
