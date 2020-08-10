@@ -2539,6 +2539,7 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
     pressuremesh->LoadReferences();
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
+    // loop over the volumetric pressure elements
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         if (!cel) continue;
@@ -2547,6 +2548,7 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
         TPZGeoEl *gel = intel->Reference();
         if (gel->Dimension() != dim) continue;
         int nsides = gel->NSides();
+        // here the element is volumetric
         
         for (int is = 0; is < nsides; is++) {
             //
@@ -2558,9 +2560,13 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
             TPZStack<TPZCompElSide> celstack;
             gelside.EqualLevelCompElementList(celstack, 1, 0);
             int nst = celstack.NElements();
+            // loop over all elements that, if the mesh were continuous would share
+            // the connect
+            // we copy the information of the proper element
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
+                // @TODO Please document this logical statement
                 if (gneigh.Element()->MaterialId() == this->fHybridizer.fLagrangeInterface || (gneigh.Element()->MaterialId() == this->fPressureSkeletonMatId )||
                     IsDirichletCondition(gneigh)) {
                     TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
@@ -2575,13 +2581,15 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
                     break;
                 }
                 // all elements must have at least one neighbour of type skeleton--> esta premissa nao vale para reconstrucao Hdiv-H1
+                // @TODO why isnt this called for adapted meshes?
                 if (ist == nst - 1) {
-#ifdef LOG4CXX
                     std::stringstream sout;
                     sout << "Connect " << is << " from element el " << el
-                    << " was not updated \n";
+                            << " was not updated";
+#ifdef LOG4CXX
                     LOGPZ_DEBUG(logger, sout.str())
 #endif
+                    std::cout << sout.str();
                 }
             }
         }
