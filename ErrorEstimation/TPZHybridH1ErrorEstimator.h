@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include "pzmanvector.h"
 #include "TPZHybridizeHDiv.h"
-//#include "TPZCreateMultiphysicsSpace.h
+#include "TPZCreateMultiphysicsSpace.h"
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZAnalyticSolution.h"
 #include "ProblemConfig.h"
@@ -53,9 +53,9 @@ struct TPZHybridH1ErrorEstimator
    virtual void ComputePressureWeights();
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
+    //TPZCreateMultiphysicsSpace fHybrid;
     
     // material id of the dim-2 skeleton elements
-//    int fSkeletonMatId = 6;
     int fPressureSkeletonMatId;
     
     TPZAnalyticSolution *fExact;
@@ -119,6 +119,9 @@ struct TPZHybridH1ErrorEstimator
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
 protected:
+
+    /// create bc for pressure reconstruction
+    void BuildPressureBC(TPZCompMesh *pressureMesh);
     
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
@@ -136,7 +139,6 @@ protected:
     
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
-    
     
     /// increase the order of the lower dimensional pressure elements
     void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);

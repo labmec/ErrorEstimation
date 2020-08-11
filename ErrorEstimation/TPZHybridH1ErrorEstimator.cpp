@@ -56,6 +56,70 @@ TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
     }
 }
 
+/// create bc for pressure reconstruction
+void TPZHybridH1ErrorEstimator::BuildPressureBC(TPZCompMesh *pressureMesh){
+
+    TPZCompMesh *mult = fOriginal;
+    TPZGeoMesh *gmesh = pressureMesh->Reference();
+
+    // Create BC material
+    std::set<int> bcMatIDs;
+    for (auto it : mult->MaterialVec()) {
+        TPZMaterial *mat = it.second;
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        if (bc) {
+            int pressureMatId = bc->Material()->Id();
+            TPZMaterial *pressuremat =
+                    pressureMesh->FindMaterial(pressureMatId);
+            TPZMaterial *newbc = pressuremat->CreateBC(
+                    pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            if (bc->HasForcingFunction()) {
+                newbc->SetForcingFunction(bc->ForcingFunction());
+            }
+            //pressureMesh->InsertMaterialObject(newbc);
+            //bcMatIDs.insert(bc->Id());
+        }
+    }
+
+    // Create computational elements for BCs in pressureMesh mesh
+    std::map<int64_t, TPZCompEl*> bcGeoElToNeighCompEl;
+    for (int64_t el = 0; el < gmesh->NElements(); el++) {
+        // This map stores the ID of the BC geometric element and a pointer
+        // to the computational element of its volumetric neighbour
+        TPZGeoEl *gel = gmesh->Element(el);
+        if (!gel) continue;
+        if(gel->HasSubElement()) continue;
+
+        // Filters BC elements
+        int matID = gel->MaterialId();
+        if (bcMatIDs.find(matID) != bcMatIDs.end()) {
+
+            TPZGeoElSide bcSide(gel, gel->NSides() - 1);
+            TPZStack<TPZCompElSide> compNeighSides;
+            bcSide.EqualLevelCompElementList(compNeighSides, 1, 0);
+            if (compNeighSides.size() != 1) {
+                DebugStop();
+            }
+
+            TPZCompEl *cel = compNeighSides[0].Element();
+            if (!cel) DebugStop();
+
+            bcGeoElToNeighCompEl.insert({gel->Index(), cel});
+        }
+    }
+    gmesh->ResetReference();
+    for (const auto &it : bcGeoElToNeighCompEl) {
+        int64_t bcElID = it.first;
+        TPZCompEl *neighCel = it.second;
+        TPZGeoEl *bcGeoEl = gmesh->Element(bcElID);
+        neighCel->LoadElementReference();
+        int64_t id;
+        TPZCompEl *bcCel = pressureMesh->CreateCompEl(bcGeoEl, id);
+        bcCel->Reference()->ResetReference();
+        neighCel->Reference()->ResetReference();
+    }
+}
+
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
 void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REAL> &elementerrors, bool store = true) {
@@ -281,99 +345,35 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 // a method for creating the pressure mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
 {
-    if (fPostProcesswithHDiv) {
-        TPZCompMesh *pressure = fOriginal->MeshVector()[1]->Clone();
-        return pressure;
-    }
-    
     // For H1 reconstruction, we need to build BC materials
-    else {
-        TPZCompMesh *mult = fOriginal;
-        TPZCompMesh *pressureMesh = fOriginal->MeshVector()[1]->Clone();
-        TPZGeoMesh *gmesh = pressureMesh->Reference();
-        gmesh->ResetReference();
-        pressureMesh->LoadReferences();
-        
-        pressureMesh->ApproxSpace().SetAllCreateFunctionsContinuous();
-        pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
-        
-        std::set<int> bcMatIDs;
-        for (auto it : mult->MaterialVec()) {
-            TPZMaterial *mat = it.second;
-            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-            if (bc) {
-                int pressureMatId = bc->Material()->Id();
-                TPZMaterial *pressuremat =
-                pressureMesh->FindMaterial(pressureMatId);
-                TPZMaterial *newbc = pressuremat->CreateBC(
-                                                           pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
-                if (bc->HasForcingFunction()) {
-                    newbc->SetForcingFunction(bc->ForcingFunction());
-                }
-                pressureMesh->InsertMaterialObject(newbc);
-                bcMatIDs.insert(bc->Id());
-            }
-        }
-        
-        // Create computational elements for BCs in pressureMesh mesh
-        std::map<int64_t, TPZCompEl*> bcGeoElToNeighCompEl;
-        for (int64_t el = 0; el < gmesh->NElements(); el++) {
-            // This map stores the ID of the BC geometric element and a pointer
-            // to the computational element of its volumetric neighbour
-            TPZGeoEl *gel = gmesh->Element(el);
-            if (!gel) continue;
-            if(gel->HasSubElement()) continue;
-            
-            // Filters BC elements
-            int matID = gel->MaterialId();
-            if (bcMatIDs.find(matID) != bcMatIDs.end()) {
-                
-                TPZGeoElSide bcSide(gel, gel->NSides() - 1);
-                TPZStack<TPZCompElSide> compNeighSides;
-                bcSide.EqualLevelCompElementList(compNeighSides, 1, 0);
-                if (compNeighSides.size() != 1) {
-                    DebugStop();
-                }
-                
-                TPZCompEl *cel = compNeighSides[0].Element();
-                if (!cel) DebugStop();
-                
-                bcGeoElToNeighCompEl.insert({gel->Index(), cel});
-            }
-        }
-        gmesh->ResetReference();
-        for (const auto &it : bcGeoElToNeighCompEl) {
-            int64_t bcElID = it.first;
-            TPZCompEl *neighCel = it.second;
-            TPZGeoEl *bcGeoEl = gmesh->Element(bcElID);
-            neighCel->LoadElementReference();
-            int64_t id;
-            TPZCompEl *bcCel = pressureMesh->CreateCompEl(bcGeoEl, id);
-            bcCel->Reference()->ResetReference();
-            neighCel->Reference()->ResetReference();
-        }
+    TPZCompMesh *mult = fOriginal;
+    TPZCompMesh *pressureMesh = fOriginal->MeshVector()[0]->Clone();
+    fOriginal->MeshVector()[1]->CopyMaterials(*pressureMesh);
+    TPZGeoMesh *gmesh = pressureMesh->Reference();
+    gmesh->ResetReference();
+    pressureMesh->LoadReferences();
+
+    pressureMesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
+
+   // BuildPressureBC(pressureMesh); // BC elements already there. Maybe  after SwitchMaterialObjects() invokes "delete TPZMatLaplacianHybrid" it will be useful?
 
 #ifdef PZDEBUG
-        {
-            std::ofstream outTXT("PostProcPressureMesh.txt");
-            std::ofstream outVTK("PostProcPressureMesh.vtk");
-            pressureMesh->Print(outTXT);
-            TPZVTKGeoMesh::PrintCMeshVTK(pressureMesh, outVTK);
-        }
-#endif
-        
-        return pressureMesh;
+    {
+        std::ofstream outTXT("PostProcPressureMesh.txt");
+        std::ofstream outVTK("PostProcPressureMesh.vtk");
+        pressureMesh->Print(outTXT);
+        TPZVTKGeoMesh::PrintCMeshVTK(pressureMesh, outVTK);
     }
+#endif
+
+    return pressureMesh;
 }
 
 /// create the post processed multiphysics mesh (which is necessarily
 /// hybridized)
 void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
-    if(!fOriginalIsHybridized && !fPostProcesswithHDiv)
-    {
-        // we can not post process with H1 if the original mesh is not hybridized
-        DebugStop();
-    }
+   //TO DO: Verify if original mesh is Hybrid2, else DEBUGSTOP
     
 #ifdef PZDEBUG
     {
@@ -390,30 +390,23 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
     fOriginal->CopyMaterials(fPostProcMesh);
-    
-    {
-        fPostProcMesh.DeleteMaterial(fHybridizer.fHDivWrapMatid);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.first);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.second);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fLagrangeInterface);
-    }
-    
+
     // switch the material from mixed to TPZMixedHdivErrorEstimate...
     SwitchMaterialObjects();
 
-    /// H(div) mesh reconstructed only if fPostProcesswithHdiv == true
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
-    mesh_vectors[0] = 0;
-    mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
-    mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
+    mesh_vectors[2] = fOriginal->MeshVector()[1];//flux
+    mesh_vectors[3] = fOriginal->MeshVector()[0];//potential
     mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
-    
-    
-    if(fPostProcesswithHDiv)
+    mesh_vectors[0] = CreateFluxMesh();
+
+
     {
-        //flux reconstructed just using Hdiv reconstruction
-        mesh_vectors[0] = CreateFluxMesh();
+        std::ofstream out("PressureMesh.txt");
+        mesh_vectors[1]->Print(out);
+        out.flush();
     }
+
     
     if (!fOriginalIsHybridized) {
         fHybridizer.ComputePeriferalMaterialIds(mesh_vectors);

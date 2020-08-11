@@ -48,6 +48,7 @@
 #include <tuple>
 #include <memory>
 #include <stack>
+#include "TPZHybridH1ErrorEstimator.h"
 
 bool neumann = true;
 
@@ -65,7 +66,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 4;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode = 5;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -234,6 +235,8 @@ int main(int argc, char *argv[]) {
             int hybridLevel = 2;
             CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
+            TPZHybridH1ErrorEstimator test(*cmesh_HybridSquared);
+            test.PotentialReconstruction();
             FlushTime(eData,start);
         }
         //finish clock
