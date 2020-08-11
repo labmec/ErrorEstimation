@@ -347,7 +347,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
 {
     // For H1 reconstruction, we need to build BC materials
     TPZCompMesh *mult = fOriginal;
-    TPZCompMesh *pressureMesh = fOriginal->MeshVector()[0]->Clone();
+    TPZCompMesh *pressureMesh = fOriginal->MeshVector()[1]->Clone();
     fOriginal->MeshVector()[1]->CopyMaterials(*pressureMesh);
     TPZGeoMesh *gmesh = pressureMesh->Reference();
     gmesh->ResetReference();
@@ -395,8 +395,8 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
     SwitchMaterialObjects();
 
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
-    mesh_vectors[2] = fOriginal->MeshVector()[1];//flux
-    mesh_vectors[3] = fOriginal->MeshVector()[0];//potential
+    mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
+    mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
     mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
     mesh_vectors[0] = CreateFluxMesh();
 

@@ -95,8 +95,8 @@ void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshv
     }
 
     meshvec.Resize(4,0);
-    meshvec[0] = pressure;
-    meshvec[1] = fluxmesh;
+    meshvec[1] = pressure;
+    meshvec[0] = fluxmesh;
     meshvec[2] = gspace;
     meshvec[3] = average;
 }
