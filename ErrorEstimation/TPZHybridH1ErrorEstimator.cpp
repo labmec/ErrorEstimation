@@ -76,8 +76,8 @@ void TPZHybridH1ErrorEstimator::BuildPressureBC(TPZCompMesh *pressureMesh){
             if (bc->HasForcingFunction()) {
                 newbc->SetForcingFunction(bc->ForcingFunction());
             }
-            //pressureMesh->InsertMaterialObject(newbc);
-            //bcMatIDs.insert(bc->Id());
+            pressureMesh->InsertMaterialObject(newbc);
+            bcMatIDs.insert(bc->Id());
         }
     }
 
@@ -97,7 +97,7 @@ void TPZHybridH1ErrorEstimator::BuildPressureBC(TPZCompMesh *pressureMesh){
             TPZGeoElSide bcSide(gel, gel->NSides() - 1);
             TPZStack<TPZCompElSide> compNeighSides;
             bcSide.EqualLevelCompElementList(compNeighSides, 1, 0);
-            if (compNeighSides.size() != 1) {
+            if (compNeighSides.size() != 2) {
                 DebugStop();
             }
 
@@ -348,7 +348,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
     // For H1 reconstruction, we need to build BC materials
     TPZCompMesh *mult = fOriginal;
     TPZCompMesh *pressureMesh = fOriginal->MeshVector()[1]->Clone();
-    fOriginal->MeshVector()[1]->CopyMaterials(*pressureMesh);
+    fOriginal->MeshVector()[1]->CopyMaterials(*pressureMesh); // retirar
     TPZGeoMesh *gmesh = pressureMesh->Reference();
     gmesh->ResetReference();
     pressureMesh->LoadReferences();
@@ -356,7 +356,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
     pressureMesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
 
-   // BuildPressureBC(pressureMesh); // BC elements already there. Maybe  after SwitchMaterialObjects() invokes "delete TPZMatLaplacianHybrid" it will be useful?
+    BuildPressureBC(pressureMesh); // BC elements already there. Maybe  after SwitchMaterialObjects() invokes "delete TPZMatLaplacianHybrid" it will be useful?
 
 #ifdef PZDEBUG
     {
@@ -407,17 +407,7 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
         out.flush();
     }
 
-    
-    if (!fOriginalIsHybridized) {
-        fHybridizer.ComputePeriferalMaterialIds(mesh_vectors);
-        fHybridizer.ComputeNState(mesh_vectors);
-        fHybridizer.HybridizeInternalSides(mesh_vectors);
-        
-        
-    } else {
-        IdentifyPeripheralMaterialIds();
-        
-    }
+    IdentifyPeripheralMaterialIds();
     
     // increase the order of the dim-1 elements to the maximum of both neighbouring elements
     IncreasePressureSideOrders(mesh_vectors[1]);//malha da pressao

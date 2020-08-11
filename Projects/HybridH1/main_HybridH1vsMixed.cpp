@@ -140,6 +140,11 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     config.materialids.insert(2);config.materialids.insert(3);
     config.bcmaterialids.insert(-5);config.bcmaterialids.insert(-6);config.bcmaterialids.insert(-8);config.bcmaterialids.insert(-9);
 
+    int refinement_depth = 2;
+    if(config.ndivisions > 0) {
+        RandomRefine(config, 1, refinement_depth);
+    }
+
     if(eData.argc != 1) {
         config.porder = atoi(argv[2]);
         config.hdivmais = atoi(argv[4]);
