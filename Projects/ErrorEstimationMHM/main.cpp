@@ -23,17 +23,17 @@ int main() {
     config.MeshNonConvex = true;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
 
-    config.problemname = "NonConvexMesh";
+    config.problemname = "LShape";
 
-    config.dir_name = "NonConvexMHM";
+    config.dir_name = "LShapeMHMSingular";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     for (int orderp = 1; orderp < 2; orderp++) {
         config.porder = orderp;
-        for (int hdivmais = 1; hdivmais < 2; hdivmais++) {
+        for (int hdivmais = 3; hdivmais < 4; hdivmais++) {
             config.hdivmais = hdivmais;
 
             for (int ndiv = 0; ndiv < 1; ndiv++) {

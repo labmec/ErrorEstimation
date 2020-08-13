@@ -1,12 +1,13 @@
 
 #include "TPZMHMHDivErrorEstimator.h"
+#include "TPZMHMHDivErrorEstimatorMaterial.h"
+#include "TPZNullMaterial.h"
+#include "TPZVTKGeoMesh.h"
+#include "TPZVecL2.h"
 #include "pzbndcond.h"
 #include "pzintel.h"
 #include "pzsubcmesh.h"
-#include "TPZVTKGeoMesh.h"
-#include "TPZMHMHDivErrorEstimatorMaterial.h"
-#include "TPZNullMaterial.h"
-#include "TPZVecL2.h"
+#include <Material/TPZHDivErrorEstimateMaterial.h>
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -735,7 +736,8 @@ void TPZMHMHDivErrorEstimator::SwitchMaterialObjects()
         if(mixpoisson)
         {
             
-            TPZMHMHDivErrorEstimateMaterial *newmat = new TPZMHMHDivErrorEstimateMaterial(*mixpoisson);
+            TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
+            newmat->fNeumannLocalProblem=false;
             
             if(fExact)
             {

@@ -36,9 +36,9 @@ int main() {
 
     //RunCosCosProblem();
     //RunOscillatoryProblem();
-    RunNonConvexProblem();
+    //RunNonConvexProblem();
     //Run3DProblem();
-    //RunSingularProblem();
+    RunSingularProblem();
 
     return 0;
 }
@@ -47,18 +47,19 @@ void RunCosCosProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ECosCos;
-    config.problemname = "CosCos";
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.problemname = "SinSin";
     config.dir_name = "CILAMCE";
     config.porder = 1;
-    config.hdivmais = 1;
-    config.ndivisions = 2;
+    config.hdivmais = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 2;
-    int nInternalRef = 3;
+    int nCoarseDiv = 6;
+    int nInternalRef = 0;
+
+    config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir " + config.dir_name;
@@ -125,8 +126,7 @@ void RunNonConvexProblem() {
     config.problemname = "NonConvex";
     config.dir_name = "CILAMCE";
     config.porder = 1;
-    config.hdivmais = 1;
-    config.ndivisions = 0;
+    config.hdivmais = 3;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -135,6 +135,7 @@ void RunNonConvexProblem() {
     int nInternalRef = 0;
 
     TPZVec<int64_t> coarseIndexes;
+    config.ndivisions = nDiv;
     config.gmesh = CreateLMHMMesh(nDiv, coarseIndexes);
 
     std::string command = "mkdir " + config.dir_name;
@@ -199,15 +200,15 @@ void RunSingularProblem() {
     config.problemname = "SinMarkLShape";
     config.dir_name = "CILAMCE";
     config.porder = 1;
-    config.hdivmais = 1;
-    config.ndivisions = 2;
+    config.hdivmais = 3;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseRef = 1;
+    int nCoarseRef = 0;
     int nInternalRef = 0;
 
+    config.ndivisions = nCoarseRef;
     TPZStack<int64_t> mhmIndexes;
     config.gmesh = CreateLShapeGeoMesh(nCoarseRef, nInternalRef, mhmIndexes);
 
@@ -225,6 +226,8 @@ void RunSingularProblem() {
     }
 
     SolveMHMProblem(mhm, config);
+
+
     EstimateError(config, mhm);
 }
 
@@ -436,6 +439,20 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     std::string plotname = config.dir_name + "/" + config.problemname + "Results.vtk";
     an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname);
     an.PostProcess(resolution, cmesh->Dimension());
+
+    {
+        TPZCompMesh* cmesh =  mhm->CMesh().operator->();
+        std::ofstream out("SolvedMHMMesh.txt");
+        cmesh->Print(out);
+
+        std::ofstream outFlux("SolvedFluxMHMMesh.txt");
+        mhm->FluxMesh()->Print(outFlux);
+
+        std::stringstream solByElement;
+        TPZCompMeshTools::PrintSolutionByGeoElement(mhm->PressureMesh().operator->(), solByElement);
+        std::ofstream solByElementFile("SolByElementPressureMHM.txt");
+        solByElementFile << solByElement.str();
+    }
 
     //TPZManVector<REAL> errors(4, 0.);
     //an.SetThreadsForError(2);

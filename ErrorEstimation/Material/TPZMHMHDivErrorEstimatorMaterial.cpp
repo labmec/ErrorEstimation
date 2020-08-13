@@ -10,6 +10,11 @@
 #include "pzbndcond.h"
 #include "TPZVecL2.h"
 
+
+#ifdef LOG4CXX
+static LoggerPtr logger(Logger::getLogger("pz.errorestimation.mhm"));
+#endif
+
 TPZMHMHDivErrorEstimateMaterial::TPZMHMHDivErrorEstimateMaterial(int matid, int dim) : TPZMixedPoisson(matid,dim)
 {
     
@@ -340,23 +345,38 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     errors.Fill(0.0);
     
     
-    TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
+    TPZManVector<STATE,3> fluxfem(3), pressurefem(1), pressurereconstructed(1);
 
 
     int H1functionposition = 0;
     
     H1functionposition = IsH1Position(data);
-    
+
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+
+    GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
+
+    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
+
     if(H1functionposition==0){
     
-        fluxreconstructed = data[0].sol[0];
+     //   fluxreconstructed = data[0].sol[0];
     }
     else{
 
-        for(int i=0; i< 3;i++){
-        fluxreconstructed[i] = (-1)*data[1].dsol[0][i];
+
+        TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
+        TPZFNMatrix<9,REAL> fluxrec(3,0);
+        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
+
+        for(int id=0 ; id<3; id++) {
+            fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
         }
-        
+
+        PermTensor.Multiply(fluxreconstructed2,fluxreconstructed);
+
+
         
     }
     
@@ -383,13 +403,7 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     pressurefem[0] = data[3].sol[0][0];
 
     
-     TPZFNMatrix<9,REAL> PermTensor;
-    TPZFNMatrix<9,REAL> InvPermTensor;
-    
-    GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
-    
-    
-    
+
     TPZFNMatrix<3,REAL> fluxexactneg;
     
     //sigma=-K grad(u)
@@ -418,7 +432,20 @@ void TPZMHMHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZV
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
     errors[4] = residual; //||f - Proj_divsigma||
-    
+
+#ifdef LOG4CXX
+    if(logger->isDebugEnabled()) {
+        std::stringstream sout;
+        sout << "Coord: " << data[H1functionposition].x[0] << ", " << data[H1functionposition].x[1] << ", "
+             << data[H1functionposition].x[2] << '\n';
+        sout << "PressureReconstructed = " << pressurereconstructed[0] << "\n";
+        sout << "FluxReconstructed = " << fluxreconstructed[0] << ", " << fluxreconstructed[1] << ", "
+             << fluxreconstructed[2] << "\n";
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
+
+
 
     
     

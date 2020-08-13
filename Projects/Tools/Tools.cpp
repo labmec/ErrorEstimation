@@ -504,9 +504,9 @@ void Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 }
 
 void
-SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, const ProblemConfig& problem, bool PostProcessingFEM) {
-    
-    
+SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, const ProblemConfig &problem,
+                   bool PostProcessingFEM) {
+
     TPZAnalysis an(Hybridmesh);
 
 #ifdef USING_MKL
@@ -520,31 +520,25 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, c
     TPZSkylineStructMatrix strmat(Hybridmesh);
     strmat.SetNumThreads(0);
 #endif
-    
-    
+
     std::set<int> matIds;
-    
-    
+
     for (auto matid : problem.materialids) {
-        
         matIds.insert(matid);
     }
-    
-    
+
     for (auto matidbc : problem.bcmaterialids) {
-        
         matIds.insert(matidbc);
     }
-    
+
     matIds.insert(InterfaceMatId.first);
     matIds.insert(InterfaceMatId.second);
 
     strmat.SetMaterialIds(matIds);
-    
+
     an.SetStructuralMatrix(strmat);
-    
-    
-    TPZStepSolver<STATE>* direct = new TPZStepSolver<STATE>;
+
+    TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
     direct->SetDirect(ELDLt);
     an.SetSolver(*direct);
     delete direct;
@@ -553,7 +547,6 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, c
     an.Solve();
     
     if (PostProcessingFEM) {
-      
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("ExactPressure");
         scalnames.Push("Pressure");
@@ -581,18 +574,9 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, c
              */
 
             // Erro
-            
-            //
-            
-            
-            
-            //
-            
             ofstream myfile;
             myfile.open("ErrorBCFemProblem.txt", ios::app);
-            
-            
-            
+
             myfile << "\n\n Error for Mixed formulation ";
             myfile << "\n-------------------------------------------------- \n";
             myfile << "Ndiv = " << problem.ndivisions
@@ -608,8 +592,22 @@ SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, c
         }
         
     }
-    
-    
+
+    {
+        std::ofstream out("SolvedHDivMesh.txt");
+        Hybridmesh->Print(out);
+        std::ofstream outFlux("SolvedFluxMesh.txt");
+        TPZMultiphysicsCompMesh *multiphysicsMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(Hybridmesh);
+        if (!multiphysicsMesh) DebugStop();
+        multiphysicsMesh->MeshVector()[0]->Print(outFlux);
+
+        std::stringstream solByElement;
+        TPZCompMeshTools::PrintSolutionByGeoElement(multiphysicsMesh->MeshVector()[1], solByElement);
+
+        std::ofstream solByElementFile("SolByElementPressureHDiv.txt");
+        solByElementFile << solByElement.str();
+    }
+
 }
 
 void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream &out,const ProblemConfig &config)
@@ -1141,36 +1139,57 @@ TPZGeoMesh* CreateLShapeMesh(TPZVec<int>& bcids) {
         
         gmesh->NodeVec()[nodeID] = TPZGeoNode(i, nodeCoord, *gmesh);
     }
-    
-    // Creates 2D elements
-    TPZManVector<int64_t> nodeIDs(3);
-    nodeIDs[0] = 0;
-    nodeIDs[1] = 1;
-    nodeIDs[2] = 3;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
-    nodeIDs[0] = 2;
-    nodeIDs[1] = 3;
-    nodeIDs[2] = 1;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
-    nodeIDs[0] = 3;
-    nodeIDs[1] = 4;
-    nodeIDs[2] = 0;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
-    nodeIDs[0] = 5;
-    nodeIDs[1] = 0;
-    nodeIDs[2] = 4;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
-    nodeIDs[0] = 0;
-    nodeIDs[1] = 5;
-    nodeIDs[2] = 7;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
-    nodeIDs[0] = 6;
-    nodeIDs[1] = 7;
-    nodeIDs[2] = 5;
-    new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
-    
+    bool blob = false;
+    if (blob) {
+        // Creates 2D elements
+        TPZManVector<int64_t> nodeIDs(3);
+        nodeIDs[0] = 0;
+        nodeIDs[1] = 1;
+        nodeIDs[2] = 3;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+        nodeIDs[0] = 2;
+        nodeIDs[1] = 3;
+        nodeIDs[2] = 1;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+        nodeIDs[0] = 3;
+        nodeIDs[1] = 4;
+        nodeIDs[2] = 0;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+        nodeIDs[0] = 5;
+        nodeIDs[1] = 0;
+        nodeIDs[2] = 4;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+        nodeIDs[0] = 0;
+        nodeIDs[1] = 5;
+        nodeIDs[2] = 7;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+        nodeIDs[0] = 6;
+        nodeIDs[1] = 7;
+        nodeIDs[2] = 5;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoTriangle>(nodeIDs, matID, *gmesh);
+    }
+    else {
+        // Creates 2D elements
+        TPZManVector<int64_t> nodeIDs(4);
+        nodeIDs[0] = 0;
+        nodeIDs[1] = 1;
+        nodeIDs[2] = 2;
+        nodeIDs[3] = 3;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
+        nodeIDs[0] = 0;
+        nodeIDs[1] = 3;
+        nodeIDs[2] = 4;
+        nodeIDs[3] = 5;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
+        nodeIDs[0] = 0;
+        nodeIDs[1] = 5;
+        nodeIDs[2] = 6;
+        nodeIDs[3] = 7;
+        new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeIDs, matID, *gmesh);
+    }
+
     // Creates line elements where boundary conditions will be inserted
-    nodeIDs.Resize(2);
+    TPZManVector<int64_t> nodeIDs(2);
     for (int i = 0; i < NodeNumber; i++) {
         nodeIDs[0] = i % NodeNumber;
         nodeIDs[1] = (i + 1) % NodeNumber;
