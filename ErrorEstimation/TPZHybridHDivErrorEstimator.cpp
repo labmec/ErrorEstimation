@@ -1621,7 +1621,7 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         
         if (connects.find(conindex) != connects.end()) {
             
-            DebugStop();
+           // DebugStop(); TODO think of a solution to this case
         }
         
         TPZConnect &c = intel1->Connect(celside.Side());
@@ -2105,6 +2105,10 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 #endif
     }
 
+    std::ofstream outStiffness("DebuggingTransfer/StiffnessAfterReconstruction.txt");
+    std::set<int> matIDs = {-1};
+    TPZCompMeshTools::PrintStiffnessMatrixByGeoElement(PressureMesh(), outStiffness, matIDs);
+
 }
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {
@@ -2142,9 +2146,9 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)
 {
     const TPZVec<TPZCompEl *> &elgr = cel->GetElGroup();
-    for(int i=0; i<elgr.size(); i++)
+    for(auto i : elgr)
     {
-        TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(elgr[i]);
+        TPZMultiphysicsInterfaceElement *interf = dynamic_cast<TPZMultiphysicsInterfaceElement *>(i);
         if(interf) return interf;
     }
     return NULL;
