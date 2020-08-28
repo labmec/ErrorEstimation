@@ -8,6 +8,8 @@
 #include "pzintel.h"
 #include "pzsubcmesh.h"
 #include <Material/TPZHDivErrorEstimateMaterial.h>
+#include <Mesh/pzmultiphysicscompel.h>
+#include <Mesh/TPZCompMeshTools.h>
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -24,22 +26,19 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         // switch the material from mixed to TPZMHMHDivErrorEstimationMaterial...
     SwitchMaterialObjects();
 
-    if(!fPostProcesswithHDiv){
-        CreatePressureSkeleton();
-    }
-
-
     TPZManVector<TPZCompMesh *> meshvec(4);
-    
+
     meshvec[0] = 0;
     meshvec[1] = CreatePressureMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
     meshvec[3] = fOriginal->MeshVector()[1];
 
-    
-    if(fPostProcesswithHDiv){
+    if (!fPostProcesswithHDiv) {
+        CreateSkeletonElements(meshvec[1]);
+    }
+
+    if (fPostProcesswithHDiv) {
         meshvec[0] = CreateFluxMesh();
-        
     }
     
     //enriquecer no MHM tbem?
@@ -50,8 +49,12 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
             IncreaseSideOrders(meshvec[0]);//malha do fluxo
         }
     }
-    
-    
+
+    {
+        std::ofstream out("PressureMeshAfterIncreaseSideOrders.txt");
+        meshvec[1]->Print(out);
+    }
+
 
     TPZManVector<int,4> active(4,0);
     if(fPostProcesswithHDiv){
@@ -61,7 +64,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     active[1] = 1;
  
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
-    InsertPressureSkeletonMaterial();
+  //  InsertPressureSkeletonMaterial();
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     bool groupelements = false;
 #ifdef PZDEBUG2
@@ -100,11 +103,15 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
     }
 
-
     SubStructurePostProcessingMesh();
-    
-     ComputePressureWeights();
-    
+
+    {
+        std::ofstream out("CompletePressureMeshMHM.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(meshvec[1], out, {}, false, false);
+    }
+
+    ComputePressureWeights();
+
 #ifdef PZDEBUG2
     {
         std::ofstream out1("fluxbePostSub.txt");
@@ -314,41 +321,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             }
         }
 
-        {
-            auto geoToMHM = fMHM->GetGeoToMHMDomain();
-            std::map<int64_t, int64_t> bcToMHM;
-            int64_t nElem = gmesh->NElements();
-            for (int64_t el = 0; el < nElem; el++) {
-                TPZGeoEl *gel = gmesh->Element(el);
-                if (!gel) continue;
-                if (gel->Dimension() != dim) continue;
-
-                for (int iside = gel->NCornerNodes(); iside < gel->NSides()-1;iside++) {
-                    TPZGeoElSide gelside(gel, iside);
-                    TPZGeoElSide neighbour;
-                    neighbour = gelside.Neighbour();
-                    while (neighbour != gelside) {
-                        if (neighbour.Element()->Dimension() != dim) {
-                            TPZMaterial *neighMat = fPostProcMesh.FindMaterial(neighbour.Element()->MaterialId());
-                            if (neighMat) {
-                                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(neighMat);
-                                if (bc) {
-                                    int64_t bcId = neighbour.Element()->Index();
-                                    bcToMHM[bcId] = geoToMHM[el];
-                                }
-                            }
-                        }
-                        neighbour = neighbour.Neighbour();
-                    }
-                }
-            }
-            for (auto elem: bcToMHM) {
-                std::cout << elem.first << " " << elem.second << '\n';
-            }
-            std::cout << "blob\n";
-
-        }
-
 #ifdef PZDEBUG2
         {
             int64_t nel = fPostProcMesh.NElements();
@@ -420,19 +392,12 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
     return fluxmesh;
 }
 
-// method fro creating a discontinuous pressure mesh
-TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh()
-{
-    if(fPostProcesswithHDiv)
-    {
+// method for creating a discontinuous pressure mesh
+TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh() {
+    if (fPostProcesswithHDiv) {
         return CreateDiscontinuousPressureMesh();
-    }
-    else
-    {
-        return CreateContinousPressureMesh();
-        
-        
-        
+    } else {
+        return CreateInternallyContinuousPressureMesh();
     }
 }
 
@@ -476,10 +441,10 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
 
 
     
- //   std::cout<< "n connects before BC " << pressure->NConnects()<<"\n";
-    // creating BC conditions for H1 mesh
+//    std::cout<< "n connects before BC " << pressure->NConnects()<<"\n";
+//    // creating BC conditions for H1 mesh
     TPZCompMesh *mult = fOriginal;
-    
+
     set<int> matIdsbc;
     for(auto it : mult->MaterialVec()){
         TPZMaterial *mat = it.second;
@@ -493,9 +458,9 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
             }
             pressure->InsertMaterialObject(bcmat);
             matIdsbc.insert(mat->Id());
-            
+
         }
-        
+
     }
     pressure->ApproxSpace().CreateDisconnectedElements(false);
     pressure->SetDefaultOrder(4); // TODO remover
@@ -508,7 +473,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateContinousPressureMesh()
 //        TPZVTKGeoMesh::PrintCMeshVTK(pressure, out2);
 //    }
     
- //   std::cout<< "n connects after BC " << pressure->NConnects()<<"\n";
+    std::cout<< "n connects after BC " << pressure->NConnects()<<"\n";
     // creating discontinuous skeleton on H1 mesh
 
     TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
@@ -578,6 +543,148 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateDiscontinuousPressureMesh()
         pressmesh->ConnectVec()[ic].SetLagrangeMultiplier(1);
     }
     return pressmesh;
+}
+
+TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() {
+    TPZCompMesh *original_pressure = fOriginal->MeshVector()[1];
+    TPZGeoMesh *gmesh = original_pressure->Reference();
+    gmesh->ResetReference();
+    original_pressure->LoadReferences();
+
+    // We need to fill a tuple with the information of the MHM domain that each geometric element belongs to
+    // and the corresponding computational element in the original pressure mesh.
+    // The MHM domain info allows the creation of continuous space inside a MHM domain, but not globally.
+    // The original pressure comp. element is used to retrieve the original approximation order.
+    int64_t nel = gmesh->NElements();
+    auto geoToMHM = fMHM->GetGeoToMHMDomain();
+    TPZManVector<std::tuple<int64_t, int64_t, TPZCompEl*>> MHMOfEachGeoEl(nel);
+    for (int i = 0; i < nel; i++) {
+        TPZGeoEl * gel = gmesh->Element(i);
+        if (!gel) {
+            MHMOfEachGeoEl[i] = {-1, i, nullptr};
+            continue;
+        }
+        TPZCompEl * orig_cel = gel->Reference();
+        if (!orig_cel) {
+            MHMOfEachGeoEl[i] = {-1, i, nullptr};
+            continue;
+        }
+        MHMOfEachGeoEl[i] = std::make_tuple(geoToMHM[i], i, orig_cel);
+    }
+
+    int dim = gmesh->Dimension();
+    std::map<int64_t, int64_t> bcToMHM;
+    int64_t nElem = gmesh->NElements();
+    for (int64_t el = 0; el < nElem; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if (!gel) continue;
+        if (gel->Dimension() != dim) continue;
+
+        for (int iside = gel->NCornerNodes(); iside < gel->NSides() - 1; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+            TPZGeoElSide neighbour;
+            neighbour = gelside.Neighbour();
+            while (neighbour != gelside) {
+                if (neighbour.Element()->Dimension() != dim) {
+                    TPZMaterial *neighMat = fPostProcMesh.FindMaterial(neighbour.Element()->MaterialId());
+                    if (neighMat) {
+                        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(neighMat);
+                        if (bc) {
+                            int64_t bcId = neighbour.Element()->Index();
+                            MHMOfEachGeoEl[bcId] = {geoToMHM[el], bcId, nullptr};
+                        }
+                    }
+                }
+                neighbour = neighbour.Neighbour();
+            }
+        }
+    }
+
+    std::sort(&MHMOfEachGeoEl[0], &MHMOfEachGeoEl[nel - 1] + 1);
+
+    {
+        std::cout << __PRETTY_FUNCTION__ << '\n';
+        for (auto elem: MHMOfEachGeoEl) {
+            std::cout << std::get<0>(elem) << " " << std::get<1>(elem) << " " << std::get<2>(elem) << '\n';
+        }
+    }
+
+    // Create pressure mesh
+    TPZCompMesh *reconstruction_pressure = new TPZCompMesh(gmesh);
+
+    // Copies volume materials
+    original_pressure->CopyMaterials(*reconstruction_pressure);
+    RemoveMaterialObjects(reconstruction_pressure->MaterialVec());
+
+    // Copies BC materials
+    std::set<int> bcMatIDs;
+    for (auto it : fOriginal->MaterialVec()) {
+        TPZMaterial *mat = it.second;
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        if (bc) {
+            int bcID = bc->Material()->Id();
+            TPZMaterial *pressure_mat = original_pressure->FindMaterial(bcID);
+            TPZMaterial *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            if (fExact) {
+                bc_mat->SetForcingFunction(fExact->Exact());
+            }
+            reconstruction_pressure->InsertMaterialObject(bc_mat);
+        }
+    }
+
+    reconstruction_pressure->SetDefaultOrder(original_pressure->GetDefaultOrder());
+    reconstruction_pressure->SetAllCreateFunctionsContinuous();
+    reconstruction_pressure->ApproxSpace().CreateDisconnectedElements(false);
+    gmesh->ResetReference();
+
+    // Creates elements in pressure mesh
+    int64_t previousMHMDomain = -1;
+    int64_t firstElemInMHMDomain = -1;
+    for (int i = 0; i < MHMOfEachGeoEl.size(); i++) {
+        int64_t MHMDomain = std::get<0>(MHMOfEachGeoEl[i]);
+        int64_t elIndex = std::get<1>(MHMOfEachGeoEl[i]);
+
+        if (MHMDomain == -1) continue;
+
+        if (MHMDomain != previousMHMDomain) {
+            if (previousMHMDomain != -1) {
+                for (int j = firstElemInMHMDomain; j < i; j++) {
+                    gmesh->Element(std::get<1>(MHMOfEachGeoEl[j]))->ResetReference();
+                }
+            }
+            firstElemInMHMDomain = i;
+            previousMHMDomain = MHMDomain;
+        }
+
+        // Create the pressure element
+        TPZGeoEl *gel = gmesh->Element(elIndex);
+        if (!gel || gel->HasSubElement()) continue;
+
+        int64_t index;
+        TPZCompEl *new_cel = reconstruction_pressure->CreateCompEl(gel, index);
+        TPZInterpolatedElement *new_intel = dynamic_cast<TPZInterpolatedElement *>(new_cel);
+
+        TPZCompEl * orig_cel = std::get<2>(MHMOfEachGeoEl[i]);
+        if (orig_cel) {
+            int nc = gel->Reference()->NConnects();
+            int order = gel->Reference()->Connect(nc - 1).Order();
+            new_intel->PRefine(order);
+        }
+        else {
+            // There are no BC elements in original pressure, so I'm not sure what to set as default in this case
+            int nc = 0;
+            int order = 1;
+            //new_intel->PRefine(0);
+        }
+    }
+
+    // Resets references of last MHM domain
+    for (int j = firstElemInMHMDomain; j < MHMOfEachGeoEl.size(); j++) {
+        gmesh->Element(std::get<1>(MHMOfEachGeoEl[j]))->ResetReference();
+    }
+
+
+    return reconstruction_pressure;
 }
 
 // remove the materials that are not listed in MHM
@@ -719,15 +826,15 @@ void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     gmesh->ResetReference();
     int dim = gmesh->Dimension();
-    int64_t nel = fPostProcMesh.NElements();
+    int64_t nel = pressuremesh->NElements();//fPostProcMesh.NElements();
     for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZCompEl *cel = pressuremesh->Element(el);
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if(!gel) continue;
         if (gel->Dimension() == dim-1) {
-            TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
-            if(!mphys) DebugStop();
+           // TPZMultiphysicsElement *mphys = dynamic_cast<TPZMultiphysicsElement *>(cel);
+           // if(!mphys) DebugStop();
             
 //            TPZMaterial *mat = fPostProcMesh.FindMaterial(mphys->Material()->Id());
 //            TPZBndCond * bc = dynamic_cast<TPZBndCond*>(mat);
@@ -736,8 +843,9 @@ void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
 //
 //            }
             
-            TPZCompEl *pressel = mphys->Element(1);
-            pressel->LoadElementReference();
+            //TPZCompEl *pressel = mphys->Element(1);
+            //if (!pressel) continue; // TODO
+            cel->LoadElementReference();
         }
     }
 
@@ -794,7 +902,7 @@ void TPZMHMHDivErrorEstimator::SwitchMaterialObjects()
 }
 
 
-void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
+void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mesh) {
 
     TPZCompMesh* cmesh = fOriginal;
     TPZGeoMesh* gmesh = fOriginal->Reference();
@@ -884,7 +992,7 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
         }
     }
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
@@ -892,6 +1000,18 @@ void TPZMHMHDivErrorEstimator::CreatePressureSkeleton() {
         gmesh->Print(fileTXT);
     }
 #endif
+
+    // Create skeleton elements in pressure mesh
+    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    skeletonMat->SetDimension(dim - 1);
+    pressure_mesh->InsertMaterialObject(skeletonMat);
+
+    set<int> matIdSkeleton = { fPressureSkeletonMatId };
+    gmesh->ResetReference();
+
+    pressure_mesh->ApproxSpace().CreateDisconnectedElements(true);
+    pressure_mesh->AutoBuild(matIdSkeleton);
+    pressure_mesh->ExpandSolution();
 }
 
 void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
