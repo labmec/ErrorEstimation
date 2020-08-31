@@ -123,8 +123,8 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 // a method for transferring the multiphysics elements in submeshes
 void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 {
-    fOriginal->Reference()->ResetReference();
     TPZGeoMesh *gmesh = fOriginal->Reference();
+    gmesh->ResetReference();
     int dim = gmesh->Dimension();
     fOriginal->LoadReferences();
     int64_t numgel = gmesh->NElements();
@@ -143,9 +143,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         TPZSubCompMesh *ref = dynamic_cast<TPZSubCompMesh *>(mesh);
         ReferredMesh[el] = ref;
 
-        if (gel->Dimension() != dim ) {
-            std::cout << "GelIndex " << el << " MatId " << gel->MaterialId() << " SubMesh " << (void *)ref << '\n';
-        }
+        std::cout << "GelIndex " << el << " MatId " << gel->MaterialId() << " SubMesh " << (void *) ref << '\n';
     }
 #ifdef PZDEBUG2
     {
@@ -181,7 +179,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         if (iter == submeshmap.end()) {
             int64_t index;
             TPZSubCompMesh *subcmesh = new TPZSubCompMesh(fPostProcMesh,index);
-            if(!submesh) continue;
             submeshmap[submesh] = subcmesh;
             ElementMesh[el] = subcmesh;
         }
@@ -242,7 +239,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     } else {
         std::set<int64_t> connectlist;
-        //ComputeBoundaryConnects(connectlist);
+        ComputeBoundaryConnects(connectlist);
 
         {
             std::ofstream out("MalhaTesteBeforeTransfer.txt");
@@ -264,12 +261,13 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
         fPostProcMesh.ComputeNodElCon();
 
-        std::cout.flush();
-       // std::cout << "connectlist ";
-//        for (auto it : connectlist) {
-//            std::cout << it << " ";
-//        }
-      //  std::cout << "\n";
+        {
+            std::cout << "connectlist ";
+            for (auto it : connectlist) {
+                std::cout << it << " ";
+            }
+            std::cout << '\n';
+        }
 
         for (auto it : connectlist) {
             fPostProcMesh.ConnectVec()[it].IncrementElConnected();
@@ -601,13 +599,6 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
     }
 
     std::sort(&MHMOfEachGeoEl[0], &MHMOfEachGeoEl[nel - 1] + 1);
-
-    {
-        std::cout << __PRETTY_FUNCTION__ << '\n';
-        for (auto elem: MHMOfEachGeoEl) {
-            std::cout << std::get<0>(elem) << " " << std::get<1>(elem) << " " << std::get<2>(elem) << '\n';
-        }
-    }
 
     // Create pressure mesh
     TPZCompMesh *reconstruction_pressure = new TPZCompMesh(gmesh);
@@ -1230,46 +1221,65 @@ void TPZMHMHDivErrorEstimator::InsertPressureSkeletonMaterial() {
 
 void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connectList) {
 
-    int dim = fPostProcMesh.Dimension();
-    fPostProcMesh.Reference()->ResetReference();
-    fPostProcMesh.LoadReferences();
+    TPZCompMesh * cmesh = fPostProcMesh.MeshVector()[1];
+    TPZGeoMesh * gmesh = cmesh->Reference();
+    int dim = gmesh->Dimension();
+    gmesh->ResetReference();
+    cmesh->LoadReferences();
 
-    int64_t nel = fPostProcMesh.NElements();
+    int64_t nel = gmesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl* cel = fPostProcMesh.Element(el);
-        if (!cel) continue;
-        TPZGeoEl* gel = cel->Reference();
+        TPZGeoEl* gel = gmesh->Element(el);
         if (!gel) continue;
         if (gel->Dimension() == dim) continue;
+        TPZCompEl* cel = gel->Reference();
+        if (!cel) continue;
 
         int nsides = gel->NSides();
-        for (int is = 0; is < nsides; is++) {
-            TPZGeoElSide gelside(gel, is);
-            if (gelside.Element()->MaterialId() == this->fPressureSkeletonMatId || IsDirichletCondition(gelside)) {
-
-                TPZStack<TPZCompElSide> celstack;
-                gelside.EqualLevelCompElementList3(celstack, 1, 0);
-
-                int nst = celstack.NElements();
-                if(nst == 0) DebugStop();
-
-                for (int ist = 0; ist < nst; ist++) {
-                    TPZCompElSide cneigh = celstack[ist];
-                    TPZCompEl * neigh = cneigh.Element();
-                    if (neigh->Dimension() != dim) continue;
-                    TPZGeoElSide gneigh = cneigh.Reference();
-
-                    TPZStack<int> containedSides;
-                    int nSides = gneigh.NSides();
-                    gneigh.Element()->LowerDimensionSides(gneigh.Side(), containedSides);
-                    containedSides.Push(gneigh.Side());
-                    for (int iSides = 0; iSides < containedSides.size(); iSides++) {
-                        int side = containedSides[iSides];
-                        connectList.insert(neigh->ConnectIndex(side));
-                       // std::cout << "connect index: " << neigh->ConnectIndex(side) << " side: " << side << '\n';
-                    }
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+            if (gel->MaterialId() != this->fPressureSkeletonMatId && !IsDirichletCondition(gelside)) continue;
+            TPZGeoElSide neighbour;
+            neighbour = gelside.Neighbour();
+            while (neighbour != gelside) {
+                if (neighbour.Element()->Dimension() == dim) {
+                    TPZCompEl * neigh = neighbour.Element()->Reference();
+                    if (!neigh) continue;
+                    int sideId = neighbour.Side();
+                    connectList.insert(neigh->ConnectIndex(sideId));
                 }
+                neighbour = neighbour.Neighbour();
             }
         }
+
+
+        //int nsides = gel->NSides();
+        //for (int is = 0; is < nsides; is++) {
+        //    TPZGeoElSide gelside(gel, is);
+        //    if (gel->MaterialId() == this->fPressureSkeletonMatId || IsDirichletCondition(gelside)) {
+
+        //        TPZStack<TPZCompElSide> celstack;
+        //        gelside.EqualLevelCompElementList3(celstack, 1, 0);
+
+        //        int nst = celstack.NElements();
+        //        if(nst == 0) DebugStop();
+
+        //        for (int ist = 0; ist < nst; ist++) {
+        //            TPZCompElSide cneigh = celstack[ist];
+        //            TPZCompEl * neigh = cneigh.Element();
+        //            if (neigh->Dimension() != dim) continue;
+        //            TPZGeoElSide gneigh = cneigh.Reference();
+
+        //            TPZStack<int> containedSides;
+        //            gneigh.Element()->LowerDimensionSides(gneigh.Side(), containedSides);
+        //            containedSides.Push(gneigh.Side());
+        //            for (int iSides = 0; iSides < containedSides.size(); iSides++) {
+        //                int side = containedSides[iSides];
+        //                connectList.insert(neigh->ConnectIndex(side));
+        //                std::cout << "connect index: " << neigh->ConnectIndex(side) << " side: " << side << '\n';
+        //            }
+        //        }
+        //    }
+        //}
     }
 }
