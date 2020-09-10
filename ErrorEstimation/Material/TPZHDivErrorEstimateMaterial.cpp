@@ -11,6 +11,10 @@
 #include "pzbndcond.h"
 
 
+#ifdef LOG4CXX
+static LoggerPtr logger(Logger::getLogger("pz.errorestimation.hdiv"));
+#endif
+
 TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(int matid, int dim) : TPZMixedPoisson(matid,dim)
 {
     
@@ -265,7 +269,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
     
         default:{
 
-        std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
+        //std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
             break;
         }
     }
@@ -417,7 +421,18 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     errors[3] = innerestimate;//error flux reconstructed
     errors[4] = residual; //||f - Proj_divsigma||
 
-    
+#ifdef LOG4CXX
+    if(logger->isDebugEnabled()) {
+        std::stringstream sout;
+        sout << "Coord: " << data[H1functionposition].x[0] << ", " << data[H1functionposition].x[1] << ", "
+             << data[H1functionposition].x[2] << '\n';
+        sout << "PressureReconstructed = " << pressurereconstructed << "\n";
+        sout << "FluxReconstructed = " << fluxreconstructed[0] << ", " << fluxreconstructed[1] << ", "
+             << fluxreconstructed[2] << "\n";
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
+
     
     
 }

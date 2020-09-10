@@ -54,8 +54,7 @@ struct TPZHybridHDivErrorEstimator
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
     
-    // material id of the dim-2 skeleton elements
-//    int fSkeletonMatId = 6;
+    // material id of the dim-1 skeleton elements
     int fPressureSkeletonMatId;
     
     TPZAnalyticSolution *fExact;
@@ -116,7 +115,7 @@ struct TPZHybridHDivErrorEstimator
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
-    void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
+    static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
 protected:
     
@@ -144,7 +143,7 @@ protected:
     /// compute the average pressures of across faces of the H(div) mesh
     void ComputeAverageFacePressures();
     
-    void ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
+    void ComputeBoundaryL2Projection(int target_dim);
     void NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
     void BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim);
     

@@ -21,8 +21,9 @@
 
 bool readGeoMeshFromFile = false;
 bool postProcessWithHDiv = false;
-int refinementSteps = 4;
+int refinementSteps = 1;
 
+TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes);
 void TracingTriangleBug(TPZMultiphysicsCompMesh* multiphysics);
 
 int main(int argc, char* argv[]) {
@@ -38,8 +39,7 @@ int main(int argc, char* argv[]) {
 
     // Creates geometric mesh
 
-    TPZGeoMesh *gmeshOriginal =
-        nullptr; // CreateLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
+    TPZGeoMesh *gmeshOriginal = nullptr; // CreateLShapeMesh(bcIDs);//CreateLShapeMesh(bcIDs);
 
     ProblemConfig config;
 
@@ -52,8 +52,8 @@ int main(int argc, char* argv[]) {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
 
-    config.dir_name = "TriangularLShapeMesh";
-    config.problemname = "ESinSinMark_UniRef";
+    config.dir_name = "AdaptivityLShape";
+    config.problemname = "ESinSinMark";
 
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
@@ -75,7 +75,7 @@ else
 
     {
         //TPZManVector<int, 4> bcIDs(8, -1);
-        TPZManVector<int,4> bcids(8,-3);
+        TPZManVector<int,4> bcids(8,-1);
         bcids[1] = -1;
         //constants for Robin boundary conditions
         // sigma.n=Km(u-u_d)-g
@@ -84,17 +84,20 @@ else
         config.Km = 1.e12;//pow(10,2);
         
         gmeshOriginal = CreateLShapeMesh(bcids);//CreateGeoMesh(1, bcIDs);//
+
+
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1); // dirichlet
         //config.bcmaterialids.insert(-2); // neumann
-        config.bcmaterialids.insert(-3); // Robin
+        //config.bcmaterialids.insert(-3); // Robin
 
         
     }
     
     gmeshOriginal->SetDimension(config.dimension);
     config.gmesh = gmeshOriginal;
-    
+    UniformRefinement(2, 2 , config.gmesh) ;
+    DivideLowerDimensionalElements(config.gmesh);
     
         
         
@@ -107,7 +110,7 @@ else
     meshvec_HDiv = cmesh_HDiv->MeshVector();
     
     
-    for (int iSteps = 1; iSteps < refinementSteps; iSteps++) {
+    for (int iSteps = 0; iSteps < refinementSteps; iSteps++) {
     
     
         config.adaptivityStep = iSteps;
@@ -189,4 +192,32 @@ else
    // return 0;
         
     }
+}
+
+TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes) {
+
+    TPZVec<int> bcIDs(8, -1);
+    TPZGeoMesh *gmesh = CreateQuadLShapeMesh(bcIDs);
+    gmesh->SetDimension(2);
+    gmesh->BuildConnectivity();
+
+    UniformRefinement(nCoarseRef, gmesh);
+    DivideLowerDimensionalElements(gmesh);
+
+    int64_t nElem = gmesh->NElements();
+    for (int64_t i = 0; i < nElem; i++) {
+        TPZGeoEl *gel = gmesh->Element(i);
+        if (gel->Dimension() != gmesh->Dimension() || gel->NSubElements() > 0) continue;
+        mhmIndexes.Push(i);
+    }
+
+    UniformRefinement(nInternalRef, gmesh);
+    DivideLowerDimensionalElements(gmesh);
+
+    for (int64_t i = 0; i < mhmIndexes.size(); i++) {
+        std::cout << mhmIndexes[i] << '\n';
+    }
+    std::cout << '\n';
+
+    return gmesh;
 }

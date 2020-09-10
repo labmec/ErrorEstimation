@@ -23,7 +23,7 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
 {
     
     /// a pointer to the datastructure used to generate the MHM mesh
-    TPZMHMixedMeshControl *fMHM = 0;
+    TPZMHMixedMeshControl *fMHM = nullptr;
 
 
     TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, TPZMHMixedMeshControl *mhm) : TPZHybridHDivErrorEstimator(InputMesh,true),
@@ -40,29 +40,30 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     
     TPZMHMHDivErrorEstimator &operator=(const TPZMHMHDivErrorEstimator &cp)
     {
-        TPZHybridHDivErrorEstimator::operator=(cp);
-        fMHM = cp.fMHM;
-        fPostProcesswithHDiv = cp.fPostProcesswithHDiv;
+        if (this != &cp) {
+            TPZHybridHDivErrorEstimator::operator=(cp);
+            fMHM = cp.fMHM;
+            fPostProcesswithHDiv = cp.fPostProcesswithHDiv;
+        }
         return *this;
     }
     
-    virtual ~TPZMHMHDivErrorEstimator()
-    {
-        
-    }
+    virtual ~TPZMHMHDivErrorEstimator() = default;
     
 
     // a method for generating the HDiv mesh
-    virtual TPZCompMesh *CreateFluxMesh() override;
+    TPZCompMesh *CreateFluxMesh() override;
     // a method for creating the pressure mesh
-    virtual TPZCompMesh *CreatePressureMesh() override;
+    TPZCompMesh *CreatePressureMesh() override;
     // method fro creating a discontinuous pressure mesh
     TPZCompMesh *CreateDiscontinuousPressureMesh();
     // method for creating a continuous pressure mesh
     TPZCompMesh *CreateContinousPressureMesh();
+    // method for creating a continuous pressure mesh
+    TPZCompMesh *CreateInternallyContinuousPressureMesh();
 
-    // Creates skeleton elements to calculate the average pressure between neighbours
-    void CreatePressureSkeleton();
+    // Creates skeleton geometric elements on which the average pressure will be calculated
+    void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
     // Creates skeleton elements to calculate the average pressure between neighbours
     void InsertPressureSkeletonMaterial();
 
@@ -70,7 +71,7 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
    // TPZCompMesh *CreateSkeletonApproximationSpace();
 
     // a method for generating the hybridized multiphysics post processing mesh
-    virtual void CreatePostProcessingMesh() override;
+    void CreatePostProcessingMesh() override;
     // a method for transferring the multiphysics elements in submeshes
     void SubStructurePostProcessingMesh();
     // transfer embedded elements to submeshes
@@ -82,18 +83,20 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     void RemoveMaterialObjects(std::map<int,TPZMaterial *> &matvec);
     // a method for computing the pressures between subdomains as average pressures
     /// compute the average pressures of across edges of the H(div) mesh
-    virtual void ComputeAveragePressures(int target_dim) override;
+    void ComputeAveragePressures(int target_dim) override;
     /// compute the average pressure over corners
     /// set the cornernode values equal to the averages
-    virtual void ComputeNodalAverages() override;
+    void ComputeNodalAverages() override;
    //switch the material
-    virtual void SwitchMaterialObjects()override;
+    void SwitchMaterialObjects()override;
     
-    virtual void CopySolutionFromSkeleton() override;
+    void CopySolutionFromSkeleton() override;
 
     void VerifySolutionConsistency(TPZCompMesh* cmesh) override;
 
-    void ComputeBoundaryConnects(std::set<int64_t>& connectList);
+    // Fill a list with the connect indexes of volumetric elements sides
+    // in the neighbourhood of the skeleton
+    void ComputeConnectsNextToSkeleton(std::set<int64_t>& connectList);
 
 };
 

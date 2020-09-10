@@ -79,65 +79,75 @@ void TPZMRCMLagrangeMultiplier::Contribute(TPZVec<TPZMaterialData> &datavec, REA
 void TPZMRCMLagrangeMultiplier::ContributeInterface(TPZMaterialData &data, TPZVec<TPZMaterialData> &dataleft, TPZVec<TPZMaterialData> &dataright, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     if(dataleft[0].phi.Rows() == 0 || dataright[0].phi.Rows() == 0
-       || dataright[1].phi.Rows() == 0)
+       || dataleft[1].phi.Rows() == 0)
     {
         DebugStop();
     }
     
     TPZFMatrix<REAL> &phiFluxL = dataleft[0].phi;
     TPZFMatrix<REAL> &phiFluxR = dataright[0].phi;
-    TPZFMatrix<REAL> &phiPressR = dataright[1].phi;
-    TPZFMatrix<REAL> &phiL = phiFluxL;
-    TPZFMatrix<REAL> &phiR = phiPressR;
+    TPZFMatrix<REAL> &phiPressL = dataleft[1].phi;
     REAL H = data.HSize;
     
-    int nfluxl = phiL.Rows();
-    int npressr = phiR.Rows();
+    int nfluxl = phiFluxL.Rows();
+    int npressl = phiPressL.Rows();
     int nfluxr = phiFluxR.Rows();
     static int count  = 0;
 
-    if((nfluxl+npressr+nfluxr)*fNStateVariables != ek.Rows() && count < 20)
+    if((nfluxl+npressl+nfluxr)*fNStateVariables != ek.Rows() && count < 20)
     {
         std::cout<<"ek.Rows() "<< ek.Rows()<<
         " nrowl " << nfluxl <<
-        " nrowr " << npressr << " may give wrong result " << std::endl;
+        " nrowl " << npressl << " may give wrong result " << std::endl;
         count++;
     }
 
-    int secondblock = ek.Rows()-phiR.Rows()*fNStateVariables;
+    int firstblock = phiFluxL.Rows()*fNStateVariables;
+    int secondblock = (phiFluxL.Rows()+phiPressL.Rows())*fNStateVariables;
     
-    // 3) phi_I_left, phi_J_right
-    for(int il=0; il<nfluxl; il++) {
-        for(int jr=0; jr<npressr; jr++) {
-            for (int ist=0; ist<fNStateVariables; ist++) {
-                ek(fNStateVariables*il+ist,fNStateVariables*jr+ist+secondblock) += weight *  (phiFluxL(il) * phiR(jr));
+    int fluxl_block = phiFluxL.Rows()*fNStateVariables;
+    // 3) phi_press_left, phi_flux_right
+    if(fBeta < 1.e7)
+    {
+        for(int il=0; il<npressl; il++) {
+            for(int jr=0; jr<nfluxr; jr++) {
+                for (int ist=0; ist<fNStateVariables; ist++) {
+                    ek(firstblock+fNStateVariables*il+ist,fNStateVariables*jr+ist+secondblock) += weight *  (phiPressL(il) * phiFluxR(jr));
+                    ek(fNStateVariables*jr+ist+secondblock,firstblock+fNStateVariables*il+ist) += weight *  (phiPressL(il) * phiFluxR(jr));
+                }
             }
         }
     }
-    
-    //	// 4) phi_I_right, phi_J_left
-    for(int ir=0; ir<npressr; ir++) {
-        for(int jl=0; jl<nfluxl; jl++) {
-            for (int ist=0; ist<fNStateVariables; ist++) {
-                ek(ir*fNStateVariables+ist+secondblock,jl*fNStateVariables+ist) += weight * (phiR(ir) * phiL(jl));
-            }
-        }
-    }
+    else
+    {
+        for(int il=0; il<npressl; il++) {
+            for(int jl=0; jl<npressl; jl++)
+            {
+                ek(firstblock+il,firstblock+jl) += weight *  (phiPressL(il) * phiPressL(jl));
 
+            }
+        }
+    }
+    
     if(fNStateVariables != 1) DebugStop();
     // penalty contribution
+    STATE diag = fBeta;
+    if(fBeta == 0.)
+    {
+        diag = 1.;
+    }
     for(int il=0; il<nfluxl; il++) {
         for(int jl=0; jl<nfluxl; jl++) {
-            ek(il,jl) += weight * fBeta * H * phiFluxL(il) * phiFluxR(jl);
+            ek(il,jl) += weight * diag * H * phiFluxL(il) * phiFluxL(jl);
         }
         for(int ir=0; ir<nfluxr; ir++) {
-            ek(ir+nfluxl,il) -= weight * fBeta * H * fMultiplier * phiFluxL(il) * phiFluxR(ir);
-            ek(il,ir+nfluxl) -= weight * fBeta * H * fMultiplier * phiFluxL(il) * phiFluxR(ir);
+            ek(ir+secondblock,il) -= weight * fBeta * H * fMultiplier * phiFluxL(il) * phiFluxR(ir);
+            ek(il,ir+secondblock) -= weight * fBeta * H * fMultiplier * phiFluxL(il) * phiFluxR(ir);
         }
     }
     for(int ir=0; ir<nfluxr; ir++) {
         for(int jr=0; jr<nfluxr; jr++) {
-            ek(ir+nfluxl,jr+nfluxl) += weight *fBeta * H * phiFluxR(jr) * phiFluxR(ir);
+            ek(ir+secondblock,jr+secondblock) += weight *fBeta * H * phiFluxR(jr) * phiFluxR(ir);
         }
     }
 }
@@ -210,4 +220,15 @@ void TPZMRCMLagrangeMultiplier::ContributeInterface(TPZMaterialData &data, TPZMa
     DebugStop();
 }
 
+
+// print the data in human readable form
+void TPZMRCMLagrangeMultiplier::Print(std::ostream &out)
+{
+    out << __PRETTY_FUNCTION__ << std::endl;
+    TPZMaterial::Print(out);
+    out << "NStateVariables " << this->fNStateVariables << std::endl;
+    out << "fDimension " << this->fDimension << std::endl;
+    out << "fMultiplier " << this->fMultiplier << std::endl;
+    out << "fBeta " << this->fBeta << std::endl;
+}
 

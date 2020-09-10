@@ -18,7 +18,7 @@ struct ProblemConfig
     /// geometric mesh on which the computational meshes are based
     TPZGeoMesh *gmesh = 0;
     /// polynomial order of the original mesh
-    int porder = 1;
+    int porder = 2;
     /// increment in internal order of flux and pressure
     int hdivmais = 1;
     /// decrement of the order of the lagrangian space (H-1/2)
@@ -39,6 +39,8 @@ struct ProblemConfig
     STATE alpha=1;
     STATE Km = 0.;
     STATE coefG = 0.;
+    
+    STATE fMRCMBeta = 0.;
     /// directory where the files will be stored
     std::string dir_name = ".";
     /// name identifying the problem
