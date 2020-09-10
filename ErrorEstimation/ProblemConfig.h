@@ -40,7 +40,6 @@ struct ProblemConfig
     STATE Km = 0.;
     STATE coefG = 0.;
     
-    STATE fMRCMBeta = 0.;
     /// directory where the files will be stored
     std::string dir_name = ".";
     /// name identifying the problem
