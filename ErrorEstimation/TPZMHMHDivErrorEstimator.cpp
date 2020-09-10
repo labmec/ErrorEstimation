@@ -142,8 +142,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         TPZCompMesh *mesh = cel->Mesh();
         TPZSubCompMesh *ref = dynamic_cast<TPZSubCompMesh *>(mesh);
         ReferredMesh[el] = ref;
-
-        std::cout << "GelIndex " << el << " MatId " << gel->MaterialId() << " SubMesh " << (void *) ref << '\n';
     }
 #ifdef PZDEBUG2
     {
@@ -239,7 +237,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     } else {
         std::set<int64_t> connectlist;
-        ComputeBoundaryConnects(connectlist);
+        ComputeConnectsNextToSkeleton(connectlist);
 
         {
             std::ofstream out("MalhaTesteBeforeTransfer.txt");
@@ -261,13 +259,13 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
         fPostProcMesh.ComputeNodElCon();
 
-        {
-            std::cout << "connectlist ";
-            for (auto it : connectlist) {
-                std::cout << it << " ";
-            }
-            std::cout << '\n';
-        }
+        // {
+        //     std::cout << "connectlist ";
+        //     for (auto it : connectlist) {
+        //         std::cout << it << " ";
+        //     }
+        //     std::cout << '\n';
+        // }
 
         for (auto it : connectlist) {
             fPostProcMesh.ConnectVec()[it].IncrementElConnected();
@@ -1089,7 +1087,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
 //    }
 
     std::set<int64_t> connectList;
-    ComputeBoundaryConnects(connectList);
+    ComputeConnectsNextToSkeleton(connectList);
     
 }
 
@@ -1219,7 +1217,7 @@ void TPZMHMHDivErrorEstimator::InsertPressureSkeletonMaterial() {
     fPostProcMesh.MaterialVec().insert(std::make_pair(fPressureSkeletonMatId, pressureSkeletonMat));
 }
 
-void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connectList) {
+void TPZMHMHDivErrorEstimator::ComputeConnectsNextToSkeleton(std::set<int64_t>& connectList) {
 
     TPZCompMesh * cmesh = fPostProcMesh.MeshVector()[1];
     TPZGeoMesh * gmesh = cmesh->Reference();
@@ -1238,7 +1236,7 @@ void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connec
         int nsides = gel->NSides();
         for (int iside = 0; iside < nsides; iside++) {
             TPZGeoElSide gelside(gel, iside);
-            if (gel->MaterialId() != this->fPressureSkeletonMatId && !IsDirichletCondition(gelside)) continue;
+            if (gel->MaterialId() != this->fPressureSkeletonMatId) continue;
             TPZGeoElSide neighbour;
             neighbour = gelside.Neighbour();
             while (neighbour != gelside) {
@@ -1251,35 +1249,5 @@ void TPZMHMHDivErrorEstimator::ComputeBoundaryConnects(std::set<int64_t>& connec
                 neighbour = neighbour.Neighbour();
             }
         }
-
-
-        //int nsides = gel->NSides();
-        //for (int is = 0; is < nsides; is++) {
-        //    TPZGeoElSide gelside(gel, is);
-        //    if (gel->MaterialId() == this->fPressureSkeletonMatId || IsDirichletCondition(gelside)) {
-
-        //        TPZStack<TPZCompElSide> celstack;
-        //        gelside.EqualLevelCompElementList3(celstack, 1, 0);
-
-        //        int nst = celstack.NElements();
-        //        if(nst == 0) DebugStop();
-
-        //        for (int ist = 0; ist < nst; ist++) {
-        //            TPZCompElSide cneigh = celstack[ist];
-        //            TPZCompEl * neigh = cneigh.Element();
-        //            if (neigh->Dimension() != dim) continue;
-        //            TPZGeoElSide gneigh = cneigh.Reference();
-
-        //            TPZStack<int> containedSides;
-        //            gneigh.Element()->LowerDimensionSides(gneigh.Side(), containedSides);
-        //            containedSides.Push(gneigh.Side());
-        //            for (int iSides = 0; iSides < containedSides.size(); iSides++) {
-        //                int side = containedSides[iSides];
-        //                connectList.insert(neigh->ConnectIndex(side));
-        //                std::cout << "connect index: " << neigh->ConnectIndex(side) << " side: " << side << '\n';
-        //            }
-        //        }
-        //    }
-        //}
     }
 }
