@@ -27,6 +27,9 @@
 #include <string>
 #include <vector>
 
+#define NOPE_FORCING_FUNCTION_DEBUG
+
+
 void UNISIMMHM(TPZGeoMesh *gmesh);
 
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
@@ -47,7 +50,8 @@ int main() {
     gRefDBase.InitializeRefPatterns(2);
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    TPZGeoMesh *gmesh = CreateUNISIMSurfaceGeoMesh();
+    bool modifyZCoords = false;
+    TPZGeoMesh *gmesh = CreateUNISIMSurfaceGeoMesh(modifyZCoords);
 
     std::string meshFileName{"UNISIMMesh"};
     PrintGeometry(gmesh, meshFileName, false, true);
@@ -65,6 +69,7 @@ int main() {
 void UNISIMMHM(TPZGeoMesh *gmesh) {
 
     ProblemConfig config;
+
     config.porder = 1;
     config.hdivmais = 1;
     config.dimension = 2;
@@ -74,6 +79,12 @@ void UNISIMMHM(TPZGeoMesh *gmesh) {
     config.problemname = "UNISIM_MHM";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
+
+#ifdef FORCING_FUNCTION_DEBUG
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::EX;
+    config.dir_name = "CILAMCE_UNISIM_MHM_DBEUG";
+#endif
 
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
@@ -170,7 +181,6 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
 
     mix->SetPermeabilityTensor(K, invK);
 
-    cmesh.InsertMaterialObject(mix);
 
     TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
     int dirichlet = 0;
@@ -184,6 +194,15 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     val2(0, 0) = 20.;
     TPZBndCond *injectors = mix->CreateBC(mix, -3, dirichlet, val1, val2);
 
+#ifdef FORCING_FUNCTION_DEBUG
+    mix->SetForcingFunctionExact(config.exact.operator*().Exact());
+    mix->SetForcingFunction(config.exact.operator*().ForcingFunction());
+    zeroFlux->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+    productors->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+    injectors->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+#endif
+
+    cmesh.InsertMaterialObject(mix);
     cmesh.InsertMaterialObject(zeroFlux);
     cmesh.InsertMaterialObject(productors);
     cmesh.InsertMaterialObject(injectors);

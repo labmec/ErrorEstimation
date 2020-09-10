@@ -38,7 +38,8 @@ int main() {
     gRefDBase.InitializeRefPatterns(2);
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    TPZGeoMesh *gmesh = CreateUNISIMSurfaceGeoMesh();
+    bool modifyZCoords = false;
+    TPZGeoMesh *gmesh = CreateUNISIMSurfaceGeoMesh(false);
     std::string meshFileName{"UNISIMMesh"};
     int nDirectionalRefinements = 3;
     PrintGeometry(gmesh, meshFileName, false, true);
@@ -46,7 +47,7 @@ int main() {
     meshFileName.append("AfterDirectionalRef");
     PrintGeometry(gmesh, meshFileName, false, true);
 
-    int nSteps = 8;
+    int nSteps = 1;
     std::vector<std::pair<REAL, int64_t>> results; // Stores error and nDOF
     for (int i = 0; i < nSteps; i++) {
         UNISIMMHM(gmesh, results);

@@ -10,7 +10,7 @@
 void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, std::vector<double> &y,
                                std::vector<double> &z);
 
-TPZGeoMesh *CreateUNISIMSurfaceGeoMesh();
+TPZGeoMesh *CreateUNISIMSurfaceGeoMesh(bool modifyZCoordinates);
 
 void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename);
 

@@ -89,8 +89,8 @@ int TPZMatLaplacianHybrid::NSolutionVariables(int var){
 void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     /**
-     datavec[0] L2 mesh (phi's)
-     datavec[1] Hdiv mesh,
+     datavec[1] L2 mesh (phi's)
+     datavec[0] Hdiv mesh,
      datavec[2] Interface Mesh
      datavec[3] Interface Mesh
      
@@ -105,9 +105,9 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
      
      **/
     
-    TPZFMatrix<REAL>  &phi = datavec[0].phi;
-    TPZFMatrix<REAL> &dphi = datavec[0].dphix;
-    TPZVec<REAL>  &x = datavec[0].x;
+    TPZFMatrix<REAL>  &phi = datavec[1].phi;
+    TPZFMatrix<REAL> &dphi = datavec[1].dphix;
+    TPZVec<REAL>  &x = datavec[1].x;
 
     int phr = phi.Rows();
     
@@ -157,9 +157,9 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
 
 void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ef)
 {
-    TPZFMatrix<REAL>  &phi = datavec[0].phi;
-    TPZFMatrix<REAL> &dphi = datavec[0].dphix;
-    TPZVec<REAL>  &x = datavec[0].x;
+    TPZFMatrix<REAL>  &phi = datavec[1].phi;
+    TPZFMatrix<REAL> &dphi = datavec[1].dphix;
+    TPZVec<REAL>  &x = datavec[1].x;
     //    TPZFMatrix<REAL> &axes = data.axes;
     //    TPZFMatrix<REAL> &jacinv = data.jacinv;
     int phr = phi.Rows();
@@ -188,18 +188,18 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
         int kd;
         ef(in, 0) +=  (STATE)weight * fXfLoc * (STATE)phi(in,0);
         for(kd=0; kd<fDim; kd++) {
-            ef(in,0) -= (STATE)weight*(fK*(STATE)(dphi(kd,in)*datavec[0].dsol[0](kd,0)));
+            ef(in,0) -= (STATE)weight*(fK*(STATE)(dphi(kd,in)*datavec[1].dsol[0](kd,0)));
         }
     }
-    ef(phr,0) += weight*(-datavec[0].sol[0][0]+ datavec[3].sol[0][0]);
+    ef(phr,0) += weight*(-datavec[1].sol[0][0]+ datavec[3].sol[0][0]);
     ef(phr+1,0) += weight*datavec[2].sol[0][0];
 
 }
 
 void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc)
 {
-    TPZFMatrix<REAL>  &phi_u = datavec[0].phi;
-    TPZFMatrix<REAL>  &phi_flux = datavec[1].phi;
+    TPZFMatrix<REAL>  &phi_u = datavec[1].phi;
+    TPZFMatrix<REAL>  &phi_flux = datavec[0].phi;
     //    TPZFMatrix<REAL> &axes = data.axes;
     int phr_primal = phi_u.Rows();
     int phr_hybrid = phi_flux.Rows();
@@ -208,11 +208,11 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
     if(phr_hybrid)
     {
         primal = false;
-        x = datavec[1].x;
+        x = datavec[0].x;
     }
     else
     {
-        x = datavec[0].x;
+        x = datavec[1].x;
     }
     short in,jn;
     STATE v2[1];
@@ -284,14 +284,14 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
 void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
 {
     /**
-     datavec[0] L2 mesh
-     datavec[1] Hdiv mesh,
+     datavec[1] L2 mesh
+     datavec[0] Hdiv mesh,
      datavec[2] Interface Mesh
      datavec[3] Interface Mesh
      **/
     if(var == 0)
     {
-        TPZMatLaplacian::Solution(datavec[0],var,Solout);
+        TPZMatLaplacian::Solution(datavec[1],var,Solout);
         return;
     }
     
@@ -304,7 +304,7 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
     
     if(fForcingFunctionExact)
     {
-        this->fForcingFunctionExact->Execute(datavec[0].x, pressexact,grad);
+        this->fForcingFunctionExact->Execute(datavec[1].x, pressexact,grad);
         
         for(int i = 1; i<fDim ; i++){
             
@@ -322,7 +322,7 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
   
 
         case 44://PressureFem
-            Solout[0] = datavec[0].sol[0][0];
+            Solout[0] = datavec[1].sol[0][0];
             break;
         case 45://Pressure Exact
             Solout[0] = pressexact[0];
@@ -330,7 +330,7 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
         case 10:
         case 13:
         case 23:
-            TPZMatLaplacian::Solution(datavec[0],var,Solout);
+            TPZMatLaplacian::Solution(datavec[1],var,Solout);
             break;
         default:
             DebugStop();
@@ -341,8 +341,8 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
 void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**
-     datavec[0] L2 mesh (phi's)
-     datavec[1] Hdiv mesh,
+     datavec[1] L2 mesh (phi's)
+     datavec[0] Hdiv mesh,
      datavec[2] Interface Mesh
      datavec[3] Interface Mesh
 
@@ -361,11 +361,11 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     
     if(this->fForcingFunctionExact){
         
-        this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
+        this->fForcingFunctionExact->Execute(data[1].x,u_exact,du_exact);
     }
     
 
-    REAL pressure = data[0].sol[0][0];
+    REAL pressure = data[1].sol[0][0];
     
 
     
@@ -377,9 +377,9 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     
     TPZManVector<STATE,3> sol(1),dsol(3,0.);
     
-    TPZFMatrix<REAL> &dsolaxes = data[0].dsol[0];
+    TPZFMatrix<REAL> &dsolaxes = data[1].dsol[0];
     TPZFNMatrix<9,REAL> flux(3,0);
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, flux, data[0].axes);
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, flux, data[1].axes);
     
     for(int id=0; id<fDim; id++) {
         REAL diff = fabs(flux(id,0) - du_exact(id,0));

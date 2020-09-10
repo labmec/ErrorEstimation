@@ -47,7 +47,7 @@ void ReadReservoirGeometryData(const std::string &name, std::vector<double> &x, 
     std::cout << "File successfully read!\n";
 }
 
-TPZGeoMesh *CreateUNISIMSurfaceGeoMesh() {
+TPZGeoMesh *CreateUNISIMSurfaceGeoMesh(bool modifyZCoordinates) {
 
     std::string gmshFile = "InputData/UNISIMFlatMesh.msh";
 #ifdef MACOSX
@@ -72,7 +72,10 @@ TPZGeoMesh *CreateUNISIMSurfaceGeoMesh() {
     gmesh = gmeshReader.GeometricGmshMesh(gmshFile);
 
     std::string filename = "InputData/UNISIMPointCloud.txt";
-    ModifyZCoordinates(gmesh, filename);
+
+    if (modifyZCoordinates) {
+        ModifyZCoordinates(gmesh, filename);
+    }
 
     MoveMeshToOrigin(gmesh);
 
@@ -109,6 +112,7 @@ void ModifyZCoordinates(TPZGeoMesh *gmesh, std::string &filename) {
 
         gmesh->NodeVec()[icoord].SetCoord(co);
     }
+    gmesh->SetDimension(3);
 }
 
 void MoveMeshToOrigin(TPZGeoMesh *gmesh) {
