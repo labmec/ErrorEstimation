@@ -109,7 +109,7 @@ void RunProblem(const int nDivisions, const int pOrder, const int hDivPlusPlus,
 
     ConfigureGeoMesh(nDivisions, bcType, config);
 
-    TPZMultiphysicsCompMesh *mixedMesh = CreateHDivMesh(config);
+    TPZMultiphysicsCompMesh *mixedMesh = Tools::CreateHDivMesh(config);
     mixedMesh->InitializeBlock();
 
 #ifdef PZDEBUG
@@ -143,7 +143,7 @@ void RunProblem(const int nDivisions, const int pOrder, const int hDivPlusPlus,
 #endif
 
     // Solves finite element problem
-    SolveHybridProblem(mixedMesh, hybrid.fInterfaceMatid, config, true);
+    Tools::SolveHybridProblem(mixedMesh, hybrid.fInterfaceMatid, config, true);
 
 #ifdef PZDEBUG
     {
@@ -218,7 +218,7 @@ void ConfigureGeoMesh(const int nDivisions, const BCType &bcType,
 
     TPZManVector<int, 4> bcids(4, bcId);
 
-    config.gmesh = CreateGeoMesh(nDivisions, bcids);
+    config.gmesh = Tools::CreateGeoMesh(nDivisions, bcids);
     config.materialids.insert(1);
     config.bcmaterialids.insert(bcId);
 

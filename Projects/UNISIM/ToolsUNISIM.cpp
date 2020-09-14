@@ -173,7 +173,7 @@ void hAdaptivity(TPZGeoMesh *gmesh, TPZVec<REAL> &elementErrors, REAL thresholdR
 
     PrintGeometry(gmesh, "gmeshBeforeSpread");
     SpreadMeshRefinement(gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     std::cout << "Number of elements after refinement: " << gmesh->NElements() << '\n';
 }

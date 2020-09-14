@@ -158,3 +158,6 @@ int MHMTest(ProblemConfig &Conf);
 
 TPZGeoMesh *CreateCircleGeoMesh();
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes);
+
+/// Solve the problem composed of a multiphysics mesh composed of compmeshes - applies to MHM and MHM-H(div)
+void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCompMesh> > compmeshes, TPZAnalyticSolution &analytic, std::string prefix, TRunConfig config);

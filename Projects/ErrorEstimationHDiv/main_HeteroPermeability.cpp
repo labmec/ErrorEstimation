@@ -244,13 +244,13 @@ int main(int argc, char *argv[]) {
         config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
 
         TPZManVector<int, 4> bcids(4, -1);
-        gmesh = CreateGeoMesh(1, bcids);
+        gmesh = Tools::CreateGeoMesh(1, bcids);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         config.gmesh = gmesh;
     }
 
-    UniformRefinement(config.ndivisions, gmesh);
+       Tools::UniformRefinement(config.ndivisions, gmesh);
     
     {
         std::ofstream out("gmesh.vtk");
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
     cmesh_HDiv->InitializeBlock();
     
        
-       if(mixedsolution) SolveMixedProblem(cmesh_HDiv,config);
+       if(mixedsolution) Tools::SolveMixedProblem(cmesh_HDiv,config);
     
 //    if(mixedsolution)
 //    {
@@ -374,9 +374,9 @@ int main(int argc, char *argv[]) {
 //
 //
 //    }
-    
-    
-    SolveHybridProblem(cmesh_HDiv,n2,config,false);
+
+
+       Tools::SolveHybridProblem(cmesh_HDiv,n2,config,false);
     
 
     
@@ -418,7 +418,7 @@ int main(int argc, char *argv[]) {
         TPZManVector<REAL> elementerrors,errvec;
         HDivEstimate.ComputeErrors(errvec,elementerrors,true);
 
-        hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh, config);
+        Tools::hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh, config);
     }
     
 //    delete cmesh_HDiv;
@@ -1028,7 +1028,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
     TPZManVector<TPZCompMesh *> meshvector(2,0);
     
     meshvector[0] = CreateNeumannFluxHDivMesh(problem);
-    meshvector[1] = CreatePressureMesh(problem);
+    meshvector[1] = Tools::CreatePressureMesh(problem);
     cmesh->BuildMultiphysicsSpace(active, meshvector);
     cmesh->LoadReferences();
     bool keepmatrix = false;
@@ -1079,7 +1079,7 @@ TPZCompMesh *CreateNeumannFluxHDivMesh(const ProblemConfig &problem) {
         }
         
         if(problem.prefine){
-            Prefinamento(cmesh, problem.ndivisions, problem.porder);
+            Tools::Prefinamento(cmesh, problem.ndivisions, problem.porder);
         }
         
     }
@@ -1125,7 +1125,7 @@ TPZMultiphysicsCompMesh *CreateBoundaryLayerHDivMesh(const ProblemConfig &proble
     TPZManVector<TPZCompMesh *> meshvector(2,0);
     
     meshvector[0] = CreateNeumannFluxHDivMesh(problem);
-    meshvector[1] = CreatePressureMesh(problem);
+    meshvector[1] = Tools::CreatePressureMesh(problem);
     cmesh->BuildMultiphysicsSpace(active, meshvector);
     cmesh->LoadReferences();
     bool keepmatrix = false;

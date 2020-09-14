@@ -88,11 +88,11 @@ int main(int argc, char *argv[]) {
 
         // geometric mesh
 
-        TPZGeoMesh *gmesh = ReadGeometricMesh(config, IsgmeshReader);
-    
+        TPZGeoMesh *gmesh = Tools::ReadGeometricMesh(config, IsgmeshReader);
 
-    UniformRefinement(config.ndivisions, gmesh);
-   // RandomRefine(config, config.ndivisions);
+
+        Tools::UniformRefinement(config.ndivisions, gmesh);
+   // RandomRefinement(config, config.ndivisions);
     
 #ifdef PZDEBUG
     {
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
 
 
         
-    TPZMultiphysicsCompMesh *cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
+    TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
     
 #ifdef PZDEBUG2
@@ -117,8 +117,8 @@ int main(int argc, char *argv[]) {
         
     }
 #endif
-    
-    TPZMultiphysicsCompMesh *hybridmesh= HybridSolveProblem(cmesh_HDiv, config);
+
+        TPZMultiphysicsCompMesh *hybridmesh = Tools::HybridSolveProblem(cmesh_HDiv, config);
 
     //reconstroi potencial e calcula o erro
     {

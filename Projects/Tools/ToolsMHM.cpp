@@ -90,6 +90,7 @@
 //#include <opencv2/opencv.hpp>
 #include <math.h>
 #include <set>
+#include <TPZMFSolutionTransfer.h>
 #include "pzsolve.h"
 
 #include "TPZPersistenceManager.h"
@@ -100,8 +101,8 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf){
     TPZGeoMesh *gmesh = Conf.gmesh;
     
     
-    TPZCompMesh *cmesh_flux = CreateFluxHDivMesh(Conf);//CMeshFlux(gmesh,flux_order);
-    TPZCompMesh *cmesh_presure = CreatePressureMesh(Conf);//CMeshPressure(gmesh,p_order,Conf);
+    TPZCompMesh *cmesh_flux = Tools::CreateFluxHDivMesh(Conf);//CMeshFlux(gmesh,flux_order);
+    TPZCompMesh *cmesh_presure = Tools::CreatePressureMesh(Conf);//CMeshPressure(gmesh,p_order,Conf);
     
     
     TPZVec<TPZCompMesh *> fmeshvec(2);
@@ -430,9 +431,9 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     
     TPZManVector<int> active(2,1);
     TPZManVector<TPZCompMesh *> meshvector(2,0);
-    
-    meshvector[0] = CreateFluxHDivMesh(Conf);
-    meshvector[1] = CreatePressureMesh(Conf);
+
+    meshvector[0] = Tools::CreateFluxHDivMesh(Conf);
+    meshvector[1] = Tools::CreatePressureMesh(Conf);
     cmesh->BuildMultiphysicsSpace(active, meshvector);
     cmesh->LoadReferences();
     bool keepmatrix = false;
@@ -1145,4 +1146,121 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
 //    }
     
     return gmesh;
+}
+
+
+void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCompMesh> > compmeshes, TPZAnalyticSolution &analytic, std::string prefix, TRunConfig config)
+{
+    //calculo solution
+    bool shouldrenumber = true;
+    TPZAnalysis an(cmesh,shouldrenumber);
+#ifdef USING_MKL
+    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
+    strmat.SetNumThreads(0/*config.n_threads*/);
+#else
+    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    strmat.SetNumThreads(config.n_threads);
+#endif
+
+
+#ifdef PZDEBUG
+    if(0)
+    {
+        std::ofstream file("MeshToSolveProblem.txt");
+        cmesh->Print(file);
+    }
+#endif
+
+
+    an.SetStructuralMatrix(strmat);
+    TPZStepSolver<STATE> step;
+    step.SetDirect(ELDLt);
+    an.SetSolver(step);
+    std::cout << "Assembling\n";
+    an.Assemble();
+
+    std::cout << "Solving\n";
+    an.Solve();
+    std::cout << "Finished\n";
+    an.LoadSolution(); // compute internal dofs
+
+
+    TPZMFSolutionTransfer transfer;
+    transfer.BuildTransferData(cmesh.operator->());
+//    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
+    transfer.TransferFromMultiphysics();
+
+    if(0)
+    {
+        std::ofstream out1("mfmesh.txt");
+        cmesh->Print(out1);
+        std::ofstream out2("flux.txt");
+        compmeshes[0]->Print(out2);
+        std::ofstream out3("pressure.txt");
+        compmeshes[1]->Print(out3);
+        std::ofstream out4("transfer.txt");
+        transfer.Print(out4);
+    }
+
+    TPZStack<std::string> scalnames,vecnames;
+    TPZMaterial *mat = cmesh->FindMaterial(1);
+    if (!mat) {
+        DebugStop();
+    }
+    if (analytic.Exact())
+    {
+        an.SetExact(analytic.ExactSolution());
+    }
+    if (mat->NStateVariables() == 2)
+    {
+        scalnames.Push("SigmaX");
+        scalnames.Push("SigmaY");
+        scalnames.Push("TauXY");
+        vecnames.Push("Displacement");
+    }
+    else if(mat->NStateVariables() == 1)
+    {
+        scalnames.Push("Pressure");
+        //  scalnames.Push("Permeability");
+        scalnames.Push("ExactPressure");
+        vecnames.Push("Flux");
+        vecnames.Push("ExactFlux");
+        //   vecnames.Push("Derivative");
+    }
+
+
+//    std::string plotname;
+//    {
+//        std::stringstream out;
+//        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
+//        plotname = out.str();
+//
+//    }
+//    int resolution=0;
+//    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
+//    an.PostProcess(resolution,cmesh->Dimension() );
+
+
+    if(analytic.Exact())
+    {
+        TPZManVector<REAL> errors(4,0.);
+        an.SetThreadsForError(config.n_threads);
+        an.SetExact(analytic.ExactSolution());
+        an.PostProcessError(errors,false);
+
+        //Erro
+
+        ofstream myfile;
+        myfile.open("ArquivosErrosMHM.txt", ios::app);
+        myfile << "\n\n Error for MHM formulation " ;
+        myfile << "\n-------------------------------------------------- \n";
+        myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";
+        myfile << "DOF Total = " << cmesh->NEquations() << "\n";
+        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
+        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
+        myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
+        myfile.close();
+
+    }
+
 }

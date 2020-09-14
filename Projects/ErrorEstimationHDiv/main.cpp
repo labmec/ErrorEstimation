@@ -56,8 +56,8 @@ int main(int argc, char *argv[]) {
     config.exact->fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
     config.problemname = "ESinSin";//"ArcTang";//"SinSin";//"SinSinNonHom";//
     bool random_refine = false;
-    
-    if(testeSolandDerivate) PrintSolAndDerivate(config);
+
+    if (testeSolandDerivate) Tools::PrintSolAndDerivate(config);
     
     
     TPZGeoMesh *gmesh = 0;
@@ -87,34 +87,34 @@ int main(int argc, char *argv[]) {
     else{
         int nel = 1;
         TPZManVector<int,4> bcids(4,-1);
-        gmesh=CreateGeoMesh(nel, bcids);
+        gmesh=Tools::CreateGeoMesh(nel, bcids);
         config.materialids.insert(1);
         config.bcmaterialids.insert(-1);
         config.gmesh = gmesh;
     }
-    
-        
-        int nDiv=1;
 
-        UniformRefinement( nDiv,gmesh);
-        
-        {
-            
-            std::ofstream out("gmesh.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        }
+
+    int nDiv = 1;
+
+    Tools::UniformRefinement( nDiv,gmesh);
+
+    {
+
+        std::ofstream out("gmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+    }
     
     if(random_refine){
         int numelrefine=4;
         int depth = 1;
-        RandomRefine(config,numelrefine,depth);
+        Tools::RandomRefinement(config.gmesh, numelrefine, depth);
   
     }
     
     
     if(testeCompelMultPhysics){
-        
-        MultiPhysicsCompel(config);
+
+        Tools::MultiPhysicsCompel(config);
         return 0;
         
     }
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
     
     
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-    TPZMultiphysicsCompMesh *cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
+    TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateHDivMesh(config);//Hdiv x L2
     cmesh_HDiv->InitializeBlock();
     meshvec_HDiv = cmesh_HDiv->MeshVector();
     /// clones the atomic meshes in meshvec_HDiv and creates a multiphysics hybrid mesh

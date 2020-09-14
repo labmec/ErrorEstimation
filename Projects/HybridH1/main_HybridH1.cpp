@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 
         // geometric mesh
         TPZManVector<int, 4> bcids(4, -1);
-        TPZGeoMesh *gmesh = CreateGeoMesh(2, bcids);
+        TPZGeoMesh *gmesh = Tools::CreateGeoMesh(2, bcids);
         //    if(1)
         //    {
         //        TPZManVector<TPZGeoEl *> sub;
@@ -100,9 +100,9 @@ int main(int argc, char *argv[]) {
         
         
     
-    UniformRefinement(config.ndivisions, gmesh);
+    Tools::UniformRefinement(config.ndivisions, gmesh);
     int refinement_depth = 3;
-    RandomRefine(config, 5, refinement_depth);
+    Tools::RandomRefinement(config.gmesh, 5, refinement_depth);
     
 #ifdef PZDEBUG
     {
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
     if(h1solution) {
 
         config.exact.operator*().fSignConvention = -1;
-        TPZCompMesh *cmeshH1 = CMeshH1(config);
+        TPZCompMesh *cmeshH1 = Tools::CMeshH1(config);
         {
             ofstream arg1("CompMeshH1.txt");
             cmeshH1->Print(arg1);
