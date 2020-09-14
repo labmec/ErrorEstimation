@@ -7,14 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(cmake/StandardProjectSettings.cmake)
 
-## Sanitizer options if supported by compiler
-#include(cmake/Sanitizers.cmake)
-#add_library(project_options INTERFACE)
-#enable_sanitizers(project_options)
-
-# Allow for static analysis options
-include(cmake/StaticAnalyzers.cmake)
-
 # Enables NeoPZ library
 include(cmake/EnableNeoPZ.cmake)
 enable_pz()

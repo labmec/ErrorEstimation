@@ -8,7 +8,7 @@
 #include <Pre/TPZGenGrid3D.h>
 #include <Pre/TPZMHMixedMeshControl.h>
 #include <TPZMFSolutionTransfer.h>
-#include <Tools.h>
+//#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
 
@@ -31,7 +31,9 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 
 int main() {
+#ifdef LOG4CXX
     InitializePZLOG();
+#endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
     //RunCosCosProblem();
@@ -234,11 +236,11 @@ void RunSingularProblem() {
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
 
     TPZManVector<int, 4> bcIDs(4, -1);
-    TPZGeoMesh *gmesh = CreateGeoMesh(nCoarseDiv, bcIDs);
+    TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs);
     gmesh->SetDimension(2);
 
-    UniformRefinement(nInternalRef, gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::UniformRefinement(nInternalRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     return gmesh;
 }
@@ -310,8 +312,8 @@ TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t
 
     gmesh->BuildConnectivity();
 
-    UniformRefinement(nCoarseRef, gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::UniformRefinement(nCoarseRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     int64_t nElem = gmesh->NElements();
 
@@ -322,7 +324,7 @@ TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t
         coarseIndexes.Push(i);
     }
 
-    UniformRefinement(nInternalRef, gmesh);
+    Tools::UniformRefinement(nInternalRef, gmesh);
 
     return gmesh;
 }
@@ -330,12 +332,12 @@ TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes) {
 
     TPZVec<int> bcIDs(8, -1);
-    TPZGeoMesh *gmesh = CreateQuadLShapeMesh(bcIDs);
+    TPZGeoMesh *gmesh = Tools::CreateQuadLShapeMesh(bcIDs);
     gmesh->SetDimension(2);
     gmesh->BuildConnectivity();
 
-    UniformRefinement(nCoarseRef, gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::UniformRefinement(nCoarseRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     int64_t nElem = gmesh->NElements();
     for (int64_t i = 0; i < nElem; i++) {
@@ -344,8 +346,8 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
         mhmIndexes.Push(i);
     }
 
-    UniformRefinement(nInternalRef, gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::UniformRefinement(nInternalRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     for (int64_t i = 0; i < mhmIndexes.size(); i++) {
         std::cout << mhmIndexes[i] << '\n';

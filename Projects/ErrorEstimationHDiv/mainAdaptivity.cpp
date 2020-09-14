@@ -83,7 +83,7 @@ else
         //config.coefG = 0.;//nao passar mais isso
         config.Km = 1.e12;//pow(10,2);
         
-        gmeshOriginal = CreateLShapeMesh(bcids);//CreateGeoMesh(1, bcIDs);//
+        gmeshOriginal = Tools::CreateLShapeMesh(bcids);//CreateGeoMesh(1, bcIDs);//
 
 
         config.materialids.insert(1);
@@ -96,16 +96,16 @@ else
     
     gmeshOriginal->SetDimension(config.dimension);
     config.gmesh = gmeshOriginal;
-    UniformRefinement(2, 2 , config.gmesh) ;
-    DivideLowerDimensionalElements(config.gmesh);
+    Tools::UniformRefinement(2, 2 , config.gmesh) ;
+    Tools::DivideLowerDimensionalElements(config.gmesh);
     
         
         
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
         
-    TPZMultiphysicsCompMesh* cmesh_HDiv = CreateHDivMesh(config); //Hdiv x L2
+    TPZMultiphysicsCompMesh* cmesh_HDiv = Tools::CreateHDivMesh(config); //Hdiv x L2
     cmesh_HDiv->InitializeBlock();
-    SolveMixedProblem(cmesh_HDiv, config);
+    Tools::SolveMixedProblem(cmesh_HDiv, config);
     
     meshvec_HDiv = cmesh_HDiv->MeshVector();
     
@@ -132,7 +132,7 @@ else
               TPZMultiphysicsCompMesh* cmesh_HDiv = nullptr;
               
               
-              cmesh_HDiv = CreateHDivMesh(config);//Hdiv x L2
+              cmesh_HDiv = Tools::CreateHDivMesh(config);//Hdiv x L2
               cmesh_HDiv->InitializeBlock();
                #ifdef PZDEBUG2
               {
@@ -161,8 +161,8 @@ else
               cmesh_HDiv = (HybridMesh);//malha hribrida
               meshvec_HDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
               meshvec_HDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
-              
-              SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config,false);
+
+        Tools::SolveHybridProblem(cmesh_HDiv, hybrid.fInterfaceMatid, config,false);
     
     
    
@@ -180,7 +180,7 @@ else
             TPZManVector<REAL> errorvec;
             bool store = true;
             HDivEstimate.ComputeErrors(errorvec,elementerrors,store);
-            hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal, config);
+            Tools::hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal, config);
             #ifdef PZDEBUG
                     {
                         std::ofstream out("gmeshAdapty.vtk");
@@ -197,12 +197,12 @@ else
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes) {
 
     TPZVec<int> bcIDs(8, -1);
-    TPZGeoMesh *gmesh = CreateQuadLShapeMesh(bcIDs);
+    TPZGeoMesh *gmesh = Tools::CreateQuadLShapeMesh(bcIDs);
     gmesh->SetDimension(2);
     gmesh->BuildConnectivity();
 
-    UniformRefinement(nCoarseRef, gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::UniformRefinement(nCoarseRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     int64_t nElem = gmesh->NElements();
     for (int64_t i = 0; i < nElem; i++) {
@@ -211,8 +211,8 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
         mhmIndexes.Push(i);
     }
 
-    UniformRefinement(nInternalRef, gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::UniformRefinement(nInternalRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     for (int64_t i = 0; i < mhmIndexes.size(); i++) {
         std::cout << mhmIndexes[i] << '\n';

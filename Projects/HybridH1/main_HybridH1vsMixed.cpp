@@ -128,11 +128,11 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     // geometric mesh
     TPZManVector<int, 4> bcids(4, -1);
     TPZGeoMesh *gmesh;
-    if(eData.isMultiK == false) gmesh = CreateGeoMesh(1, bcids); //rectangular mesh [0,1]x[0,1], matID = 1;
+    if(eData.isMultiK == false) gmesh = Tools::CreateGeoMesh(1, bcids); //rectangular mesh [0,1]x[0,1], matID = 1;
     else {
         gmesh = CreateGeoMesh_OriginCentered(1, bcids); //rectangular mesh [-1,1]x[-1,1], matID_Q1-Q3 = alpha, matID_Q2-Q4 = beta
     }
-    UniformRefinement(config.ndivisions, gmesh);
+    Tools::UniformRefinement(config.ndivisions, gmesh);
 
     config.gmesh = gmesh;
     config.materialids.insert(1);
@@ -142,7 +142,7 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
 
     int refinement_depth = 2;
     if(config.ndivisions > 0) {
-        RandomRefine(config, 1, refinement_depth);
+        Tools::RandomRefinement(config.gmesh, 1, refinement_depth);
     }
 
     if(eData.argc != 1) {
@@ -166,8 +166,8 @@ int main(int argc, char *argv[]) {
 
     //Testing random stuff (begin)
     TPZManVector<int, 4> bcids(4, -1);
-    TPZGeoMesh *geomesh = CreateGeoMesh(1, bcids);
-    UniformRefinement(1, geomesh);
+    TPZGeoMesh *geomesh = Tools::CreateGeoMesh(1, bcids);
+    Tools::UniformRefinement(1, geomesh);
     TPZGeoEl *gel = geomesh->Element(0);
     TPZGeoElSide gelside(gel, gel->NSides() - 1);
     gelside.LowerLevelCompElementList2(1);
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
         const clock_t start = clock();
 
         //H1
-        TPZCompMesh *cmeshH1 = CMeshH1(config);
+        TPZCompMesh *cmeshH1 = Tools::CMeshH1(config);
         TPZCompMeshTools::CreatedCondensedElements(cmeshH1, false, false);
         if(eData.mode == 1 || eData.mode == 2) {
             SolveH1Problem(cmeshH1, config, eData);

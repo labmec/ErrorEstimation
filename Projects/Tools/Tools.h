@@ -39,80 +39,96 @@ class TPZMultiphysicsCompMesh;
 #include <tuple>
 #include <memory>
 
-#include <stdio.h>
+#include <cstdio>
 
-#endif /* Tools_hpp */
+namespace Tools {
 
-TPZCompMesh* CreateFluxHDivMesh(const ProblemConfig& problem);
+    // Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
+    TPZGeoMesh *CreateGeoMesh(int nelem, TPZVec<int> &bcids);
 
-TPZCompMesh* CreatePressureMesh(const ProblemConfig& problem);
+    TPZGeoMesh *CreateLCircleGeoMesh();
 
-TPZMultiphysicsCompMesh* CreateHDivMesh(const ProblemConfig& problem);
+    TPZGeoMesh *CreateLShapeMesh(TPZVec<int> &bcids);
 
-void CloneMeshVec(TPZVec<TPZCompMesh*>& meshvec, TPZVec<TPZCompMesh*>& meshvec_clone);
+    TPZGeoMesh *CreateQuadLShapeMesh(TPZVec<int> &bcids);
+
+    TPZGeoMesh *CreateSingleTriangleMesh(TPZVec<int> &bcids);
+
+    TPZGeoMesh *CreateSingleQuadMesh(TPZVec<int> &bcids);
+
+    TPZGeoMesh *CreateQuadMeshRefTriang(TPZVec<int> &bcids);
+
+    TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader);
+
+
+    TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
+
+    TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
+
+    TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem);
+
+    void CloneMeshVec(TPZVec<TPZCompMesh *> &meshvec, TPZVec<TPZCompMesh *> &meshvec_clone);
 
 /// Increase the approximation orders of the sides of the flux elements
-void IncreaseSideOrders(TPZCompMesh* fluxmesh);
+    void IncreaseSideOrders(TPZCompMesh *fluxmesh);
 
 /// Set the interface pressure to the average pressure
-void ComputeAveragePressure(TPZCompMesh* pressure, TPZCompMesh* pressureHybrid, int InterfaceMatid);
+    void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, int InterfaceMatid);
 
-void UniformRefinement(int nDiv, TPZGeoMesh* gmesh);
+    void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 
-void UniformRefinement(int nDiv, int dim, TPZGeoMesh* gmesh);
+    void UniformRefinement(int nDiv, int dim, TPZGeoMesh *gmesh);
 
-TPZGeoMesh* CreateTrapezoidalMesh(int nelx, int nely, REAL Lx, REAL Ly, TPZVec<int>& bcids);
+    TPZGeoMesh *CreateTrapezoidalMesh(int nelx, int nely, REAL Lx, REAL Ly, TPZVec<int> &bcids);
 
-/// Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
-TPZGeoMesh* CreateGeoMesh(int nelem, TPZVec<int>& bcids);
 
 /// Divide lower dimensional elements
-void DivideLowerDimensionalElements(TPZGeoMesh* gmesh);
+    void DivideLowerDimensionalElements(TPZGeoMesh *gmesh);
 
-void MultiPhysicsCompel(const ProblemConfig& config);
+    void MultiPhysicsCompel(const ProblemConfig &config);
 
 /// numelrefine : number of elements to refine
 /// depth : refinement depth of the mesh
-void RandomRefine(ProblemConfig& config, int numelrefine, int depth);
+    void RandomRefinement(TPZGeoMesh *gmesh, int64_t numelrefine, int depth);
 
-std::tuple<TPZCompMesh*, TPZVec<TPZCompMesh*> >
-CreatePostProcessingMesh(TPZCompMesh* cmesh_HDiv, TPZVec<TPZCompMesh*>& meshvec_HDiv, TPZHybridizeHDiv& hybridize);
+    // Refine elements given a set of indexes
+    void RefineElements(TPZGeoMesh *gmesh, std::set<int64_t> elsToRefine);
 
-void PrintSolAndDerivate(const ProblemConfig config);
+    std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> >
+    CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);
 
-void FunctionTest();
+    void PrintSolAndDerivate(const ProblemConfig& config);
 
-void MultiPhysicsHybrid(const ProblemConfig& config);
+    void FunctionTest();
 
-void Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder);
+    void MultiPhysicsHybrid(const ProblemConfig &config);
+
+    void Prefinamento(TPZCompMesh *cmesh, int ndiv, int porder);
 
 
-void SolveHybridProblem(TPZCompMesh* Hybridmesh, std::pair<int,int> InterfaceMatId, const ProblemConfig& problem, bool PostProcessingFEM);
+    void SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, const ProblemConfig &problem,
+                            bool PostProcessingFEM);
 
-void SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config);
+    void SolveMixedProblem(TPZCompMesh *cmesh_HDiv, const ProblemConfig &config);
 
-void PlotLagrangeMultiplier(TPZCompMesh* cmesh, const ProblemConfig& problem);
+    void PlotLagrangeMultiplier(TPZCompMesh *cmesh, const ProblemConfig &problem);
 
-TPZGeoMesh* ReadGeometricMesh(struct ProblemConfig& config, bool IsgmeshReader);
 
-TPZMultiphysicsCompMesh* HybridSolveProblem(TPZMultiphysicsCompMesh* cmesh_HDiv, struct ProblemConfig& config);
+    TPZMultiphysicsCompMesh *HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv, struct ProblemConfig &config);
 
-TPZCompMesh* CMeshH1(ProblemConfig problem);
+    TPZCompMesh *CMeshH1(ProblemConfig problem);
 
-void hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
+    void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, ProblemConfig &config);
 
-TPZGeoMesh* CreateLCircleGeoMesh();
+    void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream &out, const ProblemConfig &config);
 
-TPZGeoMesh* CreateLShapeMesh(TPZVec<int>& bcids);
+    void VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out, const ProblemConfig &problem);
 
-TPZGeoMesh* CreateQuadLShapeMesh(TPZVec<int>& bcids);
+    void Print(const FADREAL& a, std::ostream& out);
 
-TPZGeoMesh* CreateSingleTriangleMesh(TPZVec<int>& bcids);
+    void Print(const FADFADREAL& a, std::ostream& out);
 
-TPZGeoMesh* CreateSingleQuadMesh(TPZVec<int>& bcids);
 
-TPZGeoMesh* CreateQuadMeshRefTriang(TPZVec<int>& bcids);
-void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream  &out,const ProblemConfig &config);
+}
 
-void VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out,  const ProblemConfig& problem);
-
+#endif

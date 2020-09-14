@@ -96,8 +96,8 @@ void UNISIMMHM(TPZGeoMesh *gmesh) {
     ComputeCoarseIndices(gmesh, coarseIndexes);
 
     int nInternalRef = 0;
-    UniformRefinement(nInternalRef, 2, gmesh);
-    DivideLowerDimensionalElements(gmesh);
+    Tools::UniformRefinement(nInternalRef, 2, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
     std::stringstream gmeshFileName;
     gmeshFileName << config.dir_name << "/GeoMesh";

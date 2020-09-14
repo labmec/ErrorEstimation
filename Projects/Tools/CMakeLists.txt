@@ -4,11 +4,7 @@ add_library(Tools
     Tools.h
     ToolsMHM.cpp
     ToolsMHM.h
-    meshgen.cpp
-    meshgen.h
-    TPZMRCMLagrangeMultiplier.h
-    TPZMRCMLagrangeMultiplier.cpp
-	
 )
+
 target_link_libraries(Tools ErrorEstimationLib)
 target_include_directories(Tools PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
