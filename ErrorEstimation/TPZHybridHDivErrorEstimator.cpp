@@ -6,6 +6,7 @@
 //  Created by Philippe Devloo on 10/06/18.
 //
 
+#include <Mesh/TPZGeoElSideAncestors.h>
 #include "TPZHybridHDivErrorEstimator.h"
 #include "pzcmesh.h"
 #include "pzsubcmesh.h"
@@ -34,7 +35,7 @@
 
 #include "TPZMultiphysicsCompMesh.h"
 #include "pzmultiphysicscompel.h"
-
+#include "TPZGeoElSideAncestors.h"
 #include "TPZVTKGeoMesh.h"
 
 #include "TPZHDivErrorEstimateMaterial.h"
@@ -396,9 +397,10 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     meshvec[3] = fOriginal->MeshVector()[1];//potential
     meshvec[1] = CreatePressureMesh();//potential reconstructed
 
+    if(!fPostProcesswithHDiv) {
+        CreateSkeletonElements(meshvec[1]);
+    }
 
-
-    
     if(fPostProcesswithHDiv)
     {
         //flux reconstructed just using Hdiv reconstruction
@@ -2757,4 +2759,120 @@ void TPZHybridHDivErrorEstimator::PlotState(const std::string& filename, int tar
         an.DefineGraphMesh(targetDim, scalnames, vecnames, plotname);
         an.PostProcess(2, targetDim);
     }
+}
+
+void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
+
+    TPZCompMesh* cmesh = fOriginal;
+    TPZGeoMesh* gmesh = fOriginal->Reference();
+    gmesh->ResetReference();
+    cmesh->LoadReferences();
+
+#ifdef PZDEBUG
+    {
+        std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
+        std::ofstream fileTXT("GeoMeshBeforePressureSkeleton.txt");
+        gmesh->Print(fileTXT);
+    }
+#endif
+
+    // Assigns a material ID that has not been used yet
+    int maxMatId = std::numeric_limits<int>::min();
+    const int nel = gmesh->NElements();
+
+    for (int iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        if(gel) maxMatId = std::max(maxMatId, gel->MaterialId());
+    }
+
+    if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
+
+    fPressureSkeletonMatId = maxMatId + 1;
+    fHybridizer.fLagrangeInterface = fPressureSkeletonMatId; // TODO: make this more elegant
+    int dim = gmesh->Dimension();
+
+    for (int iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        TPZCompEl* cel = gel->Reference();
+        if (gel->MaterialId() == 2) {
+            std::cout << iel << '\n';
+        }
+        if (!cel) continue;
+        if (gel->Dimension() != dim) continue;
+
+        // Iterates through the sides of the element
+        int nsides = gel->NSides();
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+
+            // Filters boundary sides
+            if (gelside.Dimension() != dim - 1) continue;
+
+            // First check if for the same level a skeleton element has already been created
+            // TODO this lambda is being used across various methods, its about time it becomes
+            //      an own method
+            auto hasSkeletonNeighbour = [&]() -> bool {
+                TPZGeoElSide neighbour = gelside.Neighbour();
+                while (neighbour != gelside) {
+                    int neighbourMatId = neighbour.Element()->MaterialId();
+                    if (neighbourMatId == fPressureSkeletonMatId) {
+                        return true;
+                    }
+                    neighbour = neighbour.Neighbour();
+                }
+                return false;
+            };
+            if (hasSkeletonNeighbour()) continue;
+
+            // Creates skeleton between volumetric elements of the same level
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            bool hasCreatedSameLevelSkeleton = false;
+            while (neighbour != gelside) {
+                int neighbourMatId = neighbour.Element()->MaterialId();
+                if (neighbourMatId == 1) { // TODO harcoded mat id
+                    TPZGeoElBC(gelside, fPressureSkeletonMatId);
+                    hasCreatedSameLevelSkeleton = true;
+                    break;
+                }
+                neighbour = neighbour.Neighbour();
+            }
+            // If a skeleton is created at this points, the side is not close to a hanging node
+            // and the steps below aren't necessary
+            if (hasCreatedSameLevelSkeleton) continue;
+
+            // Handle sides linked to hanging nodes
+            TPZGeoElSideAncestors ancestors(gelside);
+            TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
+            if (largerNeigh) {
+                TPZGeoElSide largeSide = ancestors.LargeSide(largerNeigh.Element());
+                std::cout << "Small side: Element " << gelside.Element()->Index() << ", ID " << gelside.Side() << "\t";
+                std::cout << "Larger side: Element " << largeSide.Element()->Index() << ", ID " << largeSide.Side()
+                          << "\n";
+
+                TPZGeoElBC(gelside, fPressureSkeletonMatId);
+            }
+        }
+    }
+
+#ifdef PZDEBUG
+    {
+        std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
+        std::ofstream fileTXT("GeoMeshAfterPressureSkeleton.txt");
+        gmesh->Print(fileTXT);
+    }
+#endif
+
+    // Create skeleton elements in pressure mesh
+    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    skeletonMat->SetDimension(dim - 1);
+    pressure_mesh->InsertMaterialObject(skeletonMat);
+
+    set<int> matIdSkeleton = { fPressureSkeletonMatId };
+    gmesh->ResetReference();
+
+    pressure_mesh->ApproxSpace().CreateDisconnectedElements(true);
+    pressure_mesh->AutoBuild(matIdSkeleton);
+    pressure_mesh->ExpandSolution();
 }

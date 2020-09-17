@@ -92,7 +92,7 @@ namespace Tools {
     void RandomRefinement(TPZGeoMesh *gmesh, int64_t numelrefine, int depth);
 
     // Refine elements given a set of indexes
-    void RefineElements(TPZGeoMesh *gmesh, std::set<int64_t> elsToRefine);
+    void RefineElements(TPZGeoMesh *gmesh, const std::set<int64_t>& elsToRefine);
 
     std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> >
     CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);

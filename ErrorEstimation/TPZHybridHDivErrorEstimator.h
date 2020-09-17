@@ -132,7 +132,10 @@ protected:
 
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
-    
+
+    // Creates skeleton geometric elements on which the average pressure will be calculated
+    virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
+
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
     

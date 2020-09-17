@@ -379,7 +379,7 @@ void Tools::RandomRefinement(TPZGeoMesh *gmesh, int64_t numelrefine, int depth) 
     }
 }
 
-void Tools::RefineElements(TPZGeoMesh *gmesh, std::set<int64_t> elsToRefine) {
+void Tools::RefineElements(TPZGeoMesh *gmesh, const std::set<int64_t>& elsToRefine) {
 
     for (const auto it : elsToRefine) {
         TPZGeoEl *gel = gmesh->Element(it);
