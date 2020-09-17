@@ -2792,12 +2792,9 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
     fHybridizer.fLagrangeInterface = fPressureSkeletonMatId; // TODO: make this more elegant
     int dim = gmesh->Dimension();
 
-    for (int iel = 0; iel < nel; iel++) {
+    for (int64_t iel = 0; iel < nel; iel++) {
         TPZGeoEl *gel = gmesh->Element(iel);
         TPZCompEl* cel = gel->Reference();
-        if (gel->MaterialId() == 2) {
-            std::cout << iel << '\n';
-        }
         if (!cel) continue;
         if (gel->Dimension() != dim) continue;
 
@@ -2845,12 +2842,7 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
             TPZGeoElSideAncestors ancestors(gelside);
             TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
             if (largerNeigh) {
-                TPZGeoElSide largeSide = ancestors.LargeSide(largerNeigh.Element());
-                std::cout << "Small side: Element " << gelside.Element()->Index() << ", ID " << gelside.Side() << "\t";
-                std::cout << "Larger side: Element " << largeSide.Element()->Index() << ", ID " << largeSide.Side()
-                          << "\n";
-
-                TPZGeoElBC(gelside, fPressureSkeletonMatId);
+                TPZGeoElBC newSkel(gelside, fPressureSkeletonMatId);
             }
         }
     }
@@ -2869,10 +2861,75 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
 
-    set<int> matIdSkeleton = { fPressureSkeletonMatId };
+    std::set<int> matIdSkeleton = { fPressureSkeletonMatId };
     gmesh->ResetReference();
 
     pressure_mesh->ApproxSpace().CreateDisconnectedElements(true);
     pressure_mesh->AutoBuild(matIdSkeleton);
     pressure_mesh->ExpandSolution();
+
+    RestrainSkeletonSides(pressure_mesh);
+
+}
+
+// TODO improve documentation
+void TPZHybridHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) {
+
+    TPZGeoMesh *gmesh = pressure_mesh->Reference();
+    gmesh->ResetReference();
+    pressure_mesh->LoadReferences();
+
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshBeforeRestrainSkeleton.txt");
+        pressure_mesh->Print(out);
+    }
+#endif
+
+    int64_t nel = gmesh->NElements();
+    for (int64_t iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        TPZCompEl *cel = gel->Reference();
+        if (!cel) continue;
+        if (gel->MaterialId() != fPressureSkeletonMatId) continue;
+
+        // Iterates through the sides of the element
+        int nsides = gel->NSides();
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide small(gel, iside);
+
+            TPZGeoElSideAncestors ancestors(small);
+            TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
+
+            if (largerNeigh) {
+                TPZGeoElSide large = ancestors.LargeSide(largerNeigh.Element());
+
+                TPZGeoEl *smallGel = small.Element();
+                TPZCompEl *smallCel = smallGel->Reference();
+                if (!smallCel) DebugStop();
+                TPZInterpolatedElement *smallIntel = dynamic_cast<TPZInterpolatedElement *>(smallCel);
+                if (!smallIntel) DebugStop();
+
+                TPZGeoEl *largeGel = large.Element();
+                TPZCompEl *largeCel = largeGel->Reference();
+                if (!largeCel) DebugStop();
+                TPZInterpolatedElement *largeIntel = dynamic_cast<TPZInterpolatedElement *>(largeCel);
+                if (!largeIntel) DebugStop();
+
+                TPZManVector<REAL, 3> xicenter(smallGel->Dimension(), 0.);
+                gel->CenterPoint(iside, xicenter);
+                TPZManVector<REAL> xcenter(3, 0.);
+                gel->X(xicenter, xcenter);
+                std::cout << "Element to restrain: " << small.Element()->Index() << ", Side: " << small.Side();
+                std::cout << ", Cord = [" << xcenter << "]\n";
+                smallIntel->RestrainSide(small.Side(), largeIntel, large.Side());
+            }
+        }
+    }
+#ifdef PZDEBUG
+    {
+        std::ofstream out("MeshAfterRestrainSkeleton.txt");
+        pressure_mesh->Print(out);
+    }
+#endif
 }

@@ -201,7 +201,8 @@ protected:
 
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
-    
+
+    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
