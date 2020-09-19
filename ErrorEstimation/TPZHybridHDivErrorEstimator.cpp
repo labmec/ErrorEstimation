@@ -2872,7 +2872,6 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
 
 }
 
-// TODO improve documentation
 void TPZHybridHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) {
 
     TPZGeoMesh *gmesh = pressure_mesh->Reference();
@@ -2893,37 +2892,45 @@ void TPZHybridHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_me
         if (!cel) continue;
         if (gel->MaterialId() != fPressureSkeletonMatId) continue;
 
-        // Iterates through the sides of the element
+        // If the element is a small skeleton, restrain its highest dimension side and then its subsides
         int nsides = gel->NSides();
-        for (int iside = 0; iside < nsides; iside++) {
-            TPZGeoElSide small(gel, iside);
+        TPZGeoElSide small(gel, nsides - 1);
+        TPZGeoElSideAncestors ancestors(small);
+        TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
+        if (!largerNeigh) continue;
 
-            TPZGeoElSideAncestors ancestors(small);
-            TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
+        TPZCompEl *smallCel = small.Element()->Reference();
+        if (!smallCel) DebugStop();
+        TPZInterpolatedElement *smallIntel = dynamic_cast<TPZInterpolatedElement *>(smallCel);
+        if (!smallIntel) DebugStop();
 
-            if (largerNeigh) {
-                TPZGeoElSide large = ancestors.LargeSide(largerNeigh.Element());
+        TPZCompEl *largeCel = largerNeigh.Element()->Reference();
+        if (!largeCel) DebugStop();
+        TPZInterpolatedElement *largeIntel = dynamic_cast<TPZInterpolatedElement *>(largeCel);
+        if (!largeIntel) DebugStop();
 
-                TPZGeoEl *smallGel = small.Element();
-                TPZCompEl *smallCel = smallGel->Reference();
-                if (!smallCel) DebugStop();
-                TPZInterpolatedElement *smallIntel = dynamic_cast<TPZInterpolatedElement *>(smallCel);
-                if (!smallIntel) DebugStop();
+        TPZManVector<REAL, 3> xicenter(small.Element()->Dimension(), 0.);
+        gel->CenterPoint(nsides - 1, xicenter);
+        TPZManVector<REAL> xcenter(3, 0.);
+        gel->X(xicenter, xcenter);
+        std::cout << "Restriction @ [" << xcenter << "]:\n"
+                  << "  Small El: " << small.Element()->Index() << ", Side: " << small.Side() << "\n"
+                  << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << largerNeigh.Side() << "\n\n";
+        smallIntel->RestrainSide(small.Side(), largeIntel, largerNeigh.Side());
 
-                TPZGeoEl *largeGel = large.Element();
-                TPZCompEl *largeCel = largeGel->Reference();
-                if (!largeCel) DebugStop();
-                TPZInterpolatedElement *largeIntel = dynamic_cast<TPZInterpolatedElement *>(largeCel);
-                if (!largeIntel) DebugStop();
-
-                TPZManVector<REAL, 3> xicenter(smallGel->Dimension(), 0.);
-                gel->CenterPoint(iside, xicenter);
-                TPZManVector<REAL> xcenter(3, 0.);
-                gel->X(xicenter, xcenter);
-                std::cout << "Element to restrain: " << small.Element()->Index() << ", Side: " << small.Side();
-                std::cout << ", Cord = [" << xcenter << "]\n";
-                smallIntel->RestrainSide(small.Side(), largeIntel, large.Side());
-            }
+        // Restrain subsides
+        for (int iside = 0; iside < nsides - 1; iside++) {
+            TPZGeoElSide subsmall(gel, iside);
+            TPZGeoElSideAncestors subancestors(subsmall);
+            TPZGeoElSide subLargerNeigh = subancestors.LargeSide(largerNeigh.Element());
+            if (!subLargerNeigh) DebugStop();
+            if (subLargerNeigh.Element() == subsmall.Element()) DebugStop();
+            gel->CenterPoint(iside, xicenter);
+            gel->X(xicenter, xcenter);
+            std::cout << "SubRestriction @ [" << xcenter << "]:\n"
+                      << "  Small El: " << small.Element()->Index() << ", Side: " << subsmall.Side() << "\n"
+                      << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << subLargerNeigh.Side() << "\n\n";
+            smallIntel->RestrainSide(subsmall.Side(), largeIntel, subLargerNeigh.Side());
         }
     }
 #ifdef PZDEBUG
