@@ -2822,27 +2822,15 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
             };
             if (hasSkeletonNeighbour()) continue;
 
-            // Creates skeleton between volumetric elements of the same level
+            // Create skeleton if neighbour is not a boundary condition
             TPZGeoElSide neighbour = gelside.Neighbour();
-            bool hasCreatedSameLevelSkeleton = false;
             while (neighbour != gelside) {
                 int neighbourMatId = neighbour.Element()->MaterialId();
-                if (neighbourMatId == 1) { // TODO harcoded mat id
+                if (fProblemConfig.bcmaterialids.find(neighbourMatId) == fProblemConfig.bcmaterialids.end()) {
                     TPZGeoElBC(gelside, fPressureSkeletonMatId);
-                    hasCreatedSameLevelSkeleton = true;
                     break;
                 }
                 neighbour = neighbour.Neighbour();
-            }
-            // If a skeleton is created at this points, the side is not close to a hanging node
-            // and the steps below aren't necessary
-            if (hasCreatedSameLevelSkeleton) continue;
-
-            // Handle sides linked to hanging nodes
-            TPZGeoElSideAncestors ancestors(gelside);
-            TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
-            if (largerNeigh) {
-                TPZGeoElBC newSkel(gelside, fPressureSkeletonMatId);
             }
         }
     }
