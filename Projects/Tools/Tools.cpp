@@ -12,6 +12,7 @@
 #include "TPZGenGrid2D.h"
 #include <tuple>
 #include <memory>
+#include <Pre/TPZGenGrid3D.h>
 
 #include "pzcondensedcompel.h"
 #include "pzelementgroup.h"
@@ -175,9 +176,6 @@ void Tools::CloneMeshVec(TPZVec<TPZCompMesh*>& meshvec, TPZVec<TPZCompMesh*>& me
     }
 }
 
-/// Increase the approximation orders of the sides of the flux elements
-
-
 void Tools::UniformRefinement(int nDiv, TPZGeoMesh* gmesh) {
     
     TPZManVector<TPZGeoEl*> children;
@@ -223,7 +221,6 @@ TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids) {
     x1[2] = 0.;
     TPZGenGrid2D gen(nx, x0, x1, 1, 0);
     
-    //TPZGenGrid2D gen(nx, x0, x1);
     gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
@@ -237,6 +234,17 @@ TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids) {
     return gmesh;
 }
 
+TPZGeoMesh *Tools::CreateCubeGeoMesh(const TPZVec<int> &nelDiv, const TPZVec<int> &bcids) {
+    TPZManVector<REAL, 3> x0(3, 0.), x1(3, 1.);
+    x1[2] = 0.5;
+    TPZGenGrid3D gen(x0, x1, nelDiv, MMeshType::EHexahedral);
+
+    TPZGeoMesh *gmesh{nullptr};
+    gmesh = gen.BuildVolumetricElements(1);
+    gmesh = gen.BuildBoundaryElements(bcids[0], bcids[1], bcids[2], bcids[3], bcids[4], bcids[5]);
+
+    return gmesh;
+}
 
 void Tools::MultiPhysicsCompel(const ProblemConfig& config) {
     

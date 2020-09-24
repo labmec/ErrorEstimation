@@ -2023,15 +2023,10 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     // for the border fluxes
     CreatePostProcessingMesh();
 
+#ifdef PZDEBUG
     {
         std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
         fPostProcMesh.Print(out);
-    }
-#ifdef PZDEBUG
-    {
-        //std::ofstream out(dirPath + "PressureBeforeReconstruction.txt");
-        //fPostProcMesh.MeshVector()[1]->Print(out);
-        //PlotLagrangeMultiplier(dirPath + "BeforeReconstruction");
         std::ofstream outOrig(dirPath + "PressureConnectsBeforeReconstruction.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outOrig, {}, false, true);
     }

@@ -2,14 +2,8 @@
 add_executable(HeteroPermeability main_HeteroPermeability.cpp)
 target_link_libraries(HeteroPermeability Tools ErrorEstimationLib)
 
-add_executable(HybridHDiv New_main.cpp)
+add_executable(HybridHDiv main.cpp)
 target_link_libraries(HybridHDiv Tools ErrorEstimationLib)
-
-add_executable(NoHybridMain main.cpp)
-target_link_libraries(NoHybridMain Tools ErrorEstimationLib)
-
-add_executable(H1Reconstruction main_H1.cpp)
-target_link_libraries(H1Reconstruction Tools ErrorEstimationLib)
 
 add_executable(AdaptivityTest mainAdaptivity.cpp)
 target_link_libraries(AdaptivityTest Tools ErrorEstimationLib)
