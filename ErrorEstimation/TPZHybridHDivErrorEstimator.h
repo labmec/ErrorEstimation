@@ -127,7 +127,11 @@ protected:
     
     // a method for generating the HDiv mesh
     virtual TPZCompMesh *CreateFluxMesh();
-    // a method for creating the pressure mesh
+    
+    // this method clones the original pressure mesh and perform the following:
+    // 1. delete dim - 1 elements, where dim is the mesh dimension
+    // 2. build BC elements // TODO improve comments
+    // 3. create skeleton geometric elements and comp elements
     virtual TPZCompMesh *CreatePressureMesh();
 
     /// return a pointer to the pressure mesh

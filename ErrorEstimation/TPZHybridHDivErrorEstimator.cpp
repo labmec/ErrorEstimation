@@ -292,41 +292,31 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh() {
         TPZCompMesh *pressureMesh = fOriginal->MeshVector()[1]->Clone();
         TPZGeoMesh *gmesh = pressureMesh->Reference();
         gmesh->ResetReference();
-
-        // Delete compels of lagrange multiplier mat ID
+        int dim = gmesh->Dimension();
+        
+        // Delete compels of dimension dim - 1
         for (int64_t el = 0; el < pressureMesh->NElements(); el++) {
             TPZCompEl *cel = pressureMesh->Element(el);
-            if (cel->Material()->Id() == fHybridizer.fLagrangeInterface) {
+            if (!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            if (!gel) DebugStop();
+            if (gel->Dimension() == dim - 1) {
                 delete cel;
             }
         }
+        
         pressureMesh->ComputeNodElCon();
         pressureMesh->CleanUpUnconnectedNodes();
         pressureMesh->LoadReferences();
         pressureMesh->ApproxSpace().SetAllCreateFunctionsContinuous();
         pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
-        
-        std::set<int> bcMatIDs;
-        for (auto it : mult->MaterialVec()) {
-            TPZMaterial *mat = it.second;
-            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-            if (bc) {
-                int pressureMatId = bc->Material()->Id();
-                TPZMaterial *pressuremat = pressureMesh->FindMaterial(pressureMatId);
-                TPZMaterial *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
-                if (bc->HasForcingFunction()) {
-                    newbc->SetForcingFunction(bc->ForcingFunction());
-                }
-                pressureMesh->InsertMaterialObject(newbc);
-                bcMatIDs.insert(bc->Id());
-            }
-        }
-        
+       
         // Create computational elements for BCs in pressureMesh mesh
-        std::map<int64_t, TPZCompEl*> bcGeoElToNeighCompEl;
+        std::set<int> bcMatIDs = fProblemConfig.bcmaterialids;
+        // This map stores the index of the BC geometric element and a pointer
+        // to the computational element of its volumetric neighbour
+        std::map<int64_t, TPZCompElSide> bcGeoElToNeighCompEl;
         for (int64_t el = 0; el < gmesh->NElements(); el++) {
-            // This map stores the ID of the BC geometric element and a pointer
-            // to the computational element of its volumetric neighbour
             TPZGeoEl *gel = gmesh->Element(el);
             if (!gel) continue;
             if(gel->HasSubElement()) continue;
@@ -345,17 +335,29 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh() {
                 TPZCompEl *cel = compNeighSides[0].Element();
                 if (!cel) DebugStop();
                 
-                bcGeoElToNeighCompEl.insert({gel->Index(), cel});
+                bcGeoElToNeighCompEl.insert({gel->Index(), compNeighSides[0]});
             }
         }
+        
+        // Create BC condition elements. We reset references at each step to allow for a discontinuous mesh globally
         gmesh->ResetReference();
         for (const auto &it : bcGeoElToNeighCompEl) {
             int64_t bcElID = it.first;
-            TPZCompEl *neighCel = it.second;
+            TPZCompElSide neighSide = it.second;
+            TPZCompEl *neighCel = neighSide.Element();
             TPZGeoEl *bcGeoEl = gmesh->Element(bcElID);
+            // We load the volumetric element reference so it shares its connects with the BC element to be created
             neighCel->LoadElementReference();
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(neighCel);
+            if (!intel) DebugStop();
+            // Get order of the neighbour side of the volumetric element
+            int iside = neighSide.Side();
+            int order = intel->Connect(iside).Order();
+            pressureMesh->SetDefaultOrder(order);
+
             int64_t id;
             TPZCompEl *bcCel = pressureMesh->CreateCompEl(bcGeoEl, id);
+            // Reset references so that future elements will not share connects with these two elements
             bcCel->Reference()->ResetReference();
             neighCel->Reference()->ResetReference();
         }
@@ -368,6 +370,8 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh() {
             TPZVTKGeoMesh::PrintCMeshVTK(pressureMesh, outVTK);
         }
 #endif
+        
+        CreateSkeletonElements(pressureMesh);
         
         return pressureMesh;
     }
@@ -412,11 +416,8 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
     meshvec[0] = 0;
     meshvec[2] = fOriginal->MeshVector()[0];//flux
     meshvec[3] = fOriginal->MeshVector()[1];//potential
+    // 
     meshvec[1] = CreatePressureMesh();//potential reconstructed
-
-    if(!fPostProcesswithHDiv) {
-        CreateSkeletonElements(meshvec[1]);
-    }
 
     if(fPostProcesswithHDiv)
     {
@@ -434,12 +435,6 @@ void TPZHybridHDivErrorEstimator::CreatePostProcessingMesh() {
         //IdentifyPeripheralMaterialIds();
     }
     
-    // increase the order of the dim-1 elements to the maximum of both neighbouring elements
-    IncreasePressureSideOrders(meshvec[1]);//malha da pressao
-
-    // Restrain the spaces of smaller to larger skeleton elements on hanging nodes
-    RestrainSkeletonSides(meshvec[1]);
-
     if (fPostProcesswithHDiv) {
         IncreaseSideOrders(meshvec[0]);//malha do fluxo
     }
@@ -1028,18 +1023,24 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
         // Skip calculation if the element is a boundary condition
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressureHybrid->FindMaterial(matid);
+        // TODO change this. Look for matIDs in bcMatIds instead. Only cast in debug mode for further checks
+#ifdef PZDEBUG
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (bc) continue;
         
+#endif
         // Skip calculation if the element is a small skeleton
+        bool largeSideExists = false;
+        if (cel->Connect(0).HasDependency()) largeSideExists = true;
+
+#ifdef PZDEBUG 
         int nsides = gel->NSides();
         TPZGeoElSide side(gel, nsides - 1);
         TPZGeoElSideAncestors ancestors(side);
         TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
-        if (largerNeigh) {
-            continue;
-        }
-        
+        if (largeSideExists && !largerNeigh) DebugStop();
+#endif
+        if (largeSideExists) continue;
         ComputeAverage(pressureHybrid, el);
     }
     
@@ -2351,6 +2352,11 @@ void TPZHybridHDivErrorEstimator::IdentifyPeripheralMaterialIds() {
             break;
         }
     }
+    
+    if (fPressureSkeletonMatId == 0) {
+        // TODO reformulate this 
+    }
+    
 }
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
@@ -2796,6 +2802,7 @@ void TPZHybridHDivErrorEstimator::PlotState(const std::string& filename, int tar
     }
 }
 
+// TODO separate geometric element creation into new method and improve documentation
 void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
 
     TPZCompMesh* cmesh = fOriginal;
@@ -2812,7 +2819,7 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
     }
 #endif
 
-    // Assigns a material ID that has not been used yet
+    // Assigns a material ID that has not been used yet // TODO move this to IdentifyPeripheralMatIds
     int maxMatId = std::numeric_limits<int>::min();
     const int nel = gmesh->NElements();
 
@@ -2889,6 +2896,13 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
     pressure_mesh->ApproxSpace().CreateDisconnectedElements(true);
     pressure_mesh->AutoBuild(matIdSkeleton);
     pressure_mesh->ExpandSolution();
+
+    // increase the order of the dim-1 elements to the maximum of both neighbouring elements
+    IncreasePressureSideOrders(pressure_mesh);//malha da pressao
+
+    // Restrain the spaces of smaller to larger skeleton elements on hanging nodes
+    RestrainSkeletonSides(pressure_mesh);
+
 }
 
 void TPZHybridHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) {
@@ -2936,7 +2950,7 @@ void TPZHybridHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_me
                   << "  Small El: " << small.Element()->Index() << ", Side: " << small.Side()
                   << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << largerNeigh.Side() << "\n";
         smallIntel->RestrainSide(small.Side(), largeIntel, largerNeigh.Side());
-
+        
         // Restrain subsides
         for (int iside = 0; iside < nsides - 1; iside++) {
             TPZGeoElSide subsmall(gel, iside);
