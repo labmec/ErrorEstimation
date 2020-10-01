@@ -36,8 +36,8 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     //RunSingularProblemHDiv();
-    //RunHPQuadProblemHDiv();
-    RunHPCubeProblemHDiv();
+    RunHPQuadProblemHDiv();
+    //RunHPCubeProblemHDiv();
 
     return 0;
 }
