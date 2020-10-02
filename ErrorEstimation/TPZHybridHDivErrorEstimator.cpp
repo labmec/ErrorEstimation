@@ -310,9 +310,25 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh() {
         pressureMesh->LoadReferences();
         pressureMesh->ApproxSpace().SetAllCreateFunctionsContinuous();
         pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
-       
-        // Create computational elements for BCs in pressureMesh mesh
+      
+        // Insert BC materials in pressure reconstruction mesh
         std::set<int> bcMatIDs = fProblemConfig.bcmaterialids;
+        for (auto bcID : bcMatIDs) {
+            TPZMaterial *mat = mult->FindMaterial(bcID);
+            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            if (!bc) DebugStop();
+            
+            int volumetricMatId = bc->Material()->Id();
+            TPZMaterial *pressuremat = pressureMesh->FindMaterial(volumetricMatId);
+            if (!pressuremat) DebugStop();
+            
+            TPZMaterial *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            if (bc->HasForcingFunction()) {
+                newbc->SetForcingFunction(bc->ForcingFunction());
+            }
+            pressureMesh->InsertMaterialObject(newbc);
+        }
+        
         // This map stores the index of the BC geometric element and a pointer
         // to the computational element of its volumetric neighbour
         std::map<int64_t, TPZCompElSide> bcGeoElToNeighCompEl;
