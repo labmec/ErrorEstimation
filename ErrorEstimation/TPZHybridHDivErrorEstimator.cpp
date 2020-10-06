@@ -1367,125 +1367,183 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
 }
 
 // compute the average of an element iel in the pressure mesh looking at its neighbours
-void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel)
-{
-    
-    //  std::cout<<"Computing average for iel "<<iel<<"\n";
+void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel) {
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     int dim = gmesh->Dimension();
     TPZCompEl *cel = pressuremesh->Element(iel);
-
-    std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
-    if (!cel || !cel->Reference()) {
-        DebugStop();
-    }
-    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+    if (!cel) DebugStop();
     TPZGeoEl *gel = cel->Reference();
+    if (!gel) DebugStop();
+    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+    if (!intel) DebugStop();
+
+    // TODO In DEBUG assert that the connects dont have restrictions
+    
+    std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
+
     int target_dim = gel->Dimension();
     if (target_dim == dim - 1 && gel->MaterialId() != fPressureSkeletonMatId) {
         DebugStop();
     }
-    if (!intel) {
-        DebugStop();
+
+    // We denote large the skeleton element passed to this method, which is whether the skeleton between two elements
+    // of the same level or the larger skeleton in the region of a hanging node.
+    TPZGeoElSide largeSkeletonSide(gel, gel->NSides() - 1);
+
+    // Stack of TPZCompElSides containing the volumetric neighbours from which we obtain the pressure solution to
+    // be used in the average computation.
+    TPZStack<TPZCompElSide> volumeNeighSides;
+    largeSkeletonSide.EqualLevelCompElementList(volumeNeighSides, 1, 0);
+    if (volumeNeighSides.size() < 1) DebugStop();
+
+    // If we are on a hanging side, we need to store the smaller skeleton sides and their respective volumetric
+    // neighbours
+    TPZStack<TPZGeoElSide> smallerSkelSides;
+    bool noHangingSide = true;
+    if (volumeNeighSides.size() == 1) {
+        noHangingSide = false;
+        TPZGeoElSidePartition partition(largeSkeletonSide);
+        partition.HigherLevelNeighbours(smallerSkelSides, fPressureSkeletonMatId);
+        if (smallerSkelSides.size() == 1) DebugStop();
+        for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
+            smallerSkelSides[iskel].EqualLevelCompElementList(volumeNeighSides, 1, 0);
+        }
     }
+    
+    // TODO in DEBUG verify the volumeNeighSides dimension
+    
+    // Fills vectors of TPZTransform with the transformation from the skeleton to each left/right volumetric neighbours
+    // and from the the small (right) to the large (left) skel if we are on a hanging side.
+    int64_t nSkelsToIntegrate = volumeNeighSides.size() - 1;
+    TPZManVector<TPZTransform<REAL>, 5> leftSkelToVolumeTrans(nSkelsToIntegrate);
+    TPZManVector<TPZTransform<REAL>, 5> rightSkelToVolumeTrans(nSkelsToIntegrate);
+    TPZManVector<TPZTransform<REAL>, 5> rightSkelToLeftSkelTrans(nSkelsToIntegrate);
+
+    // Transformation between the large skeleton to the target_dim dimensional side of the volume element
+    TPZTransform<REAL> largeSkelToVolumeTrans =
+        largeSkeletonSide.NeighbourSideTransform(volumeNeighSides[0].Reference());
+    TPZGeoEl *volumeNeigh = volumeNeighSides[0].Element()->Reference();
+    // Transformation of the target_dim dimensional  side of the volume element to its higher dimension side
+    TPZTransform<REAL> tmp = volumeNeigh->SideToSideTransform(volumeNeighSides[0].Side(), volumeNeigh->NSides() - 1);
+    largeSkelToVolumeTrans = tmp.Multiply(largeSkelToVolumeTrans);
+
+    if (noHangingSide) {
+        // In this case the largeSkeletonSide is the same for both left/right regions.
+        // We denote left the side at volumeNeighSides[0] and the remaining right.
+        leftSkelToVolumeTrans[0] = largeSkelToVolumeTrans;
+
+        rightSkelToVolumeTrans[0] = largeSkeletonSide.NeighbourSideTransform(volumeNeighSides[1].Reference());
+        volumeNeigh = volumeNeighSides[1].Element()->Reference();
+        tmp = volumeNeigh->SideToSideTransform(volumeNeighSides[1].Side(), volumeNeigh->NSides() - 1);
+        rightSkelToVolumeTrans[0] = tmp.Multiply(rightSkelToVolumeTrans[0]);
+    } else {
+        // If we are on a hanging side we need to build left/right transformations for every small skeleton
+        for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
+            rightSkelToVolumeTrans[iskel] =
+                smallerSkelSides[iskel].NeighbourSideTransform(volumeNeighSides[iskel + 1].Reference());
+            volumeNeigh = volumeNeighSides[iskel + 1].Element()->Reference();
+            tmp = volumeNeigh->SideToSideTransform(volumeNeighSides[iskel + 1].Side(), volumeNeigh->NSides() - 1);
+            rightSkelToVolumeTrans[iskel] = tmp.Multiply(rightSkelToVolumeTrans[iskel]);
+            
+            rightSkelToLeftSkelTrans[iskel] = TPZTransform<REAL>(target_dim);
+            smallerSkelSides[iskel].SideTransform3(largeSkeletonSide, rightSkelToLeftSkelTrans[iskel]);
+            leftSkelToVolumeTrans[iskel] = largeSkelToVolumeTrans.Multiply(rightSkelToLeftSkelTrans[iskel]);
+        }
+    }
+
+    // Calculate average weights for left/right elements
+    // TODO change it to sum only 2 weights (right/left)
+    REAL sum_weights = 0.;
+    TPZGeoEl *leftVolumeGel = volumeNeighSides[0].Element()->Reference();
+    int matId = leftVolumeGel->MaterialId();
+    fPressureweights[leftVolumeGel->Index()] = fMatid_weights[matId];
+    sum_weights += fMatid_weights[matId];
+    for (int iskel = 0; iskel < nSkelsToIntegrate; iskel++) {
+        TPZGeoEl *rightVolumeGel = volumeNeighSides[iskel + 1].Element()->Reference();
+        matId = rightVolumeGel->MaterialId();
+        fPressureweights[rightVolumeGel->Index()] = fMatid_weights[matId];
+        sum_weights += fMatid_weights[matId] / nSkelsToIntegrate;
+    }
+
     int nc = cel->NConnects();
     int order = cel->Connect(nc - 1).Order();
-    TPZGeoElSide gelside(gel, gel->NSides() - 1);
-    TPZStack<TPZCompElSide> celstack;
-    gelside.EqualLevelCompElementList(celstack, 1, 0);
-    
-    // If the element is a large skeleton on a hanging node, add smaller skeletons to the celstack
-    if (celstack.size() == 1) {
-        TPZGeoElSidePartition partition(gelside);
-        TPZStack<TPZGeoElSide> smallerSides;
-        partition.HigherLevelNeighbours(smallerSides, fPressureSkeletonMatId);
-        std::cout << smallerSides.size() << '\n';
-    }
-    return;
-    
 
-    int nequal = celstack.size();
-    TPZManVector<TPZTransform<REAL>, 4> tr(nequal);
-    for (int ieq = 0; ieq < nequal; ieq++) {
-        // the transformation between the sides
-        tr[ieq] = gelside.NeighbourSideTransform(celstack[ieq].Reference());
-        // add the transformation between the side and volume of the element
-        TPZGeoEl *right = celstack[ieq].Element()->Reference();
-        TPZTransform<REAL> tmp = right->SideToSideTransform(celstack[ieq].Side(), right->NSides() - 1);
-        tr[ieq] = tmp.Multiply(tr[ieq]);
-    }
-    if (celstack.size() == 1 && target_dim == dim - 1) {
-        TPZCompElSide lowlevel = gelside.LowerLevelCompElementList2(1);
-        if (!lowlevel) {
-            DebugStop();
-        }
-        celstack.Push(lowlevel);
-        tr.Resize(2);
-        tr[1] = TPZTransform<REAL>(gelside.Dimension());
-        gelside.SideTransform3(lowlevel.Reference(), tr[1]);
-    } else if (celstack.size() != 2 && target_dim == dim - 1) {
-        DebugStop();
-    }
-    
-    TPZManVector<REAL> el_weights(nequal);
-    REAL sum_weights = 0.;
-    REAL max_weight = 0.;
-    for (int ieq = 0; ieq < nequal; ieq++) {
-        //REAL index = celstack[ieq].Element()->Index();
-        //el_weights[ieq] = fPressureweights[index];
-        int matId = celstack[ieq].Element()->Reference()->MaterialId();
-        el_weights[ieq] = fMatid_weights[matId];
-        sum_weights += el_weights[ieq];
-        max_weight = max_weight < el_weights[ieq] ? el_weights[ieq] : max_weight;
-        if(el_weights[ieq] <= 0.) DebugStop();
-    }
-    fPressureweights[iel] = max_weight;
-    
-    std::unique_ptr<TPZIntPoints> intp(gel->CreateSideIntegrationRule(gel->NSides() - 1, 2 * order));
     int nshape = intel->NShapeF();
     TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
-    TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dshape(dim, nshape);
-    int64_t npoints = intp->NPoints();
-    for (int64_t ip = 0; ip < npoints; ip++) {
-        TPZManVector<REAL, 3> pt(target_dim, 0.), pt1(target_dim + 1, 0.), sol1(1);
-        REAL weight;
-        intp->Point(ip, pt, weight);
-        intel->Shape(pt, phi, dshape);
-        TPZManVector<REAL,3> xref(3);
-        gel->X(pt, xref);
-        //           std::cout << "Values " << sol1 << " " << sol2 << std::endl;
-        //projecao L2 da media das soluceos no espaco Lh, do esqueleto da malha
-        for (int ieq = 0; ieq < nequal; ieq++) {
-            tr[ieq].Apply(pt, pt1);
-            TPZManVector<REAL,3> xeq(3,0.);
-            // celstack[ieq].Element()->Print();
-            celstack[ieq].Element()->Reference()->X(pt1,xeq);
-            celstack[ieq].Element()->Solution(pt1, 0, sol1);//solucao a esquerda
-                                                            //      std::cout << "xref " << xref << " ieq " << ieq << " xeq " << xeq << " sol " << sol1 << std::endl;
-            for (int ishape = 0; ishape < nshape; ishape++)
-            {
-                L2Rhs(ishape, 0) += weight * phi(ishape, 0) * sol1[0] * el_weights[ieq] / (sum_weights);
-            }
+    TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dphi(dim, nshape);
+    for (int iskel = 0; iskel < nSkelsToIntegrate; iskel++) {
+        TPZGeoElSide integrationSide;
+        if (noHangingSide) {
+            integrationSide = largeSkeletonSide;
+        } else {
+            integrationSide = smallerSkelSides[iskel];
         }
-        for (int ishape = 0; ishape < nshape; ishape++) {
-            for (int jshape = 0; jshape < nshape; jshape++)
-            {
-                L2Mat(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
+        std::unique_ptr<TPZIntPoints> intpoints(gel->CreateSideIntegrationRule(integrationSide.Side(), 2 * order));
+
+        REAL left_weight = fPressureweights[leftVolumeGel->Index()] / sum_weights;
+        TPZGeoEl *rightVolumeGel = volumeNeighSides[iskel + 1].Element()->Reference();
+        REAL right_weight = fPressureweights[rightVolumeGel->Index()] / sum_weights;
+
+        int64_t nintpoints = intpoints->NPoints();
+        for (int64_t ip = 0; ip < nintpoints; ip++) {
+            TPZManVector<REAL, 3> pt_left_skel(target_dim, 0.), pt_right_skel(target_dim, 0.);
+            TPZManVector<REAL, 3> pt_left_vol(target_dim + 1, 0.), pt_right_vol(target_dim + 1, 0.);
+
+            REAL weight;
+            intpoints->Point(ip, pt_right_skel, weight);
+            if (noHangingSide) {
+                pt_left_skel = pt_right_skel;
+            } else {
+                rightSkelToLeftSkelTrans[iskel].Apply(pt_right_skel, pt_left_skel);
+            }
+
+            // Get shape at integration point
+            intel->Shape(pt_left_skel, phi, dphi);
+
+            // Get solution from left/right sides
+            leftSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_left_vol);
+            rightSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_right_vol);
+            TPZVec<STATE> left_sol, right_sol;
+            volumeNeighSides[0].Element()->Solution(pt_left_vol, 0, left_sol);
+            volumeNeighSides[iskel + 1].Element()->Solution(pt_right_vol, 0, right_sol);
+
+            STATE average_sol = left_weight * left_sol[0] + right_weight * right_sol[0];
+            
+            TPZFNMatrix<9, REAL> jac(dim, dim), jacinv(dim, dim), axes(dim, 3);
+            REAL detjac;
+            integrationSide.Jacobian(pt_right_skel, jac, axes, detjac, jacinv);
+
+#ifdef LOG4CXX
+            if(logger->isDebugEnabled()) {
+                std::stringstream ss;
+                phi.Print(ss);
+                ss << detjac << '\n';
+                LOGPZ_DEBUG(logger, ss.str())
+            }
+#endif
+            for (int ishape = 0; ishape < nshape; ishape++) {
+                L2Rhs(ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
+            }
+            for (int ishape = 0; ishape < nshape; ishape++) {
+                for (int jshape = 0; jshape < nshape; jshape++) {
+                    L2Mat(ishape, jshape) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
+                }
             }
         }
     }
+    
+#ifdef LOG4CXX
+    if(logger->isDebugEnabled()) {
+        std::stringstream ss;
+        L2Rhs.Print("Rhs =", ss, EMathematicaInput);
+        L2Mat.Print("Stiffness =", ss, EMathematicaInput);
+        LOGPZ_DEBUG(logger, ss.str())
+    }
+#endif
+    
     L2Mat.SolveDirect(L2Rhs, ECholesky);
-    //apos este passo temos uma pressao que é continua ao longo das interfaces dos elementos, nos esqueletos. Falta suavizar nos vértices
-    // L2Rhs.Print("Average pressure");
-    
-    //    std::cout << "average ";
-    //    for (int i=0; i<nshape; i++) {
-    //        std::cout << L2Rhs(i,0) << " ";
-    //    }
-    //    std::cout << std::endl;
-    //store the average on solution of pressure mesh
+    // Stores solution in the computational mesh
     int count = 0;
-    
     for (int ic = 0; ic < nc; ic++) {
         TPZConnect &c = cel->Connect(ic);
         int64_t seqnum = c.SequenceNumber();
@@ -1495,7 +1553,6 @@ void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int6
             pressuremesh->Solution()(pos + idf, 0) = L2Rhs(count++);
         }
     }
-    
 }
 
 
