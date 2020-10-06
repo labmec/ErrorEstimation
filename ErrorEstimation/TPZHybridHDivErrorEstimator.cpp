@@ -2863,72 +2863,13 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
             // Filters boundary sides
             if (gelside.Dimension() != dim - 1) continue;
 
-            // First check if for the same level a skeleton element has already been created
-            // TODO this lambda is being used across various methods, its about time it becomes
-            //      an own method
-            auto hasSkeletonNeighbour = [&]() -> bool {
-                TPZGeoElSide neighbour = gelside.Neighbour();
-                while (neighbour != gelside) {
-                    int neighbourMatId = neighbour.Element()->MaterialId();
-                    if (neighbourMatId == fPressureSkeletonMatId) {
-                        return true;
-                    }
-                    neighbour = neighbour.Neighbour();
-                }
-                return false;
-            };
-            if (hasSkeletonNeighbour()) continue;
-
-            // The following statement adresses the interface between a large (less refined) and a small element;
-            // Large elements have itself and the ancestor of the small element as neighbours,
-            // but small elements have only itself as neighbours.
-            // The next statement adresses specifically no-neighbour internal boundaries.
-            if (gelside.NNeighbours()== 0){
+            //Create Geometric element if there is no boundary neighbour and no skeleton neighbour were created.
+            std::set<int> matIDs = fProblemConfig.bcmaterialids;
+            matIDs.insert(fPressureSkeletonMatId);
+            TPZGeoElSide neighSide = gelside.HasNeighbour(matIDs);
+            if(!neighSide.Exists())
+            {
                 TPZGeoElBC gbc(gelside, fPressureSkeletonMatId);
-#ifdef LOG4CXX
-    if(logger->isDebugEnabled())
-    {
-        std::stringstream sout;
-        sout << __PRETTY_FUNCTION__ << std::endl;
-        TPZGeoEl *gelbc = gbc.CreatedElement();
-        TPZManVector<REAL, 3> xicenter(gelbc->Dimension(), 0.);
-        gelbc->CenterPoint(nsides - 1, xicenter);
-        TPZManVector<REAL> xcenter(3, 0.);
-        gelbc->X(xicenter, xcenter);
-        sout << "Centered at @ [" << xcenter << "]:\n";
-        gelbc->Print(sout);
-        sout << "\n\n";
-        LOGPZ_DEBUG(logger,sout.str());
-    }
-#endif
-            continue;
-            }
-            // Create skeleton if neighbour is not a boundary condition
-            TPZGeoElSide neighbour = gelside.Neighbour();
-            while (neighbour != gelside) {
-                int neighbourMatId = neighbour.Element()->MaterialId();
-                if (fProblemConfig.bcmaterialids.find(neighbourMatId) == fProblemConfig.bcmaterialids.end()) {
-                    TPZGeoElBC gbc(gelside, fPressureSkeletonMatId);
-
-#ifdef LOG4CXX
-    if(logger->isDebugEnabled())
-    {
-        std::stringstream sout;
-        sout << __PRETTY_FUNCTION__ << std::endl;
-        TPZGeoEl *gelbc = gbc.CreatedElement();
-        TPZManVector<REAL, 3> xicenter(gelbc->Dimension(), 0.);
-        gelbc->CenterPoint(nsides - 1, xicenter);
-        TPZManVector<REAL> xcenter(3, 0.);
-        gelbc->X(xicenter, xcenter);
-        sout << "Centered at @ [" << xcenter << "]:\n";
-        gelbc->Print(sout);
-        sout << "\n\n";
-        LOGPZ_DEBUG(logger,sout.str());
-    }
-#endif
-                    break;
-                }
-                neighbour = neighbour.Neighbour();
             }
         }
     }
