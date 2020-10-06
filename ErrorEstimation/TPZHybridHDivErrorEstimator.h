@@ -38,7 +38,7 @@ struct TPZHybridHDivErrorEstimator
     int fUpliftPostProcessMesh = 0;
     
     /// whether the post processing mesh will be H(div) or H1
-    bool fPostProcesswithHDiv = true;
+    bool fPostProcesswithHDiv = false;
     
     /// Locally created computational mesh to compute the error
     TPZMultiphysicsCompMesh fPostProcMesh;
