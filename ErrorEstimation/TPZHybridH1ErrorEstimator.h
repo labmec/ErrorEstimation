@@ -54,18 +54,29 @@ struct TPZHybridH1ErrorEstimator
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
     //TPZCreateMultiphysicsSpace fHybrid;
-    
-    // material id of the dim-2 skeleton elements
+
+    // material id of the dim-1 skeleton elements
     int fPressureSkeletonMatId;
+
+    // material id of the HDiv reconstruction
+    int fHDivResconstructionMatId;
     
     TPZAnalyticSolution *fExact;
     
     ProblemConfig fProblemConfig;
 
-    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, bool InputisHybridized = true) : fOriginal(&InputMesh),
-    fOriginalIsHybridized(InputisHybridized), fPostProcMesh(0),fExact(NULL)
+    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh) : fOriginal(&InputMesh),
+    fPostProcMesh(0),fExact(NULL)
     {
-        fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
+        FindFreeMatID(fPressureSkeletonMatId);
+        FindFreeMatID(fHDivResconstructionMatId);
+    }
+
+    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
+                                                                    fPostProcMesh(0),fExact(NULL),
+                                                                    fPressureSkeletonMatId(fPressureSkeletonMatId),fHDivResconstructionMatId(HDivMatId)
+    {
+
     }
     
     TPZHybridH1ErrorEstimator(const TPZHybridH1ErrorEstimator &copy) : fOriginal(copy.fOriginal),
@@ -179,9 +190,12 @@ protected:
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
     virtual void CopySolutionFromSkeleton();
 
-    /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-    virtual void SwitchMaterialObjects();
+    /// Insert material for HDiv reconstruction
+    /// Switch H1 material for H1 reconstruction material
+    virtual void InsertEEMaterial();
 
+    /// Find free matID number
+    void FindFreeMatID(int &matID);
     
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();

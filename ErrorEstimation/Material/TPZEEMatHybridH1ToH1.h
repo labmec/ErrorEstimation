@@ -6,31 +6,30 @@
 //
 
 
-#ifndef ERRORESTIMATION_TPZHYBRIDH1ERRORESTIMATEMATERIAL_H
-#define ERRORESTIMATION_TPZHYBRIDH1ERRORESTIMATEMATERIAL_H
+#ifndef ERRORESTIMATION_TPZEEMatHybridH1ToH1_H
+#define ERRORESTIMATION_TPZEEMatHybridH1ToH1_H
 
 #include <stdio.h>
-#include "mixedpoisson.h"
 #include "TPZMatLaplacianHybrid.h"
 
 
-class TPZH1ErrorEstimateMaterial : public TPZMixedPoisson
+class TPZEEMatHybridH1ToH1: public TPZMatLaplacianHybrid
 {
 
 public:
 
 
-    TPZHDivErrorEstimateMaterial(int matid, int dim);
+    TPZEEMatHybridH1ToH1(int matid, int dim);
 
-    TPZHDivErrorEstimateMaterial();
+    TPZEEMatHybridH1ToH1();
 
-    TPZHDivErrorEstimateMaterial(const TPZHDivErrorEstimateMaterial &copy);
+    TPZEEMatHybridH1ToH1(const TPZEEMatHybridH1ToH1 &copy);
 
-    TPZHDivErrorEstimateMaterial(const TPZMixedPoisson &copy);
+    TPZEEMatHybridH1ToH1(const TPZMatLaplacianHybrid &copy);
 
-    virtual ~TPZHDivErrorEstimateMaterial();
+    virtual ~TPZEEMatHybridH1ToH1();
 
-    TPZHDivErrorEstimateMaterial &operator=(const TPZHDivErrorEstimateMaterial &copy);
+    TPZEEMatHybridH1ToH1 &operator=(const TPZEEMatHybridH1ToH1 &copy);
 
 
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
@@ -69,5 +68,4 @@ public:
     // H1 reconstruction space
     int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
 };
-
-#endif //ERRORESTIMATION_TPZHYBRIDH1ERRORESTIMATEMATERIAL_H
+#endif //ERRORESTIMATION_TPZEEMatHybridH1ToH1_H

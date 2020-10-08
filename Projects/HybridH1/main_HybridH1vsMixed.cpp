@@ -220,6 +220,9 @@ int main(int argc, char *argv[]) {
             int hybridLevel = 1;
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
+            TPZHybridH1ErrorEstimator test(*cmesh_H1Hybrid);
+            test.fProblemConfig = config;
+            test.PotentialReconstruction();
             FlushTime(eData,start);
         }
 
@@ -247,6 +250,7 @@ int main(int argc, char *argv[]) {
             CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
             TPZHybridH1ErrorEstimator test(*cmesh_HybridSquared);
+            test.fProblemConfig = config;
             test.PotentialReconstruction();
             FlushTime(eData,start);
         }

@@ -1,46 +1,45 @@
 //
-//  TPZHybridH1ErrorEstimateMaterial.cpp
-//  ErrorEstimation
+// Created by victor on 07/10/2020.
 //
 
-#include "TPZHDivErrorEstimateMaterial.h"
+#include "TPZEEMatHybridH1ToH1.h"
 #include "pzaxestools.h"
 #include "TPZAnalyticSolution.h"
 #include "pzbndcond.h"
 
 
-TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(int matid, int dim) : TPZMixedPoisson(matid,dim)
+TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(int matid, int dim) : TPZMatLaplacianHybrid(matid,dim)
 {
 
 }
 
-TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial() : TPZMixedPoisson()
+TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1() : TPZMatLaplacianHybrid()
 {
 
 }
 
-TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(const TPZMixedPoisson &copy) : TPZMixedPoisson(copy)
+TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(const TPZMatLaplacianHybrid &copy) : TPZMatLaplacianHybrid(copy)
 {
 
 }
 
-TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(const TPZHDivErrorEstimateMaterial &copy) : TPZMixedPoisson(copy)
+TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(const TPZEEMatHybridH1ToH1 &copy) : TPZMatLaplacianHybrid(copy)
 {
 
 }
 
-TPZHDivErrorEstimateMaterial::~TPZHDivErrorEstimateMaterial()
+TPZEEMatHybridH1ToH1::~TPZEEMatHybridH1ToH1()
 {
 
 }
 
-TPZHDivErrorEstimateMaterial &TPZHDivErrorEstimateMaterial::operator=(const TPZHDivErrorEstimateMaterial &copy)
+TPZEEMatHybridH1ToH1 &TPZEEMatHybridH1ToH1::operator=(const TPZEEMatHybridH1ToH1 &copy)
 {
-    TPZMixedPoisson::operator=(copy);
+    TPZMatLaplacianHybrid::operator=(copy);
     return *this;
 }
 
-int TPZHDivErrorEstimateMaterial::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec){
+int TPZEEMatHybridH1ToH1::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec){
 
     int nvec = datavec.NElements();
     int firstNoNullposition = -1;
@@ -56,7 +55,7 @@ int TPZHDivErrorEstimateMaterial::FirstNonNullApproxSpaceIndex(TPZVec<TPZMateria
     return firstNoNullposition;
 }
 
-void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     /**
 
@@ -168,7 +167,7 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
 
 }
 
-void TPZHDivErrorEstimateMaterial::ContributeBC(
+void TPZEEMatHybridH1ToH1::ContributeBC(
         TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
         TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
 
@@ -272,7 +271,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
 }
 
 
-void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData > &datavec) {
+void TPZEEMatHybridH1ToH1::FillDataRequirements(TPZVec<TPZMaterialData > &datavec) {
 
     //fem solution for flux and potential
     datavec[2].SetAllRequirements(false);
@@ -285,7 +284,7 @@ void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData >
 
 }
 
-void TPZHDivErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec){
+void TPZEEMatHybridH1ToH1::FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec){
 
     datavec[2].SetAllRequirements(false);
     datavec[2].fNeedsSol = true;
@@ -294,12 +293,12 @@ void TPZHDivErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int type
 
 }
 
-void TPZHDivErrorEstimateMaterial::UpdateBCValues(TPZVec<TPZMaterialData> & datavec){
+void TPZEEMatHybridH1ToH1::UpdateBCValues(TPZVec<TPZMaterialData> & datavec){
     DebugStop();
 
 }
 
-void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
+void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**
      datavec[0] H1 mesh, uh_reconstructed
@@ -421,7 +420,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
 }
 
 
-int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
+int TPZEEMatHybridH1ToH1::VariableIndex(const std::string &name)
 {
     if(name == "FluxFem") return 40;
     if(name == "FluxExact") return 42;
@@ -442,7 +441,7 @@ int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
 }
 
 
-int TPZHDivErrorEstimateMaterial::NSolutionVariables(int var)
+int TPZEEMatHybridH1ToH1::NSolutionVariables(int var)
 {
     switch (var) {
         case 40:
@@ -478,7 +477,7 @@ int TPZHDivErrorEstimateMaterial::NSolutionVariables(int var)
  * @param Solout [out] is the solution vector
  */
 
-void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
+void TPZEEMatHybridH1ToH1::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
 {
 
     /**
@@ -557,7 +556,7 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     }
 }
 
-void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc){
+void TPZEEMatHybridH1ToH1:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc){
 
     if(bc.Type()== 4){
 
@@ -641,5 +640,3 @@ void TPZHDivErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZV
 
 
 }
-
-

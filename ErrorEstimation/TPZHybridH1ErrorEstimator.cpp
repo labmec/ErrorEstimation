@@ -42,6 +42,11 @@
 
 #include "TPZCompMeshTools.h"
 #include "TPZPressureProjection.h"
+#include "TPZMatLaplacianHybrid.h"
+#include "TPZEEMatHybridH1ToH1.h"
+#include "TPZEEMatHybridH1ToHDiv.h"
+
+#include "TPZHDivErrorEstimateMaterial.h"
 
 /// "VO" comments represents aspects I (Victor Oliari) must check. These shall be deleted before release.
 
@@ -391,15 +396,14 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
     int dim = fOriginal->Dimension();
     fOriginal->CopyMaterials(fPostProcMesh);
 
-    // switch the material from mixed to TPZMixedHdivErrorEstimate...
-    SwitchMaterialObjects();
+    // TODO : switch the material from mixed to a new class TPZHybridH1ErrorEstimate...
+    InsertEEMaterial();
 
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
     mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
     mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
     mesh_vectors[0] = CreateFluxMesh();
-
 
     {
         std::ofstream out("PressureMesh.txt");
@@ -608,6 +612,23 @@ void TPZHybridH1ErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh) {
     }
     cmesh->InitializeBlock();
 
+}
+
+/// Find free matID number
+void TPZHybridH1ErrorEstimator::FindFreeMatID(int &matID){
+    TPZGeoMesh* gmesh = fOriginal->Reference();
+
+    int maxMatId = std::numeric_limits<int>::min();
+    const int nel = gmesh->NElements();
+
+    for (int iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        if(gel) maxMatId = std::max(maxMatId, gel->MaterialId());
+    }
+
+    if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
+
+    matID = maxMatId + 1;
 }
 
 /// searches for a neighbour whose element has the proper dimension and materialid
@@ -1935,25 +1956,35 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
         DebugStop();
     }
 
-    // Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
-    // for the border fluxes
-    //    {
-    //
-    //        std::ofstream out("PressureOriginalBeforeProcessing.txt");
-    //        fOriginal->MeshVector()[1]->Print(out);
-    //
-    //    }
+#ifdef PZDEBUG
+    string dirPath = "HybridH1_ReconstructionDebug";
+    string command = "mkdir " + dirPath;
+    dirPath += "/";
+    system(command.c_str());
+    {
+        std::ofstream outCon(dirPath + "OriginalPressureConnects.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fOriginal->MeshVector()[1], outCon, {1}, false, true);
+        std::ofstream outGOriginalVTK("gOriginal.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(fOriginal->Reference(), outGOriginalVTK);
+        std::ofstream outGOriginalTXT("gOriginal.txt");
+        fOriginal->Reference()->Print(outGOriginalTXT);
+    }
+#endif
 
     CreatePostProcessingMesh();
-    
-    //    {
-    //        std::ofstream out("PressureOriginalPostProcessing.txt");
-    //        fOriginal->MeshVector()[1]->Print(out);
-    //        std::ofstream out2("PressureRecPostProcessing.txt");
-    //        fPostProcMesh.MeshVector()[1]->Print(out2);
-    //        std::ofstream outgvtk("gmesh.vtk");
-    //        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), outgvtk);
-    //    }
+
+#ifdef PZDEBUG
+    {
+        std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
+        fPostProcMesh.Print(out);
+        std::ofstream outOrig(dirPath + "PressureConnectsBeforeReconstruction.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outOrig, {}, false, true);
+        std::ofstream outGReconstVTK("gReconstruct.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), outGReconstVTK);
+        std::ofstream outGReconstTXT("gReconstruct.txt");
+        fOriginal->Reference()->Print(outGReconstTXT);
+    }
+#endif
     
     // L2 projection for Dirichlet and Robin boundary condition for H1 reconstruction
     if (!fPostProcesswithHDiv) {
@@ -2233,59 +2264,39 @@ void TPZHybridH1ErrorEstimator::IdentifyPeripheralMaterialIds() {
 }
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-void TPZHybridH1ErrorEstimator::SwitchMaterialObjects() {
-    
-    if(fPostProcesswithHDiv) {
-        for (auto mat : fPostProcMesh.MaterialVec()) {
-            TPZMixedPoisson *mixpoisson =
-            dynamic_cast<TPZMixedPoisson *>(mat.second);
-            if (mixpoisson) {
-                TPZMixedHDivErrorEstimate<TPZMixedPoisson> *newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
-                
-                if (mixpoisson->HasForcingFunction()) {
-                    newmat->SetForcingFunctionExact(mixpoisson->ForcingFunctionExact());
-                    newmat->SetForcingFunction(mixpoisson->ForcingFunction());
-                }
-                
-                for (auto bcmat : fPostProcMesh.MaterialVec()) {
-                    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
-                    if (bc) {
-                        
-                        bc->SetMaterial(newmat);
-                    }
-                }
-                fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
-                delete mixpoisson;
+void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
+    for (auto mat : fPostProcMesh.MaterialVec()) {
+        TPZMatLaplacianHybrid *matlaplacian=
+                dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
+        if (matlaplacian) {
+
+            TPZEEMatHybridH1ToHDiv *newHDivmat = new TPZEEMatHybridH1ToHDiv(*matlaplacian);
+            newHDivmat->SetId(fHDivResconstructionMatId);
+
+            TPZEEMatHybridH1ToH1 *newmat = new TPZEEMatHybridH1ToH1(*matlaplacian);
+
+            if (matlaplacian->HasForcingFunction()) {
+                newmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
+                newmat->SetForcingFunction(matlaplacian->ForcingFunction());
+
+                newHDivmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
+                newHDivmat->SetForcingFunction(matlaplacian->ForcingFunction());
             }
-        }
-    }
-    else {
-        // switch the material of the HDiv approximation to a material for an H1 approximation
-        for(auto mat : fPostProcMesh.MaterialVec())
-        {
-            TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat.second);
-            if(mixpoisson)
-            {
-                TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
-                
-                if (mixpoisson->HasForcingFunction()) {
-                    newmat->SetForcingFunctionExact(mixpoisson->ForcingFunctionExact());
-                    newmat->SetForcingFunction(mixpoisson->ForcingFunction());
+
+            // TODO : Check if it's required to switch Lagrange materials on the boundary for this new material.
+
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(newmat);
                 }
-                
-                for (auto bcmat : fPostProcMesh.MaterialVec()) {
-                    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
-                    if (bc) {
-                        bc->SetMaterial(newmat);
-                    }
-                }
-                fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
-                delete mixpoisson;
             }
+            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            fPostProcMesh.MaterialVec()[fHDivResconstructionMatId] = newHDivmat;
+            delete matlaplacian;
         }
     }
 }
-
 
 void TPZHybridH1ErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
     {
