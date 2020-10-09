@@ -65,6 +65,8 @@ struct TPZHybridH1ErrorEstimator
     
     ProblemConfig fProblemConfig;
 
+    std::string fDebugDirName = "HybridH1_ReconstructionDebug";
+
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh) : fOriginal(&InputMesh),
     fPostProcMesh(0),fExact(NULL)
     {
@@ -130,9 +132,6 @@ struct TPZHybridH1ErrorEstimator
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
 protected:
-
-    /// create bc for pressure reconstruction
-    void BuildPressureBC(TPZCompMesh *pressureMesh);
     
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
@@ -147,6 +146,9 @@ protected:
 
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
+
+    // Creates skeleton geometric elements on which the average pressure will be calculated
+    virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
     
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
@@ -174,6 +176,9 @@ protected:
     /// adjust the interpolation orders so as to create an H1/2 boundary mesh
     // this method is called by the CreateEdgeSkeletonMesh method
     void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
+
+    /// Restrain a side of a small element to a side of a large element.
+    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
     
     /// restrain the edge elements that have larger elements as neighbours
     void RestrainSmallEdges(TPZCompMesh *pressuremesh);
@@ -196,6 +201,10 @@ protected:
 
     /// Find free matID number
     void FindFreeMatID(int &matID);
+
+    ///  Insert BC material into the pressure mesh material vector,
+    ///  Create computational element on BC elements
+    void AddBC2PressureMesh(TPZCompMesh *pressureMesh);
     
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();
