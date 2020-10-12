@@ -208,12 +208,13 @@ void TPZEEMatHybridH1ToHDiv::ContributeBC(
         TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
         GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
 
+        if(PermTensor.Rows() != 3) PermTensor.Resize(3,3);
+        if(InvPermTensor.Rows() != 3) InvPermTensor.Resize(3,3);
 
         for(int i=0; i<3; i++)
         {
             for(int j=0; j<3; j++)
             {
-
                 normflux += datavec[2].normal[i]*PermTensor(i,j)*gradu(j,0);
             }
         }

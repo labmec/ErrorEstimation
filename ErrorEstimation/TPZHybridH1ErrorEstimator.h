@@ -214,6 +214,9 @@ protected:
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
+
+    /// Compute skeleton averages;
+    void MakePressureContinuous();
     
     /// returns true if the material associated with the element is a boundary condition
     /// and if the boundary condition is dirichlet type
