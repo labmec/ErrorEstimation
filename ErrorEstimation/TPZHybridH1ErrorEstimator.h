@@ -125,7 +125,6 @@ struct TPZHybridH1ErrorEstimator
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an);
     
-    
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
@@ -216,7 +215,7 @@ protected:
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
 
     /// Compute skeleton averages;
-    void MakePressureContinuous();
+    void MakeSkeletonContinuous();
     
     /// returns true if the material associated with the element is a boundary condition
     /// and if the boundary condition is dirichlet type
