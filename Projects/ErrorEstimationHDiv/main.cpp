@@ -136,8 +136,8 @@ void RunHPQuadProblemHDiv() {
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
-    config.problemname = "SinSinHP";
-    config.dir_name = "HP";
+    config.problemname = "ESinSin";
+    config.dir_name = "HP-ESinSin";
     config.porder = 1;
     config.hdivmais = 3;
     config.materialids.insert(1);
