@@ -66,7 +66,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 4;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -220,6 +220,9 @@ int main(int argc, char *argv[]) {
             int hybridLevel = 1;
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
+            TPZHybridH1ErrorEstimator test(*cmesh_H1Hybrid);
+            test.fProblemConfig = config;
+            test.PotentialReconstruction();
             FlushTime(eData,start);
         }
 
@@ -234,6 +237,7 @@ int main(int argc, char *argv[]) {
             //bcmatID.insert(-5);bcmatID.insert(-6);bcmatID.insert(-8);bcmatID.insert(-9);
             //config.bcmaterialids = bcmatID;
             test.fProblemConfig = config;
+            test.fOriginalIsHybridized = true;
             test.PotentialReconstruction();
             FlushTime(eData,start);
         }
@@ -247,6 +251,7 @@ int main(int argc, char *argv[]) {
             CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
             TPZHybridH1ErrorEstimator test(*cmesh_HybridSquared);
+            test.fProblemConfig = config;
             test.PotentialReconstruction();
             FlushTime(eData,start);
         }
