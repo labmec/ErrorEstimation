@@ -190,7 +190,7 @@ void TPZEEMatHybridH1ToH1::ContributeBC(
 
     REAL u_D = 0.;
     REAL g = 0.;
-    REAL normflux = 0.;
+    //REAL normflux = 0.;
 
 
 
@@ -199,9 +199,10 @@ void TPZEEMatHybridH1ToH1::ContributeBC(
         TPZFNMatrix<9, STATE> gradu(dim, 1);
         bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
         u_D = res[0];
+        g = normalsigma;
 
 
-        TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
+        /*TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
         GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
 
 
@@ -212,9 +213,9 @@ void TPZEEMatHybridH1ToH1::ContributeBC(
 
                 normflux += datavec[2].normal[i]*PermTensor(i,j)*gradu(j,0);
             }
-        }
+        }*/
 
-        g = (-1.)*normflux;
+
 
 
 
@@ -245,18 +246,18 @@ void TPZEEMatHybridH1ToH1::ContributeBC(
 
 
 
-            /*
-                case( 0):{
 
-                for (int iq = 0; iq < nphi_i; iq++) {
-                    ef(iq, 0) += gBigNumber*u_D * phi_i(iq, 0) * weight;
-                    for (int jq = 0; jq < nphi_i; jq++) {
-                        ek(iq, jq) += gBigNumber*weight *  phi_i(iq, 0) * phi_i(jq, 0);
-                    }
-                }
+        case( 0):{
 
-                    break;
-                }*/
+        for (int iq = 0; iq < nphi_i; iq++) {
+            ef(iq, 0) += gBigNumber*u_D * phi_i(iq, 0) * weight;
+            for (int jq = 0; jq < nphi_i; jq++) {
+                ek(iq, jq) += gBigNumber*weight *  phi_i(iq, 0) * phi_i(jq, 0);
+            }
+        }
+
+            break;
+        }
 
         default:{
 
