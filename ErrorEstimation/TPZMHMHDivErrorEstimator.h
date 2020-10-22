@@ -59,11 +59,11 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     TPZCompMesh *CreateDiscontinuousPressureMesh();
     // method for creating a continuous pressure mesh
     TPZCompMesh *CreateContinousPressureMesh();
-    // method for creating a continuous pressure mesh
+    // method for creating a pressure mesh that is continuous in each MHM domain, but not globally
     TPZCompMesh *CreateInternallyContinuousPressureMesh();
 
     // Creates skeleton geometric elements on which the average pressure will be calculated
-    void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
+    void CreateSkeletonElements(TPZCompMesh *pressure_mesh) override;
     // Creates skeleton elements to calculate the average pressure between neighbours
     void InsertPressureSkeletonMaterial();
 

@@ -66,7 +66,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 5;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = false, post_proc = true;
@@ -136,9 +136,9 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
 
     config.gmesh = gmesh;
     config.materialids.insert(1);
-    config.bcmaterialids.insert(-1);
-    config.materialids.insert(2);config.materialids.insert(3);
-    config.bcmaterialids.insert(-5);config.bcmaterialids.insert(-6);config.bcmaterialids.insert(-8);config.bcmaterialids.insert(-9);
+    if(eData.isMultiK == false) config.bcmaterialids.insert(-1);
+    if(eData.isMultiK == false) config.materialids.insert(2);config.materialids.insert(3);
+    if(eData.isMultiK == true) config.bcmaterialids.insert(-5);config.bcmaterialids.insert(-6);config.bcmaterialids.insert(-8);config.bcmaterialids.insert(-9);
 
     int refinement_depth = 2;
     if(config.ndivisions > 0) {
@@ -220,6 +220,9 @@ int main(int argc, char *argv[]) {
             int hybridLevel = 1;
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
+            TPZHybridH1ErrorEstimator test(*cmesh_H1Hybrid);
+            test.fProblemConfig = config;
+            test.PotentialReconstruction();
             FlushTime(eData,start);
         }
 
@@ -229,6 +232,13 @@ int main(int argc, char *argv[]) {
             clock_t start = clock();
             CreateMixedComputationalMesh(cmesh_mixed, eData, config);
             SolveMixedProblem(cmesh_mixed, config, eData);
+            TPZHybridHDivErrorEstimator test(*cmesh_mixed);
+            //std::set<int> bcmatID;
+            //bcmatID.insert(-5);bcmatID.insert(-6);bcmatID.insert(-8);bcmatID.insert(-9);
+            //config.bcmaterialids = bcmatID;
+            test.fProblemConfig = config;
+            test.fOriginalIsHybridized = true;
+            test.PotentialReconstruction();
             FlushTime(eData,start);
         }
 
@@ -241,6 +251,7 @@ int main(int argc, char *argv[]) {
             CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
             TPZHybridH1ErrorEstimator test(*cmesh_HybridSquared);
+            test.fProblemConfig = config;
             test.PotentialReconstruction();
             FlushTime(eData,start);
         }

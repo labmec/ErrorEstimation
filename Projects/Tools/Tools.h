@@ -46,6 +46,8 @@ namespace Tools {
     // Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
     TPZGeoMesh *CreateGeoMesh(int nelem, TPZVec<int> &bcids);
 
+    TPZGeoMesh *CreateCubeGeoMesh(const TPZVec<int> &nelDiv, const TPZVec<int> &bcids);
+
     TPZGeoMesh *CreateLCircleGeoMesh();
 
     TPZGeoMesh *CreateLShapeMesh(TPZVec<int> &bcids);
@@ -59,7 +61,6 @@ namespace Tools {
     TPZGeoMesh *CreateQuadMeshRefTriang(TPZVec<int> &bcids);
 
     TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader);
-
 
     TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
 
@@ -92,7 +93,7 @@ namespace Tools {
     void RandomRefinement(TPZGeoMesh *gmesh, int64_t numelrefine, int depth);
 
     // Refine elements given a set of indexes
-    void RefineElements(TPZGeoMesh *gmesh, std::set<int64_t> elsToRefine);
+    void RefineElements(TPZGeoMesh *gmesh, const std::set<int64_t>& elsToRefine);
 
     std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> >
     CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);

@@ -8,6 +8,10 @@ target_sources(ErrorEstimationLib PUBLIC
     TPZMatLaplacianHybrid.h
     TPZPressureProjection.h
     TPZPressureProjection.cpp
-)
+    TPZEEMatHybridH1ToH1.h
+    TPZEEMatHybridH1ToH1.cpp
+    TPZEEMatHybridH1ToHDiv.h
+    TPZEEMatHybridH1ToHDiv.cpp
+    )
 
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_LIST_DIR})

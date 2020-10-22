@@ -54,18 +54,31 @@ struct TPZHybridH1ErrorEstimator
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
     //TPZCreateMultiphysicsSpace fHybrid;
-    
-    // material id of the dim-2 skeleton elements
+
+    // material id of the dim-1 skeleton elements
     int fPressureSkeletonMatId;
+
+    // material id of the HDiv reconstruction
+    int fHDivResconstructionMatId;
     
     TPZAnalyticSolution *fExact;
     
     ProblemConfig fProblemConfig;
 
-    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, bool InputisHybridized = true) : fOriginal(&InputMesh),
-    fOriginalIsHybridized(InputisHybridized), fPostProcMesh(0),fExact(NULL)
+    std::string fDebugDirName = "HybridH1_ReconstructionDebug";
+
+    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh) : fOriginal(&InputMesh),
+    fPostProcMesh(0),fExact(NULL)
     {
-        fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
+        FindFreeMatID(fPressureSkeletonMatId);
+        FindFreeMatID(fHDivResconstructionMatId);
+    }
+
+    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
+                                                                    fPostProcMesh(0),fExact(NULL),
+                                                                    fPressureSkeletonMatId(fPressureSkeletonMatId),fHDivResconstructionMatId(HDivMatId)
+    {
+
     }
     
     TPZHybridH1ErrorEstimator(const TPZHybridH1ErrorEstimator &copy) : fOriginal(copy.fOriginal),
@@ -112,16 +125,12 @@ struct TPZHybridH1ErrorEstimator
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an);
     
-    
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
 protected:
-
-    /// create bc for pressure reconstruction
-    void BuildPressureBC(TPZCompMesh *pressureMesh);
     
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
@@ -136,6 +145,9 @@ protected:
 
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
+
+    // Creates skeleton geometric elements on which the average pressure will be calculated
+    virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
     
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
@@ -163,6 +175,9 @@ protected:
     /// adjust the interpolation orders so as to create an H1/2 boundary mesh
     // this method is called by the CreateEdgeSkeletonMesh method
     void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
+
+    /// Restrain a side of a small element to a side of a large element.
+    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
     
     /// restrain the edge elements that have larger elements as neighbours
     void RestrainSmallEdges(TPZCompMesh *pressuremesh);
@@ -179,9 +194,16 @@ protected:
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
     virtual void CopySolutionFromSkeleton();
 
-    /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-    virtual void SwitchMaterialObjects();
+    /// Insert material for HDiv reconstruction
+    /// Switch H1 material for H1 reconstruction material
+    virtual void InsertEEMaterial();
 
+    /// Find free matID number
+    void FindFreeMatID(int &matID);
+
+    ///  Insert BC material into the pressure mesh material vector,
+    ///  Create computational element on BC elements
+    void AddBC2PressureMesh(TPZCompMesh *pressureMesh);
     
     /// clone the meshes into the post processing mesh
     void CloneMeshVec();
@@ -191,6 +213,9 @@ protected:
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
+
+    /// Compute skeleton averages;
+    void MakeSkeletonContinuous();
     
     /// returns true if the material associated with the element is a boundary condition
     /// and if the boundary condition is dirichlet type

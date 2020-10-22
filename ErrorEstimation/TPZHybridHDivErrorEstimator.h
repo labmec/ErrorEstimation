@@ -38,7 +38,7 @@ struct TPZHybridHDivErrorEstimator
     int fUpliftPostProcessMesh = 0;
     
     /// whether the post processing mesh will be H(div) or H1
-    bool fPostProcesswithHDiv = true;
+    bool fPostProcesswithHDiv = false;
     
     /// Locally created computational mesh to compute the error
     TPZMultiphysicsCompMesh fPostProcMesh;
@@ -127,12 +127,19 @@ protected:
     
     // a method for generating the HDiv mesh
     virtual TPZCompMesh *CreateFluxMesh();
-    // a method for creating the pressure mesh
+    
+    // this method clones the original pressure mesh and perform the following:
+    // 1. delete dim - 1 elements, where dim is the mesh dimension
+    // 2. build BC elements // TODO improve comments
+    // 3. create skeleton geometric elements and comp elements
     virtual TPZCompMesh *CreatePressureMesh();
 
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
-    
+
+    // Creates skeleton geometric elements on which the average pressure will be calculated
+    virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
+
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
     
@@ -168,7 +175,7 @@ protected:
     virtual void ComputeNodalAverages();
     
     /// compute the nodal average of all elements that share a point
-    void ComputeNodalAverage(TPZCompElSide &celside);
+    void ComputeNodalAverage(TPZCompElSide &node_celside);
     //compute the global efectivity index using the CharacteristicSize() of element
     void GlobalEffectivityIndex();
     
@@ -198,7 +205,8 @@ protected:
 
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
-    
+
+    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);

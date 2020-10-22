@@ -9,6 +9,7 @@
 #include "pzgmesh.h"
 #include "pzcmesh.h"
 #include "pzgeoelbc.h"
+#include "TPZGeoElSidePartition.h"
 #include "pzintel.h"
 #include "pzelementgroup.h"
 #include "pzcondensedcompel.h"

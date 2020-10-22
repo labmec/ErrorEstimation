@@ -1,229 +1,220 @@
-/**
- * @file Poisson 3D in hexahedra with shock problem
- */
-#include "pzlog.h"
-#include "TPZRefPatternDataBase.h"
+//
+//  main.cpp
+//  ErrorEstimateHDiv
+//
+//  Created by Denise De Siqueira on 01/04/19.
+//
+
 #include "TPZGmshReader.h"
-#include "TPZVTKGeoMesh.h"
-
+#include "TPZRefPatternDataBase.h"
+#include "pzlog.h"
+#include "tpzgeoelrefpattern.h"
 #include "ProblemConfig.h"
-
-#include "mixedpoisson.h"
-#include "TPZVecL2.h"
 #include "pzbndcond.h"
-
-#include "pzintel.h"
-
-#include "pzbuildmultiphysicsmesh.h"
-#include "TPZCompMeshTools.h"
-#include "TPZMultiphysicsInterfaceEl.h"
 #include "TPZHybridizeHDiv.h"
-
-#include "pzanalysis.h"
-#include "pzstepsolver.h"
-#include "TPZSSpStructMatrix.h"
-#include "TPZParFrontStructMatrix.h"
-#include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
-
-#include "Tools.h"
 #include "TPZHybridHDivErrorEstimator.h"
-
+#include "Tools.h"
+#include "TPZBFileStream.h"
 #include <tuple>
-#include <memory>
 
-bool testeCompelMultPhysics=false;
-bool testeSolandDerivate=false;
+TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef);
 
+void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, TPZHybridizeHDiv &hybrid);
 
-bool gmeshreader=false;
+TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHybridizeHDiv &hybridizer);
+
+void RunSingularProblemHDiv();
+void RunHPQuadProblemHDiv();
+void RunHPCubeProblemHDiv();
+
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
-    
-
     // Initializing uniform refinements for reference elements
-    gRefDBase.InitializeUniformRefPattern(EOned);
-    gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
-    gRefDBase.InitializeUniformRefPattern(ETriangle);
-    
-    
-    ProblemConfig config;
-    config.porder = 1;
-    config.hdivmais = 1;
-    config.makepressurecontinuous = true;
-    config.exact->fExact = TLaplaceExample1::ESinSinDirNonHom;//ESinSin;//EArcTanSingular;//EArcTan;//ESinSinDirNonHom;//
-    config.problemname = "ESinSin";//"ArcTang";//"SinSin";//"SinSinNonHom";//
-    bool random_refine = false;
+    gRefDBase.InitializeAllUniformRefPatterns();
 
-    if (testeSolandDerivate) Tools::PrintSolAndDerivate(config);
-    
-    
-    TPZGeoMesh *gmesh = 0;
-    if(gmeshreader){
-        std::string meshfilename = "../BasicMesh.msh";
-        TPZGmshReader gmsh;
-        gmsh.GetDimNamePhysical()[1]["dirichlet"] = -1;
-        gmsh.GetDimNamePhysical()[1]["neuman"] = -2;
-        gmsh.GetDimNamePhysical()[2]["domain"] = 1;
-        config.materialids.insert(1);
-        config.bcmaterialids.insert(-1);
-        config.bcmaterialids.insert(-2);
-        
-        
-        gmsh.SetFormatVersion("3.0");
-        
-#ifdef MACOSX
-       gmesh = gmsh.GeometricGmshMesh(meshfilename);
-       //gmesh = gmsh.GeometricGmshMesh("../BasicMesh.msh");
-#else
-        gmesh = gmsh.GeometricGmshMesh("BasicMesh.msh");
-#endif
-        gmesh->SetDimension(2);
-        config.gmesh = gmesh;
-    }
-    
-    else{
-        int nel = 1;
-        TPZManVector<int,4> bcids(4,-1);
-        gmesh=Tools::CreateGeoMesh(nel, bcids);
-        config.materialids.insert(1);
-        config.bcmaterialids.insert(-1);
-        config.gmesh = gmesh;
-    }
-
-
-    int nDiv = 1;
-
-    Tools::UniformRefinement( nDiv,gmesh);
-
-    {
-
-        std::ofstream out("gmesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-    }
-    
-    if(random_refine){
-        int numelrefine=4;
-        int depth = 1;
-        Tools::RandomRefinement(config.gmesh, numelrefine, depth);
-  
-    }
-    
-    
-    if(testeCompelMultPhysics){
-
-        Tools::MultiPhysicsCompel(config);
-        return 0;
-        
-    }
-    
-    
-    
-    
-    TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
-    TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateHDivMesh(config);//Hdiv x L2
-    cmesh_HDiv->InitializeBlock();
-    meshvec_HDiv = cmesh_HDiv->MeshVector();
-    /// clones the atomic meshes in meshvec_HDiv and creates a multiphysics hybrid mesh
-//    std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> > Hybridize(TPZCompMesh *cmesh_Multiphysics, TPZVec<TPZCompMesh *> &meshvec_HDiv, bool group_elements=true, double Lagrange_term_multiplier = 1.);
-
-    //cria malha hibrida
-//    TPZHybridizeHDiv hybrid;
-//    auto meshAuto = hybrid.Hybridize(cmesh_HDiv, meshvec_HDiv);
-//    std::get<0>(meshAuto)->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
-//    delete cmesh_HDiv;
-//    delete meshvec_HDiv[0];
-//    delete meshvec_HDiv[1];
-    
-//    cmesh_HDiv=std::get<0>(meshAuto);
-//    meshvec_HDiv[0] = std::get<1>(meshAuto)[0];
-//    meshvec_HDiv[1] = std::get<1>(meshAuto)[1];
-    
-
-//    {
-//        std::ofstream out("meshvec_HDiv_flux.txt");
-//        meshvec_HDiv[0]->Print(out);
-//    }
-//    {
-//        std::ofstream out("meshvec_HDiv_pres.txt");
-//        meshvec_HDiv[1]->Print(out);
-//    }
-
-    {
-//        {
-//            std::ofstream out("MeshHyb.txt");
-//            std::get<0>(meshAuto)->Print(out);
-//        }
-        
-        TPZAnalysis an(cmesh_HDiv);
-        
-#ifdef USING_MKL
-        TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
-        strmat.SetNumThreads(0);
-//        strmat.SetDecomposeType(ELDLt);
-        an.SetStructuralMatrix(strmat);
-#else
-        TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_HDiv);
-        strmat.SetNumThreads(0);
-        //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
-        //        strmat3.SetNumThreads(8);
-#endif
-
-        TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
-        direct->SetDirect(ELDLt);
-        an.SetSolver(*direct);
-        delete direct;
-        direct = 0;
-        an.Assemble();
-        an.Solve();//resolve o problema misto ate aqui
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("Pressure");
-        vecnames.Push("Flux");
-        an.DefineGraphMesh(2, scalnames, vecnames, "Original.vtk");
-        //        meshvec_Hybrid[1]->Solution().Print("Press");
-        // Post processing
-        an.PostProcess(0,2);
-
-//        {
-//            {
-//
-//
-//
-//                TPZAnalysis an(meshvec_HDiv[1],false);
-//                TPZStack<std::string> scalnames, vecnames;
-//                scalnames.Push("State");
-//
-//                int dim = meshvec_HDiv[1]->Reference()->Dimension()-1;
-//                std::string plotname;
-//                {
-//                    std::stringstream out;
-//                    out << "LagrangeMultiplier" << ".vtk";
-//                    plotname = out.str();
-//                }
-//                an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-//                an.PostProcess(2,dim);
-//
-//            }
-//        }
-    }
-    
-    //reconstroi potencial e calcula o erro
-    {
-        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-
-
-        
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = 0;
-        HDivEstimate.SetAnalyticSolution(config.exact);
-        TPZManVector<REAL> elementerrors;
-        TPZManVector<REAL> errvec;
-        bool store = true;
-        HDivEstimate.ComputeErrors(errvec,elementerrors,store);
-    }
+    //RunSingularProblemHDiv();
+    RunHPQuadProblemHDiv();
+    //RunHPCubeProblemHDiv();
 
     return 0;
 }
 
+void RunSingularProblemHDiv() {
+    ProblemConfig config;
+    config.dimension = 2;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+    config.problemname = "SinMarkLShapeCircle";
+    config.dir_name = "ErrorResults";
+    config.porder = 1;
+    config.hdivmais = 3;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+
+    int nRef = 0;
+
+    config.ndivisions = nRef;
+    config.gmesh = CreateLShapeGeoMesh(nRef);
+
+    string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    TPZHybridizeHDiv hybridizer;
+    TPZMultiphysicsCompMesh *hybridMesh = CreateHybridCompMesh(config, hybridizer);
+
+    Tools::SolveHybridProblem(hybridMesh, hybridizer.fInterfaceMatid, config, false);
+
+    // Reconstruct potential and estimate error
+    EstimateError(config, hybridMesh, hybridizer);
+
+    delete hybridMesh->MeshVector()[0];
+    delete hybridMesh->MeshVector()[1];
+    delete hybridMesh;
+}
+
+TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHybridizeHDiv &hybridizer) {
+
+    TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateHDivMesh(config); // Hdiv x L2
+
+#ifdef PZDEBUG
+    {
+        ofstream out("MixedMesh.txt");
+        cmesh_HDiv->Print(out);
+    }
+#endif
+
+    // Hybridize mesh
+    TPZMultiphysicsCompMesh* hybridMesh = hybridizer.Hybridize(cmesh_HDiv);
+    hybridMesh->CleanUpUnconnectedNodes(); // Enumereate connects correctly
+    hybridMesh->AdjustBoundaryElements();
+
+    delete cmesh_HDiv;
+
+    cout << "---Original PerifericalMaterialId --- " << endl;
+    cout << " LagrangeInterface = " << hybridizer.fLagrangeInterface << endl;
+    cout << " HDivWrapMatid = " << hybridizer.fHDivWrapMatid << endl;
+    cout << " InterfaceMatid = " << hybridizer.fInterfaceMatid << endl;
+    return hybridMesh;
+}
+
+void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, TPZHybridizeHDiv &hybrid) {
+
+    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+    HDivEstimate.SetHybridizer(hybrid);
+    HDivEstimate.fProblemConfig = config;
+    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.SetAnalyticSolution(config.exact);
+
+    HDivEstimate.fPostProcesswithHDiv = false;
+
+    HDivEstimate.PotentialReconstruction();
+
+    TPZManVector<REAL> elementerrors;
+    TPZVec<REAL> errorVec;
+    HDivEstimate.ComputeErrors(errorVec, elementerrors, true);
+}
+
+TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef) {
+
+    TPZVec<int> bcIDs(8, -1);
+    TPZGeoMesh *gmesh = Tools::CreateQuadLShapeMesh(bcIDs);
+    gmesh->SetDimension(2);
+    gmesh->BuildConnectivity();
+
+    Tools::UniformRefinement(nCoarseRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
+
+    return gmesh;
+}
+
+void RunHPQuadProblemHDiv() {
+    ProblemConfig config;
+    config.dimension = 2;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.problemname = "ESinSin";
+    config.dir_name = "HP-ESinSin";
+    config.porder = 1;
+    config.hdivmais = 3;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+
+    int nElem = 2;
+    config.ndivisions = nElem;
+
+    TPZManVector<int, 4> bcIDs(4, -1);
+    config.gmesh = Tools::CreateGeoMesh(nElem, bcIDs);
+
+    Tools::RefineElements(config.gmesh, {1, 3});
+
+    string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
+    TPZHybridizeHDiv hybridizer;
+    TPZMultiphysicsCompMesh *hybridMesh = CreateHybridCompMesh(config, hybridizer);
+
+    Tools::SolveHybridProblem(hybridMesh, hybridizer.fInterfaceMatid, config, false);
+
+    // Reconstruct potential and estimate error
+    EstimateError(config, hybridMesh, hybridizer);
+
+    delete hybridMesh->MeshVector()[0];
+    delete hybridMesh->MeshVector()[1];
+    delete hybridMesh;
+}
+
+void RunHPCubeProblemHDiv() {
+    ProblemConfig config;
+    config.dimension = 3;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+    config.problemname = "SinSinHP";
+    config.dir_name = "HP_3D";
+    config.porder = 1;
+    config.hdivmais = 3;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+
+    int nElem = 2;
+    config.ndivisions = nElem;
+
+    TPZManVector<int, 4> bcIDs(6, -1);
+    TPZManVector<int, 3> nelDiv(3, nElem);
+    nelDiv[2] = 1;
+    config.gmesh = Tools::CreateCubeGeoMesh(nelDiv, bcIDs);
+
+    Tools::RefineElements(config.gmesh, {1, 3});
+
+    string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
+    TPZHybridizeHDiv hybridizer;
+    TPZMultiphysicsCompMesh *hybridMesh = CreateHybridCompMesh(config, hybridizer);
+
+    Tools::SolveHybridProblem(hybridMesh, hybridizer.fInterfaceMatid, config, false);
+
+    // Reconstruct potential and estimate error
+    EstimateError(config, hybridMesh, hybridizer);
+
+    delete hybridMesh->MeshVector()[0];
+    delete hybridMesh->MeshVector()[1];
+    delete hybridMesh;
+}
