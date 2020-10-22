@@ -2250,7 +2250,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         bool reconstructed = false;
         PlotLagrangeMultiplier("OriginalPressure",reconstructed);
     }
-#endif
 
     // L2 projection for Dirichlet and Robin boundary condition for H1 reconstruction
     if (!fPostProcesswithHDiv) {
