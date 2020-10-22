@@ -174,15 +174,14 @@ void TPZHDivErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, 
     
 }
 
-void TPZHDivErrorEstimateMaterial::ContributeBC(
-    TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
-    TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
+void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+                                                TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
 
     /*
      Add Robin boundary condition for local problem
      ek+= <w,Km s_i>
      ef+= <w,Km*u_d - g + sigma_i.n>
-     */
+    */
     int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
     int dim = datavec[H1functionposition].axes.Rows();
 
@@ -194,89 +193,66 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(
 
     TPZManVector<REAL, 3> normal = datavec[2].normal;
 
-    REAL normalsigma = 0.;
-    normalsigma = datavec[2].sol[0][0];
-    
-    REAL u_D = 0.;
+    REAL normalsigma = datavec[2].sol[0][0];
+
+    REAL u_D;
     REAL g = 0.;
     REAL normflux = 0.;
-    
-    
-        
+
     if (bc.HasForcingFunction()) {
-            TPZManVector<STATE> res(3);
-            TPZFNMatrix<9, STATE> gradu(dim, 1);
-            bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
-            u_D = res[0];
-            
-            
-            TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
-            GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
-            
-            
-            for(int i=0; i<3; i++)
-            {
-                for(int j=0; j<3; j++)
-                {
-                    
-                    normflux += datavec[2].normal[i]*PermTensor(i,j)*gradu(j,0);
+        TPZManVector<STATE> res(3);
+        TPZFNMatrix<9, STATE> gradu(dim, 1);
+        bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
+        u_D = res[0];
+
+        TPZFNMatrix<9, REAL> PermTensor, InvPermTensor;
+        GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                normflux += datavec[2].normal[i] * PermTensor(i, j) * gradu(j, 0);
+            }
+        }
+
+        g = (-1.) * normflux;
+
+    } else {
+        // u_D is usually stored in val2(0, 0)
+        u_D = bc.Val2()(0, 0);
+    }
+
+    switch (bc.Type()) {
+        case (4): {
+            REAL Km = bc.Val1()(0, 0);
+            REAL robinterm = (Km * u_D - g + normalsigma);
+
+            for (int iq = 0; iq < nphi_i; iq++) {
+                //<w,Km*u_D-g+sigma_i*n>
+                ef(iq, 0) += robinterm * phi_i(iq, 0) * weight;
+                for (int jq = 0; jq < nphi_i; jq++) {
+                    //<w,Km*s_i>
+                    ek(iq, jq) += weight * Km * phi_i(iq, 0) * phi_i(jq, 0);
                 }
             }
-            
-            g = (-1.)*normflux;
-            
-            
-
-        } else {
-            // usualmente updatebc coloca o valor exato no val2
-            u_D = bc.Val2()(0, 0);
-        }
-    
-    
-    switch (bc.Type()) {
-        case (4):{
-       
-        REAL Km = bc.Val1()(0, 0); // Km
-            REAL InvKm = 1./Km;
-           // std::cout<< " g "<< g<< " normalsigma "<<normalsigma<<"\n";
-            REAL robinterm = (Km * u_D - g+ normalsigma);
-
-        for (int iq = 0; iq < nphi_i; iq++) {
-            //<w,Km*u_D-g+sigma_i*n>
-            ef(iq, 0) += robinterm * phi_i(iq, 0) * weight;
-            for (int jq = 0; jq < nphi_i; jq++) {
-                //<w,Km*s_i>
-                ek(iq, jq) += weight * Km * phi_i(iq, 0) * phi_i(jq, 0);
-            }
-        }
             break;
         }
 
-
-    
-    /*
-        case( 0):{
-        
-        for (int iq = 0; iq < nphi_i; iq++) {
-            ef(iq, 0) += gBigNumber*u_D * phi_i(iq, 0) * weight;
-            for (int jq = 0; jq < nphi_i; jq++) {
-                ek(iq, jq) += gBigNumber*weight *  phi_i(iq, 0) * phi_i(jq, 0);
+        case (0): {
+            for (int iq = 0; iq < nphi_i; iq++) {
+                ef(iq, 0) += gBigNumber * u_D * phi_i(iq, 0) * weight;
+                for (int jq = 0; jq < nphi_i; jq++) {
+                    ek(iq, jq) += gBigNumber * weight * phi_i(iq, 0) * phi_i(jq, 0);
+                }
             }
-        }
-        
             break;
-        }*/
-    
-        default:{
+        }
 
-        //std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
+        default: {
+            // std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
             break;
         }
     }
-            
-            
 }
-
 
 void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData > &datavec) {
 
