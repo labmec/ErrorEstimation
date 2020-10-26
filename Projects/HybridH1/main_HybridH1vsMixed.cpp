@@ -316,8 +316,8 @@ void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_mixed, REAL permQ
     cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    mat1->fExact = TLaplaceExample1::EArcTan/*EArcTan*/;
-    mat2->fExact = TLaplaceExample1::EArcTan/*EArcTan*/;
+    mat1->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
     mat1->fSignConvention = 1;
     mat2->fSignConvention = 1;
     TPZFNMatrix<9,REAL> K, invK;

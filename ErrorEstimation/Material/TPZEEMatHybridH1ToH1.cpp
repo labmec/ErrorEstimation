@@ -94,26 +94,29 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
     dsol.Print(std::cout);
 
 
-    TPZFMatrix<STATE> solsigmafem(dim,1),solukfem(1,1);
-    solsigmafem.Zero();
+    TPZFMatrix<STATE> gradSol(dim,1),kGradSol(dim,1),solukfem(1,1);
+    gradSol.Zero();
     solukfem.Zero();
+    kGradSol.Zero();
 
     //potetial fem
     solukfem(0,0) = datavec[3].sol[0][0];
     for(int ip = 0 ; ip <dim ; ip++){
-        solsigmafem(ip,0) = dsol.Get(ip,0);
+        gradSol(ip,0) = dsol.Get(ip,0);
     }
-
-    solsigmafem.Print(std::cout);
 
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;
 
     GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
 
+    for (int id = 0; id < dim; id++) {
+        for (int jd = 0; jd < dim; jd++) {
+            kGradSol(id, 0) += PermTensor(id, jd) * gradSol(jd, 0);
+        }
+    }
 
     TPZFMatrix<STATE> kgraduk(dim,nphiuk,0.);
-
 
     for(int irow=0 ; irow<nphiuk; irow++){
         //K graduk
@@ -125,7 +128,7 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
             }
             //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
 
-            ef(irow,0)+=weight*dphiuk(id,irow)*solsigmafem(id,0);
+            ef(irow,0)+=weight*dphiuk(id,irow)*kGradSol(id,0);
         }
 
         //matrix Sk= int_{K} K graduk.gradv
@@ -144,25 +147,7 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
             ek(nphiuk,irow)+= weight*phiuk(irow,0);
 
         }
-
     }
-    if(H1functionposition ==0){
-
-        if(!fNeumannLocalProblem )
-        {
-            ek(nphiuk,nphiuk) += weight;
-            ef(nphiuk,0)+= weight;
-        }
-
-            //muk = int_k ukfem
-
-        else{
-
-            ef(nphiuk,0)+= weight*solukfem(0,0);
-
-        }
-    }
-
 }
 
 void TPZEEMatHybridH1ToH1::ContributeBC(

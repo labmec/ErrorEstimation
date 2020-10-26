@@ -105,6 +105,8 @@ struct TPZHybridH1ErrorEstimator
     }
     
     ~TPZHybridH1ErrorEstimator();
+
+    void GetPressureMatIDs(std::set<int> &matIDs);
     
     /// Set the analytic solution object
     void SetAnalyticSolution(TPZAnalyticSolution &exact)
@@ -186,7 +188,7 @@ protected:
     virtual void ComputeNodalAverages();
     
     /// compute the nodal average of all elements that share a point
-    void ComputeNodalAverage(TPZCompElSide &celside);
+    void ComputeNodalAverage(TPZCompElSide &node_celside);
     //compute the global efectivity index using the CharacteristicSize() of element
     void GlobalEffectivityIndex();
     
