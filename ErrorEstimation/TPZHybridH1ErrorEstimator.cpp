@@ -919,7 +919,6 @@ void TPZHybridH1ErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh
 }
 
 /// restrain the edge elements that have larger elements as neighbours
-/// VO : What TPZInterpolatedElement::RestrainSide actually do?
 void TPZHybridH1ErrorEstimator::RestrainSmallEdges(TPZCompMesh *pressuremesh) {
     //    TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[1];
     TPZGeoMesh *gmesh = pressuremesh->Reference();
@@ -1239,8 +1238,23 @@ void TPZHybridH1ErrorEstimator::ComputeAveragePressures(int target_dim) {
         ComputeAverage(pressure_mesh, el);
     }
 
+    {
+        std::string dirName = "DebuggingConsistency";
+        std::string command = "mkdir -p " + dirName;
+        system(command.c_str());
+        std::string dirPath = dirName + "/";
+        std::ofstream outCon(dirPath + "AverageB4LoadSolution.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(pressure_mesh, outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+    }
+
     // Loads solution into the connects of the smaller skeletons
     pressure_mesh->LoadSolution(pressure_mesh->Solution());
+
+    {
+        std::string dirPath = "DebuggingConsistency/";
+        std::ofstream outCon(dirPath + "AverageAfterLoadSolution.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(pressure_mesh, outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+    }
 
     // apply the restraints to the edge connects
     if (target_dim == dim - 2) {
@@ -2378,7 +2392,6 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
     {
         std::string command = "mkdir -p " + fDebugDirName +  "/DebuggingLoadSol";
         system(command.c_str());
-
         std::string dirPath = fDebugDirName + "/DebuggingLoadSol/";
         std::ofstream out(dirPath + "MeshBeforeLoadSol.txt");
         fPostProcMesh.Print(out);
@@ -2473,14 +2486,34 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
         PlotLagrangeMultiplier(dirPath+"BeforeNodalAverage");
     }
 
+    {
+        std::string dirPath = "DebuggingConsistency/";
+        std::ofstream outCon(dirPath + "AverageB4NodalAverage.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+    }
 
     ComputeNodalAverages();
+
+    {
+        std::string dirPath = "DebuggingConsistency/";
+        std::ofstream outCon(dirPath + "AverageAfterNodalAverage.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+    }
 
     {
         string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath + "PressureNodalMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier("AfterNodalAverage");
+    }
+
+    TPZCompMesh *pressure_mesh = PressureMesh();
+    pressure_mesh->LoadSolution(pressure_mesh->Solution());
+
+    {
+        std::string dirPath = "DebuggingConsistency/";
+        std::ofstream outCon(dirPath + "AverageAfterLoadSolAverage.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
     }
 
     CopySolutionFromSkeleton();
