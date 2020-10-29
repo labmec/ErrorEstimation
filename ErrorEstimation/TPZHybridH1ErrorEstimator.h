@@ -228,7 +228,9 @@ protected:
 
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
-    
+
+    // Checks if the skeleton is continuous
+    void VerifySkeletonContinuity(TPZCompMesh* cmesh);
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);

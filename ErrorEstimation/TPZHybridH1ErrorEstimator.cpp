@@ -2377,6 +2377,8 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
     // Compute continuos pressure on the skeleton;
     MakeSkeletonContinuous();
 
+    VerifySkeletonContinuity(PressureMesh());
+
 #ifdef PZDEBUG
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
@@ -2704,6 +2706,173 @@ void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
     }
 }
 
+void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressuremesh){
+    TPZGeoMesh *gmesh = pressuremesh->Reference();
+    gmesh->ResetReference();
+    int nel = pressuremesh->NElements();
+    for(int iel = 0; iel < nel ;iel++) {
+        TPZCompEl *cel = pressuremesh->Element(iel);
+        if (!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) DebugStop();
+        TPZGeoEl *gel = intel->Reference();
+        if (gel->MaterialId() == fPressureSkeletonMatId) {
+            gel->SetReference(cel);
+        }
+    }
+
+    for(int iel = 0; iel < nel ; iel++) {
+        TPZCompEl *cel = pressuremesh->Element(iel);
+        if (!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) DebugStop();
+        TPZGeoEl *gel = intel->Reference();
+        if (gel->MaterialId() != fPressureSkeletonMatId) continue;
+        for (int iside = 0; iside < gel->NSides(); iside++) {
+            TPZGeoElSide gelside(gel, iside);
+            if (gelside.Dimension() > 1) DebugStop();  // 3D not supported yet
+            if (gelside.Dimension() == 0) {
+                TPZCompElSide celside(cel, gelside.Side());
+                TPZConnect &elcon = pressuremesh->ConnectVec()[celside.ConnectIndex()];
+                if (elcon.NShape() != 1 || elcon.NState() != 1) DebugStop();
+                STATE elsol = pressuremesh->Block()(elcon.SequenceNumber(), 0, 0, 0);
+                TPZStack<TPZCompElSide> neighSides;
+                gelside.ConnectedCompElementList(neighSides, 1, 0);
+
+                for (int ind = 0; ind < neighSides.size(); ind++) {
+                    TPZCompElSide neighCelSide = neighSides[ind];
+                    if (!(neighCelSide.Element())) continue;
+                    TPZGeoElSide neighGelSide = neighCelSide.Reference();
+                    if (!(neighGelSide.Element()) || neighGelSide.Element()->MaterialId() != fPressureSkeletonMatId)
+                        DebugStop();
+                    if (neighGelSide.Dimension() != 0) continue;
+
+                    TPZConnect &c1 = pressuremesh->ConnectVec()[neighCelSide.ConnectIndex()];
+                    if (c1.NShape() != 1 || c1.NState() != 1) DebugStop();
+                    STATE c1sol = pressuremesh->Block()(c1.SequenceNumber(), 0, 0, 0);
+
+#ifdef LOG4CXX
+                    if (logger->isDebugEnabled()) {
+                        if (!IsZero(elsol - c1sol)) {
+                            std::stringstream sout;
+
+                            TPZManVector<REAL> x(3);
+                            TPZManVector<REAL> pt(gelside.Dimension(), 0);
+                            gelside.X(pt, x);
+
+                            TPZManVector<REAL> xcenter(3, 0);
+                            TPZGeoElSide gelHigherSide(gelside.Element());
+                            TPZManVector<REAL> ptcenter(gelHigherSide.Dimension(), 0);
+                            gelHigherSide.X(ptcenter, xcenter);
+
+                            TPZManVector<REAL> xneigh(3);
+                            TPZManVector<REAL> ptneigh(neighGelSide.Dimension(), 0);
+                            neighGelSide.X(ptneigh, xneigh);
+
+                            TPZManVector<REAL> xneighcenter(3, 0);
+                            TPZGeoElSide neighHigherSide(neighGelSide.Element());
+                            TPZManVector<REAL> ptneighcenter(neighHigherSide.Dimension(), 0);
+                            neighHigherSide.X(ptneighcenter, xneighcenter);
+
+                            sout << "\ngel/side =  " << gelside.Id() << "/" << gelside.Side();
+                            sout << "; gel center coordinates: [ " << xcenter[0] << ", " << xcenter[1] << ", "
+                                 << xcenter[2] << "]\n";
+                            sout << "neigh/side =  " << neighGelSide.Id() << "/" << neighGelSide.Side();
+                            sout << "; neigh center coordinates: [ " << xneighcenter[0] << ", " << xneighcenter[1]
+                                 << ", "
+                                 << xneighcenter[2] << "]\n";
+                            sout << "Side solution =  " << elsol << "\n";
+                            sout << "Neigh solution = " << c1sol << "\n";
+                            sout << "Diff = " << elsol - c1sol << "\n";
+                            sout << "Side coord:  [" << x[0] << ", " << x[1] << ", " << x[2] << "]\n";
+                            sout << "Neigh coord: [" << xneigh[0] << ", " << xneigh[1] << ", " << xneigh[2] << "]\n";
+
+                            c1.Print(*pressuremesh, sout);
+
+                            std::cout << sout.str(); // TODO remove
+                            LOGPZ_DEBUG(logger, sout.str())
+                        }
+                    }
+#endif
+                }
+            }
+            if (gelside.Dimension() == 1) {
+                TPZStack<TPZCompElSide> celstack;
+                gelside.EqualLevelCompElementList(celstack, 1, 0);
+
+                TPZCompElSide large = gelside.LowerLevelCompElementList2(1);
+                if (large) celstack.Push(large);
+
+                if (celstack.size() == 0) continue;
+
+                int intOrder = 3;
+
+                TPZIntPoints *intRule = gelside.CreateIntegrationRule(intOrder);
+
+                // Iterates through the comp sides connected to the reference gelside
+                int nstack = celstack.size();
+                for (int ist = 0; ist < nstack; ist++) {
+                    TPZCompElSide cneighbour = celstack[ist];
+                    if (!cneighbour) continue;
+                    TPZGeoElSide neighbour = cneighbour.Reference();
+                    if (!(neighbour.Element()) || neighbour.Element()->MaterialId() != fPressureSkeletonMatId)
+                        DebugStop();
+
+                    // Filters comp sides in elements of highest dimension (2 or 3)
+                    if (neighbour.Element()->Dimension() > 1) DebugStop(); // 3D not supported
+                    if (neighbour.Element()->Dimension() == 0) DebugStop();
+
+                    // Verifies if coordinates on neighbours are the same
+                    TPZTransform<REAL> transform(gelside.Dimension());
+                    gelside.SideTransform3(neighbour, transform);
+
+                    TPZManVector<REAL> pt0(gelside.Dimension(), 0);
+                    TPZManVector<REAL> pt1(neighbour.Dimension(), 0);
+
+                    int npoints = intRule->NPoints();
+                    for (int ipt = 0; ipt < npoints; ipt++) {
+                        REAL weight;
+                        // Gets point in side parametric space from integration rule
+                        intRule->Point(ipt, pt0, weight);
+                        // Gets point in neighbour parametric space
+                        transform.Apply(pt0, pt1);
+
+                        // Transform from parametric to global coordinates
+                        TPZManVector<REAL> x0(3);
+                        TPZManVector<REAL> x1(3);
+
+                        gelside.X(pt0, x0);
+                        neighbour.X(pt1, x1);
+
+                        TPZManVector<STATE> sol0(1), sol1(1);
+                        cel->Solution(pt0, 0, sol0);
+                        cneighbour.Element()->Solution(pt1, 0, sol1);
+
+#ifdef LOG4CXX
+                        if (logger->isDebugEnabled()) {
+                            if (!IsZero(sol1[0] - sol0[0])) {
+                                std::stringstream sout;
+                                sout << "\ngel/side =  " << gelside.Id() << "/" << gelside.Side() << "\n";
+                                sout << "neigh/side =  " << neighbour.Id() << "/" << neighbour.Side() << "\n";
+                                sout << "Side solution =  " << sol0[0] << "\n";
+                                sout << "Neigh solution = " << sol1[0] << "\n";
+                                sout << "Diff = " << sol1[0] - sol0[0] << "\n";
+                                sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+                                sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+
+                                std::cout << sout.str(); // TODO remove
+                                LOGPZ_DEBUG(logger, sout.str())
+                            }
+                        }
+#endif
+                    }
+                }
+                delete intRule;
+            }
+        }
+    }
+}
+
 void TPZHybridH1ErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
     {
         std::ofstream outvtk("MeshToVerifyConsistency.vtk");
@@ -2795,7 +2964,6 @@ void TPZHybridH1ErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
 #ifdef LOG4CXX
                     if (logger->isDebugEnabled()) {
                         if (!IsZero(sol1[0] - sol0[0])) {
-
                             std::stringstream sout;
                             sout << "\ngel/side =  " << gelside.Id() <<"/" << gelside.Side() << "\n";
                             sout << "neigh/side =  " << neighbour.Id() <<"/" << neighbour.Side() << "\n";
