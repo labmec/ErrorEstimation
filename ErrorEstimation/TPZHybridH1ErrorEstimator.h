@@ -229,6 +229,12 @@ protected:
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
 
+    // If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side.
+    bool LiesOnHangingSide(TPZCompElSide &node_celside);
+
+    // Impose the solution on a hanging side
+    void ImposeHangingNodeSolution(TPZCompElSide &node_celside);
+
     // Checks if the skeleton is continuous
     void VerifySkeletonContinuity(TPZCompMesh* cmesh);
 

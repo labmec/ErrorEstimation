@@ -1855,12 +1855,11 @@ void TPZHybridH1ErrorEstimator::TransferEdgeSolution() {
 /// set the cornernode values equal to the averages
 void TPZHybridH1ErrorEstimator::ComputeNodalAverages() {
     TPZCompMesh *pressure_mesh = PressureMesh();
-    int fInterfaceMatid = fPressureSkeletonMatId;
     TPZGeoMesh *gmesh = pressure_mesh->Reference();
     gmesh->ResetReference();
     int dim = gmesh->Dimension();
     pressure_mesh->LoadReferences();
-    TPZMaterial *mat = pressure_mesh->FindMaterial(fInterfaceMatid);
+    TPZMaterial *mat = pressure_mesh->FindMaterial(fPressureSkeletonMatId);
     if (!mat) DebugStop();
     int nstate = mat->NStateVariables();
     int64_t nel = pressure_mesh->NElements();
@@ -1879,7 +1878,7 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverages() {
         }
         TPZGeoEl *gel = intel->Reference();
         
-        if (gel->Dimension() != dim - 1 || gel->MaterialId() != fInterfaceMatid) {
+        if (gel->Dimension() != dim - 1 || gel->MaterialId() != fPressureSkeletonMatId) {
             // MatId of element not important for nodal average computation
             continue;
         }
@@ -1893,10 +1892,147 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverages() {
             int64_t conindex = intel->ConnectIndex(side);
             TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
             if (!c.HasDependency()) {
+                if(LiesOnHangingSide(celside)) continue;
                 ComputeNodalAverage(celside);
             }
         }
     }
+
+    // Load the solution into connects with dependency
+    pressure_mesh->LoadSolution(pressure_mesh->Solution());
+
+    // Impose the solution on nodes which lies on hanging sides
+    for (int64_t el = 0; el < nel; el++) {
+        TPZCompEl *cel = pressure_mesh->Element(el);
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) {
+            continue;
+        }
+        TPZGeoEl *gel = intel->Reference();
+
+        if (gel->Dimension() != dim - 1 || gel->MaterialId() != fPressureSkeletonMatId) {
+            // MatId of element not important for nodal average computation
+            continue;
+        }
+
+        //percorre cada no do elemento de interface
+        int ncorners = gel->NCornerNodes();
+        for (int side = 0; side < ncorners; side++) {
+            TPZGeoElSide gelside(gel, side);
+            TPZCompElSide celside(intel,side);
+
+            int64_t conindex = intel->ConnectIndex(side);
+            TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+            if(LiesOnHangingSide(celside)){
+                ImposeHangingNodeSolution(celside);
+            }
+        }
+    }
+}
+
+// If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side and
+// instead of calculating the average we should impose the solution of the other connects in it.
+// *We are not sure if this logic will work for every case/ref. pattern, specially in 3D. So I'm leaving this
+// disclaimer. (Gustavo Batistela, 14/10/2020)
+bool TPZHybridH1ErrorEstimator::LiesOnHangingSide(TPZCompElSide &node_celside){
+
+    TPZCompMesh *pressure_mesh = PressureMesh();
+    int dim = pressure_mesh->Dimension();
+    TPZGeoElSide node_gelside(node_celside.Reference());
+
+    // celstack will contain all zero dimensional sides connected to the side
+    TPZStack<TPZCompElSide> celstack;
+    int onlyinterpolated = 1;
+    int removeduplicates = 0;
+
+    node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+
+    bool allNodeConnectsHaveDependency = true;
+    for (int elc = 0; elc < celstack.size(); elc++) {
+        TPZCompElSide celside = celstack[elc];
+        TPZGeoElSide gelside = celside.Reference();
+        if (gelside.Element()->Dimension() != dim - 1) {
+            continue;
+        }
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
+        if (!intel) DebugStop();
+
+        int64_t conindex = intel->ConnectIndex(celside.Side());
+        TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+        if (gelside.Dimension() == 0 && !c.HasDependency()) allNodeConnectsHaveDependency = false;
+    }
+    return allNodeConnectsHaveDependency;
+}
+
+void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_celside){
+
+    int skeletonMatId = fPressureSkeletonMatId;
+    TPZCompMesh *pressure_mesh = PressureMesh();
+    int dim = pressure_mesh->Dimension();
+
+    TPZMaterial *mat = pressure_mesh->FindMaterial(skeletonMatId);
+    if (!mat) DebugStop();
+    int nstate = mat->NStateVariables();
+
+    TPZGeoElSide node_gelside(node_celside.Reference());
+    TPZGeoEl *gel = node_gelside.Element();
+    int side = node_gelside.Side();
+
+    // celstack will contain all zero dimensional sides connected to the side
+    TPZStack<TPZCompElSide> celstack;
+    int onlyinterpolated = 1;
+    int removeduplicates = 0;
+
+    node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+
+    // Impose solution of the first node connect in the celstack we can find
+
+    celstack.Push(node_celside);
+
+    for (int elc = 0; elc < celstack.size(); elc++) {
+        TPZCompElSide celside = celstack[elc];
+        if (celside.Reference().Dimension() != 0) continue;
+
+        // Get solution of the neighbour
+        TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
+        if (!neigh_intel) DebugStop();
+
+        int64_t neigh_conindex = neigh_intel->ConnectIndex(celside.Side());
+        TPZConnect &neigh_c = pressure_mesh->ConnectVec()[neigh_conindex];
+
+        int64_t neigh_seqnum = neigh_c.SequenceNumber();
+        if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
+        TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
+        for (int istate = 0; istate < nstate; istate++) {
+            neigh_sol[istate] = pressure_mesh->Block().Get(neigh_seqnum, 0, istate, 0);
+        }
+
+        // Set solution to given connect
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(node_celside.Element());
+        if (!intel) DebugStop();
+
+        int64_t conindex = intel->ConnectIndex(side);
+        TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+
+        int64_t seqnum = c.SequenceNumber();
+        if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+        for (int istate = 0; istate < nstate; istate++) {
+            pressure_mesh->Block()(seqnum, 0, istate, 0) = neigh_sol[istate];
+        }
+
+        // TODO remove this
+        {
+            TPZManVector<REAL, 3> xicenter(gel->Dimension(), 0.);
+            TPZManVector<REAL, 3> x_side(3, 0.);
+            gel->CenterPoint(side, xicenter);
+            gel->X(xicenter, x_side);
+            std::cout << __PRETTY_FUNCTION__ << "\nAll " << celstack.size() << " Connects Have Dependency!\nGel "
+                      << gel->Index() << ", Side " << side << " @ [" << x_side[0] << ", " << x_side[1] << ", "
+                      << x_side[2] << "]\n";
+        }
+        break;
+    }
+    return;
 }
 
 /// compute the nodal average of all elements that share a point
@@ -1921,72 +2057,8 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
 
     node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
 
-    // If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side and
-    // instead of calculating the average we should impose the solution of the other connects in it.
-    // *We are not sure if this logic will work for every case/ref. pattern, specially in 3D. So I'm leaving this
-    // disclaimer. (Gustavo Batistela, 14/10/2020)
-    bool allNodeConnectsHaveDependency = true;
-    for (int elc = 0; elc < celstack.size(); elc++) {
-        TPZCompElSide celside = celstack[elc];
-        TPZGeoElSide gelside = celside.Reference();
-        if (gelside.Element()->Dimension() != dim - 1) {
-            continue;
-        }
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
-        if (!intel) DebugStop();
-
-        int64_t conindex = intel->ConnectIndex(celside.Side());
-        TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
-        if (gelside.Dimension() == 0 && !c.HasDependency()) allNodeConnectsHaveDependency = false;
-    }
-
     // Impose solution of the first node connect in the celstack we can find
-    if (allNodeConnectsHaveDependency) {
-        for (int elc = 0; elc < celstack.size(); elc++) {
-            TPZCompElSide celside = celstack[elc];
-            if (celside.Reference().Dimension() != 0) continue;
 
-            // Get solution of the neighbour
-            TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
-            if (!neigh_intel) DebugStop();
-
-            int64_t neigh_conindex = neigh_intel->ConnectIndex(celside.Side());
-            TPZConnect &neigh_c = pressure_mesh->ConnectVec()[neigh_conindex];
-
-            int64_t neigh_seqnum = neigh_c.SequenceNumber();
-            if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
-            TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
-            for (int istate = 0; istate < nstate; istate++) {
-                neigh_sol[istate] = pressure_mesh->Block().Get(neigh_seqnum, 0, istate, 0);
-            }
-
-            // Set solution to given connect
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(node_celside.Element());
-            if (!intel) DebugStop();
-
-            int64_t conindex = intel->ConnectIndex(side);
-            TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
-
-            int64_t seqnum = c.SequenceNumber();
-            if (c.NState() != nstate || c.NShape() != 1) DebugStop();
-            for (int istate = 0; istate < nstate; istate++) {
-                pressure_mesh->Block()(seqnum, 0, istate, 0) = neigh_sol[istate];
-            }
-
-            // TODO remove this
-            {
-                TPZManVector<REAL, 3> xicenter(gel->Dimension(), 0.);
-                TPZManVector<REAL, 3> x_side(3, 0.);
-                gel->CenterPoint(side, xicenter);
-                gel->X(xicenter, x_side);
-                std::cout << __PRETTY_FUNCTION__ << "\nAll " << celstack.size() << " Connects Have Dependency!\nGel "
-                          << gel->Index() << ", Side " << side << " @ [" << x_side[0] << ", " << x_side[1] << ", "
-                          << x_side[2] << "]\n";
-            }
-            break;
-        }
-        return;
-    }
     celstack.Push(node_celside);
 
     // This map stores the connects, the weight associated with the element
@@ -2509,8 +2581,6 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
         PlotLagrangeMultiplier("AfterNodalAverage");
     }
 
-    TPZCompMesh *pressure_mesh = PressureMesh();
-    pressure_mesh->LoadSolution(pressure_mesh->Solution());
 
     {
         std::string dirPath = "DebuggingConsistency/";
@@ -2583,7 +2653,6 @@ void TPZHybridH1ErrorEstimator::PlotLagrangeMultiplier(const std::string &filena
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(2, dim);
     }
-    
 }
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)
