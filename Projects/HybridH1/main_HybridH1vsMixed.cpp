@@ -116,10 +116,10 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     config.prefine = false;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::E10SinSin/*EArcTan*//*ESinSin*/;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin/*EArcTan*//*ESinSin*/;
     config.exact.operator*().fSignConvention = 1;
 
-    config.problemname = "E10SinSin"/*"EArcTan"*//*"ESinSin"*/;
+    config.problemname = "ESinSin"/*"EArcTan"*//*"ESinSin"*/;
 
     config.dir_name = "Pressure_Reconstruction_VTK";
     std::string command = "mkdir -p " + config.dir_name;
@@ -328,8 +328,8 @@ void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_mixed, REAL permQ
     cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    mat1->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
-    mat2->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
+    mat1->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
     mat1->fSignConvention = 1;
     mat2->fSignConvention = 1;
     TPZFNMatrix<9,REAL> K, invK;
@@ -382,8 +382,8 @@ void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL p
     int dirichlet = 0;
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    mat1->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
-    mat2->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
+    mat1->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
     mat1->fSignConvention = 1;
     mat2->fSignConvention = 1;
     TPZFNMatrix<9,REAL> K, invK;

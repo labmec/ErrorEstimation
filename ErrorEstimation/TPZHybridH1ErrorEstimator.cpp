@@ -1579,9 +1579,9 @@ void TPZHybridH1ErrorEstimator::AdditionalAverageWeights(TPZGeoEl *large, TPZGeo
             large_size = large->CharacteristicSize();
             small_size = small->CharacteristicSize();
 
-            //Compute k+1
-            large_order = large->Reference()->GetgOrder()+1; // TODO : I Expected GetgOrder would return a bigger order
-            small_order = small->Reference()->GetgOrder()+1;
+            //Compute k
+            large_order = large->Reference()->Connect(large->NSides()-1).Order();
+            small_order = small->Reference()->Connect(small->NSides()-1).Order();
 
             //Compute 1/h^(k)
             REAL large_precision = 1.;
