@@ -47,6 +47,7 @@ public:
 
     bool fNeumannLocalProblem = true;
 
+    // TODO: Suport sigma errors (return 5)
     virtual int NEvalErrors() override {return 5;}//erro de oscilacao de dados tbem
 
     /// Compute the error and error estimate

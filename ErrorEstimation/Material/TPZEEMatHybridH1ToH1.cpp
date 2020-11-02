@@ -282,6 +282,7 @@ void TPZEEMatHybridH1ToH1::UpdateBCValues(TPZVec<TPZMaterialData> & datavec){
 
 }
 
+// Todo: Suport sigma errors
 void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**
@@ -301,15 +302,20 @@ void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &
     errors.Fill(0.0);
 
 
-    TPZManVector<STATE,3> fluxfem(3);
+    //TPZManVector<STATE,3> fluxfem(3);
     STATE divsigmafem, pressurefem, pressurereconstructed;
 
     TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
+    TPZFMatrix<REAL> fluxfem, gradfem;
 
+    //fluxfem=data[2].sol[0];
+    //divsigmafem= data[2].divsol[0][0];
 
+    gradfem=data[3].dsol[0];
 
-    fluxfem=data[2].sol[0];
-    divsigmafem= data[2].divsol[0][0];
+    gradfem.Resize(3,1);
+
+    //divsigmafem= data[2].divsol[0][0];
 
 
 
@@ -328,9 +334,9 @@ void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &
 
     REAL residual = 0.;
 
-    // std::cout<<" divsigma[0] "<<divsigma[0]<<" divsigmafem "<<divsigmafem<<"\n";
+    //std::cout<<" divsigma[0] "<<divsigma[0]<<" divsigmafem "<<divsigmafem<<"\n";
 
-    residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
+    //residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
 
 
     pressurereconstructed = data[H1functionposition].sol[0][0];
@@ -341,25 +347,31 @@ void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;
 
-    GetPermeabilities(data[2].x, PermTensor, InvPermTensor);
+    GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
+
+    PermTensor.Resize(3,3);
+    InvPermTensor.Resize(3,3);
+
 
     TPZFNMatrix<3,REAL> fluxexactneg;
 
-    //sigmarec = -K grad(urec)
+    // sigmarec = -K grad(urec)
     //  sigmak = -K graduk
 
     {
         TPZFNMatrix<9,REAL> gradpressure(3,1);
         for (int i=0; i<3; i++) {
-            gradpressure(i,0) = du_exact[i];
+            gradpressure(i,0) = (-1.)*du_exact[i];
+            gradfem(i,0) = (-1.)* gradfem(i,0);
         }
         PermTensor.Multiply(gradpressure,fluxexactneg);
+        PermTensor.Multiply(gradfem,fluxfem);
     }
 
 
 
     TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
-    TPZFNMatrix<9,REAL> fluxrec(3,0);
+    TPZFNMatrix<9,REAL> fluxrec(dsolaxes.Rows(),0);
     TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
 
     for(int id=0 ; id<3; id++) {
@@ -380,9 +392,11 @@ void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &
     std::cout<<"-------"<<std::endl;
 #endif
 
+
+
     for (int i=0; i<3; i++) {
         for (int j=0; j<3; j++) {
-            innerexact += (fluxfem[i]+fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]+fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
+            innerexact += (fluxfem[i]-fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]-fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
             innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
         }
     }
@@ -490,9 +504,6 @@ void TPZEEMatHybridH1ToH1::Solution(TPZVec<TPZMaterialData> &datavec, int var, T
     }
 
     PermTensor.Redim(3,3);
-    PermTensor.Print(std::cout);
-    gradu.Print(std::cout);
-
 
     PermTensor.Multiply(gradu, fluxinv);
 
@@ -623,8 +634,6 @@ void TPZEEMatHybridH1ToH1:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE
         errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
         errors[2] = errorReal;
         errors[3] = errorEstimated;
-
-
     }
 
 

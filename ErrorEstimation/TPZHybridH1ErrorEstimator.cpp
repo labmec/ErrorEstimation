@@ -129,7 +129,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     
     an.PostProcessError(errorVec, store);//calculo do erro com sol exata e aprox e armazena no elementsolution
     
-    std::cout << "Computed errors " << errorVec << std::endl;
+    std::cout << "\n\n############\n\n";
     
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
@@ -145,8 +145,8 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     myfile << "Global exact error = " << errorVec[2] << "\n";
     myfile <<"|uex-ufem|= "<< errorVec[0] << "\n";
     myfile <<"|ufem-urec| = "<< errorVec[1] << "\n";
-    myfile <<"Residual ErrorL2= "<< errorVec[4] << "\n";
-    myfile <<"Global Index = "<< sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
+    //myfile <<"Residual ErrorL2= "<< errorVec[4] << "\n";
+    //myfile <<"Global Index = "<< sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
     
     myfile.close();
     
@@ -249,7 +249,7 @@ void TPZHybridH1ErrorEstimator::GlobalEffectivityIndex(){
 
 void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
     
-    TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
+    TPZMaterial *mat = fPostProcMesh.FindMaterial(*fProblemConfig.materialids.begin());
     int varindex = -1;
     if (mat) varindex = mat->VariableIndex("PressureFem");
     if (varindex != -1) {
@@ -260,14 +260,14 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
             scalnames.Push("EnergyErrorExact");
             scalnames.Push("PressureEffectivityIndex");
             scalnames.Push("EnergyEffectivityIndex");
-            vecnames.Push("FluxExact");
+            //vecnames.Push("FluxExact");
         }
         scalnames.Push("PressureFem");
         scalnames.Push("PressureReconstructed");
         scalnames.Push("PressureErrorEstimate");
         scalnames.Push("EnergyErrorEstimate");
-        vecnames.Push("FluxFem");
-        vecnames.Push("FluxReconstructed");
+        //vecnames.Push("FluxFem");
+        //vecnames.Push("FluxReconstructed");
         scalnames.Push("POrder");
         
         int dim = fPostProcMesh.Reference()->Dimension();
@@ -494,6 +494,7 @@ void TPZHybridH1ErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mes
     TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
+    fPostProcMesh.InsertMaterialObject(skeletonMat->NewMaterial());
 
     std::set<int> matIdSkeleton = { fPressureSkeletonMatId };
     gmesh->ResetReference();
@@ -533,9 +534,9 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
     InsertEEMaterial();
 
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
-    mesh_vectors[2] = fOriginal->MeshVector()[0];//flux
-    mesh_vectors[3] = fOriginal->MeshVector()[1];//potential
-    mesh_vectors[1] = CreatePressureMesh();//potential reconstructed
+    mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
+    mesh_vectors[3] = fOriginal->MeshVector()[1];// potential
+    mesh_vectors[1] = CreatePressureMesh();// potential reconstructed
     mesh_vectors[0] = CreateFluxMesh();
 
     // TODO : Is it necessary? Move to flux creation
@@ -1560,6 +1561,54 @@ void TPZHybridH1ErrorEstimator::NewComputeBoundaryL2Projection(
     }
 }
 
+void TPZHybridH1ErrorEstimator::AdditionalAverageWeights(TPZGeoEl *large, TPZGeoEl *small, REAL &large_weight, REAL &small_weight, REAL sum){
+    REAL diff_weight = large_weight+small_weight - 1.;
+    if(!IsZero(diff_weight)) DebugStop();
+    switch(fAverageMode){
+        case 0:
+            return;
+        case 1:
+            large_weight = 0.;
+            small_weight = 1.;
+            break;
+        case 2: // w ~ 1/h^p
+            REAL large_size, small_size;
+            int large_order,small_order;
+
+            //Compute h
+            large_size = large->CharacteristicSize();
+            small_size = small->CharacteristicSize();
+
+            //Compute k+1
+            large_order = large->Reference()->GetgOrder()+1; // TODO : I Expected GetgOrder would return a bigger order
+            small_order = small->Reference()->GetgOrder()+1;
+
+            //Compute 1/h^(k)
+            REAL large_precision = 1.;
+            REAL small_precision = 1.;
+            for(int pindex = 0; pindex < large_order; pindex++){
+                large_precision *= large_size;
+            }
+            for(int pindex = 0; pindex < small_order; pindex++){
+                small_precision *= small_size;
+            }
+            large_precision = 1./large_precision;
+            small_precision = 1./small_precision;
+
+            REAL new_large_weight = large_weight*large_precision;
+            REAL new_small_weight = small_weight*small_precision;
+            REAL new_sum = new_large_weight+new_small_weight;
+
+            std::cout << "large0: " << large_weight << "; large_h: " << large_size << "; large_p: " <<  large_order << "; large_precision: " << large_precision << "; large1: " << new_large_weight/new_sum <<"\n";
+            std::cout << "small0: " << small_weight << "; small_h: " << small_size << "; small_p: " <<  small_order << "; small_precision: " << small_precision << "; small1: " << new_small_weight/new_sum <<"\n";
+
+            large_weight = new_large_weight/new_sum;
+            small_weight = new_small_weight/new_sum;
+
+            if(!IsZero(large_weight + small_weight - 1.)) DebugStop();
+    }
+}
+
 // compute the average of an element iel in the pressure mesh looking at its neighbours
 void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel)
 {
@@ -1692,6 +1741,10 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
         REAL left_weight = fMatid_weights[leftVolumeGel->MaterialId()] / sum_weights;
         rightVolumeGel = volumeNeighSides[iskel + 1].Element()->Reference();
         REAL right_weight = fMatid_weights[rightVolumeGel->MaterialId()] / sum_weights;
+
+        if(!noHangingSide){
+            AdditionalAverageWeights(largeSkeletonSide.Element(), integrationGeoElSide.Element(), left_weight, right_weight,sum_weights);
+        }
 
         int64_t nintpoints = intpoints->NPoints();
         for (int64_t ip = 0; ip < nintpoints; ip++) {
@@ -1923,6 +1976,7 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverages() {
 
             int64_t conindex = intel->ConnectIndex(side);
             TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+            if (c.HasDependency()) continue;
             if(LiesOnHangingSide(celside)){
                 ImposeHangingNodeSolution(celside);
             }
@@ -2224,6 +2278,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
     }
 }
 
+/// TODO: Suport flux' effectivity indices
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
 void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
     /**The  ElementSolution() is a matrix with 4 cols,
@@ -2294,7 +2349,6 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
             if(neighbour.Element()->Dimension() != dim-1) DebugStop();
             int64_t neighindex = selected.Element()->Index();
             for (int i = 0; i < 3; i += 2) {
-                
 
                 std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
                 
@@ -2328,8 +2382,8 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
         TPZGeoEl *gel = cel->Reference();
         if(!gel) continue;
         REAL hk = gel->CharacteristicSize();
-        
-        
+
+
         for (int i = 0; i < 3; i += 2) {
             
             //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
@@ -2360,7 +2414,6 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
                 cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
-        
     }
     
     //  cmesh->ElementSolution().Print("ElSolution",std::cout);
@@ -2747,8 +2800,8 @@ void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
 
-            TPZEEMatHybridH1ToHDiv *newHDivmat = new TPZEEMatHybridH1ToHDiv(*matlaplacian);
-            newHDivmat->SetId(fHDivResconstructionMatId);
+            //TPZEEMatHybridH1ToHDiv *newHDivmat = new TPZEEMatHybridH1ToHDiv(*matlaplacian);
+            //newHDivmat->SetId(fHDivResconstructionMatId);
 
             TPZEEMatHybridH1ToH1 *newmat = new TPZEEMatHybridH1ToH1(*matlaplacian);
 
@@ -2756,8 +2809,8 @@ void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
                 newmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
                 newmat->SetForcingFunction(matlaplacian->ForcingFunction());
 
-                newHDivmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
-                newHDivmat->SetForcingFunction(matlaplacian->ForcingFunction());
+                //newHDivmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
+                //newHDivmat->SetForcingFunction(matlaplacian->ForcingFunction());
             }
 
             // TODO : Check if it's required to switch Lagrange materials on the boundary for this new material.
@@ -2769,7 +2822,7 @@ void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
                 }
             }
             fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
-            fPostProcMesh.MaterialVec()[fHDivResconstructionMatId] = newHDivmat;
+            //fPostProcMesh.MaterialVec()[fPressureSkeletonMatId] = new TPZNullMaterial;
             delete matlaplacian;
         }
     }

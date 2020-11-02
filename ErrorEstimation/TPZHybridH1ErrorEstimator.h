@@ -39,6 +39,10 @@ struct TPZHybridH1ErrorEstimator
     
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = true;
+
+    /// Compute average pressure between skeletons on hanging nodes mode;
+    /// 1 : average between both skeletons; 2 : Just small skeleton; 3 : weighted average w~1/h^(p+1)
+    int fAverageMode = 2;
     
     /// Locally created computational mesh to compute the error
     TPZMultiphysicsCompMesh fPostProcMesh;
@@ -71,7 +75,7 @@ struct TPZHybridH1ErrorEstimator
     fPostProcMesh(0),fExact(NULL)
     {
         FindFreeMatID(fPressureSkeletonMatId);
-        FindFreeMatID(fHDivResconstructionMatId);
+        fHDivResconstructionMatId = fPressureSkeletonMatId+1;
     }
 
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
@@ -244,6 +248,9 @@ protected:
   //  int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
 
 protected:
+
+    //
+    void AdditionalAverageWeights(TPZGeoEl *large, TPZGeoEl *small, REAL &large_weight, REAL &small_weight, REAL sum);
     
     // compute the average of an element iel in the pressure mesh looking at its neighbours
     void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);

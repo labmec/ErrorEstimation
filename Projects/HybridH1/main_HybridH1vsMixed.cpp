@@ -58,7 +58,7 @@ struct ErrorData
     TPZVec<REAL> *LogH1,*LogHybridH1,*LogMixed, *rate, *Log;
     int maxdiv = 3;
 
-    bool isMultiK = 1;
+    bool isMultiK = 0;
     REAL perm_Q1 = 5;
     REAL perm_Q2 = 1;
 
@@ -116,14 +116,14 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     config.prefine = false;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*//*ESinSin*/;
+    config.exact.operator*().fExact = TLaplaceExample1::E10SinSin/*EArcTan*//*ESinSin*/;
     config.exact.operator*().fSignConvention = 1;
 
-    config.problemname = "ESteklovNonConst"/*"EArcTan"*//*"ESinSin"*/;
+    config.problemname = "E10SinSin"/*"EArcTan"*//*"ESinSin"*/;
 
-    //config.dir_name = "HybridH1_EArcTan";
-    //std::string command = "mkdir " + config.dir_name;
-    //system(command.c_str());
+    config.dir_name = "Pressure_Reconstruction_VTK";
+    std::string command = "mkdir -p " + config.dir_name;
+    system(command.c_str());
 
     // geometric mesh
     TPZManVector<int, 4> bcids(4, -1);
@@ -146,7 +146,9 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
 
     int refinement_depth = 2;
     if(config.ndivisions > 0) {
-        Tools::RandomRefinement(config.gmesh, 1, refinement_depth);
+        /*Tools::RandomRefinement(config.gmesh, 1, refinement_depth);*/
+        config.gmesh->SetDimension(2);
+        Tools::RefineElements(config.gmesh, {5, 6});
     }
 
     if(eData.argc != 1) {
@@ -188,7 +190,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 1; ndiv < eData.maxdiv+2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 1; ndiv < /*eData.maxdiv+2*/2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
@@ -224,9 +226,15 @@ int main(int argc, char *argv[]) {
             int hybridLevel = 1;
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
-            TPZHybridH1ErrorEstimator test(*cmesh_H1Hybrid);
-            test.fProblemConfig = config;
-            test.PotentialReconstruction();
+            TPZHybridH1ErrorEstimator HybridH1Estimate(*cmesh_H1Hybrid);
+            HybridH1Estimate.fProblemConfig = config;
+            HybridH1Estimate.SetAnalyticSolution(config.exact);
+            HybridH1Estimate.PotentialReconstruction();
+
+            TPZManVector<REAL> elementerrors;
+            TPZVec<REAL> errorVec;
+            HybridH1Estimate.ComputeErrors(errorVec, elementerrors, true);
+
             FlushTime(eData,start);
         }
 
@@ -320,8 +328,8 @@ void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_mixed, REAL permQ
     cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    mat1->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
-    mat2->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
+    mat1->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
     mat1->fSignConvention = 1;
     mat2->fSignConvention = 1;
     TPZFNMatrix<9,REAL> K, invK;
@@ -374,8 +382,8 @@ void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL p
     int dirichlet = 0;
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    mat1->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
-    mat2->fExact = TLaplaceExample1::ESteklovNonConst/*EArcTan*/;
+    mat1->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::E10SinSin/*EArcTan*/;
     mat1->fSignConvention = 1;
     mat2->fSignConvention = 1;
     TPZFNMatrix<9,REAL> K, invK;
