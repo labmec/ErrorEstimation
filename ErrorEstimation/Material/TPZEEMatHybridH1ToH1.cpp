@@ -319,7 +319,7 @@ void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &
 
 
 
-    int H1functionposition = 0;
+    int H1functionposition = 1;
     H1functionposition = FirstNonNullApproxSpaceIndex(data);
 
 

@@ -84,7 +84,7 @@ void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL p
 void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL permQ1, REAL permQ2,ProblemConfig &config);
 TPZGeoMesh* CreateGeoMesh_OriginCentered(int nel, TPZVec<int>& bcids);
 ////Computational mesh and FEM solvers
-void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId,ErrorData &eData, ProblemConfig &config,int hybridLevel);
+void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId, int &fluxMatID, ErrorData &eData, ProblemConfig &config,int hybridLevel);
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorData &eData, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig config, struct ErrorData &eData,int hybridLevel);
@@ -108,7 +108,7 @@ void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 3;         // Potential and internal flux order
+    config.porder = 4;         // Potential and internal flux order
     config.hdivmais = 2;       // p_order - hdivmais = External flux order
     config.H1Hybridminus = 2;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
@@ -139,8 +139,6 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     if(eData.isMultiK == false) config.bcmaterialids.insert(-1);
     if(eData.isMultiK == true) {
         config.materialids.insert(2);config.materialids.insert(3);
-    }
-    if(eData.isMultiK == true) {
         config.bcmaterialids.insert(-5);config.bcmaterialids.insert(-6);config.bcmaterialids.insert(-8);config.bcmaterialids.insert(-9);
     }
 
@@ -148,7 +146,7 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     if(config.ndivisions > 0) {
         /*Tools::RandomRefinement(config.gmesh, 1, refinement_depth);*/
         config.gmesh->SetDimension(2);
-        Tools::RefineElements(config.gmesh, {5, 6});
+        //Tools::RefineElements(config.gmesh, {5, 6});
     }
 
     if(eData.argc != 1) {
@@ -190,7 +188,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 1; ndiv < /*eData.maxdiv+2*/2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 3; ndiv < /*eData.maxdiv+2*/4; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
@@ -222,14 +220,15 @@ int main(int argc, char *argv[]) {
         TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(config.gmesh);
         if(eData.mode == 1 || eData.mode == 3){
             clock_t start = clock();
-            int interfaceMatID = -10;
+            int interfaceMatID = -10, fluxmatID = -10;
             int hybridLevel = 1;
-            CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,eData, config,hybridLevel);
+            CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,fluxmatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
             TPZHybridH1ErrorEstimator HybridH1Estimate(*cmesh_H1Hybrid);
             HybridH1Estimate.fProblemConfig = config;
             HybridH1Estimate.SetAnalyticSolution(config.exact);
-            HybridH1Estimate.PotentialReconstruction();
+            HybridH1Estimate.SetHybridizer(fluxmatID, 1, false);
+            HybridH1Estimate.CreateReconstructionSpaces();
 
             TPZManVector<REAL> elementerrors;
             TPZVec<REAL> errorVec;
@@ -245,12 +244,17 @@ int main(int argc, char *argv[]) {
             CreateMixedComputationalMesh(cmesh_mixed, eData, config);
             SolveMixedProblem(cmesh_mixed, config, eData);
             TPZHybridHDivErrorEstimator test(*cmesh_mixed);
+            test.SetAnalyticSolution(config.exact);
             //std::set<int> bcmatID;
             //bcmatID.insert(-5);bcmatID.insert(-6);bcmatID.insert(-8);bcmatID.insert(-9);
             //config.bcmaterialids = bcmatID;
             test.fProblemConfig = config;
             test.fOriginalIsHybridized = true;
             test.PotentialReconstruction();
+
+            TPZManVector<REAL> elementerrors;
+            TPZVec<REAL> errorVec;
+            test.ComputeErrors(errorVec, elementerrors, true);
             FlushTime(eData,start);
         }
 
@@ -258,9 +262,9 @@ int main(int argc, char *argv[]) {
         TPZMultiphysicsCompMesh *cmesh_HybridSquared = new TPZMultiphysicsCompMesh(config.gmesh);
         if(eData.mode == 1 || eData.mode == 5){
             clock_t start = clock();
-            int interfaceMatID = -10;
+            int interfaceMatID = -10, fluxmatID = -10;
             int hybridLevel = 2;
-            CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,eData, config,hybridLevel);
+            CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,fluxmatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
             TPZHybridH1ErrorEstimator test(*cmesh_HybridSquared);
             test.fProblemConfig = config;
@@ -540,7 +544,7 @@ void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorDat
     cmesh_Mixed->InitializeBlock();
 }
 
-void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID , ErrorData &eData, ProblemConfig &config,int hybridLevel){
+void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID,int &fluxMatID , ErrorData &eData, ProblemConfig &config,int hybridLevel){
     auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
     if(hybridLevel == 2) {
         spaceType = TPZCreateMultiphysicsSpace::EH1HybridSquared;
@@ -574,6 +578,7 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     cmesh_H1Hybrid->ComputeNodElCon();
 
     interFaceMatID = createspace.fH1Hybrid.fLagrangeMatid.first;
+    fluxMatID = createspace.fH1Hybrid.fFluxMatId;
 
 }
 

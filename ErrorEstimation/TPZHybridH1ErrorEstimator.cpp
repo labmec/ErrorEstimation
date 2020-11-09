@@ -295,7 +295,7 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 {
-    return 0;
+    return fOriginal->MeshVector()[0]->Clone();
 }
 // a method for creating the pressure mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
@@ -555,7 +555,7 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
 
     TPZManVector<int> active(4, 0);
     active[1] = 1;
-    active[0] = 0;
+    active[0] = 1;
     
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     {
@@ -1081,10 +1081,14 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::PressureMesh() {
     return fPostProcMesh.MeshVector()[1];
 }
 
+TPZCompMesh *TPZHybridH1ErrorEstimator::FluxMesh() {
+    return fPostProcMesh.MeshVector()[0];
+}
+
 /// compute the average pressures of the hybridized form of the H(div) mesh
 void TPZHybridH1ErrorEstimator::ComputeAverageFacePressures() {
     DebugStop();
-    TPZCompMesh *pressure = fOriginal->MeshVector()[1];
+    /*TPZCompMesh *pressure = fOriginal->MeshVector()[1];
     TPZCompMesh *pressure_mesh = fPostProcMesh.MeshVector()[1];
     int fInterfaceMatid = fHybridizer.fLagrangeInterface;
     TPZGeoMesh *gmesh = pressure->Reference();
@@ -1177,7 +1181,7 @@ void TPZHybridH1ErrorEstimator::ComputeAverageFacePressures() {
     meshvec[0] = fPostProcMesh.MeshVector()[0];
     meshvec[1] = fPostProcMesh.MeshVector()[1];
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
-}
+*/}
 
 /// compute the average pressures of across edges of the H(div) mesh
 void TPZHybridH1ErrorEstimator::ComputeAveragePressures(int target_dim) {
@@ -1821,7 +1825,8 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
 /// transfer the solution of the edge functions to the face functions
 void TPZHybridH1ErrorEstimator::TransferEdgeSolution() {
     // copy the solution associated with one-d edge connect to the corresponding side connect of the face mesh
-    TPZCompMesh *pressure_mesh = PressureMesh();
+    DebugStop();
+    /*TPZCompMesh *pressure_mesh = PressureMesh();
     TPZGeoMesh *gmesh = pressure_mesh->Reference();
     gmesh->ResetReference();
     int dim = gmesh->Dimension();
@@ -1901,7 +1906,7 @@ void TPZHybridH1ErrorEstimator::TransferEdgeSolution() {
                 }
             }
         }
-    }
+    }*/
 }
 
 
@@ -2460,8 +2465,30 @@ void TPZHybridH1ErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec<S
     }
 }
 
-void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
-    
+void TPZHybridH1ErrorEstimator::FluxReconstruction() {
+    if (!fPostProcMesh.MeshVector().size()) {
+        DebugStop(); // Call PotentialReconstruction() first
+    }
+#ifdef PZDEBUG
+    string command = "mkdir -p " + fDebugDirName;
+    string dirPath = fDebugDirName + "/";
+    system(command.c_str());
+    {
+        std::ofstream outCon(dirPath + "OriginalFluxConnects.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[0], outCon, {}, false, true);
+        std::ofstream outOriginalP(dirPath + "OriginalFlux.txt");
+        fPostProcMesh.MeshVector()[0]->Print(outOriginalP);
+        std::ofstream outGOriginalVTK(dirPath + "gFlux.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(fOriginal->MeshVector()[0], outGOriginalVTK);
+    }
+#endif
+
+
+    VerifyBoundaryFluxConsistency(FluxMesh());
+
+}
+
+void TPZHybridH1ErrorEstimator::CreateReconstructionSpaces() {
     if (fPostProcMesh.MeshVector().size()) {
         DebugStop();
     }
@@ -2499,6 +2526,16 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
     }
 #endif
 
+    PotentialReconstruction();
+    FluxReconstruction();
+
+};
+
+void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
+
+    if (!fPostProcMesh.MeshVector().size()) {
+        DebugStop();
+    }
     // Compute continuos pressure on the skeleton;
     MakeSkeletonContinuous();
 
@@ -2568,6 +2605,7 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
         
 #ifdef PZDEBUG
         {
+            string dirPath = fDebugDirName + "/";
             std::ofstream outCon(dirPath + "PressureConnectsAfterLoadSolution.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3}, false, true);
             //fPostProcMesh.MeshVector()[0]->Print(out2);
@@ -2597,6 +2635,12 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
         PlotLagrangeMultiplier(dirPath + "BeforeAverage",reconstructed);
     }
 
+    {
+        std::string dirPath = "DebuggingConsistency/";
+        std::ofstream outCon(dirPath + "AverageB4Average.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
+    }
+
     // Calculates average pressure on interface edges and vertices
     int dim = fPostProcMesh.Dimension();
     ComputeAveragePressures(dim - 1);
@@ -2604,6 +2648,8 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     if (dim == 3) {
         ComputeAveragePressures(1);
     }
+
+    //VerifyAverage(dim-1);
 
 
     {
@@ -2616,7 +2662,7 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     {
         std::string dirPath = "DebuggingConsistency/";
         std::ofstream outCon(dirPath + "AverageB4NodalAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
     }
 
     ComputeNodalAverages();
@@ -2624,7 +2670,7 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     {
         std::string dirPath = "DebuggingConsistency/";
         std::ofstream outCon(dirPath + "AverageAfterNodalAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
     }
 
     {
@@ -2739,7 +2785,8 @@ static TPZMultiphysicsInterfaceElement *Extract(TPZCompEl *cel)
 }
 /// identify the peripheral material objects and store the information in fHybridizer
 void TPZHybridH1ErrorEstimator::IdentifyPeripheralMaterialIds() {
-    int dim = fOriginal->Dimension();
+    DebugStop();
+    /*int dim = fOriginal->Dimension();
     // identify the material id for interface elements
     int64_t nel = fOriginal->NElements();
     int numint_found = 0;
@@ -2790,7 +2837,7 @@ void TPZHybridH1ErrorEstimator::IdentifyPeripheralMaterialIds() {
         }
     }
     
-    fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
+    fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;*/
 }
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
@@ -2826,6 +2873,38 @@ void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
             delete matlaplacian;
         }
     }
+}
+
+void TPZHybridH1ErrorEstimator::VerifyBoundaryFluxConsistency(TPZCompMesh* fluxmesh){
+    TPZGeoMesh *gmesh = fluxmesh->Reference();
+    gmesh->ResetReference();
+    fluxmesh->LoadReferences();
+    int meshdim = gmesh->Dimension();
+    int nel = fluxmesh->NElements(), nEffectiveFluxes = 0;
+    for(int iel = 0; iel < nel ;iel++) {
+        TPZCompEl *cel = fluxmesh->Element(iel);
+        if (!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) DebugStop();
+        TPZGeoEl *gel = intel->Reference();
+        int matID = gel->MaterialId();
+        if(meshdim != fluxmesh->Dimension()) DebugStop();
+        bool IsBC = (fProblemConfig.bcmaterialids.find(matID) != fProblemConfig.bcmaterialids.end());
+        if(!IsBC && matID != fHybridizer.fFluxMatId) {
+            DebugStop();
+        }
+        nEffectiveFluxes++;
+        int sideminus = gel->NSides(meshdim-2);
+        // Check if every corner
+        for(int iside = 0 ; iside < sideminus ; iside++){
+            TPZGeoElSide minusSide(gel,iside);
+            if (minusSide.Dimension() != 0) DebugStop();
+            TPZStack<TPZCompElSide> minusNeigh;
+            minusSide.ConnectedCompElementList(minusNeigh, 1, 0);
+            if(minusNeigh.size() == 0) DebugStop();
+        }
+    }
+    if(nEffectiveFluxes == 0) DebugStop();
 }
 
 void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressuremesh){
@@ -3392,5 +3471,244 @@ void TPZHybridH1ErrorEstimator::PlotState(const std::string& filename, int targe
         }
         an.DefineGraphMesh(targetDim, scalnames, vecnames, plotname);
         an.PostProcess(2, targetDim);
+    }
+}
+
+void TPZHybridH1ErrorEstimator::VerifyAverage(int target_dim) {
+
+
+    TPZCompMesh *pressure_mesh = PressureMesh();
+    TPZGeoMesh *gmesh = pressure_mesh->Reference();
+
+    //    std::ofstream out("PressureToAverage.txt");
+    //    pressure_mesh->Print(out);
+
+    gmesh->ResetReference();
+    int dim = gmesh->Dimension();
+    int64_t nel = pressure_mesh->NElements();
+    // load the pressure elements of dimension target_dim+1
+    for (int64_t el = 0; el < nel; el++) {
+        TPZCompEl *cel = pressure_mesh->Element(el);
+        if (!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) DebugStop();
+        TPZGeoEl *gel = intel->Reference();
+        if (gel->Dimension() != target_dim + 1 && gel->MaterialId() != fPressureSkeletonMatId) continue;
+        gel->SetReference(cel);
+    }
+
+    for (int64_t el = 0; el < nel; el++) {
+        TPZCompEl *cel = pressure_mesh->Element(el);
+        if (!cel) {
+            continue;
+        }
+
+        TPZGeoEl *gel = cel->Reference();
+
+        if (!gel || gel->Dimension() != target_dim) {
+            continue;
+        }
+
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+
+        // Skip calculation if the element is a boundary condition
+        int matid = gel->MaterialId();
+        TPZMaterial *mat = pressure_mesh->FindMaterial(matid);
+        // TODO change this. Look for matIDs in bcMatIds instead. Only cast in debug mode for further checks
+#ifdef PZDEBUG
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        if (bc) continue;
+
+#endif
+        // Skip calculation if the element is a small skeleton
+        bool largeSideExists = false;
+        if (cel->Connect(0).HasDependency()) largeSideExists = true;
+
+#ifdef PZDEBUG
+        int nsides = gel->NSides();
+        TPZGeoElSide side(gel, nsides - 1);
+        TPZGeoElSideAncestors ancestors(side);
+        TPZGeoElSide largerNeigh = ancestors.HasLarger(fPressureSkeletonMatId);
+        if (largeSideExists && !largerNeigh) DebugStop();
+#endif
+        if (largeSideExists) continue;
+
+        // Start veryfication
+
+        TPZGeoMesh *gmesh = pressure_mesh->Reference();
+        int dim = gmesh->Dimension();
+        gmesh->ResetReference();
+        pressure_mesh->LoadReferences();
+        int nc = cel->NConnects();
+        int order = cel->Connect(nc - 1).Order();
+
+#ifdef PZDEBUG
+        for (int ic = 0; ic < nc; ic++) {
+            if (cel->Connect(ic).HasDependency()) DebugStop();
+        }
+#endif
+
+        std::cout << "Computing average for compel " << el << ", gel: " << cel->Reference()->Index() << "\n";
+
+        int target_dim = gel->Dimension();
+        if (target_dim == dim - 1 && gel->MaterialId() != fPressureSkeletonMatId) {
+            DebugStop();
+        }
+
+        // We denote large the skeleton element passed to this method, which is whether the skeleton between two elements
+        // of the same level or the larger skeleton in the region of a hanging node.
+        TPZGeoElSide largeSkeletonSide(gel, gel->NSides() - 1);
+
+        // Stack of TPZCompElSides containing the volumetric neighbours from which we obtain the pressure solution to
+        // be used in the average computation.
+        TPZCompElSide SkelSide = largeSkeletonSide.Reference();
+        TPZStack<TPZCompElSide> volumeNeighSides;
+        largeSkeletonSide.EqualLevelCompElementList(volumeNeighSides, 1, 0);
+        if (volumeNeighSides.size() < 1) DebugStop();
+
+        // If we are on a hanging side, we need to store the smaller skeleton sides and their respective volumetric
+        // neighbours
+        TPZStack<TPZGeoElSide> smallerSkelSides;
+        bool noHangingSide = true;
+        if (volumeNeighSides.size() == 1) {
+            noHangingSide = false;
+            TPZGeoElSidePartition partition(largeSkeletonSide);
+            partition.HigherLevelNeighbours(smallerSkelSides, fPressureSkeletonMatId);
+            if (smallerSkelSides.size() == 1) DebugStop();
+            for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
+                smallerSkelSides[iskel].EqualLevelCompElementList(volumeNeighSides, 1, 0);
+            }
+        }
+
+#ifdef PZDEBUG
+        for (int ineigh = 0; ineigh < volumeNeighSides.size(); ineigh++) {
+            if (volumeNeighSides[ineigh].Element()->Dimension() != dim) DebugStop();
+        }
+#endif
+
+        // Calculate average weights for left/right elements
+        REAL sum_weights = 0.;
+        TPZGeoEl *leftVolumeGel = volumeNeighSides[0].Element()->Reference();
+        int matId = leftVolumeGel->MaterialId();
+        sum_weights += fMatid_weights[matId];
+        TPZGeoEl *rightVolumeGel = volumeNeighSides[1].Element()->Reference();
+        matId = rightVolumeGel->MaterialId();
+        sum_weights += fMatid_weights[matId];
+        fPressureweights[cel->Index()] = sum_weights / 2;
+        if (!noHangingSide) {
+            for (int i = 0; i < smallerSkelSides.size(); i++) {
+                TPZGeoElSide smallSkelGelside = smallerSkelSides[i];
+                TPZCompEl *smallSkelCel = smallerSkelSides[i].Element()->Reference();
+                fPressureweights[smallSkelCel->Index()] = sum_weights / 2;
+            }
+        }
+
+        // TODO refactor this part so the transformations aren't stored but rather calculated inside the main loop at line 1480
+
+        // Fills vectors of TPZTransform with the transformation from the skeleton to each left/right volumetric neighbours
+        // and from the the small (right) to the large (left) skel if we are on a hanging side.
+        int64_t nSkelsToIntegrate = volumeNeighSides.size() - 1;
+        TPZManVector<TPZTransform<REAL>, 5> leftSkelToVolumeTrans(nSkelsToIntegrate);
+        TPZManVector<TPZTransform<REAL>, 5> rightSkelToVolumeTrans(nSkelsToIntegrate);
+        TPZManVector<TPZTransform<REAL>, 5> smallSkelToLargeSkelTrans(nSkelsToIntegrate);
+
+        // Transformation between the large skeleton to the target_dim dimensional side of the volume element
+        TPZTransform<REAL> largeSkelToVolumeTrans =
+                largeSkeletonSide.NeighbourSideTransform(volumeNeighSides[0].Reference());
+        TPZGeoEl *volumeNeigh = volumeNeighSides[0].Element()->Reference();
+        // Transformation of the target_dim dimensional  side of the volume element to its higher dimension side
+        TPZTransform<REAL> tmp = volumeNeigh->SideToSideTransform(volumeNeighSides[0].Side(),
+                                                                  volumeNeigh->NSides() - 1);
+        largeSkelToVolumeTrans = tmp.Multiply(largeSkelToVolumeTrans);
+
+        if (noHangingSide) {
+            // In this case the largeSkeletonSide is the same for both left/right regions.
+            // We denote left the side at volumeNeighSides[0] and the remaining right.
+            leftSkelToVolumeTrans[0] = largeSkelToVolumeTrans;
+
+            rightSkelToVolumeTrans[0] = largeSkeletonSide.NeighbourSideTransform(volumeNeighSides[1].Reference());
+            volumeNeigh = volumeNeighSides[1].Element()->Reference();
+            tmp = volumeNeigh->SideToSideTransform(volumeNeighSides[1].Side(), volumeNeigh->NSides() - 1);
+            rightSkelToVolumeTrans[0] = tmp.Multiply(rightSkelToVolumeTrans[0]);
+        } else {
+            // If we are on a hanging side we need to build left/right transformations for every small skeleton
+            for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
+                rightSkelToVolumeTrans[iskel] =
+                        smallerSkelSides[iskel].NeighbourSideTransform(volumeNeighSides[iskel + 1].Reference());
+                volumeNeigh = volumeNeighSides[iskel + 1].Element()->Reference();
+                tmp = volumeNeigh->SideToSideTransform(volumeNeighSides[iskel + 1].Side(), volumeNeigh->NSides() - 1);
+                rightSkelToVolumeTrans[iskel] = tmp.Multiply(rightSkelToVolumeTrans[iskel]);
+
+                smallSkelToLargeSkelTrans[iskel] = TPZTransform<REAL>(target_dim);
+                smallerSkelSides[iskel].SideTransform3(largeSkeletonSide, smallSkelToLargeSkelTrans[iskel]);
+                leftSkelToVolumeTrans[iskel] = largeSkelToVolumeTrans.Multiply(smallSkelToLargeSkelTrans[iskel]);
+            }
+        }
+
+        int nshape = intel->NShapeF();
+        TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
+        TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dphi(dim, nshape);
+        for (int iskel = 0; iskel < nSkelsToIntegrate; iskel++) {
+            TPZGeoElSide integrationGeoElSide;
+            if (noHangingSide) {
+                integrationGeoElSide = largeSkeletonSide;
+            } else {
+                integrationGeoElSide = smallerSkelSides[iskel];
+            }
+            std::unique_ptr<TPZIntPoints> intpoints(
+                    gel->CreateSideIntegrationRule(integrationGeoElSide.Side(), 2 * order));
+
+            REAL left_weight = fMatid_weights[leftVolumeGel->MaterialId()] / sum_weights;
+            rightVolumeGel = volumeNeighSides[iskel + 1].Element()->Reference();
+            REAL right_weight = fMatid_weights[rightVolumeGel->MaterialId()] / sum_weights;
+
+            if (!noHangingSide) {
+                AdditionalAverageWeights(largeSkeletonSide.Element(), integrationGeoElSide.Element(), left_weight,
+                                         right_weight, sum_weights);
+            }
+
+            int64_t nintpoints = intpoints->NPoints();
+            std::cout <<"########\n\n skelId = " << gel->Index() << "; leftVolId: " <<  leftVolumeGel->Index() <<"; rightVolId: " <<  rightVolumeGel->Index() << "\n";
+            for (int64_t ip = 0; ip < nintpoints; ip++) {
+                TPZManVector<REAL, 3> pt_left_skel(target_dim, 0.), pt_right_skel(target_dim, 0.);
+                TPZManVector<REAL, 3> pt_left_vol(target_dim + 1, 0.), pt_right_vol(target_dim + 1, 0.);
+                TPZManVector<REAL, 3> x_left(3, 0.);
+
+                REAL weight;
+                intpoints->Point(ip, pt_right_skel, weight);
+                if (noHangingSide) {
+                    pt_left_skel = pt_right_skel;
+                } else {
+                    smallSkelToLargeSkelTrans[iskel].Apply(pt_right_skel, pt_left_skel);
+                }
+
+                // Get shape at integration point
+                intel->Shape(pt_left_skel, phi, dphi);
+
+                // Get solution from left/right sides
+                leftSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_left_vol);
+                rightSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_right_vol);
+                TPZVec<STATE> left_sol, right_sol,skel_sol;
+                volumeNeighSides[0].Element()->Solution(pt_left_vol, 0, left_sol);
+                volumeNeighSides[iskel + 1].Element()->Solution(pt_right_vol, 0, right_sol);
+
+                STATE average_sol = left_weight * left_sol[0] + right_weight * right_sol[0];
+
+                TPZFNMatrix<9, REAL> jac(dim, dim), jacinv(dim, dim), axes(dim, 3);
+                REAL detjac;
+                integrationGeoElSide.Jacobian(pt_right_skel, jac, axes, detjac, jacinv);
+
+                SkelSide.Element()->Solution(pt_left_skel,0,skel_sol);
+
+                leftVolumeGel->X(pt_left_vol,x_left);
+
+                std::cout <<"X: [" << x_left[0] << "," <<x_left[1] << "," <<x_left[2] << "]: skelSol: " << skel_sol[0] << "; leftSol/weight: " << left_sol[0] << "/" << left_weight << "; rightSol/weight: " << right_sol[0] << "/" << right_weight <<"\n";
+
+                if(!IsZero(skel_sol[0]- (left_sol[0]+right_sol[0])/2)) {
+                    DebugStop();
+                }
+            }
+            std::cout <<"\n";
+        }
     }
 }
