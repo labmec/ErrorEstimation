@@ -18,7 +18,7 @@ public:
     bool fperformUplift = true;
 public:
     
-    TPZHDivErrorEstimatorH1(TPZMultiphysicsCompMesh &InputMesh) : TPZHybridHDivErrorEstimator(InputMesh)
+    TPZHDivErrorEstimatorH1(TPZMultiphysicsCompMesh &InputMesh) : TPZHybridHDivErrorEstimator(InputMesh, true, false)
     {
         
     }

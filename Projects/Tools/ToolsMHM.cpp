@@ -653,22 +653,11 @@ int MHMTest(ProblemConfig &Conf) {
     if(!InputMesh) DebugStop();
 
     TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
-    ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
-
-    ErrorEstimator.fPostProcesswithHDiv = false;
-    
-    ErrorEstimator.fProblemConfig.porder =Conf.porder;
-    ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;
-    ErrorEstimator.fProblemConfig.hdivmais = Conf.hdivmais;
-    ErrorEstimator.fProblemConfig.adaptivityStep = Conf.adaptivityStep;
-    
-    
+    ErrorEstimator.SetProblemConfig(Conf);
     ErrorEstimator.PotentialReconstruction();
 
     {
-        ErrorEstimator.fProblemConfig.problemname = Conf.problemname;
-        ErrorEstimator.fProblemConfig.dir_name = Conf.dir_name;
         std::string command = "mkdir " + Conf.dir_name;
         system(command.c_str());
 

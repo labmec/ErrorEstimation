@@ -393,7 +393,7 @@ int main(int argc, char *argv[]) {
         
        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
         HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
         HDivEstimate.SetAnalyticSolution(config.exact);
         
         HDivEstimate.fperformUplift = true;
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
         
         if(config.GalvisExample || config.steklovexample){
             

@@ -12,7 +12,7 @@
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
 
-void RunCosCosProblem();
+void RunSinSinProblem();
 void RunOscillatoryProblem();
 void RunNonConvexProblem();
 void Run3DProblem();
@@ -36,16 +36,16 @@ int main() {
 #endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    //RunCosCosProblem();
+    RunSinSinProblem();
     //RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
-    RunSingularProblem();
+    //RunSingularProblem();
 
     return 0;
 }
 
-void RunCosCosProblem() {
+void RunSinSinProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
@@ -58,7 +58,7 @@ void RunCosCosProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 6;
+    int nCoarseDiv = 3;
     int nInternalRef = 0;
 
     config.ndivisions = nCoarseDiv;
@@ -97,18 +97,12 @@ void RunOscillatoryProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 4;
-    int nInternalRef = 3;
+    int nCoarseDiv = 2;
+    int nInternalRef = 0;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
-
-    {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
-        std::ofstream file(fileName);
-        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
-    }
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
     TPZManVector<int64_t> coarseIndexes;
@@ -117,6 +111,13 @@ void RunOscillatoryProblem() {
     CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
     EstimateError(config, mhm);
 }
 
@@ -379,7 +380,7 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     mhm->SetHdivmaismaisPOrder(config.hdivmais);
 
     // Refine skeleton elements
-    mhm->DivideSkeletonElements(nInternalRef);
+    mhm->DivideSkeletonElements(0);
     mhm->DivideBoundarySkeletonElements();
 
     // Creates MHM mesh
@@ -466,17 +467,12 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     cout << "Error Estimation processing for MHM-Hdiv problem " << endl;
 
     // Error estimation
-    TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
-    if (!InputMesh) DebugStop();
+    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+    if (!originalMesh) DebugStop();
 
-    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, mhm);
-    ErrorEstimator.fOriginalIsHybridized = false;
+    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm);
     ErrorEstimator.SetAnalyticSolution(config.exact);
-
-    ErrorEstimator.fPostProcesswithHDiv = false;
-
-    ErrorEstimator.fProblemConfig = config;
-
+    ErrorEstimator.SetProblemConfig(config);
     ErrorEstimator.PotentialReconstruction();
 
     {

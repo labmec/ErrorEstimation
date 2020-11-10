@@ -169,7 +169,7 @@ void RunMarkHDivEstimation(ProblemConfig &config,
                            TPZMultiphysicsCompMesh *mixedMesh) {
     TPZHDivErrorEstimatorH1 HDivEstimate(*mixedMesh);
     HDivEstimate.fProblemConfig = config;
-    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
     HDivEstimate.SetAnalyticSolution(config.exact);
     HDivEstimate.fperformUplift = true;
     HDivEstimate.fUpliftOrder = config.hdivmais;
@@ -187,9 +187,9 @@ void RunHybridHDivEstimation(ProblemConfig &config,
     TPZHybridHDivErrorEstimator HDivEstimate(*mixedMesh);
     HDivEstimate.SetHybridizer(hybrid);
     HDivEstimate.fProblemConfig = config;
-    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
     HDivEstimate.SetAnalyticSolution(config.exact);
-    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
 
     HDivEstimate.fPostProcesswithHDiv = false;
 

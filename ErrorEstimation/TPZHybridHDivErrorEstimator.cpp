@@ -78,7 +78,7 @@ TPZHybridHDivErrorEstimator::~TPZHybridHDivErrorEstimator() {
 
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
-void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REAL> &elementerrors, bool store = true) {
+void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REAL> &elementerrors, bool store) {
     TPZAnalysis an(&fPostProcMesh, false);
     
     if (fExact) {
@@ -1019,28 +1019,25 @@ void TPZHybridHDivErrorEstimator::ComputeAverageFacePressures() {
 /// compute the average pressures of across edges of the H(div) mesh
 void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
     
-    TPZCompMesh *pressureHybrid = PressureMesh();
-    TPZGeoMesh *gmesh = pressureHybrid->Reference();
-    
-    //    std::ofstream out("PressureToAverage.txt");
-    //    pressureHybrid->Print(out);
-    
-    gmesh->ResetReference();
+    TPZCompMesh *pressure_mesh = PressureMesh();
+    TPZGeoMesh *gmesh = pressure_mesh->Reference();
     int dim = gmesh->Dimension();
-    int64_t nel = pressureHybrid->NElements();
-    // load the pressure elements of dimension target_dim+1
+    gmesh->ResetReference();
+
+    int64_t nel = pressure_mesh->NElements();
+    // load the pressure elements of dim target_dim + 1 and of skeleton mat IDs
     for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = pressureHybrid->Element(el);
+        TPZCompEl *cel = pressure_mesh->Element(el);
         if (!cel) continue;
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = intel->Reference();
-        if (gel->Dimension() != target_dim + 1) continue;
+        if (gel->Dimension() != target_dim + 1 && gel->MaterialId() != fPressureSkeletonMatId) continue;
         gel->SetReference(cel);
     }
     
     for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = pressureHybrid->Element(el);
+        TPZCompEl *cel = pressure_mesh->Element(el);
         TPZGeoEl *gel = cel->Reference();
 
         if (!cel || !cel->Reference() || cel->Reference()->Dimension() != target_dim) {
@@ -1049,7 +1046,7 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
 
         // Skip calculation if the element is a boundary condition
         int matid = gel->MaterialId();
-        TPZMaterial *mat = pressureHybrid->FindMaterial(matid);
+        TPZMaterial *mat = pressure_mesh->FindMaterial(matid);
         // TODO change this. Look for matIDs in bcMatIds instead. Only cast in debug mode for further checks
 #ifdef PZDEBUG
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
@@ -1068,15 +1065,15 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
         if (largeSideExists && !largerNeigh) DebugStop();
 #endif
         if (largeSideExists) continue;
-        ComputeAverage(pressureHybrid, el);
+        ComputeAverage(pressure_mesh, el);
     }
     
     // Loads solution into the connects of the smaller skeletons
-    pressureHybrid->LoadSolution(pressureHybrid->Solution());
+    pressure_mesh->LoadSolution(pressure_mesh->Solution());
 
     // apply the restraints to the edge connects
     if (target_dim == dim - 2) {
-        pressureHybrid->LoadSolution(pressureHybrid->Solution());
+        pressure_mesh->LoadSolution(pressure_mesh->Solution());
         TransferEdgeSolution();
     }
     
@@ -1384,8 +1381,6 @@ void TPZHybridHDivErrorEstimator::NewComputeBoundaryL2Projection(
 void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel) {
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     int dim = gmesh->Dimension();
-    gmesh->ResetReference();
-    pressuremesh->LoadReferences();
     TPZCompEl *cel = pressuremesh->Element(iel);
     if (!cel) DebugStop();
     TPZGeoEl *gel = cel->Reference();
@@ -1692,6 +1687,11 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages() {
         if (gel->Dimension() != dim - 1) continue;
         gel->SetReference(cel);
     }
+
+    // We create a stack of TPZCompElSide to store skeleton nodes that are adjacent to hanging nodes, but their elements
+    // aren't part of the set of small skeletons. In these node connects, we don't calculate an average but, instead,
+    // impose the solution of the restrained neighbours.
+    TPZStack<TPZCompElSide> nodesToImposeSolution;
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressure_mesh->Element(el);
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
@@ -1710,13 +1710,69 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverages() {
         for (int side = 0; side < ncorners; side++) {
             TPZGeoElSide gelside(gel, side);
             TPZCompElSide celside(intel,side);
-            
+
+            if (IsAdjacentToHangingNode(celside)) {
+                nodesToImposeSolution.Push(celside);
+                continue;
+            }
+
             int64_t conindex = intel->ConnectIndex(side);
             TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
             if (!c.HasDependency()) {
                 ComputeNodalAverage(celside);
             }
         }
+    }
+
+    pressure_mesh->LoadSolution(pressure_mesh->Solution());
+
+    // Impose solution on nodes adjacent to hanging nodes
+    for (int64_t i = 0; i < nodesToImposeSolution.size(); i++) {
+        TPZCompElSide node_celside = nodesToImposeSolution[i];
+        TPZGeoElSide node_gelside(node_celside.Reference());
+
+        // celstack will contain all zero dimensional sides connected to the side
+        TPZStack<TPZCompElSide> celstack;
+        int onlyinterpolated = 1;
+        int removeduplicates = 0;
+
+        node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+
+        for (int elc = 0; elc < celstack.size(); elc++) {
+            TPZCompElSide neigh_celside = celstack[elc];
+            if (neigh_celside.Reference().Dimension() != 0) continue;
+
+            // Get solution of the neighbour
+            TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *>(neigh_celside.Element());
+            if (!neigh_intel) DebugStop();
+
+            int64_t neigh_conindex = neigh_intel->ConnectIndex(neigh_celside.Side());
+            TPZConnect &neigh_c = pressure_mesh->ConnectVec()[neigh_conindex];
+
+            int64_t neigh_seqnum = neigh_c.SequenceNumber();
+            int nstate = 1;
+            if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
+            TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
+            for (int istate = 0; istate < nstate; istate++) {
+                neigh_sol[istate] = pressure_mesh->Block().Get(neigh_seqnum, 0, istate, 0);
+            }
+
+            // Set solution to given connect
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(node_celside.Element());
+            if (!intel) DebugStop();
+
+            int side = node_gelside.Side();
+            int64_t conindex = intel->ConnectIndex(side);
+            TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+
+            int64_t seqnum = c.SequenceNumber();
+            if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+            for (int istate = 0; istate < nstate; istate++) {
+                pressure_mesh->Block()(seqnum, 0, istate, 0) = neigh_sol[istate];
+            }
+            break;
+        }
+        pressure_mesh->LoadSolution(pressure_mesh->Solution());
     }
 }
 
@@ -1741,73 +1797,6 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celsid
     int removeduplicates = 0;
 
     node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
-
-    // If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side and
-    // instead of calculating the average we should impose the solution of the other connects in it.
-    // *We are not sure if this logic will work for every case/ref. pattern, specially in 3D. So I'm leaving this
-    // disclaimer. (Gustavo Batistela, 14/10/2020)
-    bool allNodeConnectsHaveDependency = true;
-    for (int elc = 0; elc < celstack.size(); elc++) {
-        TPZCompElSide celside = celstack[elc];
-        TPZGeoElSide gelside = celside.Reference();
-        if (gelside.Element()->Dimension() != dim - 1) {
-            continue;
-        }
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
-        if (!intel) DebugStop();
-
-        int64_t conindex = intel->ConnectIndex(celside.Side());
-        TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
-        if (gelside.Dimension() == 0 && !c.HasDependency()) allNodeConnectsHaveDependency = false;
-    }
-   
-    // Impose solution of the first node connect in the celstack we can find
-    if (allNodeConnectsHaveDependency) {
-        for (int elc = 0; elc < celstack.size(); elc++) {
-            TPZCompElSide celside = celstack[elc];
-            if (celside.Reference().Dimension() != 0) continue;
-            
-            // Get solution of the neighbour
-            TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
-            if (!neigh_intel) DebugStop();
-
-            int64_t neigh_conindex = neigh_intel->ConnectIndex(celside.Side());
-            TPZConnect &neigh_c = pressure_mesh->ConnectVec()[neigh_conindex];
-
-            int64_t neigh_seqnum = neigh_c.SequenceNumber();
-            if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
-            TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
-            for (int istate = 0; istate < nstate; istate++) {
-                neigh_sol[istate] = pressure_mesh->Block().Get(neigh_seqnum, 0, istate, 0);
-            }
-
-            // Set solution to given connect
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(node_celside.Element());
-            if (!intel) DebugStop();
-
-            int64_t conindex = intel->ConnectIndex(side);
-            TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
-
-            int64_t seqnum = c.SequenceNumber();
-            if (c.NState() != nstate || c.NShape() != 1) DebugStop();
-            for (int istate = 0; istate < nstate; istate++) {
-                pressure_mesh->Block()(seqnum, 0, istate, 0) = neigh_sol[istate];
-            }
-            
-            // TODO remove this
-            {
-                TPZManVector<REAL, 3> xicenter(gel->Dimension(), 0.);
-                TPZManVector<REAL, 3> x_side(3, 0.);
-                gel->CenterPoint(side, xicenter);
-                gel->X(xicenter, x_side);
-                std::cout << __PRETTY_FUNCTION__ << "\nAll " << celstack.size() << " Connects Have Dependency!\nGel "
-                          << gel->Index() << ", Side " << side << " @ [" << x_side[0] << ", " << x_side[1] << ", "
-                          << x_side[2] << "]\n";
-            }
-            break;
-        }
-        return;
-    }
     celstack.Push(node_celside);
     
     // This map stores the connects, the weight associated with the element
@@ -1837,7 +1826,8 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celsid
 
         int64_t conindex = intel->ConnectIndex(celside.Side());
         if (connects.find(conindex) != connects.end()) {
-            DebugStop();
+            std::cout << conindex << std::endl;
+ //           DebugStop();
         }
         
         TPZConnect &c = intel->Connect(celside.Side());
@@ -2265,12 +2255,12 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         //fPostProcMesh.MeshVector()[1]->Print(out);
         //PlotLagrangeMultiplier(dirPath + "AfterBoundaryL2Projection");
         std::ofstream outCon(dirPath + "PressureConnectsAfterBoundaryL2Projection.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {-1, fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
     }
 #endif
 
     // Calculates average pressure on interface edges and vertices
-    if (fProblemConfig.makepressurecontinuous) {
+    if (!fPostProcesswithHDiv) {
         int dim = fPostProcMesh.Dimension();
         ComputeAveragePressures(dim - 1);
         // in three dimensions make the one-d polynoms compatible
@@ -2286,11 +2276,11 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         //fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier(dirPath + "AfterAverage");
         std::ofstream outCon(dirPath + "PressureConnectsAfterAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {-1, fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
     }
 #endif
 
-    if(fProblemConfig.makepressurecontinuous)
+    if(!fPostProcesswithHDiv)
     {
         ComputeNodalAverages();
     }
@@ -2317,7 +2307,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         std::ofstream outCon(dirPath + "PressureConnectsAfterCopyFromSkeleton.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
         std::ofstream outMult(dirPath + "MultiphysicsConnectsAfterCopyFromSkeleton.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMult, {}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMult, {-1, 1}, false, true);
     }
 #endif
 
@@ -2334,15 +2324,14 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMeshes.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMeshes.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
         }
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
         {
             std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMeshes.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMeshes.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, std::cout);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
         }
     }
 
@@ -2358,18 +2347,17 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         meshvec[1] = fPostProcMesh.MeshVector()[1];
         
         {
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, std::cout);
             std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMult.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
         }
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
         {
             std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
         }
 
 #ifdef PZDEBUG
@@ -2402,21 +2390,22 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
     
     TPZCompMesh *pressure = nullptr;
 
+    TPZStack<std::string> scalnames, vecnames;
+
     if (!reconstructed) {
         pressure = fOriginal->MeshVector()[1];
+        scalnames.Push("Pressure");
     } else {
         pressure = PressureMesh();
+        scalnames.Push("State");
     }
+
+    TPZAnalysis an(pressure, false);
 
     std::ofstream out2("PressuretoStateGraph.txt");
     pressure->Print(out2);
     
     {
-        TPZAnalysis an(pressure, false);
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("State");
-        scalnames.Push("Pressure");
-
         int dim = pressure->Reference()->Dimension() - 1;
         std::string plotname;
         {
@@ -2554,6 +2543,7 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
             if(mixpoisson)
             {
                 TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
+                newmat->SetNeumannProblem(false);
                 
                 if (mixpoisson->HasForcingFunction()) {
                     newmat->SetForcingFunctionExact(mixpoisson->ForcingFunctionExact());
@@ -3118,4 +3108,44 @@ void TPZHybridHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_me
         pressure_mesh->Print(out);
     }
 #endif
+}
+
+// If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side and
+// instead of calculating the average we should impose the solution of the other connects in it.
+// * Although it seems to work for now, we are not sure if this logic will work for every case/ref. pattern,
+// specially in 3D. So I'm leaving this disclaimer. (Gustavo Batistela, 14/10/2020)
+// TODO I just realized this logic has flaws. Imagine the case where you two squares, a left and a right one.
+//  Assume we refine only the right square, but instead of diving it uniformly, we divide (by 2) only the edge that
+//  touches the left square, resulting in 3 triangles. We now have two edges which aren't restrained.
+//  Thus, I think that we shouldn't check if 'all' connected nodes are restrained, but if 'n' connects are restained,
+//  where 'n' is the number of elements by which the larger (father) edge side is divided.
+bool TPZHybridHDivErrorEstimator::IsAdjacentToHangingNode(const TPZCompElSide &celside) {
+
+    TPZCompMesh *pressure_mesh = PressureMesh();
+    int dim = pressure_mesh->Dimension();
+    TPZGeoElSide gelside(celside.Reference());
+
+    // celstack will contain all zero dimensional sides connected to the side
+    TPZStack<TPZCompElSide> celstack;
+    int onlyinterpolated = 1;
+    int removeduplicates = 0;
+
+    gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+
+    bool allConnectedNodesAreRestrained = true;
+    for (int elc = 0; elc < celstack.size(); elc++) {
+        TPZCompElSide neigh_celside = celstack[elc];
+        TPZGeoElSide neigh_gelside = neigh_celside.Reference();
+        if (neigh_gelside.Element()->Dimension() != dim - 1) {
+            continue;
+        }
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(neigh_celside.Element());
+        if (!intel) DebugStop();
+
+        int64_t conindex = intel->ConnectIndex(neigh_celside.Side());
+        TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+        if (neigh_gelside.Dimension() == 0 && !c.HasDependency()) allConnectedNodesAreRestrained = false;
+    }
+
+    return allConnectedNodesAreRestrained;
 }

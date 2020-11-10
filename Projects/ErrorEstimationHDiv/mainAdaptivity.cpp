@@ -170,9 +170,9 @@ else
         {
             TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
             HDivEstimate.fProblemConfig = config;
-            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+            HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
             HDivEstimate.SetAnalyticSolution(config.exact);
-            HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+            HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
             HDivEstimate.fPostProcesswithHDiv = postProcessWithHDiv;
         
             HDivEstimate.PotentialReconstruction();

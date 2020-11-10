@@ -103,13 +103,12 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, TPZHybridizeHDiv &hybrid) {
 
-    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-    HDivEstimate.SetHybridizer(hybrid);
-    HDivEstimate.fProblemConfig = config;
-    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
-    HDivEstimate.SetAnalyticSolution(config.exact);
+    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, true, false);
+    //HDivEstimate.SetHybridizer(hybrid);
+    HDivEstimate.SetProblemConfig(config);
 
-    HDivEstimate.fPostProcesswithHDiv = false;
+    HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
+    HDivEstimate.SetAnalyticSolution(config.exact);
 
     HDivEstimate.PotentialReconstruction();
 
@@ -139,18 +138,19 @@ void RunHPQuadProblemHDiv() {
     config.problemname = "ESinSin";
     config.dir_name = "HP-ESinSin";
     config.porder = 1;
-    config.hdivmais = 3;
+    config.hdivmais = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nElem = 2;
+    int nElem = 3;
     config.ndivisions = nElem;
 
     TPZManVector<int, 4> bcIDs(4, -1);
     config.gmesh = Tools::CreateGeoMesh(nElem, bcIDs);
 
-    Tools::RefineElements(config.gmesh, {1, 3});
+    //Tools::RefineElements(config.gmesh, {1, 3});
+    //Tools::RefineElements(config.gmesh, {12});
 
     string command = "mkdir " + config.dir_name;
     system(command.c_str());
