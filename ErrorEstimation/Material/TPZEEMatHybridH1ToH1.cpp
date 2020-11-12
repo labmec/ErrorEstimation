@@ -39,6 +39,26 @@ TPZEEMatHybridH1ToH1 &TPZEEMatHybridH1ToH1::operator=(const TPZEEMatHybridH1ToH1
     return *this;
 }
 
+int TPZEEMatHybridH1ToH1::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const{
+    int order = 0;
+    if (fForcingFunction) {
+        order = fForcingFunction->PolynomialOrder();
+    }
+
+    int pmax = 0;
+    for (int ip = 0; ip < elPMaxOrder.size(); ip++) {
+        if (elPMaxOrder[ip] > pmax) pmax = elPMaxOrder[ip];
+    }
+    pmax += 1; // HDiv simulations use an additional integration order. In order to test if HybridH1 and HDiv are equivalents, both integration orders shall be equivalent.
+
+    int integrationorder = 2 * pmax;
+    if (pmax < order) {
+        integrationorder = order + pmax;
+    }
+
+    return integrationorder;
+}
+
 int TPZEEMatHybridH1ToH1::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec){
 
     int nvec = datavec.NElements();
@@ -84,20 +104,22 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
     TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix; //(2xnphiuk)
     TPZFNMatrix<9,REAL> dphiuk(2,dphiukaxes.Cols());
     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes); //(3xnphiuk)
-    TPZFNMatrix<15, STATE> &dsol = datavec[H1functionposition].dsol[0];
+    TPZFNMatrix<15, STATE> &dsolaxes = datavec[H1functionposition].dsol[0];
+    TPZFNMatrix<9,REAL> dsol(2,dphiukaxes.Cols());
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
 
     int nphiuk = phiuk.Rows();
-
-    phiuk.Print(std::cout);
-    dphiukaxes.Print(std::cout);
-    dphiuk.Print(std::cout);
-    dsol.Print(std::cout);
-
 
     TPZFMatrix<STATE> gradSol(dim,1),kGradSol(dim,1),solukfem(1,1);
     gradSol.Zero();
     solukfem.Zero();
     kGradSol.Zero();
+
+    TPZVec<STATE> divsigma(1); divsigma[0] = 0;
+
+    if(this->fForcingFunction){
+        this->fForcingFunction->Execute(datavec[H1functionposition].x,divsigma);
+    }
 
     //potetial fem
     solukfem(0,0) = datavec[3].sol[0][0];
@@ -128,8 +150,9 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
             }
             //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
 
-            ef(irow,0)+=weight*dphiuk(id,irow)*kGradSol(id,0);
+            //ef(irow,0)+=weight*dphiuk(id,irow)*kGradSol(id,0);
         }
+        ef(irow,0)+= weight*phiuk(irow,0)*divsigma[0];
 
         //matrix Sk= int_{K} K graduk.gradv
         for(int jcol=0; jcol<nphiuk;jcol++){
@@ -138,13 +161,6 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
             {
                 ek(irow,jcol) +=weight*kgraduk(jd,irow)*dphiuk(jd,jcol);
             }
-
-        }
-        //Ck=int_{K} phi_i e Ck^t
-        if(fNeumannLocalProblem){
-
-            ek(irow,nphiuk)+= weight*phiuk(irow,0);
-            ek(nphiuk,irow)+= weight*phiuk(irow,0);
 
         }
     }

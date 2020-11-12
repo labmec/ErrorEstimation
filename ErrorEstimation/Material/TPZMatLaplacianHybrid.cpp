@@ -85,6 +85,28 @@ int TPZMatLaplacianHybrid::NSolutionVariables(int var){
     }
 }
 
+int TPZMatLaplacianHybrid::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const{
+    int order = 0;
+    if (fForcingFunction) {
+        order = fForcingFunction->PolynomialOrder();
+    }
+
+    int pmax = 0;
+    for (int ip = 0; ip < elPMaxOrder.size(); ip++) {
+        if (elPMaxOrder[ip] > pmax) pmax = elPMaxOrder[ip];
+    }
+    pmax += 1; // HDiv simulations use an additional integration order. In order to test if HybridH1 and HDiv are equivalents, both integration orders shall be equivalent.
+
+    int integrationorder = 2 * pmax;
+    if (pmax < order) {
+        integrationorder = order + pmax;
+    }
+
+    return integrationorder;
+}
+
+
+
 
 void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
@@ -142,11 +164,12 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
             }
         }
     }
+    // u_average and g contributions
     for (int in =0; in < phr; in++) {
-        ek(phr,in) += weight*phi(in,0);//lambda*phi
+        ek(phr,in) += weight*phi(in,0);
         ek(in,phr) += weight*phi(in,0);
     }
-    //equacoes de restricao de pressao media
+
     ek(phr,phr+1) -= weight;
     ek(phr+1,phr) -= weight;
     

@@ -42,7 +42,10 @@ public:
 
     virtual void UpdateBCValues(TPZVec<TPZMaterialData> &datavec);
 
-
+    /** @brief Gets the order of the integration rule necessary to integrate an element with polinomial order p */
+    ///  HDiv simulations use an additional integration order.
+    ///  In order to test if HybridH1 and HDiv are equivalents, both integration orders shall be equivalent.
+    virtual int IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const override;
 
 
     bool fNeumannLocalProblem = true;

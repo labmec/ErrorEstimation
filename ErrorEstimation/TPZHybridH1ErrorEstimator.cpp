@@ -274,8 +274,8 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
         
         std::stringstream out;
         out << fProblemConfig.dir_name << "/" << fProblemConfig.problemname
-        << "_POrder" << fProblemConfig.porder << "_HybrdiSquared_"
-        << fProblemConfig.hdivmais;
+        << "_POrder" << fProblemConfig.porder << "_HybrdidH1_"
+        << fProblemConfig.H1Hybridminus;
         if (fProblemConfig.ndivisions != -1) {
             out << "_Ndiv_" << fProblemConfig.ndivisions;
         }
@@ -295,7 +295,7 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 {
-    return fOriginal->MeshVector()[0]->Clone();
+    return 0;//fOriginal->MeshVector()[0]->Clone();
 }
 // a method for creating the pressure mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
@@ -555,7 +555,7 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
 
     TPZManVector<int> active(4, 0);
     active[1] = 1;
-    active[0] = 1;
+    active[0] = 0;
     
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     {
@@ -2527,7 +2527,7 @@ void TPZHybridH1ErrorEstimator::CreateReconstructionSpaces() {
 #endif
 
     PotentialReconstruction();
-    FluxReconstruction();
+    //FluxReconstruction();
 
 };
 
@@ -2749,7 +2749,8 @@ void TPZHybridH1ErrorEstimator::PlotLagrangeMultiplier(const std::string &filena
             out << filename << ".vtk";
             plotname = out.str();
         }
-        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+        std::set<int> matids ={fPressureSkeletonMatId};
+        an.DefineGraphMesh(dim,matids, scalnames, vecnames, plotname);
         an.PostProcess(2, dim);
     }
 }
