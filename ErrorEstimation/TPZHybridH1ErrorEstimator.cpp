@@ -50,8 +50,6 @@
 
 #include "TPZHDivErrorEstimateMaterial.h"
 
-/// "VO" comments represents aspects I (Victor Oliari) must check. These shall be deleted before release.
-
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
 #endif

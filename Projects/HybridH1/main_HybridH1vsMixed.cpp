@@ -66,17 +66,17 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode = 4;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
-    bool last = false, post_proc = true;
+    bool last = true, post_proc = true;
     int exp = 2; // Initial exponent of mesh refinement (numElem = 2*2^exp)
 };
 ////Insert materials
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config,ErrorData &eData);
-void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config);
+void BuildFluxMesh(TPZCompMesh *cmesh_flux,ErrorData &eData, ProblemConfig &config);
 void BuildFluxMesh_MultiK(TPZCompMesh *cmesh_flux, ProblemConfig &config);
-void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config);
+void BuildPotentialMesh(TPZCompMesh *cmesh_p, ErrorData &eData, ProblemConfig &config);
 void BuildPotentialMesh_MultiK(TPZCompMesh *cmesh_p, ProblemConfig &config);
 void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig config,ErrorData &eData);
 void SetMultiPermeMaterials(TPZGeoMesh* gmesh);
@@ -86,6 +86,8 @@ TPZGeoMesh* CreateGeoMesh_OriginCentered(int nel, TPZVec<int>& bcids);
 ////Computational mesh and FEM solvers
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId, int &fluxMatID, ErrorData &eData, ProblemConfig &config,int hybridLevel);
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorData &eData, ProblemConfig &config);
+void CreateMixedAtomicMehes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, ProblemConfig &config);
+void InsertNullSpaceMaterialIds(TPZCompMesh *nullspace, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig config, struct ErrorData &eData,int hybridLevel);
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct ErrorData &eData);
@@ -107,10 +109,11 @@ void EvaluateEntry(int argc, char *argv[],ErrorData &eData);
 void InitializeOutstream(ErrorData &eData,char *argv[]);
 void IsInteger(char *argv);
 
+
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 5;         // Potential and internal flux order
-    config.hdivmais = 2;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 2;  // p_order - H1HybridMinus = Flux order
+    config.porder = 4;         // Potential and internal flux order
+    config.hdivmais =  3;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = 3;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -243,6 +246,10 @@ int main(int argc, char *argv[]) {
             clock_t start = clock();
             CreateMixedComputationalMesh(cmesh_mixed, eData, config);
             SolveMixedProblem(cmesh_mixed, config, eData);
+            {
+                std::ofstream outMixed(eData.plotfile + "/MixedMesh2.txt");
+                cmesh_mixed->Print(outMixed);
+            }
             TPZHybridHDivErrorEstimator test(*cmesh_mixed);
             test.SetAnalyticSolution(config.exact);
             //std::set<int> bcmatID;
@@ -515,27 +522,81 @@ void FlushTime(ErrorData &eData, clock_t start){
     eData.timer.flush();
 }
 
-void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorData &eData, ProblemConfig &config){
-
-    int matID = 1;
-    int dim = config.gmesh->Dimension();
-
+void CreateMixedAtomicMehes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, ProblemConfig &config){
     //Flux mesh creation
     TPZCompMesh *cmesh_flux = new TPZCompMesh(config.gmesh);
-    BuildFluxMesh(cmesh_flux, config);
+    BuildFluxMesh(cmesh_flux, eData, config);
+    {
+        /*int64_t nelem = cmesh_flux->NElements();
+        for (int64_t el = 0; el<nelem; el++) {
+            TPZCompEl *cel = cmesh_flux->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            int nconnects = cel->NConnects();
+            cel->Connect(0).SetLagrangeMultiplier(3);
+            for (int ic=1; ic<nconnects; ic++) {
+                cel->Connect(ic).SetLagrangeMultiplier(1);
+            }
+        }*/
+    }
 
     //Potential mesh creation
     TPZCompMesh *cmesh_p = new TPZCompMesh(config.gmesh);
-    BuildPotentialMesh(cmesh_p, config);
+    BuildPotentialMesh(cmesh_p,eData, config);
+    {
+        int64_t nconnects = cmesh_p->NConnects();
+        for (int ic=0; ic<nconnects; ic++) {
+            cmesh_p->ConnectVec()[ic].SetLagrangeMultiplier(1);
+        }
+    }
 
-    //Multiphysics mesh build
+
+    /*TPZCompMesh *gspace = new TPZCompMesh(config.gmesh);
+    {
+        InsertNullSpaceMaterialIds(gspace,config);
+        gspace->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
+        gspace->SetDefaultOrder(0);//sao espacos de pressao media
+        gspace->AutoBuild();
+        int64_t nconnects = gspace->NConnects();
+        for (int ic = 0; ic<nconnects; ic++) {
+            gspace->ConnectVec()[ic].SetLagrangeMultiplier(2);
+        }
+    }
+    TPZCompMesh *average = new TPZCompMesh(config.gmesh);
+    {
+        InsertNullSpaceMaterialIds(average,config);
+        average->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
+        average->SetDefaultOrder(0);
+        average->AutoBuild();
+        int64_t nconnects = average->NConnects();
+        for (int ic = 0; ic<nconnects; ic++) {
+            average->ConnectVec()[ic].SetLagrangeMultiplier(5);
+        }
+    }*/
+
+    meshvec[0] = cmesh_flux;
+    meshvec[1] = cmesh_p;
+    //meshvec[2] = gspace;
+    //meshvec[3] = average;
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvec[0], config.hdivmais); //Increases internal flux order by "hdivmais"
+    TPZCompMeshTools::SetPressureOrders(meshvec[0], meshvec[1]);//Set the pressure order the same as the internal flux
+}
+
+void InsertNullSpaceMaterialIds(TPZCompMesh *nullspace, ProblemConfig &config)
+{
+    for (auto matid:config.materialids) {
+        TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+        nullmat->SetDimension(config.gmesh->Dimension());
+        nullmat->SetNStateVariables(1);
+        nullspace->InsertMaterialObject(nullmat);
+    }
+}
+
+void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorData &eData, ProblemConfig &config){
     InsertMaterialMixed(cmesh_Mixed, config,eData);
-    TPZManVector<int> active(2, 1);
     TPZManVector<TPZCompMesh *, 2> meshvector(2);
-    meshvector[0] = cmesh_flux;
-    meshvector[1] = cmesh_p;
-    TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvector[0], config.hdivmais); //Increases internal flux order by "hdivmais"
-    TPZCompMeshTools::SetPressureOrders(meshvector[0], meshvector[1]);//Set the pressure order the same as the internal flux
+    CreateMixedAtomicMehes(meshvector,eData, config);
+
+    TPZManVector<int> active(2, 1);
 
     cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
     bool keeponelagrangian = true, keepmatrix = false;
@@ -672,7 +733,7 @@ void InitializeOutstream(ErrorData &eData, char *argv[]){
     eData.timer.open(timer_name, std::ofstream::app);
 }
 
-void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config){
+void BuildFluxMesh(TPZCompMesh *cmesh_flux, ErrorData &eData, ProblemConfig &config){
 
     int dim = config.gmesh->Dimension();
     int matID = 1;
@@ -700,7 +761,7 @@ void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config){
     cmesh_flux->InsertMaterialObject(BCond1);
 
     //This part is for multi-K problemas
-    BuildFluxMesh_MultiK(cmesh_flux,config);
+    if(eData.isMultiK) BuildFluxMesh_MultiK(cmesh_flux,config);
 
     cmesh_flux->AutoBuild();
     cmesh_flux->InitializeBlock();
@@ -737,7 +798,7 @@ void BuildFluxMesh_MultiK(TPZCompMesh *cmesh_flux, ProblemConfig &config) {
 }
 
 
-void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
+void BuildPotentialMesh(TPZCompMesh *cmesh_p, ErrorData &eData, ProblemConfig &config){
     int matID = 1;
     int dim = config.gmesh->Dimension();
 
@@ -751,15 +812,10 @@ void BuildPotentialMesh(TPZCompMesh *cmesh_p, ProblemConfig &config){
     TPZNullMaterial *material = new TPZNullMaterial(matID); material->SetDimension(dim);
     cmesh_p->InsertMaterialObject(material);
 
-    BuildPotentialMesh_MultiK(cmesh_p, config);
+    if(eData.isMultiK) BuildPotentialMesh_MultiK(cmesh_p, config);
 
     cmesh_p->AutoBuild();
     cmesh_p->ExpandSolution();
-
-    TPZAdmChunkVector<TPZConnect> &nodeIt = cmesh_p->ConnectVec();
-    for(auto &nodo : nodeIt){
-        nodo.SetLagrangeMultiplier(1);
-    }
 }
 
 void BuildPotentialMesh_MultiK(TPZCompMesh *cmesh_p, ProblemConfig &config){
@@ -1018,7 +1074,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     //MKL solver
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(cmesh_Mixed);
-    strmat.SetNumThreads(8);
+    strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
     //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
