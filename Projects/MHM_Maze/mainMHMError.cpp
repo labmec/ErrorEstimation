@@ -60,7 +60,7 @@
 
 #include "TPZVTKGeoMesh.h"
 #include "pzvisualmatrix.h"
-#include "pzgengrid.h"
+#include "TPZGenGrid2D.h"
 #include "TPZExtendGridDimension.h"
 #include "pzcheckgeom.h"
 
@@ -70,7 +70,7 @@
 
 #include "TPZMHMixedHybridMeshControl.h"
 #include "TPZHybridizeHDiv.h"
-#include "meshgen.h"
+//#include "meshgen.h"
 #include "ConfigCasesMaze.h"
 #include <iostream>
 #include <string>
@@ -81,6 +81,8 @@
 
 #include "TPZPersistenceManager.h"
 
+#include "../Tools/ToolsMHM.h"
+#include "../Tools/meshgen.h"
 #include "TPZMHMHDivErrorEstimator.h"
 
 #define new_identifier
@@ -572,8 +574,8 @@ TPZGeoMesh *GeoMeshFromPng(string name, int &mesh_size_x, int &mesh_size_y){
     x1[2] = 0.;
     TPZManVector<int,2> nelx(2,mesh_size_y);
     nelx[0] = mesh_size_x;
-    TPZGenGrid gengrid(nelx,x0,x1);
-    gengrid.SetElementType(EQuadrilateral);
+    TPZGenGrid2D gengrid(nelx,x0,x1);
+    gengrid.SetElementType(MMeshType::EQuadrilateral);
     TPZGeoMesh *gmesh = new TPZGeoMesh;
     gmesh->SetDimension(2);
     gengrid.Read(gmesh);
@@ -865,7 +867,7 @@ int MHMTest(ConfigCasesMaze Conf){
     TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     if(!InputMesh) DebugStop();
     TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
-    ErrorEstimator.fOriginalIsHybridized = false;
+    //ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.PotentialReconstruction();
     
     return 0;
@@ -961,8 +963,8 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     x1[2] = 0.;
     TPZManVector<int,2> nelx(2,ny);
     nelx[0] = nx;
-    TPZGenGrid gengrid(nelx,x0,x1);
-    gengrid.SetElementType(EQuadrilateral);
+    TPZGenGrid2D gengrid(nelx,x0,x1);
+    gengrid.SetElementType(MMeshType::EQuadrilateral);
     TPZGeoMesh *gmeshcoarse = new TPZGeoMesh;
     gmeshcoarse->SetDimension(2);
     gengrid.SetRefpatternElements(true);

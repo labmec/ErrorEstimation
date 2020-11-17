@@ -6,10 +6,11 @@
 #ifndef ConfigCasesMaze_H
 #define ConfigCasesMaze_H
 
-#include <iostream>
+#include "TPZMatLaplacian.h"
 #include "pzdiscgal.h"
 #include "pzfmatrix.h"
-#include "TPZMatLaplacian.h"
+#include <Pre/TPZAnalyticSolution.h>
+#include <iostream>
 #include <string>
 
 class ConfigCasesMaze {
@@ -24,12 +25,17 @@ private:
     double CCpressureOut = 10;
     bool MhmOpenChannel = false;
     std::string VTKName = "Salida.vtk";
-    
+    TPZAutoPointer<TLaplaceExample1> exact;
+
 public:
     void SetImageName( std::string name){
         ImageName=name;
     }
-    
+
+    void SetExactSolution(TLaplaceExample1 * exact_sol){
+        exact = exact_sol;
+    }
+
     void SetImperviousMatPermeability(double perm){
         ImperviousPermeability=perm;
     }
@@ -85,8 +91,11 @@ public:
     std::string GetVTKName(){
        return VTKName;
     }
-    
-    
+
+    TPZAutoPointer<TLaplaceExample1> GetExactSolution(){
+        return exact;
+    }
+
 };
 
 

@@ -60,7 +60,7 @@
 
 #include "TPZVTKGeoMesh.h"
 #include "pzvisualmatrix.h"
-#include "pzgengrid.h"
+#include "TPZGenGrid2D.h"
 #include "TPZExtendGridDimension.h"
 #include "pzcheckgeom.h"
 
@@ -70,18 +70,18 @@
 
 #include "TPZMHMixedHybridMeshControl.h"
 #include "TPZHybridizeHDiv.h"
-#include "meshgen.h"
+//#include "meshgen.h"
 #include "ConfigCasesMaze.h"
-#include <iostream>
-#include <string>
-#include <opencv2/opencv.hpp>
-#include <math.h>
-#include <set>
 #include "pzsolve.h"
+#include <ToolsMHM.h>
+#include <iostream>
+#include <math.h>
+#include <meshgen.h>
+#include <opencv2/opencv.hpp>
+#include <set>
+#include <string>
 
 #include "TPZPersistenceManager.h"
-
-#define new_identifier
 
 
 using namespace std;
@@ -105,11 +105,6 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h);
 // Create a geometric mesh with the given parameters, nx and ny are the coarse elements number. The total number of elements are defined by the image read.
 TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny);
 
-// Create a geoElSide map to be open because it has flux.
-// cmesh is the flux mesh obtained from a Hdiv previus simulation.
-std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel (TPZCompMesh *cmesh);
-
-
 // Compute the geometric mesh coarse indices
 void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices);
 
@@ -132,7 +127,7 @@ int main(){
     InitializePZLOG();
     
     ConfigCasesMaze ConfCasesMeze;
-    ConfCasesMeze.SetImageName("../Mazes/maze8x8.png");
+    ConfCasesMeze.SetImageName("Mazes/maze8x8.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);
     ConfCasesMeze.SetPermeableMatPermeability(1000000);
     ConfCasesMeze.SetFluxOrder(1);
@@ -397,76 +392,6 @@ TPZCompMesh *CMeshH1(TPZGeoMesh *gmesh, int p_order, ConfigCasesMaze Conf){
     return cmesh;
 }
 
-TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
-    
-    int impervious_mat = 1;
-    int permeable_mat = 2;
-    int dim = gmesh->Dimension();
-    
-  
-    
-    REAL conv=0;
-    TPZVec<REAL> convdir(dim,0.0);
-    
-    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
-    cmesh->SetDimModel(dim);
-    cmesh->SetDefaultOrder(pOrder); //Default polynomial order of the approximation
-    
-    //Definition of the approximation space:
-    
-    TPZVecL2 *mat_0 = new TPZVecL2(impervious_mat);
-    TPZVecL2 *mat_1 = new TPZVecL2(permeable_mat);
-    
-    //  inserting volumetric materials objects
-    cmesh->InsertMaterialObject(mat_0);
-    cmesh->InsertMaterialObject(mat_1);
-   
-    cmesh->SetAllCreateFunctionsHDiv(); //Creating H(div) functions
-    
-    
-    int type_D = 0;
-    int type_N = 1;
-    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
-    
-    // Insert boundary conditions
-    //Neumann boundary conditions (flux = 0)
-    int right_bc_id = -2;
-    TPZMaterial * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(right_bc);
-    
-    int left_bc_id = -4;
-    TPZMaterial * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(left_bc);
-    
-    int bottom_bc_1id = -1;
-    TPZMaterial * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(bottom_bc_1);
-    
-    int top_bc_1id = -3;
-    TPZMaterial * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(top_bc_1);
-    
-    
-    //Dirichlet Conditions (p=1 in, p=0 out)
-    int bottom_bc_id = -5;
-    TPZMaterial * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
-    cmesh->InsertMaterialObject(bottom_bc);
-    
-    int top_bc_id = -6;
-    TPZMaterial * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
-    cmesh->InsertMaterialObject(top_bc);
-    
-    cmesh->SetName("LaberintoTest");
-    cmesh->AutoBuild();
-    
-#ifdef PZDEBUG
-    std::ofstream file("cmesh_flux.txt");
-    cmesh->Print(file);
-#endif
-    
-    return cmesh;
-    
-}
 TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf){
     
     int impervious_mat = 1;
@@ -559,8 +484,8 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     x1[2] = 0.;
     TPZManVector<int,2> nelx(2,py);
     nelx[0] = px;
-    TPZGenGrid gengrid(nelx,x0,x1);
-    gengrid.SetElementType(EQuadrilateral);
+    TPZGenGrid2D gengrid(nelx,x0,x1);
+    gengrid.SetElementType(MMeshType::EQuadrilateral);
     TPZGeoMesh *gmesh = new TPZGeoMesh;
     gmesh->SetDimension(2);
     gengrid.Read(gmesh);
@@ -698,7 +623,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
 int MHMTest(ConfigCasesMaze Conf){
     
     TRunConfig Configuration;
-  
+
     TPZGeoMesh *gmeshcoarse =GenerateGeoMesh(Conf.GetImageName(), 2, 2);
 //    std::ofstream file("mesh4x4.vtk");
 //    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
@@ -822,7 +747,7 @@ int MHMTest(ConfigCasesMaze Conf){
     
 //    std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
     
-    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), 0,  Conf.GetVTKName(), Configuration);
+    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
     
     
     return 0;
@@ -882,24 +807,6 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     
 }
 
-// compute the coarse indices of the geometric mesh
-void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
-{
-//    {
-//        std::ofstream out("gmeshref.txt");
-//        gmesh->Print(out);
-//    }
-    coarseindices.Resize(gmesh->NElements());
-    int count = 0;
-    for (int64_t el=0; el<gmesh->NElements(); el++) {
-        TPZGeoEl *gel = gmesh->Element(el);
-        if(!gel || gel->Dimension() != gmesh->Dimension()) continue;
-        if(gel->Father()) continue;
-        coarseindices[count] = el;
-        count++;
-    }
-    coarseindices.Resize(count);
-}
 TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     
     double l;
@@ -918,8 +825,8 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     x1[2] = 0.;
     TPZManVector<int,2> nelx(2,ny);
     nelx[0] = nx;
-    TPZGenGrid gengrid(nelx,x0,x1);
-    gengrid.SetElementType(EQuadrilateral);
+    TPZGenGrid2D gengrid(nelx,x0,x1);
+    gengrid.SetElementType(MMeshType::EQuadrilateral);
     TPZGeoMesh *gmeshcoarse = new TPZGeoMesh;
     gmeshcoarse->SetDimension(2);
         gengrid.SetRefpatternElements(true);
@@ -1004,114 +911,4 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, out2, true);
     
     return gmeshcoarse;
-};
-
-std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel (TPZCompMesh *cmesh){
-    
-    int nelements = cmesh->NElements();
-    TPZGeoElSide first_gelside;
-    for(int iel=0; iel<=nelements; iel++){
-        TPZCompEl *cel = cmesh->Element(iel);
-        if(!cel){continue;}
-        TPZGeoEl *gel = cel->Reference();
-        TPZGeoElSide gelside(gel,4);
-        TPZGeoEl *neig = gelside.Neighbour().Element();
-        if(neig->MaterialId()==-5){
-            first_gelside.SetElement(gel);
-            first_gelside.SetSide(4);
-            break;
-        }
-    }
-    
-    int count=0;
-    int count_chain=0;
-    double Flux_Max = 0.0;
-    std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> chain;
-    bool exit=false;
-    
-    while(exit==false){
-            
-        TPZGeoElSide exit_test = first_gelside;
-        exit_test.SetSide(6);
-        TPZGeoElSide candidate_exist =exit_test.Neighbour();
-        if(candidate_exist.Element()->MaterialId()==-6){
-            std::cout<<"Cadena encontrada con exito";
-            exit = true;
-            break;
-        }
-        
-        
-//    while(candidate.Element()->Dimension()!=2){
-//
-//            candidate=candidate.Neighbour();
-//
-//    }
-    int side_in = first_gelside.Side();
-    for(int ican=4; ican<8; ican++){
-        first_gelside.SetSide(ican);
-        TPZGeoElSide candidate = first_gelside.Neighbour();
-        while(candidate.Element()->Dimension()!=2){
-           
-            candidate=candidate.Neighbour();
-        }
-        if(side_in == ican ){continue;}
-        
-        //calcula los 3 geoelement side y el fluxo
-        TPZVec<REAL> qsi(2);
-        qsi[0]=0;
-        qsi[1]=0;
-        int var=31;
-        TPZVec<STATE> sol;
-        TPZCompEl *cel = candidate.Element()->Reference();
-        cel->Solution(qsi, var,sol);
-        double Flux_can_Mag = sqrt(sol[0]*sol[0] + sol[1]*sol[1]);
-      
-        if(Flux_can_Mag > Flux_Max){
-            Flux_Max =Flux_can_Mag;
-            first_gelside.SetSide(ican);
-            chain[count].first= first_gelside;
-            chain[count].second =candidate;
-        }
-    }
-            Flux_Max=0.0;
-            first_gelside =chain[count].second;
-            count++;
-}
-    
-    //here
-    
-        cmesh->LoadReferences();
-        TPZGeoMesh *gmesh =cmesh->Reference();
-        for(auto it:gmesh->ElementVec()){
-            int father_index = it->FatherIndex();
-            int element = it->Index();
-            std::cout<<"Element: "<<element<<" father: "<<father_index<<std::endl;
-    
-        }
-    
-    
-        int n_el_chain = chain.size();
-        std::map<int,pair<TPZGeoElSide, TPZGeoElSide>> skelchanel;
-        int count_skel_chanel=0;
-        int matId_skel_chanel = 10;
-        count =0;
-        for(auto it : chain){
-            TPZGeoEl *first_element = it.second.first.Element();
-            TPZGeoEl *second_element = it.second.second.Element();
-    
-            int first_father_index = first_element->LowestFather()->Index();
-            int second_father_index = second_element->LowestFather()->Index();
-
-            if(first_father_index!=second_father_index){
-                TPZGeoElBC(it.second.first, matId_skel_chanel);
-                skelchanel[count_skel_chanel] = it.second;
-                count_skel_chanel++;
-            }
-    
-        }
-        std::ofstream out("TestMesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, true);
-    
-        return skelchanel;
-    
 }
