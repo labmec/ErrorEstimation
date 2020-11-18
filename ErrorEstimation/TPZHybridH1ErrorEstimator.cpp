@@ -2559,6 +2559,10 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
         fPostProcMesh.Print(out);
         ofstream out2(dirPath + "SolBeforeLoadSolution.nb");
         fPostProcMesh.Solution().Print("SolBeforeLoadSolution=",out2,EMathematicaInput);
+        ofstream out3(dirPath + "PressureWithAverage.txt");
+        ofstream out4(dirPath + "OriginalPressure.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out3, {1,2,3}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fOriginal->MeshVector()[1], out3, {1,2,3}, false, true);
     }
 #endif
     

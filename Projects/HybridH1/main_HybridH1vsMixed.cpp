@@ -86,7 +86,8 @@ TPZGeoMesh* CreateGeoMesh_OriginCentered(int nel, TPZVec<int>& bcids);
 ////Computational mesh and FEM solvers
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId, int &fluxMatID, ErrorData &eData, ProblemConfig &config,int hybridLevel);
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,ErrorData &eData, ProblemConfig &config);
-void CreateMixedAtomicMehes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, ProblemConfig &config);
+void CreateMixedAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, ProblemConfig &config);
+void CreateCondensedMixedElements(TPZMultiphysicsCompMesh *cmesh_Mixed);
 void InsertNullSpaceMaterialIds(TPZCompMesh *nullspace, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct ErrorData &eData);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig config, struct ErrorData &eData,int hybridLevel);
@@ -247,8 +248,11 @@ int main(int argc, char *argv[]) {
             CreateMixedComputationalMesh(cmesh_mixed, eData, config);
             SolveMixedProblem(cmesh_mixed, config, eData);
             {
+                std::cout << cmesh_mixed->NEquations() << "\n\n";
                 std::ofstream outMixed(eData.plotfile + "/MixedMesh2.txt");
                 cmesh_mixed->Print(outMixed);
+                std::ofstream outMixedPerGeo(eData.plotfile + "/MixedperGeo.txt");
+                TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh_mixed->MeshVector()[0], outMixedPerGeo, {1,2,3}, false, true);
             }
             TPZHybridHDivErrorEstimator test(*cmesh_mixed);
             test.SetAnalyticSolution(config.exact);
@@ -522,21 +526,39 @@ void FlushTime(ErrorData &eData, clock_t start){
     eData.timer.flush();
 }
 
-void CreateMixedAtomicMehes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, ProblemConfig &config){
+void CreateMixedAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, ProblemConfig &config){
     //Flux mesh creation
     TPZCompMesh *cmesh_flux = new TPZCompMesh(config.gmesh);
     BuildFluxMesh(cmesh_flux, eData, config);
     {
-        /*int64_t nelem = cmesh_flux->NElements();
+        int64_t nelem = cmesh_flux->NElements();
+        int dimgrid = cmesh_flux->Dimension();
         for (int64_t el = 0; el<nelem; el++) {
             TPZCompEl *cel = cmesh_flux->Element(el);
+            if(!cel) continue;
             TPZGeoEl *gel = cel->Reference();
+            int dimgel = gel->Dimension();
             int nconnects = cel->NConnects();
-            cel->Connect(0).SetLagrangeMultiplier(3);
-            for (int ic=1; ic<nconnects; ic++) {
-                cel->Connect(ic).SetLagrangeMultiplier(1);
+            int nSides = gel->NSides(cmesh_flux->Dimension()-1);
+            if(dimgrid != 2) DebugStop();
+            if(dimgel == dimgrid){
+                if(nconnects != nSides+1){
+                    DebugStop();
+                }
+                for(int ic = 0 ; ic < nSides; ic ++){
+                    cel->Connect(ic).SetLagrangeMultiplier(3);
+                }
             }
-        }*/
+            if(dimgel == dimgrid-1){
+                if(nconnects != nSides){
+                    DebugStop();
+                }
+                cel->Connect(0).SetLagrangeMultiplier(3);
+            }
+            if (dimgel > dimgrid || dimgel < dimgrid - 1){
+                DebugStop();
+            }
+        }
     }
 
     //Potential mesh creation
@@ -550,7 +572,7 @@ void CreateMixedAtomicMehes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, Pr
     }
 
 
-    /*TPZCompMesh *gspace = new TPZCompMesh(config.gmesh);
+    TPZCompMesh *gspace = new TPZCompMesh(config.gmesh);
     {
         InsertNullSpaceMaterialIds(gspace,config);
         gspace->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
@@ -569,14 +591,14 @@ void CreateMixedAtomicMehes(TPZVec<TPZCompMesh *> &meshvec, ErrorData &eData, Pr
         average->AutoBuild();
         int64_t nconnects = average->NConnects();
         for (int ic = 0; ic<nconnects; ic++) {
-            average->ConnectVec()[ic].SetLagrangeMultiplier(5);
+            average->ConnectVec()[ic].SetLagrangeMultiplier(4);
         }
-    }*/
+    }
 
     meshvec[0] = cmesh_flux;
     meshvec[1] = cmesh_p;
-    //meshvec[2] = gspace;
-    //meshvec[3] = average;
+    meshvec[2] = gspace;
+    meshvec[3] = average;
     TPZCompMeshTools::AdjustFluxPolynomialOrders(meshvec[0], config.hdivmais); //Increases internal flux order by "hdivmais"
     TPZCompMeshTools::SetPressureOrders(meshvec[0], meshvec[1]);//Set the pressure order the same as the internal flux
 }
@@ -591,16 +613,29 @@ void InsertNullSpaceMaterialIds(TPZCompMesh *nullspace, ProblemConfig &config)
     }
 }
 
-void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorData &eData, ProblemConfig &config){
-    InsertMaterialMixed(cmesh_Mixed, config,eData);
-    TPZManVector<TPZCompMesh *, 2> meshvector(2);
-    CreateMixedAtomicMehes(meshvector,eData, config);
+void CreateCondensedMixedElements(TPZMultiphysicsCompMesh *cmesh_Mixed){
 
-    TPZManVector<int> active(2, 1);
-
-    cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
+    int numActiveSpaces = cmesh_Mixed->MeshVector().size();
+    if(numActiveSpaces == 4){
+        int64_t nconnects = cmesh_Mixed->NConnects();
+        for (int64_t ic = 0; ic<nconnects; ic++) {
+            TPZConnect &c = cmesh_Mixed->ConnectVec()[ic];
+            if(c.LagrangeMultiplier() == 4) c.IncrementElConnected();
+        }
+    }
     bool keeponelagrangian = true, keepmatrix = false;
     TPZCompMeshTools::CreatedCondensedElements(cmesh_Mixed, keeponelagrangian, keepmatrix);
+}
+
+void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, ErrorData &eData, ProblemConfig &config){
+    InsertMaterialMixed(cmesh_Mixed, config,eData);
+    TPZManVector<TPZCompMesh *, 4> meshvector(4);
+    CreateMixedAtomicMeshes(meshvector,eData, config);
+
+    TPZManVector<int> active(4, 1);
+
+    cmesh_Mixed->BuildMultiphysicsSpace(active,meshvector);
+    CreateCondensedMixedElements(cmesh_Mixed);
     cmesh_Mixed->LoadReferences();
     cmesh_Mixed->InitializeBlock();
 }
