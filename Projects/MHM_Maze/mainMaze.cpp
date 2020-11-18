@@ -136,7 +136,7 @@ int main(){
     ConfCasesMeze.SetCCPressureOut(1);
     ConfCasesMeze.SetMHMOpenChannel(false);
     ConfCasesMeze.SetVTKName("maze8x8.vtk");
- 
+
 //    H1Test(ConfCasesMeze);
  //   MixedTest(ConfCasesMeze);
       MHMTest(ConfCasesMeze);
@@ -625,8 +625,8 @@ int MHMTest(ConfigCasesMaze Conf){
     TRunConfig Configuration;
 
     TPZGeoMesh *gmeshcoarse =GenerateGeoMesh(Conf.GetImageName(), 2, 2);
-//    std::ofstream file("mesh4x4.vtk");
-//    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+    std::ofstream file(Conf.GetVTKName());
+    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
 //
 //
 //    std::ofstream out2("mesh4x4.txt");
@@ -648,16 +648,15 @@ int MHMTest(ConfigCasesMaze Conf){
         TPZMHMixedMeshChannelControl *mhm = new TPZMHMixedMeshChannelControl(gmeshauto);
         TPZVec<int64_t> coarseindices;
         ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
-//        for(int i =0; i < coarseindices.size(); i++){
-//            std::cout << "i = " << coarseindices[i] << std::endl;
-//        }
+        for(int i =0; i < coarseindices.size(); i++){
+            std::cout << "i = " << coarseindices[i] << std::endl;
+        }
         gmeshauto->AddInterfaceMaterial(1, 2, interface_mat_id);
         gmeshauto->AddInterfaceMaterial(2, 1, interface_mat_id);
         
         
         // criam-se apenas elementos geometricos
         mhm->DefinePartitionbyCoarseIndices(coarseindices);
-        //        MHMMixedPref << "MHMixed";
         MHMixed = mhm;
         
         TPZMHMixedMeshChannelControl &meshcontrol = *mhm;
@@ -675,8 +674,7 @@ int MHMTest(ConfigCasesMaze Conf){
             matids.insert(-6);
             mhm->fMaterialBCIds = matids;
         }
-        
-        
+
         InsertMaterialObjects(*mhm);
         
 #ifdef PZDEBUG2
@@ -700,8 +698,8 @@ int MHMTest(ConfigCasesMaze Conf){
 //        meshcontrol.CMesh()->Print(filee);
         std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> test;
         if(OpenChannel){
-        TPZCompMesh *flux_temp = MixedTest(Conf);
-        test = IdentifyChanel(flux_temp);
+            TPZCompMesh *flux_temp = MixedTest(Conf);
+            test = IdentifyChanel(flux_temp);
         }
     
      meshcontrol.BuildComputationalMesh(substructure,OpenChannel,test);
