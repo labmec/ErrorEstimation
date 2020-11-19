@@ -511,7 +511,7 @@ int MHMTest(ProblemConfig &Conf) {
         
         gmeshcoarse = CreateLMHMMesh(nsizeH, elementIndexes);
         {
-            std::ofstream file("GMeshAutoL_1.vtk");
+            std::ofstream file("GMeshCoarse.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
         }
         
@@ -578,9 +578,9 @@ int MHMTest(ProblemConfig &Conf) {
         
         mhm->DivideSkeletonElements(Configuration.numDivSkeleton);
         mhm->DivideBoundarySkeletonElements();
-        if(0)
+     //   if(0)
         {
-            std::ofstream file("GMeshAutoLRefSk_Refint.vtk");
+            std::ofstream file("GMeshWithInnerRefinement.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
         }
 #ifdef PZDEBUG2

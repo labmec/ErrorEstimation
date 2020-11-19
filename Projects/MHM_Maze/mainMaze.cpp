@@ -127,7 +127,7 @@ int main(){
     InitializePZLOG();
     
     ConfigCasesMaze ConfCasesMeze;
-    ConfCasesMeze.SetImageName("Mazes/maze8x8.png");
+    ConfCasesMeze.SetImageName("⁨MHM_Maze⁩/Mazes/maze8x8.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);
     ConfCasesMeze.SetPermeableMatPermeability(1000000);
     ConfCasesMeze.SetFluxOrder(1);
@@ -450,7 +450,7 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     
     //  Mat image = imread("normal.png",IMREAD_GRAYSCALE);
     Mat image = imread(name,IMREAD_GRAYSCALE);
-    //    Mat image = imread("single_quad.png",IMREAD_GRAYSCALE);
+   //     Mat image = imread("single_quad.png",IMREAD_GRAYSCALE);
     int k=0;
     int px=image.size[0];
     int py=image.size[1];
