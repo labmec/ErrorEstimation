@@ -25,7 +25,7 @@ private:
     double CCpressureOut = 10;
     bool MhmOpenChannel = false;
     std::string VTKName = "Salida.vtk";
-    TPZAutoPointer<TLaplaceExample1> exact;
+    TLaplaceExample1 * exact = nullptr;
 
 public:
     void SetImageName( std::string name){
@@ -92,7 +92,7 @@ public:
        return VTKName;
     }
 
-    TPZAutoPointer<TLaplaceExample1> GetExactSolution(){
+    TLaplaceExample1* GetExactSolution(){
         return exact;
     }
 
