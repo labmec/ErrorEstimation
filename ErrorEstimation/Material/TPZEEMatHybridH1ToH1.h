@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include "TPZMatLaplacianHybrid.h"
 
-
 class TPZEEMatHybridH1ToH1: public TPZMatLaplacianHybrid
 {
 

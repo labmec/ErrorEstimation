@@ -52,6 +52,8 @@
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+static LoggerPtr loggerF(Logger::getLogger("DebuggingF"));
+
 #endif
 
 TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
@@ -293,7 +295,7 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 {
-    return 0;//fOriginal->MeshVector()[0]->Clone();
+    return fOriginal->MeshVector()[0]->Clone();
 }
 // a method for creating the pressure mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
@@ -2560,9 +2562,8 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
         ofstream out2(dirPath + "SolBeforeLoadSolution.nb");
         fPostProcMesh.Solution().Print("SolBeforeLoadSolution=",out2,EMathematicaInput);
         ofstream out3(dirPath + "PressureWithAverage.txt");
-        ofstream out4(dirPath + "OriginalPressure.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out3, {1,2,3}, false, true);
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fOriginal->MeshVector()[1], out3, {1,2,3}, false, true);
+        ofstream out4(dirPath + "PressureWithAverage.txt");
     }
 #endif
     
@@ -2573,9 +2574,13 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
         std::string dirPath = fDebugDirName + "/DebuggingLoadSol/";
         std::ofstream out(dirPath + "MeshAfterLoadSol.txt");
         fPostProcMesh.Print(out);
+        std::ofstream outP(dirPath + "PotentialAfterLoadSol.txt");
+        fPostProcMesh.MeshVector()[1]->Print(outP);
         //fPostProcMesh.Solution().Print("SolAfterLoadSolution");
         ofstream out2(dirPath + "SolAfterLoadSolution.nb");
         fPostProcMesh.Solution().Print("SolAfterLoadSolution=",out2,EMathematicaInput);
+        ofstream out3(dirPath + "PressureAfterLoadSolution.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out3, {1,2,3}, false, true);
     }
 #endif
     

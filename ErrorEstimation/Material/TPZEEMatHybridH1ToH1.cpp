@@ -7,6 +7,10 @@
 #include "TPZAnalyticSolution.h"
 #include "pzbndcond.h"
 
+#ifdef LOG4CXX
+    static LoggerPtr loggerF(Logger::getLogger("DebuggingF"));
+#endif
+
 
 TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(int matid, int dim) : TPZMatLaplacianHybrid(matid,dim)
 {
@@ -117,9 +121,9 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
 
     TPZVec<STATE> divsigma(1); divsigma[0] = 0;
 
-    if(this->fForcingFunction){
-        this->fForcingFunction->Execute(datavec[H1functionposition].x,divsigma);
-    }
+    if(!this->fForcingFunction) DebugStop();
+    this->fForcingFunction->Execute(datavec[H1functionposition].x,divsigma);
+
 
     //potetial fem
     solukfem(0,0) = datavec[3].sol[0][0];
@@ -140,6 +144,18 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
 
     TPZFMatrix<STATE> kgraduk(dim,nphiuk,0.);
 
+    std::stringstream ss;
+#ifdef LOG4CXX
+    if(loggerF->isDebugEnabled()) {
+        ss << "X = [" << datavec[1].x[0] << "," << datavec[1].x[1] << "," << datavec[1].x[2] << "]\n";
+        ss << "f = " << divsigma[0] << "\n";
+        phiuk.Print(ss);
+    }
+#endif
+    TPZFMatrix<STATE> efincT(1,nphiuk);
+    TPZFMatrix<STATE> efinc(nphiuk);
+    TPZFMatrix<STATE> efT(1,nphiuk);
+
     for(int irow=0 ; irow<nphiuk; irow++){
         //K graduk
         for(int id=0; id< dim; id++){
@@ -154,6 +170,17 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
         }
         ef(irow,0)+= weight*phiuk(irow,0)*divsigma[0];
 
+
+#ifdef LOG4CXX
+        if(loggerF->isDebugEnabled()) {
+            efincT(0, irow) = weight * phiuk(irow, 0) * divsigma[0];
+            efinc(irow, 0) = weight * phiuk(irow, 0) * divsigma[0];
+            efT(0, irow) = ef(irow, 0);
+        }
+#endif
+
+        std:: cout << weight*phiuk(irow,0)*divsigma[0] << std::endl;
+
         //matrix Sk= int_{K} K graduk.gradv
         for(int jcol=0; jcol<nphiuk;jcol++){
 
@@ -164,6 +191,13 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
 
         }
     }
+#ifdef LOG4CXX
+    if(loggerF->isDebugEnabled()) {
+        efinc.Print("EFinc", ss, EMathematicaInput);
+        ef.Print("EF", ss, EMathematicaInput);
+        LOGPZ_DEBUG(loggerF, ss.str())
+    }
+#endif
 }
 
 void TPZEEMatHybridH1ToH1::ContributeBC(
@@ -175,7 +209,7 @@ void TPZEEMatHybridH1ToH1::ContributeBC(
      ek+= <w,Km s_i>
      ef+= <w,Km*u_d - g + sigma_i.n>
      */
-    int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
+    int H1functionposition = 1;
     int dim = datavec[H1functionposition].axes.Rows();
 
     TPZFMatrix<REAL> &phi_i = datavec[H1functionposition].phi;

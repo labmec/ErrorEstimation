@@ -66,7 +66,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 4;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = true, post_proc = true;
@@ -112,9 +112,9 @@ void IsInteger(char *argv);
 
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 4;         // Potential and internal flux order
-    config.hdivmais =  3;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 3;  // p_order - H1HybridMinus = Flux order
+    config.porder = 2;         // Potential and internal flux order
+    config.hdivmais =  1;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = 1;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -172,16 +172,6 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
  */
 int main(int argc, char *argv[]) {
 
-    //Testing random stuff (begin)
-    TPZManVector<int, 4> bcids(4, -1);
-    TPZGeoMesh *geomesh = Tools::CreateGeoMesh(1, bcids);
-    Tools::UniformRefinement(1, geomesh);
-    TPZGeoEl *gel = geomesh->Element(0);
-    TPZGeoElSide gelside(gel, gel->NSides() - 1);
-    gelside.LowerLevelCompElementList2(1);
-
-
-    //Testing random stuff (end)
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
@@ -192,7 +182,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 3; ndiv < /*eData.maxdiv+2*/4; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 1; ndiv < /*eData.maxdiv+2*/2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
@@ -256,9 +246,6 @@ int main(int argc, char *argv[]) {
             }
             TPZHybridHDivErrorEstimator test(*cmesh_mixed);
             test.SetAnalyticSolution(config.exact);
-            //std::set<int> bcmatID;
-            //bcmatID.insert(-5);bcmatID.insert(-6);bcmatID.insert(-8);bcmatID.insert(-9);
-            //config.bcmaterialids = bcmatID;
             test.fProblemConfig = config;
             test.fOriginalIsHybridized = true;
             test.PotentialReconstruction();
@@ -1048,6 +1035,22 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     an.Assemble();
     an.Solve();
 
+    /*{
+        int numeq = cmesh_H1Hybrid->NEquations();
+        TPZVec<int64_t> equationindices(numeq,-1);
+        for(int eqind = 0 ; eqind < numeq ; eqind++){
+            equationindices[eqind] = eqind;
+        }
+        TPZVec<std::string> varname(2);
+        varname[0] = "Pressure";
+        varname[1] = "Flux";
+        //TPZVec<std::string> varname(1);
+        //varname[0] = "Solution";
+        an.ShowShape(eData.plotfile +"/HybShapes.vtk",equationindices,1,varname);
+    }
+
+    an.Solution().Print(std::cout);
+    */
     //TPZSymetricSpStructMatrix sparse(cmesh_H1Hybrid);
     /*TPZSkylineStructMatrix skylstr(cmesh_H1Hybrid);
     an.SetStructuralMatrix(skylstr);
@@ -1132,6 +1135,19 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     delete direct;
     direct = 0;
     an.Assemble();
+
+    /*{   // Only works for uncondensed meshes
+        int numeq = cmesh_Mixed->NEquations();
+        TPZVec<int64_t> equationindices(numeq,-1);
+        for(int eqind = 0 ; eqind < numeq ; eqind++){
+            equationindices[eqind] = eqind;
+        }
+        TPZVec<std::string> varname(2);
+        varname[0] = "Pressure";
+        varname[1] = "Flux";
+        an.ShowShape(eData.plotfile +"/MixShapes.vtk",equationindices,1,varname);
+    }*/
+
     an.Solve();
 
     //Previous solver
