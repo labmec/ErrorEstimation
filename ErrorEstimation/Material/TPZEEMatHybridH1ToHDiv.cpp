@@ -9,22 +9,22 @@
 #include "pzbndcond.h"
 
 
-TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv(int matid, int dim) : TPZMatLaplacianHybrid(matid,dim)
+TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv(int matid, int dim) : TPZMixedPoisson(matid,dim)
 {
 
 }
 
-TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv() : TPZMatLaplacianHybrid()
+TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv() : TPZMixedPoisson()
 {
 
 }
 
-TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv(TPZMatLaplacianHybrid &copy) :TPZMatLaplacianHybrid(copy)
+TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv(TPZMixedPoisson &copy) :TPZMixedPoisson(copy)
 {
 
 }
 
-TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv(const TPZEEMatHybridH1ToHDiv &copy) : TPZMatLaplacianHybrid(copy)
+TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv(const TPZEEMatHybridH1ToHDiv &copy) : TPZMixedPoisson(copy)
 {
 
 }
@@ -36,8 +36,23 @@ TPZEEMatHybridH1ToHDiv::~TPZEEMatHybridH1ToHDiv()
 
 TPZEEMatHybridH1ToHDiv &TPZEEMatHybridH1ToHDiv::operator=(const TPZEEMatHybridH1ToHDiv &copy)
 {
-    TPZMatLaplacianHybrid::operator=(copy);
+    TPZMixedPoisson::operator=(copy);
     return *this;
+}
+
+TPZEEMatHybridH1ToHDiv::TPZEEMatHybridH1ToHDiv(TPZMatLaplacianHybrid matlaplacian){
+    this->SetId(matlaplacian.Id());
+    this->SetDimension(matlaplacian.Dimension());
+
+    TPZFNMatrix<9,STATE> K,invK;
+    matlaplacian.GetPermeability(K);
+    matlaplacian.GetInvPermeability(invK);
+    this->SetPermeabilityTensor(K,invK);
+
+    if (matlaplacian.HasForcingFunction()) {
+        this->SetForcingFunctionExact(matlaplacian.ForcingFunctionExact());
+        this->SetForcingFunction(matlaplacian.ForcingFunction());
+    }
 }
 
 int TPZEEMatHybridH1ToHDiv::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec){
@@ -59,217 +74,85 @@ int TPZEEMatHybridH1ToHDiv::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData>
 void TPZEEMatHybridH1ToHDiv::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     /**
-
-     datavec[0] H1 mesh, local uk/grad v for Mark reconstruction and Empty for H1 reconstruction
-     datavec[1] L2 mesh, restriction of local uk
-     datavec[2] Hdiv mesh, sigmakE
-     datavec[3] L2 mesh, ukE
-
-     Implement the matrix
-     |Sk Ck^T |  = |bk|
-     |Ck  0   |    |uk|
-     Sk = int_K graduk.gradv dx = int_K gradphi_i.gradphi_j dx
-     CK = int_K uk dx = int_K phi_i dx
-     bk = int_K sigmafem.gradv dx = int_K sigmafem.gradphi_i dx
-     uk = int_K ukfem dx
-
+     Implement
+     (invK.sigma_h,v)_K = -(u_h,\nabla.v), ou
+     (invK.sigma_h,v)_K = (f,v)
+     int_K phi_i.phi_j dx = int_K u_h phi_i  dx
      **/
-
-    int H1functionposition = 0;
-    H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
-
-    int dim = datavec[H1functionposition].axes.Rows();
-    //defining test functions
-    // Setting the phis
-    TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
-    TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
-    TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
-    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
-
-
-    int nphiuk = phiuk.Rows();
-
-    TPZFMatrix<STATE> solsigmafem(3,nphiuk),solukfem(1,1);
-    solsigmafem.Zero();
-    solukfem.Zero();
-
-
-
-
-    //potetial fem
-    solukfem(0,0) = datavec[3].sol[0][0];
-    //flux fem
-    for (int ip = 0; ip<3; ip++){
-
-        solsigmafem(ip,0) = datavec[2].sol[0][ip];
-    }
-
-
 
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;
 
+    GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
 
-    GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
+    // Setting the phis
+    TPZFMatrix<REAL> &phiQ = datavec[0].phi;
+    TPZFMatrix<REAL> &dphiQ = datavec[0].dphix;
 
+    TPZFMatrix<REAL> &phiuk = datavec[0].phi;
+    TPZFMatrix<REAL> &dphiukaxes = datavec[0].dphix;
+    TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
+    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[0].axes);
 
-    TPZFMatrix<STATE> kgraduk(3,nphiuk,0.);
+    int phrq;
+    phrq = datavec[0].fVecShapeIndex.NElements();
 
+    phiuk.Print(std::cout);
+    dphiuk.Print(std::cout);
 
-    for(int irow=0 ; irow<nphiuk; irow++){
-
-        //K graduk
-        for(int id=0; id< dim; id++){
-
-            for(int jd=0; jd< dim;jd++){
-
-                kgraduk(id,irow) += PermTensor(id,jd)*dphiuk(jd,irow);
-
-            }
-            //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
-            //the minus sign is necessary because we are working with sigma_h = - K grad u, Mark works with sigma_h = K grad u
-
-            ef(irow,0)+=(-1.)*weight*dphiuk(id,irow)*solsigmafem(id,0);
+    for(int iq=0; iq<phrq; iq++)
+    {
+        //ef(iq, 0) += 0.;
+        int ivecind = datavec[0].fVecShapeIndex[iq].first;
+        int ishapeind = datavec[0].fVecShapeIndex[iq].second;
+        TPZFNMatrix<3,REAL> ivec(3,1,0.);
+        for(int id=0; id<3; id++){
+            ivec(id,0) = datavec[0].fDeformedDirections(id,ivecind);
         }
 
-        //matrix Sk= int_{K} K graduk.gradv
-        for(int jcol=0; jcol<nphiuk;jcol++){
-
-            for(int jd=0;  jd< dim; jd++)
-            {
-                ek(irow,jcol) +=weight*kgraduk(jd,irow)*dphiuk(jd,jcol);
-            }
-
-        }
-        //Ck=int_{K} phi_i e Ck^t
-        if(fNeumannLocalProblem){
-
-            ek(irow,nphiuk)+= weight*phiuk(irow,0);
-            ek(nphiuk,irow)+= weight*phiuk(irow,0);
-
-        }
-
-    }
-    if(H1functionposition ==0){
-
-        if(!fNeumannLocalProblem )
+        TPZFNMatrix<3,REAL> ivecZ(3,1,0.);
+        TPZFNMatrix<3,REAL> jvecZ(3,1,0.);
+        for (int jq=0; jq<phrq; jq++)
         {
-            ek(nphiuk,nphiuk) += weight;
-            ef(nphiuk,0)+= weight;
+            /// (invK.sigma_h,v)_K
+
+            TPZFNMatrix<3,REAL> jvec(3,1,0.);
+            int jvecind = datavec[0].fVecShapeIndex[jq].first;
+            int jshapeind = datavec[0].fVecShapeIndex[jq].second;
+
+            for(int id=0; id<3; id++){
+                jvec(id,0) = datavec[0].fDeformedDirections(id,jvecind);
+            }
+
+            //dot product between Kinv[u]v
+            jvecZ.Zero();
+            for(int id=0; id<3; id++){
+                for(int jd=0; jd<3; jd++){
+                    jvecZ(id,0) += InvPermTensor(id,jd)*jvec(jd,0);
+                }
+            }
+            //jvecZ.Print("mat1 = ");
+
+            REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
+            ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
         }
 
-            //muk = int_k ukfem
+        /// -(u_h,\nabla.v)
+        TPZFNMatrix<3,REAL> axesvec(3,1,0.);
+        datavec[0].axes.Multiply(ivec,axesvec);
 
-        else{
-
-            ef(nphiuk,0)+= weight*solukfem(0,0);
-
+        REAL divwq = 0.;
+        for(int iloc=0; iloc<fDim; iloc++)
+        {
+            divwq += axesvec(iloc,0)*dphiQ(iloc,ishapeind);
         }
+        ef(iq,0) += (-1.)*weight*divwq*datavec[1].sol[0][0];
     }
-
 }
 
 void TPZEEMatHybridH1ToHDiv::ContributeBC(
         TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
         TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
-
-    /*
-     Add Robin boundary condition for local problem
-     ek+= <w,Km s_i>
-     ef+= <w,Km*u_d - g + sigma_i.n>
-     */
-    int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
-    int dim = datavec[H1functionposition].axes.Rows();
-
-    TPZFMatrix<REAL> &phi_i = datavec[H1functionposition].phi;
-    int nphi_i = phi_i.Rows();
-
-    TPZFMatrix<STATE> solsigmafem(3, 1);
-    solsigmafem.Zero();
-
-    TPZManVector<REAL, 3> normal = datavec[2].normal;
-
-    REAL normalsigma = 0.;
-    normalsigma = datavec[2].sol[0][0];
-
-    REAL u_D = 0.;
-    REAL g = 0.;
-    REAL normflux = 0.;
-
-
-
-    if (bc.HasForcingFunction()) {
-        TPZManVector<STATE> res(3);
-        TPZFNMatrix<9, STATE> gradu(dim, 1);
-        bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
-        u_D = res[0];
-
-
-        TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
-        GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
-
-        if(PermTensor.Rows() != 3) PermTensor.Resize(3,3);
-        if(InvPermTensor.Rows() != 3) InvPermTensor.Resize(3,3);
-
-        for(int i=0; i<3; i++)
-        {
-            for(int j=0; j<3; j++)
-            {
-                normflux += datavec[2].normal[i]*PermTensor(i,j)*gradu(j,0);
-            }
-        }
-
-        g = (-1.)*normflux;
-
-
-
-    } else {
-        // usualmente updatebc coloca o valor exato no val2
-        u_D = bc.Val2()(0, 0);
-    }
-
-
-    switch (bc.Type()) {
-        case (4):{
-
-            REAL Km = bc.Val1()(0, 0); // Km
-            REAL InvKm = 1./Km;
-            // std::cout<< " g "<< g<< " normalsigma "<<normalsigma<<"\n";
-            REAL robinterm = (Km * u_D - g+ normalsigma);
-
-            for (int iq = 0; iq < nphi_i; iq++) {
-                //<w,Km*u_D-g+sigma_i*n>
-                ef(iq, 0) += robinterm * phi_i(iq, 0) * weight;
-                for (int jq = 0; jq < nphi_i; jq++) {
-                    //<w,Km*s_i>
-                    ek(iq, jq) += weight * Km * phi_i(iq, 0) * phi_i(jq, 0);
-                }
-            }
-            break;
-        }
-
-
-
-            /*
-                case( 0):{
-
-                for (int iq = 0; iq < nphi_i; iq++) {
-                    ef(iq, 0) += gBigNumber*u_D * phi_i(iq, 0) * weight;
-                    for (int jq = 0; jq < nphi_i; jq++) {
-                        ek(iq, jq) += gBigNumber*weight *  phi_i(iq, 0) * phi_i(jq, 0);
-                    }
-                }
-
-                    break;
-                }*/
-
-        default:{
-
-            std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
-            break;
-        }
-    }
-
 
 }
 
@@ -277,13 +160,13 @@ void TPZEEMatHybridH1ToHDiv::ContributeBC(
 void TPZEEMatHybridH1ToHDiv::FillDataRequirements(TPZVec<TPZMaterialData > &datavec) {
 
     //fem solution for flux and potential
-    datavec[2].SetAllRequirements(false);
+    /*datavec[2].SetAllRequirements(false);
     datavec[2].fNeedsSol = true;
     datavec[2].fNeedsNormal = true;
 
     datavec[3].SetAllRequirements(false);
     datavec[3].fNeedsSol = true;
-
+*/
 
 }
 

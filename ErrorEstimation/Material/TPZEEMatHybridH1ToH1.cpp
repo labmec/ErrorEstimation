@@ -7,6 +7,7 @@
 #include "TPZAnalyticSolution.h"
 #include "pzbndcond.h"
 
+
 #ifdef LOG4CXX
     static LoggerPtr loggerF(Logger::getLogger("DebuggingF"));
 #endif
@@ -22,14 +23,30 @@ TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1() : TPZMatLaplacianHybrid()
 
 }
 
+TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(const TPZEEMatHybridH1ToH1 &copy) : TPZMatLaplacianHybrid(copy)
+{
+
+}
+
 TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(const TPZMatLaplacianHybrid &copy) : TPZMatLaplacianHybrid(copy)
 {
 
 }
 
-TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(const TPZEEMatHybridH1ToH1 &copy) : TPZMatLaplacianHybrid(copy)
+TPZEEMatHybridH1ToH1::TPZEEMatHybridH1ToH1(TPZEEMatHybridH1ToHDiv &hdivEE)
 {
+    this->SetId(hdivEE.Id());
+    this->SetDimension(hdivEE.Dimension());
 
+    TPZFNMatrix<9,STATE> K,invK;
+    hdivEE.GetPermeability(K);
+    hdivEE.GetInvPermeability(invK);
+    this->SetPermeabilityTensor(K,invK);
+
+    if (hdivEE.HasForcingFunction()) {
+        this->SetForcingFunctionExact(hdivEE.ForcingFunctionExact());
+        this->SetForcingFunction(hdivEE.ForcingFunction());
+    }
 }
 
 TPZEEMatHybridH1ToH1::~TPZEEMatHybridH1ToH1()
@@ -98,8 +115,7 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
 
      **/
 
-    int H1functionposition = 0;
-    H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
+    int H1functionposition = 1;
 
     int dim = datavec[H1functionposition].axes.Rows();
     //defining test functions

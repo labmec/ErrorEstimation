@@ -9,7 +9,7 @@
 #include "mixedpoisson.h"
 #include "TPZMatLaplacianHybrid.h"
 
-class TPZEEMatHybridH1ToHDiv: public TPZMatLaplacianHybrid
+class TPZEEMatHybridH1ToHDiv: public TPZMixedPoisson
 {
 
 public:
@@ -21,7 +21,9 @@ public:
 
     TPZEEMatHybridH1ToHDiv(const TPZEEMatHybridH1ToHDiv &copy);
 
-    TPZEEMatHybridH1ToHDiv( TPZMatLaplacianHybrid &copy);
+    TPZEEMatHybridH1ToHDiv( TPZMixedPoisson &copy);
+
+    TPZEEMatHybridH1ToHDiv( TPZMatLaplacianHybrid matlaplacian);
 
     virtual ~TPZEEMatHybridH1ToHDiv();
 
@@ -31,6 +33,13 @@ public:
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
 
     virtual void ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) override;
+
+    virtual void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override{
+        DebugStop();
+    }
+    virtual void ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) override{
+        DebugStop();
+    }
 
 
     virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;

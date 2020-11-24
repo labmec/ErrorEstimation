@@ -112,9 +112,9 @@ void IsInteger(char *argv);
 
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 2;         // Potential and internal flux order
+    config.porder =4;         // Potential and internal flux order
     config.hdivmais =  1;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 1;  // p_order - H1HybridMinus = Flux order
+    config.H1Hybridminus = 3;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 1; ndiv < /*eData.maxdiv+2*/2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 3; ndiv < /*eData.maxdiv+2*/4; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
@@ -237,13 +237,13 @@ int main(int argc, char *argv[]) {
             clock_t start = clock();
             CreateMixedComputationalMesh(cmesh_mixed, eData, config);
             SolveMixedProblem(cmesh_mixed, config, eData);
-            {
+            /*{
                 std::cout << cmesh_mixed->NEquations() << "\n\n";
                 std::ofstream outMixed(eData.plotfile + "/MixedMesh2.txt");
                 cmesh_mixed->Print(outMixed);
                 std::ofstream outMixedPerGeo(eData.plotfile + "/MixedperGeo.txt");
                 TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh_mixed->MeshVector()[0], outMixedPerGeo, {1,2,3}, false, true);
-            }
+            }*/
             TPZHybridHDivErrorEstimator test(*cmesh_mixed);
             test.SetAnalyticSolution(config.exact);
             test.fProblemConfig = config;
@@ -1136,7 +1136,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     direct = 0;
     an.Assemble();
 
-    /*{   // Only works for uncondensed meshes
+   /* {   // Only works for uncondensed meshes
         int numeq = cmesh_Mixed->NEquations();
         TPZVec<int64_t> equationindices(numeq,-1);
         for(int eqind = 0 ; eqind < numeq ; eqind++){

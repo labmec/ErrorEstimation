@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include "TPZMatLaplacianHybrid.h"
+#include "TPZEEMatHybridH1ToHDiv.h"
 
 class TPZEEMatHybridH1ToH1: public TPZMatLaplacianHybrid
 {
@@ -21,6 +22,8 @@ public:
     TPZEEMatHybridH1ToH1(int matid, int dim);
 
     TPZEEMatHybridH1ToH1();
+
+    TPZEEMatHybridH1ToH1(TPZEEMatHybridH1ToHDiv &hdivEE);
 
     TPZEEMatHybridH1ToH1(const TPZEEMatHybridH1ToH1 &copy);
 

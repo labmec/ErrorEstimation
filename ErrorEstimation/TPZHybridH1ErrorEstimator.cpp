@@ -295,8 +295,120 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 {
-    return fOriginal->MeshVector()[0]->Clone();
+    TPZCompMesh *cmeshHdiv =  fOriginal->MeshVector()[0]->Clone();
+
+#ifdef PZDEBUG
+    string command = "mkdir -p " + fDebugDirName;
+    string dirPath = fDebugDirName + "/";
+    system(command.c_str());
+    {
+        std::ofstream outCon(dirPath + "OriginalFluxConnects.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
+        std::ofstream outOriginalP(dirPath + "OriginalFlux.txt");
+        cmeshHdiv->Print(outOriginalP);
+        std::ofstream outGOriginalVTK(dirPath + "gFlux.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(cmeshHdiv, outGOriginalVTK);
+    }
+#endif
+
+    VerifyBoundaryFluxConsistency(cmeshHdiv);
+
+    int flux_order = fProblemConfig.porder - fProblemConfig.H1Hybridminus;
+    cmeshHdiv->SetDefaultOrder(flux_order);
+    cmeshHdiv->SetDimModel(fProblemConfig.gmesh->Dimension());
+
+    cmeshHdiv->SetAllCreateFunctionsHDiv();
+
+    for (auto mat : fOriginal->MaterialVec()) {
+        TPZMatLaplacianHybrid *matlaplacian =
+                dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
+        if (matlaplacian) {
+            TPZEEMatHybridH1ToHDiv *hdivMat = new TPZEEMatHybridH1ToHDiv(mat.first,fProblemConfig.gmesh->Dimension());
+            cmeshHdiv->MaterialVec()[mat.first] =  hdivMat;
+
+            for (auto bcmat : cmeshHdiv->MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(hdivMat);
+                }
+            }
+        }
+    }
+
+    cmeshHdiv->AutoBuild();
+    cmeshHdiv->InitializeBlock();
+
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(cmeshHdiv, fProblemConfig.H1Hybridminus); //Increases internal flux order by "hdivmais"
+
+#ifdef PZDEBUG
+    {
+        std::ofstream outCon(dirPath + "HdivFluxConnects.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
+        std::ofstream outOriginalP(dirPath + "HdivFlux.txt");
+        cmeshHdiv->Print(outOriginalP);
+        std::ofstream outGOriginalVTK(dirPath + "gHdivFlux.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(cmeshHdiv, outGOriginalVTK);
+    }
+#endif
+
+#ifdef PZDEBUG
+    {
+        std::ofstream outOriginalP(dirPath + "HdivCondFlux.txt");
+        cmeshHdiv->Print(outOriginalP);
+    }
+#endif
+
+    TPZMultiphysicsCompMesh HdivRecMesh;
+    HdivRecMesh.SetReference(fOriginal->Reference());
+
+    TPZManVector<TPZCompMesh *> mesh_vectors(2, 0);
+    TPZManVector<int> active(2, 0);
+    active[0] = 1;
+    mesh_vectors[0] = cmeshHdiv;// flux
+    mesh_vectors[1] = fOriginal->MeshVector()[1]->Clone();// potential
+
+    for (auto mat : mesh_vectors[0]->MaterialVec()) {
+        HdivRecMesh.MaterialVec()[mat.first] = mat.second;
+    }
+
+    for (auto mat : mesh_vectors[1]->MaterialVec()) {
+        int matID = mat.first;
+        if(mesh_vectors[0]->MaterialVec().find(matID) ==  mesh_vectors[0]->MaterialVec().end()){
+            HdivRecMesh.MaterialVec()[matID] = mat.second;
+        }
+    }
+
+    HdivRecMesh.BuildMultiphysicsSpace(active,mesh_vectors);
+
+    bool keeponelagrangian = true, keepmatrix = false;
+    TPZCompMeshTools::CreatedCondensedElements(&HdivRecMesh, keeponelagrangian, keepmatrix);
+
+#ifdef PZDEBUG
+    {
+        std::ofstream outMultF(dirPath + "HdivMultMesh.txt");
+        HdivRecMesh.Print(outMultF);
+    }
+#endif
+
+    ComputeElementStiffnesses(HdivRecMesh);
+
+    HdivRecMesh.LoadSolution(HdivRecMesh.Solution());
+
+    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mesh_vectors, &HdivRecMesh);
+
+#ifdef PZDEBUG
+    {
+        std::ofstream outFCon(dirPath + "HdivFluxAfterLoadSolConnects.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outFCon, {}, false, true);
+        std::ofstream outF(dirPath + "HdivFluxAfterLoadSol.txt");
+        cmeshHdiv->Print(outF);
+        std::ofstream outMultF(dirPath + "HdivMultFluxAfterLoadSol.txt");
+        HdivRecMesh.Print(outMultF);
+    }
+#endif
+    return cmeshHdiv;
 }
+
 // a method for creating the pressure mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
 {
@@ -525,47 +637,36 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
         fPostProcMesh.Print(out3);
     }
 #endif
-    
+
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
     fOriginal->CopyMaterials(fPostProcMesh);
 
-    InsertEEMaterial();
+    SwitchMaterialObjects();
 
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
+    TPZManVector<int> active(4, 0);
+    mesh_vectors[0] = 0;//CreateFluxMesh();
+    mesh_vectors[1] = CreatePressureMesh();
     mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];// potential
-    mesh_vectors[1] = CreatePressureMesh();// potential reconstructed
-    mesh_vectors[0] = CreateFluxMesh();
 
-    // TODO : Is it necessary? Move to flux creation
-    // Increase flux side order
-    //IncreaseSideOrders(mesh_vectors[0]);//malha do fluxo
+    active[1] = 1;
+
+    fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
 
 #ifdef PZDEBUG
     {
         string dirPath = fDebugDirName + "/";
-        /*std::ofstream out(dirPath + "EnrichedFluxBorder.txt");
-        mesh_vectors[0]->Print(out);*/
-        std::ofstream out2(dirPath + "EnrichedPressure.txt");
-        mesh_vectors[1]->Print(out2);
+        std::ofstream outMult(dirPath + "multiphysicsAfterBuildMesh.txt");
+        fPostProcMesh.Print(outMult);
+        std::ofstream outPressure(dirPath + "PressureAfterBuildMesh.txt");
+        fPostProcMesh.MeshVector()[1]->Print(outPressure);
+        //std::ofstream outFlux(dirPath + "FluxAfterBuildMesh.txt");
+        //fPostProcMesh.MeshVector()[0]->Print(outFlux);
     }
 #endif
-
-    TPZManVector<int> active(4, 0);
-    active[1] = 1;
-    active[0] = 0;
-    
-    fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
-    {
-        string dirPath = fDebugDirName + "/";
-        std::ofstream out(dirPath + "multiphysicsCreated.txt");
-        fPostProcMesh.Print(out);
-    }
-
-    // Condense bc with volumetric elements;
-    PrepareElementsForH1Reconstruction();
 }
 
 void TPZHybridH1ErrorEstimator::GetPressureMatIDs(std::set<int> &matIDs){
@@ -591,8 +692,6 @@ void TPZHybridH1ErrorEstimator::ComputeElementStiffnesses() {
         fPostProcMesh.Print(out);
     }
 #endif
-    
-    
     for (auto cel:fPostProcMesh.ElementVec()) {
         if (!cel) continue;
         TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
@@ -611,13 +710,30 @@ void TPZHybridH1ErrorEstimator::ComputeElementStiffnesses() {
         }
 #endif
     }
-    
-    //    {
-    //        std::ofstream out("MeshPostComputeStiff.txt");
-    //        fPostProcMesh.Print(out);
-    //    }
-    
-    
+}
+
+/// computing the element stifnesses will "automatically" compute the condensed form of the matrices
+void TPZHybridH1ErrorEstimator::ComputeElementStiffnesses(TPZCompMesh &cmesh) {
+    std::cout << "Computing flux stiffness matrix " << std::endl;
+
+    for (auto cel:cmesh.ElementVec()) {
+        if (!cel) continue;
+        TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
+        if (condense) {
+            // for Mark proposal ek correspond to local dirichlet problem
+            condense->Assemble();
+        }
+        TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
+        if (subcmesh) {
+            subcmesh->Assemble();
+        }
+#ifdef PZDEBUG
+        if(subcmesh && condense)
+        {
+            DebugStop();
+        }
+#endif
+    }
 }
 
 
@@ -2466,26 +2582,7 @@ void TPZHybridH1ErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec<S
 }
 
 void TPZHybridH1ErrorEstimator::FluxReconstruction() {
-    if (!fPostProcMesh.MeshVector().size()) {
-        DebugStop(); // Call PotentialReconstruction() first
-    }
-#ifdef PZDEBUG
-    string command = "mkdir -p " + fDebugDirName;
-    string dirPath = fDebugDirName + "/";
-    system(command.c_str());
-    {
-        std::ofstream outCon(dirPath + "OriginalFluxConnects.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[0], outCon, {}, false, true);
-        std::ofstream outOriginalP(dirPath + "OriginalFlux.txt");
-        fPostProcMesh.MeshVector()[0]->Print(outOriginalP);
-        std::ofstream outGOriginalVTK(dirPath + "gFlux.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(fOriginal->MeshVector()[0], outGOriginalVTK);
-    }
-#endif
-
-
-    VerifyBoundaryFluxConsistency(FluxMesh());
-
+    DebugStop();
 }
 
 void TPZHybridH1ErrorEstimator::CreateReconstructionSpaces() {
@@ -2527,8 +2624,6 @@ void TPZHybridH1ErrorEstimator::CreateReconstructionSpaces() {
 #endif
 
     PotentialReconstruction();
-    //FluxReconstruction();
-
 };
 
 void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
@@ -2536,6 +2631,9 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
     if (!fPostProcMesh.MeshVector().size()) {
         DebugStop();
     }
+
+    PrepareElementsForH1Reconstruction();
+
     // Compute continuos pressure on the skeleton;
     MakeSkeletonContinuous();
 
@@ -2849,26 +2947,17 @@ void TPZHybridH1ErrorEstimator::IdentifyPeripheralMaterialIds() {
 }
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
+void TPZHybridH1ErrorEstimator:: SwitchMaterialObjects() {
     for (auto mat : fPostProcMesh.MaterialVec()) {
         TPZMatLaplacianHybrid *matlaplacian=
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
-
-            //TPZEEMatHybridH1ToHDiv *newHDivmat = new TPZEEMatHybridH1ToHDiv(*matlaplacian);
-            //newHDivmat->SetId(fHDivResconstructionMatId);
-
             TPZEEMatHybridH1ToH1 *newmat = new TPZEEMatHybridH1ToH1(*matlaplacian);
 
             if (matlaplacian->HasForcingFunction()) {
                 newmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
                 newmat->SetForcingFunction(matlaplacian->ForcingFunction());
-
-                //newHDivmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
-                //newHDivmat->SetForcingFunction(matlaplacian->ForcingFunction());
             }
-
-            // TODO : Check if it's required to switch Lagrange materials on the boundary for this new material.
 
             for (auto bcmat : fPostProcMesh.MaterialVec()) {
                 TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
@@ -2877,7 +2966,6 @@ void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
                 }
             }
             fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
-            //fPostProcMesh.MaterialVec()[fPressureSkeletonMatId] = new TPZNullMaterial;
             delete matlaplacian;
         }
     }

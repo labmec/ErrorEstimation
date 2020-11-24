@@ -174,6 +174,9 @@ protected:
     
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
+
+    /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
+    void ComputeElementStiffnesses(TPZCompMesh &cmesh);
     
     // a method for generating the HDiv mesh
     virtual TPZCompMesh *CreateFluxMesh();
@@ -235,7 +238,7 @@ protected:
 
     /// Insert material for HDiv reconstruction
     /// Switch H1 material for H1 reconstruction material
-    virtual void InsertEEMaterial();
+    virtual void SwitchMaterialObjects();
 
     /// Find free matID number
     void FindFreeMatID(int &matID);
