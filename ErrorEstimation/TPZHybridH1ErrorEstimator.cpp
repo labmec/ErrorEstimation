@@ -43,8 +43,7 @@
 #include "TPZCompMeshTools.h"
 #include "TPZPressureProjection.h"
 #include "TPZMatLaplacianHybrid.h"
-#include "TPZEEMatHybridH1ToH1.h"
-#include "TPZEEMatHybridH1ToHDiv.h"
+#include "TPZHybridH1ErrorEstimateMaterial.h"
 #include "TPZGeoElSideAncestors.h"
 #include "TPZGeoElSidePartition.h"
 
@@ -57,8 +56,8 @@ static LoggerPtr loggerF(Logger::getLogger("DebuggingF"));
 #endif
 
 TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
-    TPZVec<TPZCompMesh *> meshvec = fPostProcMesh.MeshVector();
-    fPostProcMesh.Reference()->ResetReference();
+    TPZVec<TPZCompMesh *> meshvec = fPressurePostProcMesh.MeshVector();
+    fPressurePostProcMesh.Reference()->ResetReference();
     for (int i = 0; i < 2; i++) {
         if (!meshvec[i]) continue;
         TPZCompMesh *cmesh = meshvec[i];
@@ -69,8 +68,8 @@ TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
         }
         delete meshvec[i];
     }
-    for (int64_t ic = 0; ic < fPostProcMesh.NConnects(); ic++) {
-        TPZConnect &c = fPostProcMesh.ConnectVec()[ic];
+    for (int64_t ic = 0; ic < fPressurePostProcMesh.NConnects(); ic++) {
+        TPZConnect &c = fPressurePostProcMesh.ConnectVec()[ic];
         c.RemoveDepend();
     }
 }
@@ -87,18 +86,18 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
 #ifdef PZDEBUG2
     {
         std::ofstream out("PressureRecMeshComputeError.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+        fPressurePostProcMesh.MeshVector()[1]->Print(out);
         std::ofstream out2("PressureMeshComputeError.txt");
-        fPostProcMesh.MeshVector()[3]->Print(out2);
+        fPressurePostProcMesh.MeshVector()[3]->Print(out2);
         //        std::ofstream out3("FluxRecMeshComputeError.txt");
-        //        fPostProcMesh.MeshVector()[0]->Print(out3);
+        //        fPressurePostProcMesh.MeshVector()[0]->Print(out3);
         std::ofstream out4("FluxMeshComputeError.txt");
-        fPostProcMesh.MeshVector()[2]->Print(out);
+        fPressurePostProcMesh.MeshVector()[2]->Print(out);
         
     }
 #endif
     
-    int64_t nErrorCols = 6; //Porque 6?
+    int64_t nErrorCols = 6;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -122,7 +121,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
 #ifdef PZDEBUG1
     {
         std::ofstream out("MeshToComputeError2.txt");
-        fPostProcMesh.Print(out);
+        fPressurePostProcMesh.Print(out);
         
     }
 #endif
@@ -193,14 +192,14 @@ void TPZHybridH1ErrorEstimator::GlobalEffectivityIndex(){
     //    error[3] - energy error computed with reconstructed solution
     //    error[4] - residual data error
     
-    int dim = fPostProcMesh.Dimension();
-    int64_t nelem = fPostProcMesh.NElements();
+    int dim = fPressurePostProcMesh.Dimension();
+    int64_t nelem = fPressurePostProcMesh.NElements();
     TPZManVector<REAL, 10> globalerrors(5, 0.);
     REAL Ieff_global = 0.;
     
     for (int64_t el = 0; el < nelem; el++) {
         
-        TPZCompEl *cel = fPostProcMesh.ElementVec()[el];
+        TPZCompEl *cel = fPressurePostProcMesh.ElementVec()[el];
         TPZGeoEl *gel = cel->Reference();
         REAL hk = gel->CharacteristicSize();
         if (cel->Reference()->Dimension() != dim) continue;
@@ -239,7 +238,7 @@ void TPZHybridH1ErrorEstimator::GlobalEffectivityIndex(){
     myfile << "AdaptativStep " << fProblemConfig.adaptivityStep
     << " Order k= " << fProblemConfig.porder
     << " Order n= " << fProblemConfig.hdivmais << "\n";
-    myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
+    myfile << "DOF Total = " << fPressurePostProcMesh.NEquations() << "\n";
     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
     myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
@@ -260,14 +259,14 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
             scalnames.Push("EnergyErrorExact");
             scalnames.Push("PressureEffectivityIndex");
             scalnames.Push("EnergyEffectivityIndex");
-            //vecnames.Push("FluxExact");
+            vecnames.Push("FluxExact");
         }
         scalnames.Push("PressureFem");
         scalnames.Push("PressureReconstructed");
         scalnames.Push("PressureErrorEstimate");
         scalnames.Push("EnergyErrorEstimate");
         //vecnames.Push("FluxFem");
-        //vecnames.Push("FluxReconstructed");
+        vecnames.Push("FluxReconstructed");
         scalnames.Push("POrder");
         
         int dim = fPostProcMesh.Reference()->Dimension();
@@ -295,7 +294,7 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 {
-    TPZCompMesh *cmeshHdiv =  fOriginal->MeshVector()[0]->Clone();
+    TPZCompMesh *cmeshHdiv = fOriginal->MeshVector()[0]->Clone();
 
 #ifdef PZDEBUG
     string command = "mkdir -p " + fDebugDirName;
@@ -323,13 +322,14 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
         TPZMatLaplacianHybrid *matlaplacian =
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
-            TPZEEMatHybridH1ToHDiv *hdivMat = new TPZEEMatHybridH1ToHDiv(mat.first,fProblemConfig.gmesh->Dimension());
-            cmeshHdiv->MaterialVec()[mat.first] =  hdivMat;
+            TPZHybridH1ErrorEstimateMaterial *EEMat = new TPZHybridH1ErrorEstimateMaterial(*matlaplacian); //TPZHybridH1ErrorEstimateMaterial(mat.first,fProblemConfig.gmesh->Dimension());
+            cmeshHdiv->MaterialVec()[mat.first] =  EEMat;
+            EEMat->SetReconstruction(fisReconstructedFromFemSol,freconstructionWithFlux);
 
             for (auto bcmat : cmeshHdiv->MaterialVec()) {
                 TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
                 if (bc) {
-                    bc->SetMaterial(hdivMat);
+                    bc->SetMaterial(EEMat);
                 }
             }
         }
@@ -365,7 +365,12 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     TPZManVector<int> active(2, 0);
     active[0] = 1;
     mesh_vectors[0] = cmeshHdiv;// flux
-    mesh_vectors[1] = fOriginal->MeshVector()[1]->Clone();// potential
+    if(fisReconstructedFromFemSol) {
+        mesh_vectors[1] = fOriginal->MeshVector()[1]->Clone();
+    }
+    else{
+        mesh_vectors[1] = fPressurePostProcMesh.MeshVector()[1]->Clone();
+    }
 
     for (auto mat : mesh_vectors[0]->MaterialVec()) {
         HdivRecMesh.MaterialVec()[mat.first] = mat.second;
@@ -404,9 +409,27 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
         cmeshHdiv->Print(outF);
         std::ofstream outMultF(dirPath + "HdivMultFluxAfterLoadSol.txt");
         HdivRecMesh.Print(outMultF);
+        std::ofstream outvtk(dirPath + "fluxmesh.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(cmeshHdiv, outvtk);
     }
 #endif
-    return cmeshHdiv;
+#ifdef PZDEBUG
+    TPZAnalysis an(&HdivRecMesh, false);
+    TPZStack<std::string> scalnames, vecnames;
+    int dim = HdivRecMesh.Reference()->Dimension();
+
+    vecnames.Push("FluxReconstructed");
+    vecnames.Push("FluxExact");
+    std::stringstream out;
+    out << dirPath << "fluxmesh.vtk";
+
+    std::set<int> matids ={1};
+    an.DefineGraphMesh(dim,matids, scalnames, vecnames, out.str());
+    an.PostProcess(2, dim);
+#endif
+
+
+    return cmeshHdiv->Clone();
 }
 
 // a method for creating the pressure mesh
@@ -606,7 +629,7 @@ void TPZHybridH1ErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mes
     TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
-    fPostProcMesh.InsertMaterialObject(skeletonMat->NewMaterial());
+    fPressurePostProcMesh.InsertMaterialObject(skeletonMat->NewMaterial());
 
     std::set<int> matIdSkeleton = { fPressureSkeletonMatId };
     gmesh->ResetReference();
@@ -624,8 +647,7 @@ void TPZHybridH1ErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mes
 
 /// create the post processed multiphysics mesh (which is necessarily
 /// hybridized)
-void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
-   //TO DO: Verify if original mesh is Hybrid2, else DEBUGSTOP
+void TPZHybridH1ErrorEstimator::CreatePressurePostProcessingMesh() {
     
 #ifdef PZDEBUG
     {
@@ -634,37 +656,92 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
         std::ofstream out2("OriginalPotential.txt");
         fOriginal->MeshVector()[1]->Print(out2);
         std::ofstream out3("OriginalMeshHybrid.txt");
-        fPostProcMesh.Print(out3);
+        fPressurePostProcMesh.Print(out3);
     }
 #endif
 
     // initialize the post processing mesh
-    fPostProcMesh.SetReference(fOriginal->Reference());
+    fPressurePostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
-    fOriginal->CopyMaterials(fPostProcMesh);
+    fOriginal->CopyMaterials(fPressurePostProcMesh);
 
     SwitchMaterialObjects();
 
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
     TPZManVector<int> active(4, 0);
-    mesh_vectors[0] = 0;//CreateFluxMesh();
+    if(fisReconstructedFromFemSol && freconstructionWithFlux){
+        mesh_vectors[0] = CreateFluxMesh();
+    }
+    else{
+        mesh_vectors[0] = 0;
+    }
     mesh_vectors[1] = CreatePressureMesh();
     mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];// potential
 
     active[1] = 1;
 
-    fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
+    fPressurePostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
 
 #ifdef PZDEBUG
     {
         string dirPath = fDebugDirName + "/";
         std::ofstream outMult(dirPath + "multiphysicsAfterBuildMesh.txt");
-        fPostProcMesh.Print(outMult);
+        fPressurePostProcMesh.Print(outMult);
         std::ofstream outPressure(dirPath + "PressureAfterBuildMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(outPressure);
-        //std::ofstream outFlux(dirPath + "FluxAfterBuildMesh.txt");
-        //fPostProcMesh.MeshVector()[0]->Print(outFlux);
+        fPressurePostProcMesh.MeshVector()[1]->Print(outPressure);
+    }
+#endif
+}
+
+void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
+
+    // initialize the post processing mesh
+    fPostProcMesh.SetReference(fPressurePostProcMesh.Reference());
+    int dim = fPressurePostProcMesh.Dimension();
+    fPressurePostProcMesh.CopyMaterials(fPostProcMesh);
+
+    SwitchMaterialObjects();
+
+    TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
+    TPZManVector<int> active(4, 0);
+    if(freconstructionWithFlux == false){
+        mesh_vectors[0] = 0;
+    }
+    else{
+        if(fisReconstructedFromFemSol){
+            mesh_vectors[0] = fPressurePostProcMesh.MeshVector()[0]->Clone();
+        }
+        else{
+            mesh_vectors[0] = CreateFluxMesh();
+        }
+    }
+    mesh_vectors[1] = fPressurePostProcMesh.MeshVector()[1]->Clone();
+    mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
+    mesh_vectors[3] = fOriginal->MeshVector()[1];// potential
+
+    active[1] = 1;
+    if(freconstructionWithFlux) active[0] = 1;
+
+    fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
+
+#ifdef PZDEBUG
+    {
+        string dirPath = fDebugDirName + "/";
+        std::ofstream outpostMesh(dirPath + "postMesh.txt");
+        fPostProcMesh.Print(outpostMesh);
+        std::ofstream outPpostMesh(dirPath + "PpostMesh.txt");
+        fPressurePostProcMesh.Print(outPpostMesh);
+
+        std::ofstream outpostPmesh(dirPath + "pressurepostMesh.txt");
+        fPostProcMesh.MeshVector()[1]->Print(outpostPmesh);
+        std::ofstream outPpostPmesh(dirPath + "pressurePpostMesh.txt");
+        fPressurePostProcMesh.MeshVector()[1]->Print(outPpostPmesh);
+
+        if(freconstructionWithFlux == true) {
+            std::ofstream outFpostMesh(dirPath + "FluxpostMesh.txt");
+            fPostProcMesh.MeshVector()[0]->Print(outFpostMesh);
+        }
     }
 #endif
 }
@@ -689,10 +766,10 @@ void TPZHybridH1ErrorEstimator::ComputeElementStiffnesses() {
     
     {
         std::ofstream out("MeshToComputeStiff.txt");
-        fPostProcMesh.Print(out);
+        fPressurePostProcMesh.Print(out);
     }
 #endif
-    for (auto cel:fPostProcMesh.ElementVec()) {
+    for (auto cel:fPressurePostProcMesh.ElementVec()) {
         if (!cel) continue;
         TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
         if (condense) {
@@ -893,7 +970,7 @@ void TPZHybridH1ErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh
     }
     TPZNullMaterial *nullmat = new TPZNullMaterial(fPressureSkeletonMatId);
     pressuremesh->InsertMaterialObject(nullmat);
-    int dim = fPostProcMesh.Dimension();
+    int dim = fPressurePostProcMesh.Dimension();
     int64_t nel = pressuremesh->NElements();
     std::map<int64_t, int> gelpressures;
     // create the geometrical elements
@@ -1037,10 +1114,10 @@ void TPZHybridH1ErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh
 
 /// restrain the edge elements that have larger elements as neighbours
 void TPZHybridH1ErrorEstimator::RestrainSmallEdges(TPZCompMesh *pressuremesh) {
-    //    TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[1];
+    //    TPZCompMesh *pressuremesh = fPressurePostProcMesh.MeshVector()[1];
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     gmesh->ResetReference();
-    int dim = fPostProcMesh.Dimension();
+    int dim = fPressurePostProcMesh.Dimension();
     int64_t nel = pressuremesh->NElements();
     // load the face and edge elements
     for (int64_t el = 0; el < nel; el++) {
@@ -1092,7 +1169,7 @@ void TPZHybridH1ErrorEstimator::RestrainSmallEdges(TPZCompMesh *pressuremesh) {
 /// adjust the interpolation orders so as to create an H1/2 boundary mesh
 // this method is called by the CreateEdgeSkeletonMesh method
 void TPZHybridH1ErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh) {
-    //    TPZCompMesh *pressure_mesh = fPostProcMesh.MeshVector()[1];
+    //    TPZCompMesh *pressure_mesh = fPressurePostProcMesh.MeshVector()[1];
     TPZGeoMesh *gmesh = pressure_mesh->Reference();
     gmesh->ResetReference();
     int dim = gmesh->Dimension();
@@ -1194,18 +1271,18 @@ void TPZHybridH1ErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *pre
 
 /// return a pointer to the pressure mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::PressureMesh() {
-    return fPostProcMesh.MeshVector()[1];
+    return fPressurePostProcMesh.MeshVector()[1];
 }
 
 TPZCompMesh *TPZHybridH1ErrorEstimator::FluxMesh() {
-    return fPostProcMesh.MeshVector()[0];
+    return fPressurePostProcMesh.MeshVector()[0];
 }
 
 /// compute the average pressures of the hybridized form of the H(div) mesh
 void TPZHybridH1ErrorEstimator::ComputeAverageFacePressures() {
     DebugStop();
     /*TPZCompMesh *pressure = fOriginal->MeshVector()[1];
-    TPZCompMesh *pressure_mesh = fPostProcMesh.MeshVector()[1];
+    TPZCompMesh *pressure_mesh = fPressurePostProcMesh.MeshVector()[1];
     int fInterfaceMatid = fHybridizer.fLagrangeInterface;
     TPZGeoMesh *gmesh = pressure->Reference();
     gmesh->ResetReference();
@@ -1294,9 +1371,9 @@ void TPZHybridH1ErrorEstimator::ComputeAverageFacePressures() {
         }
     }
     TPZManVector<TPZCompMesh *, 2> meshvec(2);
-    meshvec[0] = fPostProcMesh.MeshVector()[0];
-    meshvec[1] = fPostProcMesh.MeshVector()[1];
-    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
+    meshvec[0] = fPressurePostProcMesh.MeshVector()[0];
+    meshvec[1] = fPressurePostProcMesh.MeshVector()[1];
+    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPressurePostProcMesh);
 */}
 
 /// compute the average pressures of across edges of the H(div) mesh
@@ -1439,14 +1516,14 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
     //    std::ofstream out("PressureProjBefore.txt");
     //    pressuremesh->Print(out);
     
-    TPZGeoMesh *gmesh = fPostProcMesh.Reference();
-    std::map<int,TPZMaterial *> matvec = fPostProcMesh.MaterialVec();
+    TPZGeoMesh *gmesh = fPressurePostProcMesh.Reference();
+    std::map<int,TPZMaterial *> matvec = fPressurePostProcMesh.MaterialVec();
     for (auto matit=matvec.begin(); matit != matvec.end(); matit++) {
         TPZHDivErrorEstimateMaterial *castmat = dynamic_cast<TPZHDivErrorEstimateMaterial *>(matit->second);
         if(castmat)
         {
             TPZPressureProjection *pressproj = new TPZPressureProjection(*castmat);
-            fPostProcMesh.MaterialVec()[matit->first] = pressproj;
+            fPressurePostProcMesh.MaterialVec()[matit->first] = pressproj;
         }
     }
     for (auto matit=matvec.begin(); matit != matvec.end(); matit++) {
@@ -1455,7 +1532,7 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
         {
             TPZMaterial *refmat = bndcond->Material();
             int matid = refmat->Id();
-            bndcond->SetMaterial(fPostProcMesh.FindMaterial(matid));
+            bndcond->SetMaterial(fPressurePostProcMesh.FindMaterial(matid));
         }
     }
     
@@ -1463,16 +1540,16 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
     
 
     //    {
-    //        TPZCompMesh *pressmesh = fPostProcMesh.MeshVector()[1];
+    //        TPZCompMesh *pressmesh = fPressurePostProcMesh.MeshVector()[1];
     //        std::ofstream out("pressure.txt");
     //        pressmesh->Print(out);
     //    }
     
     TPZElementMatrix ekbc,efbc;
 
-    int64_t nel = fPostProcMesh.NElements();
+    int64_t nel = fPressurePostProcMesh.NElements();
     for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel_orig = fPostProcMesh.Element(el);
+        TPZCompEl *cel_orig = fPressurePostProcMesh.Element(el);
         if(!cel_orig) continue;
         TPZCondensedCompEl *cond = dynamic_cast<TPZCondensedCompEl *>(cel_orig);
         if(!cond) continue;
@@ -1535,8 +1612,8 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
         if(castmat)
         {
             int matid = matit->first;
-            delete fPostProcMesh.MaterialVec()[matit->first];
-            fPostProcMesh.MaterialVec()[matid] = matvec[matid];
+            delete fPressurePostProcMesh.MaterialVec()[matit->first];
+            fPressurePostProcMesh.MaterialVec()[matid] = matvec[matid];
         }
     }
     
@@ -2336,7 +2413,7 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
 void TPZHybridH1ErrorEstimator::CloneMeshVec() {
     
     for (int i = 0; i < fOriginal->MeshVector().size(); i++) {
-        fPostProcMesh.MeshVector()[i] = fOriginal->MeshVector()[i]->Clone();
+        fPressurePostProcMesh.MeshVector()[i] = fOriginal->MeshVector()[i]->Clone();
     }
     
 }
@@ -2549,7 +2626,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
 bool TPZHybridH1ErrorEstimator::IsDirichletCondition(TPZGeoElSide gelside) {
     TPZGeoEl *gel = gelside.Element();
     int matid = gel->MaterialId();
-    TPZMaterial *mat = fPostProcMesh.FindMaterial(matid);
+    TPZMaterial *mat = fPressurePostProcMesh.FindMaterial(matid);
     TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
     if (!bc) return false;
     int typ = bc->Type();
@@ -2562,7 +2639,7 @@ bool TPZHybridH1ErrorEstimator::IsDirichletCondition(TPZGeoElSide gelside) {
 void TPZHybridH1ErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec<STATE> &vals) {
     TPZGeoEl *gel = gelside.Element();
     int matid = gel->MaterialId();
-    TPZMaterial *mat = fPostProcMesh.FindMaterial(matid);
+    TPZMaterial *mat = fPressurePostProcMesh.FindMaterial(matid);
     TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
     if (!bc) DebugStop();
     int typ = bc->Type();
@@ -2586,7 +2663,7 @@ void TPZHybridH1ErrorEstimator::FluxReconstruction() {
 }
 
 void TPZHybridH1ErrorEstimator::CreateReconstructionSpaces() {
-    if (fPostProcMesh.MeshVector().size()) {
+    if (fPressurePostProcMesh.MeshVector().size()) {
         DebugStop();
     }
 
@@ -2608,27 +2685,29 @@ void TPZHybridH1ErrorEstimator::CreateReconstructionSpaces() {
     }
 #endif
 
-    CreatePostProcessingMesh();
+    CreatePressurePostProcessingMesh();
 
 #ifdef PZDEBUG
     {
         std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
-        fPostProcMesh.Print(out);
+        fPressurePostProcMesh.Print(out);
         std::ofstream outOrig(dirPath + "PressureConnectsBeforeReconstruction.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outOrig, {1,2,3,fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], outOrig, {1,2,3,fPressureSkeletonMatId}, false, true);
         std::ofstream outGReconstVTK(dirPath + "gReconstruct.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), outGReconstVTK);
+        TPZVTKGeoMesh::PrintGMeshVTK(fPressurePostProcMesh.Reference(), outGReconstVTK);
         std::ofstream outGReconstTXT(dirPath + "gReconstruct.txt");
         fOriginal->Reference()->Print(outGReconstTXT);
     }
 #endif
 
     PotentialReconstruction();
+
+    CreatePostProcessingMesh();
 };
 
 void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
 
-    if (!fPostProcMesh.MeshVector().size()) {
+    if (!fPressurePostProcMesh.MeshVector().size()) {
         DebugStop();
     }
 
@@ -2642,9 +2721,9 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
 #ifdef PZDEBUG
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
-        fPostProcMesh.Print(out);
+        fPressurePostProcMesh.Print(out);
         std::ofstream out2("PressureMeshSmooth.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out2);
+        fPressurePostProcMesh.MeshVector()[1]->Print(out2);
     }
 #endif
     
@@ -2656,55 +2735,55 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
         system(command.c_str());
         std::string dirPath = fDebugDirName + "/DebuggingLoadSol/";
         std::ofstream out(dirPath + "MeshBeforeLoadSol.txt");
-        fPostProcMesh.Print(out);
+        fPressurePostProcMesh.Print(out);
         ofstream out2(dirPath + "SolBeforeLoadSolution.nb");
-        fPostProcMesh.Solution().Print("SolBeforeLoadSolution=",out2,EMathematicaInput);
+        fPressurePostProcMesh.Solution().Print("SolBeforeLoadSolution=",out2,EMathematicaInput);
         ofstream out3(dirPath + "PressureWithAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out3, {1,2,3}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], out3, {1,2,3}, false, true);
         ofstream out4(dirPath + "PressureWithAverage.txt");
     }
 #endif
     
-    fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
+    fPressurePostProcMesh.LoadSolution(fPressurePostProcMesh.Solution());
     
 #ifdef PZDEBUG
     {
         std::string dirPath = fDebugDirName + "/DebuggingLoadSol/";
         std::ofstream out(dirPath + "MeshAfterLoadSol.txt");
-        fPostProcMesh.Print(out);
+        fPressurePostProcMesh.Print(out);
         std::ofstream outP(dirPath + "PotentialAfterLoadSol.txt");
-        fPostProcMesh.MeshVector()[1]->Print(outP);
-        //fPostProcMesh.Solution().Print("SolAfterLoadSolution");
+        fPressurePostProcMesh.MeshVector()[1]->Print(outP);
+        //fPressurePostProcMesh.Solution().Print("SolAfterLoadSolution");
         ofstream out2(dirPath + "SolAfterLoadSolution.nb");
-        fPostProcMesh.Solution().Print("SolAfterLoadSolution=",out2,EMathematicaInput);
+        fPressurePostProcMesh.Solution().Print("SolAfterLoadSolution=",out2,EMathematicaInput);
         ofstream out3(dirPath + "PressureAfterLoadSolution.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out3, {1,2,3}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], out3, {1,2,3}, false, true);
     }
 #endif
     
     {
         TPZManVector<TPZCompMesh *, 2> meshvec(2);
-        // fPostProcMesh[0] is the H1 or Hdiv mesh
-        // fPostProcMesh[1] is the L2 mesh
+        // fPressurePostProcMesh[0] is the H1 or Hdiv mesh
+        // fPressurePostProcMesh[1] is the L2 mesh
         
-        meshvec[0] = fPostProcMesh.MeshVector()[0];
-        meshvec[1] = fPostProcMesh.MeshVector()[1];
+        meshvec[0] = fPressurePostProcMesh.MeshVector()[0];
+        meshvec[1] = fPressurePostProcMesh.MeshVector()[1];
         
         //        {
-        //            //fPostProcMesh.Solution().Print("SolutionBeforeTranfer");
+        //            //fPressurePostProcMesh.Solution().Print("SolutionBeforeTranfer");
         //
         //            ofstream out2("SolutionBeforeTranfer.nb");
-        //            fPostProcMesh.Solution().Print("SolutionBeforeTranfer=",out2,EMathematicaInput);
+        //            fPressurePostProcMesh.Solution().Print("SolutionBeforeTranfer=",out2,EMathematicaInput);
         //
         //        }
         
-        TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+        TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPressurePostProcMesh);
         
         //        {
         //
-        //       //  fPostProcMesh.ElementSolution().Print("SolutionAfterTranfer");
+        //       //  fPressurePostProcMesh.ElementSolution().Print("SolutionAfterTranfer");
         //            ofstream out2("SolutionAfterTranfer.nb");
-        //            fPostProcMesh.Solution().Print("SolutionAfterTranfer=",out2,EMathematicaInput);
+        //            fPressurePostProcMesh.Solution().Print("SolutionAfterTranfer=",out2,EMathematicaInput);
         //
         //        }
         
@@ -2712,8 +2791,8 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
         {
             string dirPath = fDebugDirName + "/";
             std::ofstream outCon(dirPath + "PressureConnectsAfterLoadSolution.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3}, false, true);
-            //fPostProcMesh.MeshVector()[0]->Print(out2);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], outCon, {1,2,3}, false, true);
+            //fPressurePostProcMesh.MeshVector()[0]->Print(out2);
             
         }
         VerifySolutionConsistency(PressureMesh());
@@ -2735,7 +2814,7 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     {
         string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath + "PressureAverageMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+        fPressurePostProcMesh.MeshVector()[1]->Print(out);
         bool reconstructed = true;
         PlotLagrangeMultiplier(dirPath + "BeforeAverage",reconstructed);
     }
@@ -2743,11 +2822,11 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     {
         std::string dirPath = "DebuggingConsistency/";
         std::ofstream outCon(dirPath + "AverageB4Average.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
     }
 
     // Calculates average pressure on interface edges and vertices
-    int dim = fPostProcMesh.Dimension();
+    int dim = fPressurePostProcMesh.Dimension();
     ComputeAveragePressures(dim - 1);
     // in three dimensions make the one-d polynoms compatible
     if (dim == 3) {
@@ -2760,14 +2839,14 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     {
         string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath+"PressureAverageMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+        fPressurePostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier(dirPath+"BeforeNodalAverage");
     }
 
     {
         std::string dirPath = "DebuggingConsistency/";
         std::ofstream outCon(dirPath + "AverageB4NodalAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
     }
 
     ComputeNodalAverages();
@@ -2775,13 +2854,13 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     {
         std::string dirPath = "DebuggingConsistency/";
         std::ofstream outCon(dirPath + "AverageAfterNodalAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], outCon, {fPressureSkeletonMatId}, false, true);
     }
 
     {
         string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath + "PressureNodalMesh.txt");
-        fPostProcMesh.MeshVector()[1]->Print(out);
+        fPressurePostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier("AfterNodalAverage");
     }
 
@@ -2789,7 +2868,7 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     {
         std::string dirPath = "DebuggingConsistency/";
         std::ofstream outCon(dirPath + "AverageAfterLoadSolAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
     }
 
     CopySolutionFromSkeleton();
@@ -2797,9 +2876,9 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     // transfer the continuous pressures to the multiphysics space
     {
         TPZManVector<TPZCompMesh *, 2> meshvec(2);
-        meshvec[0] = fPostProcMesh.MeshVector()[0];//flux
-        meshvec[1] = fPostProcMesh.MeshVector()[1];//pressure
-        fPostProcMesh.CleanUpUnconnectedNodes();
+        meshvec[0] = fPressurePostProcMesh.MeshVector()[0];//flux
+        meshvec[1] = fPressurePostProcMesh.MeshVector()[1];//pressure
+        fPressurePostProcMesh.CleanUpUnconnectedNodes();
 
 
         std::string command = "mkdir -p " + fDebugDirName +  "/DebuggingTransfer";
@@ -2808,22 +2887,22 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
         {
             std::string dirPath = fDebugDirName +  "/DebuggingTransfer/";
             std::ofstream out(dirPath + "PressureBeforeTransferFromMeshes.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], out);
 
             std::ofstream outMultiphysics(dirPath + "MultiphysicsBeforeTransferFromMeshes.txt");
             std::set<int> matIDs;
             GetPressureMatIDs(matIDs);
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics,matIDs);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPressurePostProcMesh, outMultiphysics,matIDs);
         }
-        TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
+        TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPressurePostProcMesh);
         {
             std::string dirPath = fDebugDirName +  "/DebuggingTransfer/";
             std::ofstream out(dirPath + "PressureAfterTransferFromMeshes.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressurePostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics(dirPath + "MultiphysicsAfterTransferFromMeshes.txt");
             std::set<int> matIDs;
             GetPressureMatIDs(matIDs);
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics,matIDs);
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPressurePostProcMesh, outMultiphysics,matIDs);
         }
     }
 }
@@ -2948,24 +3027,20 @@ void TPZHybridH1ErrorEstimator::IdentifyPeripheralMaterialIds() {
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
 void TPZHybridH1ErrorEstimator:: SwitchMaterialObjects() {
-    for (auto mat : fPostProcMesh.MaterialVec()) {
+    for (auto mat : fPressurePostProcMesh.MaterialVec()) {
         TPZMatLaplacianHybrid *matlaplacian=
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
-            TPZEEMatHybridH1ToH1 *newmat = new TPZEEMatHybridH1ToH1(*matlaplacian);
+            TPZHybridH1ErrorEstimateMaterial *newmat = new TPZHybridH1ErrorEstimateMaterial(*matlaplacian);
+            newmat->SetReconstruction(fisReconstructedFromFemSol,freconstructionWithFlux);
 
-            if (matlaplacian->HasForcingFunction()) {
-                newmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
-                newmat->SetForcingFunction(matlaplacian->ForcingFunction());
-            }
-
-            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+            for (auto bcmat : fPressurePostProcMesh.MaterialVec()) {
                 TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
                 if (bc) {
                     bc->SetMaterial(newmat);
                 }
             }
-            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            fPressurePostProcMesh.MaterialVec()[newmat->Id()] = newmat;
             delete matlaplacian;
         }
     }
@@ -3292,17 +3367,17 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
     // so we are later incrementing the number of elements connected to them.
     // Then we compute the stiffness matrix and load the solution of the
     // internal degrees of freedom.
-    TPZManVector<int64_t> connectsToIncrement(fPostProcMesh.NConnects(), -1);
-    fPostProcMesh.ComputeNodElCon();
+    TPZManVector<int64_t> connectsToIncrement(fPressurePostProcMesh.NConnects(), -1);
+    fPressurePostProcMesh.ComputeNodElCon();
 
-    TPZCompMesh *pressureMesh = fPostProcMesh.MeshVector()[1];
+    TPZCompMesh *pressureMesh = fPressurePostProcMesh.MeshVector()[1];
     pressureMesh->LoadReferences();
 
 #ifdef PZDEBUG
     {
         string dirPath = fDebugDirName + "/";
         std::ofstream txtPostProcMesh(dirPath + "PostProcMeshB4IncrementingConnects.txt");
-        fPostProcMesh.ShortPrint(txtPostProcMesh);
+        fPressurePostProcMesh.ShortPrint(txtPostProcMesh);
         std::ofstream txtPressureMesh(dirPath + "PressureMeshB4IncrementingConnects.txt");
         pressureMesh->Print(txtPressureMesh);
     }
@@ -3338,15 +3413,15 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
         }
     }
 
-    fPostProcMesh.LoadReferences();
-    int64_t nel = fPostProcMesh.NElements();
+    fPressurePostProcMesh.LoadReferences();
+    int64_t nel = fPressurePostProcMesh.NElements();
     for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = fPostProcMesh.Element(el);
+        TPZCompEl *cel = fPressurePostProcMesh.Element(el);
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if (!gel) DebugStop();
 
-        if (gel->Dimension() != fPostProcMesh.Dimension()) continue;
+        if (gel->Dimension() != fPressurePostProcMesh.Dimension()) continue;
         TPZMultiphysicsElement *mcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
         if (!mcel) DebugStop();
 
@@ -3372,60 +3447,60 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
 
         if (elementsToGroup.size()) {
             int64_t index;
-            TPZElementGroup *elGroup = new TPZElementGroup(fPostProcMesh, index);
+            TPZElementGroup *elGroup = new TPZElementGroup(fPressurePostProcMesh, index);
             for (const auto &it : elementsToGroup) {
-                elGroup->AddElement(fPostProcMesh.Element(it));
+                elGroup->AddElement(fPressurePostProcMesh.Element(it));
             }
         }
     }
 
     // Increments NElConnected of connects that should not be condensed
-    fPostProcMesh.ComputeNodElCon();
-    TPZCompMesh *fluxMesh = fPostProcMesh.MeshVector()[0];
+    fPressurePostProcMesh.ComputeNodElCon();
+    TPZCompMesh *fluxMesh = fPressurePostProcMesh.MeshVector()[0];
     int nfc = 0;
-    if(fluxMesh && fPostProcMesh.GetActiveApproximationSpaces()[0]){
+    if(fluxMesh && fPressurePostProcMesh.GetActiveApproximationSpaces()[0]){
         nfc = fluxMesh->NConnects();
     }
-    for (int64_t i = 0; i < fPostProcMesh.NConnects(); i++) {
+    for (int64_t i = 0; i < fPressurePostProcMesh.NConnects(); i++) {
         if (connectsToIncrement[i] == 1) {
-            fPostProcMesh.ConnectVec()[nfc + i].IncrementElConnected();
+            fPressurePostProcMesh.ConnectVec()[nfc + i].IncrementElConnected();
         }
     }
 #ifdef PZDEBUG
     {
         string dirPath = fDebugDirName + "/";
         std::ofstream txtPostProcMesh(dirPath + "PostProcMeshAfterIncrementingConnects.txt");
-        fPostProcMesh.ShortPrint(txtPostProcMesh);
+        fPressurePostProcMesh.ShortPrint(txtPostProcMesh);
     }
 #endif
 
-    for (int64_t el = 0; el < fPostProcMesh.NElements(); el++) {
-        TPZCompEl *cel = fPostProcMesh.Element(el);
+    for (int64_t el = 0; el < fPressurePostProcMesh.NElements(); el++) {
+        TPZCompEl *cel = fPressurePostProcMesh.Element(el);
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if (!gel) {
             TPZElementGroup *group = dynamic_cast<TPZElementGroup *>(cel);
             if (!group) DebugStop();
         }
-        if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
+        if (gel && gel->Dimension() != fPressurePostProcMesh.Dimension()) continue;
         TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel, false);
     }
 
-    for (auto matit : fPostProcMesh.MaterialVec()) {
+    for (auto matit : fPressurePostProcMesh.MaterialVec()) {
         TPZMaterial *mat = matit.second;
-        TPZEEMatHybridH1ToH1 *errormat = dynamic_cast<TPZEEMatHybridH1ToH1 *>(mat);
+        TPZHybridH1ErrorEstimateMaterial *errormat = dynamic_cast<TPZHybridH1ErrorEstimateMaterial *>(mat);
         if (errormat) {
             errormat->fNeumannLocalProblem = false;
         }
     }
 
-    fPostProcMesh.CleanUpUnconnectedNodes();
+    fPressurePostProcMesh.CleanUpUnconnectedNodes();
     pressureMesh->CleanUpUnconnectedNodes();
 
 #ifdef PZDEBUG
     string dirPath = fDebugDirName + "/";
     std::ofstream outTXT(dirPath + "PostProcessMeshAfterPreparingElements.txt");
-    fPostProcMesh.Print(outTXT);
+    fPressurePostProcMesh.Print(outTXT);
 #endif
 }
 
@@ -3495,7 +3570,7 @@ void TPZHybridH1ErrorEstimator::CopySolutionFromSkeleton() {
 /// compute the pressure weights and material weights
 // fills in the data structure pressureweights and matid_weights
 void TPZHybridH1ErrorEstimator::ComputePressureWeights() {
-    TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[1];
+    TPZCompMesh *pressuremesh = fPressurePostProcMesh.MeshVector()[1];
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
     fPressureweights.Resize(nel, 0);

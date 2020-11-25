@@ -2399,7 +2399,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 }
 
 void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {
-    
+    return;
     TPZCompMesh *pressure = nullptr;
 
     if (!reconstructed) {

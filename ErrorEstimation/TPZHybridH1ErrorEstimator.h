@@ -27,6 +27,11 @@ class TPZSubCompMesh;
 // then compute the errors
 struct TPZHybridH1ErrorEstimator
 {
+    /// Weather flux is reconstructed from fem solution (u_h) or from the reconstructed potential (s_h)
+    bool fisReconstructedFromFemSol = false;
+
+    /// Weather pressure is reconstructed from fem solution (grad u_h) or from source (f)
+    bool freconstructionWithFlux = true;
     
     /// The HybridSquared approximation mesh for which we will compute the error
     TPZMultiphysicsCompMesh *fOriginal;
@@ -44,9 +49,11 @@ struct TPZHybridH1ErrorEstimator
     /// 1 : average between both skeletons; 2 : Just small skeleton; 3 : weighted average w~1/h^(p+1)
     int fAverageMode = 0;
     
-    /// Locally created computational mesh to compute the error
+    /// PostProcMesh dedicated to pressure reconstruction
+    TPZMultiphysicsCompMesh fPressurePostProcMesh;
+
+    /// Computational mesh with pressure and flux reconstructions
     TPZMultiphysicsCompMesh fPostProcMesh;
-//    TPZManVector<TPZCompMesh *,7> fPostProcMesh;
     
     /// weights associated with the dim-1 pressure elements to compute the averages
     TPZVec<REAL> fPressureweights;
@@ -94,14 +101,14 @@ struct TPZHybridH1ErrorEstimator
     std::string fDebugDirName = "HybridH1_ReconstructionDebug";
 
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh) : fOriginal(&InputMesh),
-    fPostProcMesh(0),fExact(NULL)
+    fPressurePostProcMesh(0),fExact(NULL)
     {
         FindFreeMatID(fPressureSkeletonMatId);
         fHDivResconstructionMatId = fPressureSkeletonMatId+1;
     }
 
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
-                                                                    fPostProcMesh(0),fExact(NULL),
+                                                                    fPressurePostProcMesh(0),fExact(NULL),
                                                                     fPressureSkeletonMatId(fPressureSkeletonMatId),fHDivResconstructionMatId(HDivMatId)
     {
 
@@ -109,7 +116,7 @@ struct TPZHybridH1ErrorEstimator
     
     TPZHybridH1ErrorEstimator(const TPZHybridH1ErrorEstimator &copy) : fOriginal(copy.fOriginal),
         fOriginalIsHybridized(copy.fOriginalIsHybridized),fUpliftPostProcessMesh(copy.fUpliftPostProcessMesh),
-        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig),fPressureSkeletonMatId(copy.fPressureSkeletonMatId)
+        fPressurePostProcMesh(copy.fPressurePostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig),fPressureSkeletonMatId(copy.fPressureSkeletonMatId)
     {
         // this method wont work because multiphysics meshes have no copy constructor (yet)
         DebugStop();
@@ -123,7 +130,7 @@ struct TPZHybridH1ErrorEstimator
         // this method wont work because multiphysics meshes have no operator= (yet)
         DebugStop();
 
-        fPostProcMesh = cp.fPostProcMesh;
+        fPressurePostProcMesh = cp.fPressurePostProcMesh;
         fExact = cp.fExact;
         fProblemConfig = cp.fProblemConfig;
         fPressureSkeletonMatId = cp.fPressureSkeletonMatId;
@@ -169,6 +176,9 @@ struct TPZHybridH1ErrorEstimator
 
 protected:
     
+    /// create the post processed multiphysics mesh (which is necessarily hybridized)
+    virtual void CreatePressurePostProcessingMesh();
+
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
     

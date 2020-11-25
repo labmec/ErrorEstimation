@@ -11,44 +11,54 @@
 
 #include <stdio.h>
 #include "TPZMatLaplacianHybrid.h"
-#include "TPZEEMatHybridH1ToHDiv.h"
+#include "mixedpoisson.h"
 
-class TPZEEMatHybridH1ToH1: public TPZMatLaplacianHybrid
+class TPZHybridH1ErrorEstimateMaterial: public TPZMixedPoisson
 {
+private:
+    /// Weather flux is reconstructed from fem solution (u_h) or from the reconstructed potential (s_h)
+    bool fisReconstructedFromFemSol;
+
+    /// Weather pressure is reconstructed from fem solution (grad u_h) or from source (f)
+    bool freconstructionWithFlux;
 
 public:
 
+    TPZHybridH1ErrorEstimateMaterial(int matid, int dim);
 
-    TPZEEMatHybridH1ToH1(int matid, int dim);
+    TPZHybridH1ErrorEstimateMaterial();
 
-    TPZEEMatHybridH1ToH1();
+    TPZHybridH1ErrorEstimateMaterial(TPZMatLaplacianHybrid &matlaplacian);
 
-    TPZEEMatHybridH1ToH1(TPZEEMatHybridH1ToHDiv &hdivEE);
+    TPZHybridH1ErrorEstimateMaterial(const TPZHybridH1ErrorEstimateMaterial &copy);
 
-    TPZEEMatHybridH1ToH1(const TPZEEMatHybridH1ToH1 &copy);
+    TPZHybridH1ErrorEstimateMaterial(const TPZMixedPoisson &copy);
 
-    TPZEEMatHybridH1ToH1(const TPZMatLaplacianHybrid &copy);
+    virtual ~TPZHybridH1ErrorEstimateMaterial();
 
-    virtual ~TPZEEMatHybridH1ToH1();
+    TPZHybridH1ErrorEstimateMaterial &operator=(const TPZHybridH1ErrorEstimateMaterial &copy);
 
-    TPZEEMatHybridH1ToH1 &operator=(const TPZEEMatHybridH1ToH1 &copy);
-
+    virtual void SetReconstruction (bool isReconstructedFromFemSol,bool reconstructionWithFlux);
 
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
 
     virtual void ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) override;
 
+    virtual void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override{
+        DebugStop();
+    }
+    virtual void ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) override{
+        DebugStop();
+    }
 
     virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
     virtual void FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec) override;
 
     virtual void UpdateBCValues(TPZVec<TPZMaterialData> &datavec);
 
-    /** @brief Gets the order of the integration rule necessary to integrate an element with polinomial order p */
-    ///  HDiv simulations use an additional integration order.
-    ///  In order to test if HybridH1 and HDiv are equivalents, both integration orders shall be equivalent.
-    virtual int IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const override;
-
+    virtual TPZMaterial * NewMaterial() override{
+        return new TPZHybridH1ErrorEstimateMaterial(*this);
+    }
 
     bool fNeumannLocalProblem = true;
 
@@ -69,9 +79,5 @@ public:
     virtual int NSolutionVariables(int var) override;
     virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var,
                           TPZVec<STATE> &Solout) override;
-
-    // Returns the first non-null approximation space index, which will be the
-    // H1 reconstruction space
-    int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
 };
 #endif //ERRORESTIMATION_TPZEEMatHybridH1ToH1_H

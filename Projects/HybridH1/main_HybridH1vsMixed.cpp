@@ -66,7 +66,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode = 3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode =3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = true, post_proc = true;
@@ -113,8 +113,8 @@ void IsInteger(char *argv);
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     config.porder =4;         // Potential and internal flux order
-    config.hdivmais =  1;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 3;  // p_order - H1HybridMinus = Flux order
+    config.hdivmais =  3;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = 2;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -123,7 +123,7 @@ void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin/*EArcTan*//*ESinSin*/;
     config.exact.operator*().fSignConvention = 1;
 
-    config.problemname = "ESinSin"/*"EArcTan"*//*"ESinSin"*/;
+    config.problemname = "ESinSin";///*"EArcTan"*//*"ESinSin"*/;
 
     config.dir_name = "Pressure_Reconstruction_VTK";
     std::string command = "mkdir -p " + config.dir_name;
@@ -218,6 +218,10 @@ int main(int argc, char *argv[]) {
             int hybridLevel = 1;
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,fluxmatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
+            {
+                std::ofstream outCon("OriginalLambdasPerConnect.txt");
+                TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh_H1Hybrid->MeshVector()[0], outCon, {}, false, true);
+            }
             TPZHybridH1ErrorEstimator HybridH1Estimate(*cmesh_H1Hybrid);
             HybridH1Estimate.fProblemConfig = config;
             HybridH1Estimate.SetAnalyticSolution(config.exact);
@@ -640,7 +644,11 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     //TPZCreateMultiphysicsSpace createspace(config.gmesh);
     std::cout << cmesh_H1Hybrid->NEquations();
 
-    createspace.SetMaterialIds({1,2,3}, {-6,-5,-2,-1});
+    if(eData.isMultiK){
+        createspace.SetMaterialIds({1,2,3}, {-6,-5,-2,-1});
+    }
+    else createspace.SetMaterialIds({1}, {-1});
+
     createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
 

@@ -151,7 +151,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
         fPermeabilityFunction->Execute(x, func, dfunc);
         KPerm = dfunc(0,0);
     }
-    
+
     //Equacao de Poisson
     for( int in = 0; in < phr; in++ ) {
         int kd;
