@@ -25,7 +25,7 @@ TPZHybridH1ErrorEstimateMaterial::TPZHybridH1ErrorEstimateMaterial() : TPZMixedP
 TPZHybridH1ErrorEstimateMaterial::TPZHybridH1ErrorEstimateMaterial(const TPZHybridH1ErrorEstimateMaterial &copy) : TPZMixedPoisson(copy)
 {
     this->fisReconstructedFromFemSol = copy.fisReconstructedFromFemSol;
-    this->freconstructionWithFlux = copy.freconstructionWithFlux;
+    this->fisPotentialRecFromFlux = copy.fisPotentialRecFromFlux;
 }
 
 TPZHybridH1ErrorEstimateMaterial::TPZHybridH1ErrorEstimateMaterial(const TPZMixedPoisson &copy) : TPZMixedPoisson(copy)
@@ -56,15 +56,16 @@ TPZHybridH1ErrorEstimateMaterial::~TPZHybridH1ErrorEstimateMaterial()
 
 TPZHybridH1ErrorEstimateMaterial &TPZHybridH1ErrorEstimateMaterial::operator=(const TPZHybridH1ErrorEstimateMaterial &copy)
 {
-    this->freconstructionWithFlux = copy.freconstructionWithFlux;
+    this->fisPotentialRecFromFlux = copy.fisPotentialRecFromFlux;
     this->fisReconstructedFromFemSol = copy.fisReconstructedFromFemSol;
     TPZMixedPoisson::operator=(copy);
     return *this;
 }
 
-void TPZHybridH1ErrorEstimateMaterial::SetReconstruction (bool isReconstructedFromFemSol, bool reconstructionWithFlux){
+void TPZHybridH1ErrorEstimateMaterial::SetReconstruction (bool isReconstructedFromFemSol, bool isPotentialRecFromFlux, bool isFluxFromGraduh){
     fisReconstructedFromFemSol = isReconstructedFromFemSol;
-    freconstructionWithFlux = reconstructionWithFlux;
+    fisPotentialRecFromFlux = isPotentialRecFromFlux;
+    fisFluxFromGraduh = isFluxFromGraduh;
 }
 
 void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
@@ -77,6 +78,8 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
     if(datavec.size() == 2){
         TPZFNMatrix<9,REAL> PermTensor;
         TPZFNMatrix<9,REAL> InvPermTensor;
+        int dim = datavec[0].axes.Rows();
+        TPZFMatrix<STATE> gradSol(3, 1,0);
 
         GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
 
@@ -92,8 +95,13 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         int phrq;
         phrq = datavec[0].fVecShapeIndex.NElements();
 
-        phiuk.Print(std::cout);
-        dphiuk.Print(std::cout);
+        TPZFNMatrix<15, STATE> &dsolpaxes = datavec[1].dsol[0];
+        TPZFNMatrix<9, REAL> dsolp(2, dphiukaxes.Cols());
+        TPZAxesTools<REAL>::Axes2XYZ(dsolpaxes, dsolp, datavec[1].axes);
+
+        for (int ip = 0; ip < dim; ip++) {
+            gradSol(ip, 0) = dsolp.Get(ip, 0);
+        }
 
         for(int iq=0; iq<phrq; iq++)
         {
@@ -141,7 +149,13 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
             {
                 divwq += axesvec(iloc,0)*dphiQ(iloc,ishapeind);
             }
-            ef(iq,0) += weight*divwq*datavec[1].sol[0][0];
+            if(fisFluxFromGraduh && fisPotentialRecFromFlux){
+                for(int iloc=0; iloc<fDim; iloc++){
+                    ef(iq,0) -= weight*gradSol[iloc]*ivec(iloc,0)*phiQ(ishapeind,0);
+                }
+            }else{
+                ef(iq, 0) += weight * divwq * datavec[1].sol[0][0];
+            }
         }
     }
 
@@ -153,6 +167,9 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
 
      2) (K grad s_h, grad v)_K = (grad u_h,grad v):
             int_K gradphi_i.gradphi_j dx = int_K gradSol.gradphi_i dx dx;
+
+    3) (K grad s_h, grad v)_K = -(sigma_h,grad v):
+    int_K gradphi_i.gradphi_j dx = int_K gradSol.gradphi_i dx dx;
      **/
     if(datavec.size() == 4) {
 
@@ -187,7 +204,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         }
 
         TPZFMatrix<STATE> solsigmafem(3,1);
-        if(freconstructionWithFlux && fisReconstructedFromFemSol) {
+        if(fisPotentialRecFromFlux && fisReconstructedFromFemSol) {
             for (int ip = 0; ip < 3; ip++) {
                 solsigmafem(ip, 0) = datavec[0].sol[0][ip];
             }
@@ -227,10 +244,10 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
 
                 }
                 //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
-                if(!freconstructionWithFlux && fisReconstructedFromFemSol){
-                    ef(irow,0)+=weight*dphiuk(id,irow)*kGradSol(id,0);
+                if(!fisPotentialRecFromFlux && fisReconstructedFromFemSol){
+                    ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
                 }
-                if(freconstructionWithFlux && fisReconstructedFromFemSol) {
+                if(fisPotentialRecFromFlux && fisReconstructedFromFemSol) {
                     ef(irow, 0) += (-1.) * weight * dphiuk(id, irow) * solsigmafem(id, 0);
                 }
             }
@@ -418,8 +435,10 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
       error[0] - error computed with exact pressure
       error[1] - error computed with reconstructed pressure
       error[2] - energy error computed with exact solution
-      error[3] - energy error computed with reconstructed solution
-      error[4] - oscilatory data error
+      error[3] - energy error computed with reconstructed flux
+      error[4] - energy error computed with reconstructed potential
+      error[5] - oscilatory data error
+
      **/
 
     errors.Resize(NEvalErrors());
@@ -428,7 +447,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
 
     STATE divsigmafem, pressurefem, pressurereconstructed;
 
-    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
+    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1), gradreconstructed(3,1);
     TPZFMatrix<REAL> gradfem,fluxfem(3,1);
 
     gradfem=data[3].dsol[0];
@@ -479,24 +498,24 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     TPZFNMatrix<9,REAL> fluxrec(dsolaxes.Rows(),0);
 
 
-    if(freconstructionWithFlux){
-        for(int ip = 0 ; ip < 3 ; ip++){
-            fluxreconstructed(ip,0) = data[0].sol[0][ip];
-        }
-    } else{
-        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
-        for(int id=0 ; id<3; id++) {
-            fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
-        }
-        PermTensor.Multiply(fluxreconstructed2,fluxreconstructed);
+    for(int ip = 0 ; ip < 3 ; ip++){
+        fluxreconstructed(ip,0) = data[0].sol[0][ip];
     }
-    data[H1functionposition].axes.Print(std::cout);
-    dsolaxes.Print(std::cout);
-    fluxrec.Print(std::cout);
+
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
+    for(int id=0 ; id<3; id++) {
+        fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
+    }
+    PermTensor.Multiply(fluxreconstructed2,gradreconstructed);
+
+    //data[H1functionposition].axes.Print(std::cout);
+    //dsolaxes.Print(std::cout);
+    //fluxrec.Print(std::cout);
 
 
     REAL innerexact = 0.;
     REAL innerestimate = 0.;
+    REAL gradinnerestimate = 0.;
 
 
 
@@ -512,6 +531,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
         for (int j=0; j<3; j++) {
             innerexact += (fluxfem[i]-fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]-fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
             innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
+            gradinnerestimate += (fluxfem[i]-gradreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-gradreconstructed[j]);
         }
     }
 
@@ -523,8 +543,9 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[0] = (pressurefem-u_exact[0])*(pressurefem-u_exact[0]);//exact error pressure
     errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
-    errors[3] = innerestimate;//error flux reconstructed
+    errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
     errors[4] = residual; //||f - Proj_divsigma||
+    errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
 
 
 
@@ -538,6 +559,7 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "FluxExact") return 42;
     if(name == "PressureFem") return 43;
     if(name == "PressureReconstructed") return 44;
+    if(name == "FluxSigmaReconstructed") return 39;
     if(name == "FluxReconstructed") return 41;
     if(name == "PressureExact") return 45;
     if(name == "PressureErrorExact") return 100;
@@ -545,8 +567,8 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "EnergyErrorExact") return 102;
     if(name == "EnergyErrorEstimate") return 103;
     if(name == "ResidualError") return 104;
-    if(name == "PressureEffectivityIndex") return 105;
-    if(name == "EnergyEffectivityIndex") return 106;
+    if(name == "PressureEffectivityIndex") return 106;
+    if(name == "EnergyEffectivityIndex") return 107;
     if(name == "POrder") return 46;
 
     return -1;
@@ -556,6 +578,7 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
 int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var)
 {
     switch (var) {
+        case 39:
         case 40:
         case 41:
         case 42:
@@ -573,6 +596,7 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var)
         case 104:
         case 105:
         case 106:
+        case 107:
             return 1;
             break;
         default:
@@ -622,11 +646,21 @@ void TPZHybridH1ErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec
     switch (var)
     {
         case 40://FluxFem
+        {
+            TPZFMatrix<REAL> &dsolaxes = datavec[3].dsol[0];
+            TPZFNMatrix<9, REAL> dsol(3, 0);
+            TPZFNMatrix<9, REAL> KGradsol(3, 0);
+            TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
 
-            for(int i=0; i<3; i++) Solout[i] = datavec[2].sol[0][i];
+            PermTensor.Multiply(dsol, KGradsol);
 
+
+            for (int i = 0; i < 3; i++) Solout[i] = Solout[i] = KGradsol(i,0);
+        }
             break;
-        case 41:{//FluxReconstructed is grad U
+        //Flux reconstrucion
+        case 39: // sigma_h
+        case 41:{// grad s_h
             TPZFMatrix<REAL> &dsolaxes = datavec[H1functionposition].dsol[0];
             TPZFNMatrix<9,REAL> dsol(3,0);
             TPZFNMatrix<9,REAL> KGradsol(3,0);
@@ -634,7 +668,7 @@ void TPZHybridH1ErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec
 
             PermTensor.Multiply(dsol,KGradsol);
 
-            if(freconstructionWithFlux){
+            if(var == 39){
                 for(int id=0 ; id<3; id++) {
                     Solout[id] = datavec[0].sol[0][id];
                 }

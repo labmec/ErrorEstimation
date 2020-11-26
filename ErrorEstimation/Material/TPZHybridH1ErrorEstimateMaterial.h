@@ -16,11 +16,15 @@
 class TPZHybridH1ErrorEstimateMaterial: public TPZMixedPoisson
 {
 private:
-    /// Weather flux is reconstructed from fem solution (u_h) or from the reconstructed potential (s_h)
+    /// Weather reconstruction derives from fem solution (u_h) or from source (f)
     bool fisReconstructedFromFemSol;
 
-    /// Weather pressure is reconstructed from fem solution (grad u_h) or from source (f)
-    bool freconstructionWithFlux;
+    /// Weather pressure is reconstructed should be reconstructed before flux
+    bool fisPotentialRecFromFlux;
+
+    /// Weather flux comes from -(grad u_h, v) or (u_h,div(v))
+    /// Only works fisReconstructedFromFemSol = false;
+    bool fisFluxFromGraduh = false;
 
 public:
 
@@ -38,7 +42,7 @@ public:
 
     TPZHybridH1ErrorEstimateMaterial &operator=(const TPZHybridH1ErrorEstimateMaterial &copy);
 
-    virtual void SetReconstruction (bool isReconstructedFromFemSol,bool reconstructionWithFlux);
+    virtual void SetReconstruction (bool isReconstructedFromFemSol,bool isPotentialRecFromFlux,bool isFluxFromGraduh);
 
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
 
@@ -62,8 +66,7 @@ public:
 
     bool fNeumannLocalProblem = true;
 
-    // TODO: Suport sigma errors (return 5)
-    virtual int NEvalErrors() override {return 5;}//erro de oscilacao de dados tbem
+    virtual int NEvalErrors() override {return 6;}
 
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure

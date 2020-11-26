@@ -97,7 +97,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     }
 #endif
     
-    int64_t nErrorCols = 6;
+    int64_t nErrorCols = 7;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -106,7 +106,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
-    fPostProcMesh.ElementSolution().Redim(nelem, 5);
+    fPostProcMesh.ElementSolution().Redim(nelem, 6);
     for(int64_t el = 0; el<nelem; el++)
     {
         TPZCompEl *cel = fPostProcMesh.Element(el);
@@ -114,7 +114,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
         if(subc)
         {
             int64_t nelsub = subc->NElements();
-            subc->ElementSolution().Redim(nelsub, 5);
+            subc->ElementSolution().Redim(nelsub, 6);
         }
     }
     
@@ -265,7 +265,8 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
         scalnames.Push("PressureReconstructed");
         scalnames.Push("PressureErrorEstimate");
         scalnames.Push("EnergyErrorEstimate");
-        //vecnames.Push("FluxFem");
+        vecnames.Push("FluxFem");
+        vecnames.Push("FluxSigmaReconstructed");
         vecnames.Push("FluxReconstructed");
         scalnames.Push("POrder");
         
@@ -324,7 +325,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
         if (matlaplacian) {
             TPZHybridH1ErrorEstimateMaterial *EEMat = new TPZHybridH1ErrorEstimateMaterial(*matlaplacian); //TPZHybridH1ErrorEstimateMaterial(mat.first,fProblemConfig.gmesh->Dimension());
             cmeshHdiv->MaterialVec()[mat.first] =  EEMat;
-            EEMat->SetReconstruction(fisReconstructedFromFemSol,freconstructionWithFlux);
+            EEMat->SetReconstruction(fisReconstructedFromFemSol,fisPotentialRecFromFlux,fisFluxFromGraduh);
 
             for (auto bcmat : cmeshHdiv->MaterialVec()) {
                 TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
@@ -669,7 +670,7 @@ void TPZHybridH1ErrorEstimator::CreatePressurePostProcessingMesh() {
 
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
     TPZManVector<int> active(4, 0);
-    if(fisReconstructedFromFemSol && freconstructionWithFlux){
+    if(fisPotentialRecFromFlux){
         mesh_vectors[0] = CreateFluxMesh();
     }
     else{
@@ -705,23 +706,18 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
 
     TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
     TPZManVector<int> active(4, 0);
-    if(freconstructionWithFlux == false){
-        mesh_vectors[0] = 0;
+    if(fisPotentialRecFromFlux == true){
+        mesh_vectors[0] = fPressurePostProcMesh.MeshVector()[0]->Clone();
     }
     else{
-        if(fisReconstructedFromFemSol){
-            mesh_vectors[0] = fPressurePostProcMesh.MeshVector()[0]->Clone();
-        }
-        else{
-            mesh_vectors[0] = CreateFluxMesh();
-        }
+        mesh_vectors[0] = CreateFluxMesh();
     }
     mesh_vectors[1] = fPressurePostProcMesh.MeshVector()[1]->Clone();
     mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];// potential
 
     active[1] = 1;
-    if(freconstructionWithFlux) active[0] = 1;
+    if(fisPotentialRecFromFlux) active[0] = 1;
 
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
 
@@ -738,7 +734,7 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
         std::ofstream outPpostPmesh(dirPath + "pressurePpostMesh.txt");
         fPressurePostProcMesh.MeshVector()[1]->Print(outPpostPmesh);
 
-        if(freconstructionWithFlux == true) {
+        if(fisPotentialRecFromFlux == true) {
             std::ofstream outFpostMesh(dirPath + "FluxpostMesh.txt");
             fPostProcMesh.MeshVector()[0]->Print(outFpostMesh);
         }
@@ -3032,7 +3028,7 @@ void TPZHybridH1ErrorEstimator:: SwitchMaterialObjects() {
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
             TPZHybridH1ErrorEstimateMaterial *newmat = new TPZHybridH1ErrorEstimateMaterial(*matlaplacian);
-            newmat->SetReconstruction(fisReconstructedFromFemSol,freconstructionWithFlux);
+            newmat->SetReconstruction(fisReconstructedFromFemSol,fisPotentialRecFromFlux,fisFluxFromGraduh);
 
             for (auto bcmat : fPressurePostProcMesh.MaterialVec()) {
                 TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
