@@ -28,10 +28,10 @@ class TPZSubCompMesh;
 struct TPZHybridH1ErrorEstimator
 {
     /// Weather flux is reconstructed from fem solution (u_h) or from the reconstructed potential (s_h)
-    bool fisReconstructedFromFemSol = true;
+    bool fisReconstructedFromFemSol =true;
 
     /// Weather pressure should be reconstructed before flux
-    bool fisPotentialRecFromFlux = true;
+    bool fisPotentialRecFromFlux = false;
 
     /// Weather flux comes from -(grad u_h, v) or (u_h,div(v))
     /// Only works fisPotentialRecFromFlux = true;

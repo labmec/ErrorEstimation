@@ -445,7 +445,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors.Fill(0.0);
 
 
-    STATE divsigmafem, pressurefem, pressurereconstructed;
+    STATE divsigmarec, pressurefem, pressurereconstructed;
 
     TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1), gradreconstructed(3,1);
     TPZFMatrix<REAL> gradfem,fluxfem(3,1);
@@ -467,6 +467,8 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     }
 
     REAL residual = 0.;
+    divsigmarec= data[0].divsol[0][0];
+    residual = (divsigma[0] - divsigmarec)*(divsigma[0] - divsigmarec);
 
     pressurereconstructed = data[H1functionposition].sol[0][0];
 
@@ -516,6 +518,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     REAL innerexact = 0.;
     REAL innerestimate = 0.;
     REAL gradinnerestimate = 0.;
+    REAL npz =0.;
 
 
 
@@ -532,6 +535,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
             innerexact += (fluxfem[i]-fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]-fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
             innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
             gradinnerestimate += (fluxfem[i]-gradreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-gradreconstructed[j]);
+            npz += (gradreconstructed[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(gradreconstructed[i]-fluxreconstructed[i]);
         }
     }
 
@@ -544,7 +548,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
-    errors[4] = residual; //||f - Proj_divsigma||
+    errors[4] = /*npz;*/residual; //||f - Proj_divsigma||
     errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
 
 

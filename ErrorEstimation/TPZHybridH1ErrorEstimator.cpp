@@ -1077,9 +1077,9 @@ void TPZHybridH1ErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh
         gel->CenterPoint(nsides - 1, xicenter);
         TPZManVector<REAL> xcenter(3, 0.);
         gel->X(xicenter, xcenter);
-        std::cout << "Restriction @ [" << xcenter << "]:"
-                  << "  Small El: " << small.Element()->Index() << ", Side: " << small.Side()
-                  << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << largerNeigh.Side() << "\n";
+        //std::cout << "Restriction @ [" << xcenter << "]:"
+        //          << "  Small El: " << small.Element()->Index() << ", Side: " << small.Side()
+        //          << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << largerNeigh.Side() << "\n";
         smallIntel->RestrainSide(small.Side(), largeIntel, largerNeigh.Side());
 
         // Restrain subsides
@@ -1091,9 +1091,9 @@ void TPZHybridH1ErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh
             if (subLargerNeigh.Element() == subsmall.Element()) DebugStop();
             gel->CenterPoint(iside, xicenter);
             gel->X(xicenter, xcenter);
-            std::cout << "SubRestriction @ [" << xcenter << "]:"
-                      << "  Small El: " << small.Element()->Index() << ", Side: " << subsmall.Side()
-                      << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << subLargerNeigh.Side() << "\n";
+            //std::cout << "SubRestriction @ [" << xcenter << "]:"
+            //          << "  Small El: " << small.Element()->Index() << ", Side: " << subsmall.Side()
+             //         << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << subLargerNeigh.Side() << "\n";
             smallIntel->RestrainSide(subsmall.Side(), largeIntel, subLargerNeigh.Side());
         }
     }
@@ -1564,8 +1564,6 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
             TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
             if(!bnd) continue;
             cel->CalcStiff(ekbc, efbc);
-            ekbc.fMat.Print(std::cout);
-            efbc.fMat.Print(std::cout);
             
             
             
@@ -1792,8 +1790,8 @@ void TPZHybridH1ErrorEstimator::AdditionalAverageWeights(TPZGeoEl *large, TPZGeo
             REAL new_small_weight = small_weight*small_precision;
             REAL new_sum = new_large_weight+new_small_weight;
 
-            std::cout << "large0: " << large_weight << "; large_h: " << large_size << "; large_p: " <<  large_order << "; large_precision: " << large_precision << "; large1: " << new_large_weight/new_sum <<"\n";
-            std::cout << "small0: " << small_weight << "; small_h: " << small_size << "; small_p: " <<  small_order << "; small_precision: " << small_precision << "; small1: " << new_small_weight/new_sum <<"\n";
+            //std::cout << "large0: " << large_weight << "; large_h: " << large_size << "; large_p: " <<  large_order << "; large_precision: " << large_precision << "; large1: " << new_large_weight/new_sum <<"\n";
+            //std::cout << "small0: " << small_weight << "; small_h: " << small_size << "; small_p: " <<  small_order << "; small_precision: " << small_precision << "; small1: " << new_small_weight/new_sum <<"\n";
 
             large_weight = new_large_weight/new_sum;
             small_weight = new_small_weight/new_sum;
@@ -1824,7 +1822,7 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
     }
 #endif
 
-    std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
+    //std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
 
     int target_dim = gel->Dimension();
     if (target_dim == dim - 1 && gel->MaterialId() != fPressureSkeletonMatId) {
@@ -2274,9 +2272,9 @@ void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_ce
             TPZManVector<REAL, 3> x_side(3, 0.);
             gel->CenterPoint(side, xicenter);
             gel->X(xicenter, x_side);
-            std::cout << __PRETTY_FUNCTION__ << "\nAll " << celstack.size() << " Connects Have Dependency!\nGel "
-                      << gel->Index() << ", Side " << side << " @ [" << x_side[0] << ", " << x_side[1] << ", "
-                      << x_side[2] << "]\n";
+            //std::cout << __PRETTY_FUNCTION__ << "\nAll " << celstack.size() << " Connects Have Dependency!\nGel "
+             //         << gel->Index() << ", Side " << side << " @ [" << x_side[0] << ", " << x_side[1] << ", "
+             //         << x_side[2] << "]\n";
         }
         break;
     }
@@ -2544,7 +2542,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
             int64_t neighindex = selected.Element()->Index();
             for (int i = 0; i < 3; i += 2) {
 
-                std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
+                //std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
                 
                 if(neighindex > nrows){
                     std::cout<<" neighindex= "<< neighindex<<" nrows "<<nrows<<"\n";
@@ -3157,7 +3155,7 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
 
                             c1.Print(*pressuremesh, sout);
 
-                            std::cout << sout.str(); // TODO remove
+                            //std::cout << sout.str(); // TODO remove
                             LOGPZ_DEBUG(logger, sout.str())
                         }
                     }
@@ -3228,7 +3226,7 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
                                 sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
                                 sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
 
-                                std::cout << sout.str(); // TODO remove
+                                //std::cout << sout.str(); // TODO remove
                                 LOGPZ_DEBUG(logger, sout.str())
                             }
                         }
@@ -3340,7 +3338,7 @@ void TPZHybridH1ErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
                             sout << "Diff = " << sol1[0] - sol0[0] << "\n";
                             sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
                             sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
-                            std::cout << sout.str(); // TODO remove
+                            //std::cout << sout.str(); // TODO remove
                             LOGPZ_DEBUG(logger, sout.str())
                         }
                     }
@@ -3529,12 +3527,12 @@ void TPZHybridH1ErrorEstimator::CopySolutionFromSkeleton() {
             //TPZGeoElSide gelside(gel,is);
             TPZStack<TPZCompElSide> celstack;
             gelside.EqualLevelCompElementList(celstack, 1, 0);
-            std::cout << "celstack size: "<< celstack.size() <<"\n";
+            //std::cout << "celstack size: "<< celstack.size() <<"\n";
             int nst = celstack.NElements();
             for (int ist = 0; ist < nst; ist++) {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
-                std::cout << "Gel/side: " << intel->Index() << "/" << gelside.Side() << "\nNeighbour Gel/side: " <<cneigh.Element()->Index() << "/" << cneigh.Side() << "\n\n";
+                //std::cout << "Gel/side: " << intel->Index() << "/" << gelside.Side() << "\nNeighbour Gel/side: " <<cneigh.Element()->Index() << "/" << cneigh.Side() << "\n\n";
                 if ((gneigh.Element()->MaterialId() == this->fPressureSkeletonMatId)||
                     IsDirichletCondition(gneigh)) {
                     TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
@@ -3835,7 +3833,7 @@ void TPZHybridH1ErrorEstimator::VerifyAverage(int target_dim) {
             }
 
             int64_t nintpoints = intpoints->NPoints();
-            std::cout <<"########\n\n skelId = " << gel->Index() << "; leftVolId: " <<  leftVolumeGel->Index() <<"; rightVolId: " <<  rightVolumeGel->Index() << "\n";
+            //std::cout <<"########\n\n skelId = " << gel->Index() << "; leftVolId: " <<  leftVolumeGel->Index() <<"; rightVolId: " <<  rightVolumeGel->Index() << "\n";
             for (int64_t ip = 0; ip < nintpoints; ip++) {
                 TPZManVector<REAL, 3> pt_left_skel(target_dim, 0.), pt_right_skel(target_dim, 0.);
                 TPZManVector<REAL, 3> pt_left_vol(target_dim + 1, 0.), pt_right_vol(target_dim + 1, 0.);
@@ -3869,13 +3867,13 @@ void TPZHybridH1ErrorEstimator::VerifyAverage(int target_dim) {
 
                 leftVolumeGel->X(pt_left_vol,x_left);
 
-                std::cout <<"X: [" << x_left[0] << "," <<x_left[1] << "," <<x_left[2] << "]: skelSol: " << skel_sol[0] << "; leftSol/weight: " << left_sol[0] << "/" << left_weight << "; rightSol/weight: " << right_sol[0] << "/" << right_weight <<"\n";
+                //std::cout <<"X: [" << x_left[0] << "," <<x_left[1] << "," <<x_left[2] << "]: skelSol: " << skel_sol[0] << "; leftSol/weight: " << left_sol[0] << "/" << left_weight << "; rightSol/weight: " << right_sol[0] << "/" << right_weight <<"\n";
 
                 if(!IsZero(skel_sol[0]- (left_sol[0]+right_sol[0])/2)) {
                     DebugStop();
                 }
             }
-            std::cout <<"\n";
+            //std::cout <<"\n";
         }
     }
 }
