@@ -559,11 +559,11 @@ void RunAdaptivityProblem(){
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
     }
     
-//    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-//    TPZManVector<int64_t> coarseIndexes;
-//    ComputeCoarseIndices(config.gmesh, coarseIndexes);
-//    bool definePartitionByCoarseIndexes = true;
-//    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    TPZManVector<int64_t> coarseIndexes;
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    bool definePartitionByCoarseIndexes = true;
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 //
 //    SolveMHMProblem(mhm, config);
 //    EstimateError(config, mhm);
@@ -578,11 +578,11 @@ void RunAdaptivityProblem(){
         
         config.adaptivityStep = iSteps;
         
-        auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-        TPZManVector<int64_t> coarseIndexes;
-        ComputeCoarseIndices(config.gmesh, coarseIndexes);
-        bool definePartitionByCoarseIndexes = true;
-        CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+//        auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+//        TPZManVector<int64_t> coarseIndexes;
+//        ComputeCoarseIndices(config.gmesh, coarseIndexes);
+//        bool definePartitionByCoarseIndexes = true;
+//        CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
         
         SolveMHMProblem(mhm, config);
         EstimateError(config, mhm);
@@ -590,7 +590,7 @@ void RunAdaptivityProblem(){
         MHMAdaptivity(mhm,  config.gmesh, config);
 #ifdef PZDEBUG
         {
-            std::ofstream out("gmeshAdapty.vtk");
+            std::ofstream out("GmeshAfterAdapty.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
         }
 #endif
@@ -606,7 +606,14 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, Proble
     // Column of the flux error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;
     
-    TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
+    
+    
+    TPZMultiphysicsCompMesh *cmesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+       if (!cmesh) DebugStop();
+
+    
+   // TPZCompMesh &cmesh = mhm->CMesh();
+  
 
     int64_t nelem = cmesh->ElementSolution().Rows();
 

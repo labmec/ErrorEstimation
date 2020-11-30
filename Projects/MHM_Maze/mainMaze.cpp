@@ -127,13 +127,13 @@ int main(){
     InitializePZLOG();
     
     ConfigCasesMaze ConfCasesMeze;
-    ConfCasesMeze.SetImageName("⁨MHM_Maze⁩/Mazes/maze8x8.png");
-    ConfCasesMeze.SetImperviousMatPermeability(1);
-    ConfCasesMeze.SetPermeableMatPermeability(1000000);
+    ConfCasesMeze.SetImageName("⁨../Mazes/maze8x8.png");
+    ConfCasesMeze.SetImperviousMatPermeability(1);//pouco permeavel
+    ConfCasesMeze.SetPermeableMatPermeability(1000000);//dentro do labirinto
     ConfCasesMeze.SetFluxOrder(1);
     ConfCasesMeze.SetPressureOrder(1);
-    ConfCasesMeze.SetCCPressureIn(100);
-    ConfCasesMeze.SetCCPressureOut(1);
+    ConfCasesMeze.SetCCPressureIn(100);//pressao na entrada
+    ConfCasesMeze.SetCCPressureOut(1);//pressao na saida
     ConfCasesMeze.SetMHMOpenChannel(false);
     ConfCasesMeze.SetVTKName("maze8x8.vtk");
 
@@ -442,6 +442,11 @@ TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf){
     
 }
 TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
+    {
+        std::ofstream test("total4.txt");
+        test<<"oiii"<<"\n";
+        
+    }
     const int bcDL = -1;
     const int bcB = -2;
     const int bcDR = -3;
@@ -449,7 +454,7 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     
     
     //  Mat image = imread("normal.png",IMREAD_GRAYSCALE);
-    Mat image = imread(name,IMREAD_GRAYSCALE);
+     Mat image = imread("⁨maze8x8.png",IMREAD_GRAYSCALE);
    //     Mat image = imread("single_quad.png",IMREAD_GRAYSCALE);
     int k=0;
     int px=image.size[0];

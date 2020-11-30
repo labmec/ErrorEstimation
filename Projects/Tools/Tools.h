@@ -45,6 +45,7 @@ namespace Tools {
 
     // Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
     TPZGeoMesh *CreateGeoMesh(int nelem, TPZVec<int> &bcids);
+    TPZGeoMesh *CreateNewGeoMesh(int nelem, TPZVec<int> &bcids);
 
     TPZGeoMesh *CreateCubeGeoMesh(const TPZVec<int> &nelDiv, const TPZVec<int> &bcids);
 
