@@ -1111,7 +1111,6 @@ void TPZMHMHDivErrorEstimator::ComputeConnectsNextToSkeleton(std::set<int64_t>& 
         TPZCompEl* cel = gel->Reference();
         if (!cel) continue;
 
-        std::cout << "iel: " << gel->Index() << '\n';
         int nsides = gel->NSides();
         for (int iside = 0; iside < nsides; iside++) {
             TPZGeoElSide gelside(gel, iside);

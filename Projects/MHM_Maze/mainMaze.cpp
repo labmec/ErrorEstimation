@@ -46,6 +46,7 @@
 #include "TPZVecL2.h"
 //#include "TPZMatLaplacianHybrid.h"
 #include "TPZLagrangeMultiplier.h"
+#include "pzmultiphysicscompel.h"
 
 
 #include "pzbuildmultiphysicsmesh.h"
@@ -73,6 +74,7 @@
 //#include "meshgen.h"
 #include "ConfigCasesMaze.h"
 #include "pzsolve.h"
+#include <Mesh/pzmultiphysicscompel.h>
 #include <ToolsMHM.h>
 #include <iostream>
 #include <math.h>
@@ -123,6 +125,10 @@ TPZCompMesh* MixedTest(ConfigCasesMaze Conf);
 // Conf contains the maze information and the problem boundary conditions
 int MHMTest(ConfigCasesMaze Conf);
 
+void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+
+void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+
 int main(){
     InitializePZLOG();
     
@@ -153,8 +159,6 @@ int main(){
 //
 //    MHMTest(ConfCasesMeze);
 //
-    
-    
     
 
       return 0;
@@ -626,7 +630,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     return mphysics;
 }
 int MHMTest(ConfigCasesMaze Conf){
-    
+
     TRunConfig Configuration;
 
     TPZGeoMesh *gmeshcoarse =GenerateGeoMesh(Conf.GetImageName(), 2, 2);
@@ -636,14 +640,12 @@ int MHMTest(ConfigCasesMaze Conf){
 //
 //    std::ofstream out2("mesh4x4.txt");
 //    gmeshcoarse->Print(out2);
-    
+
     int interface_mat_id = 600;
-    int flux_order = 1;
-    int p_order = 1;
     bool OpenChannel = Conf.GetMHMOpenChannel();
-    
+
     TPZAutoPointer<TPZMHMixedMeshChannelControl> MHMixed;
-  
+
     {
         TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
         {
@@ -653,17 +655,14 @@ int MHMTest(ConfigCasesMaze Conf){
         TPZMHMixedMeshChannelControl *mhm = new TPZMHMixedMeshChannelControl(gmeshauto);
         TPZVec<int64_t> coarseindices;
         ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
-        for(int i =0; i < coarseindices.size(); i++){
-            std::cout << "i = " << coarseindices[i] << std::endl;
-        }
         gmeshauto->AddInterfaceMaterial(1, 2, interface_mat_id);
         gmeshauto->AddInterfaceMaterial(2, 1, interface_mat_id);
-        
-        
+
+
         // criam-se apenas elementos geometricos
         mhm->DefinePartitionbyCoarseIndices(coarseindices);
         MHMixed = mhm;
-        
+
         TPZMHMixedMeshChannelControl &meshcontrol = *mhm;
         {
             std::set<int> matids;
@@ -681,40 +680,30 @@ int MHMTest(ConfigCasesMaze Conf){
         }
 
         InsertMaterialObjects(*mhm);
-        
+
 #ifdef PZDEBUG2
-        if(1)
-        {
+        if (1) {
             std::ofstream out("MixedMeshControlHDiv.txt");
             meshcontrol.Print(out);
         }
 #endif
-        meshcontrol.SetInternalPOrder(2);
+        meshcontrol.SetInternalPOrder(3);
         meshcontrol.SetSkeletonPOrder(1);
-        
+
         meshcontrol.DivideSkeletonElements(0);
         meshcontrol.DivideBoundarySkeletonElements();
-        
-//        std::ofstream file_geo("geometry.txt");
-//        meshcontrol.GMesh()->Print(file_geo);
-//
+
         bool substructure = true;
-//        std::ofstream filee("Submesh.txt");
-//        meshcontrol.CMesh()->Print(filee);
-        std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> test;
-        if(OpenChannel){
+        std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
+        if (OpenChannel) {
             TPZCompMesh *flux_temp = MixedTest(Conf);
             test = IdentifyChanel(flux_temp);
         }
-    
-     meshcontrol.BuildComputationalMesh(substructure,OpenChannel,test);
-        
-      
-        
-        
+
+        meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
+
 #ifdef PZDEBUG
-        if(1)
-        {
+        if (1) {
             std::ofstream file("GMeshControlHDiv.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
         }
@@ -749,79 +738,112 @@ int MHMTest(ConfigCasesMaze Conf){
     //    MixedMesh->Print(out);
     
 //    std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
-    
+
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
-    
-    
+    ProblemConfig config;
+    config.dimension = 2;
+    config.exact = nullptr;
+    config.problemname = "Maze8x8";
+    config.dir_name = "Results8x8";
+    config.porder = 1;
+    config.hdivmais = 3;
+    config.materialids = {1, 2};
+    config.bcmaterialids = {-1, -2, -3, -4, -5, -6};
+    config.makepressurecontinuous = true;
+    config.ndivisions = 0;
+    config.gmesh = MixedMesh->Reference();
+
+    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
+    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->());
+    EstimateError(ErrorEstimator, config);
+    //LocateElementsToAdapt(ErrorEstimator, config);
+
     return 0;
+}
+
+void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config) {
+    cout << "Error Estimation processing for MHM-Hdiv problem " << endl;
+
+    errorEstimator.SetProblemConfig(config);
+    errorEstimator.PotentialReconstruction();
+
+    {
+        string command = "mkdir " + config.dir_name;
+        system(command.c_str());
+
+        TPZManVector<REAL, 6> errors;
+        TPZManVector<REAL> elementerrors;
+        bool store_errors = true;
+        errorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+    }
 }
 
 void InsertMaterialObjects(TPZMHMixedMeshControl &control)
 {
     TPZCompMesh &cmesh = control.CMesh();
-    
+
     TPZGeoMesh &gmesh = control.GMesh();
     const int typeFlux = 1, typePressure = 0;
     TPZFMatrix<STATE> val1(1,1,0.), val2Flux(1,1,0.), val2Pressure(1,1,10.);
-  
-    
+
+
     int dim = gmesh.Dimension();
     cmesh.SetDimModel(dim);
-    
+
     TPZCompMesh *MixedFluxPressureCmesh = &cmesh;
-    
+
     // Material medio poroso
     TPZMixedPoisson * mat = new TPZMixedPoisson(1,dim);
     mat->SetSymmetric();
     mat->SetPermeability(1.);
     //    mat->SetForcingFunction(One);
     MixedFluxPressureCmesh->InsertMaterialObject(mat);
-    
+
     TPZMixedPoisson * mat_2 = new TPZMixedPoisson(2,dim);
     mat_2->SetSymmetric();
     mat_2->SetPermeability(1000000.0);
     //    mat->SetForcingFunction(One);
     MixedFluxPressureCmesh->InsertMaterialObject(mat_2);
-    
+
    // Bc N
     TPZBndCond * bcN = mat->CreateBC(mat, -1, typeFlux, val1, val2Flux);
     //    bcN->SetForcingFunction(0, force);
-    
+
     MixedFluxPressureCmesh->InsertMaterialObject(bcN);
     bcN = mat->CreateBC(mat, -3, typeFlux, val1, val2Flux);
     //    bcN->SetForcingFunction(0, force);
-    
+
     MixedFluxPressureCmesh->InsertMaterialObject(bcN);
-    
+
     // Bc S
     TPZBndCond * bcS = mat->CreateBC(mat, -2, typeFlux, val1, val2Flux);
-    
+
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
     bcS = mat->CreateBC(mat, -4, typeFlux, val1, val2Flux);
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
     val2Pressure(0,0) = 100.;
     TPZBndCond * bcIn = mat->CreateBC(mat, -5, typePressure, val1, val2Pressure);
-    
+
     MixedFluxPressureCmesh->InsertMaterialObject(bcIn);
-    val2Pressure(0,0) = 1.;
+    val2Pressure(0,0) = -100.;
     TPZBndCond * bcOut = mat->CreateBC(mat, -6, typePressure, val1, val2Pressure);
-    
+
     MixedFluxPressureCmesh->InsertMaterialObject(bcOut);
-    
+
 }
 
 TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
-    
+
     double l;
     double h;
     TPZGeoMesh *FineMesh = GeoMeshFromPng(name,l,h);
-    
+
     std::ofstream file_base_vtk("base.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(FineMesh, file_base_vtk);
-    
+
     std::ofstream file_base_txt("base.txt");
     FineMesh->Print(file_base_txt);
-    
+
     // Creating the Geo mesh
     TPZManVector<REAL,3> x0(3,0.),x1(3,l);
     x1[1] = h;
@@ -836,21 +858,21 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     gengrid.Read(gmeshcoarse);
     //gengrid.Read(gmesh,2);
 
-    
+
     //gengrid.SetBC(TPZGeoMesh *gr, int side, int bc)
     gengrid.SetBC(gmeshcoarse, 4, -1);
     gengrid.SetBC(gmeshcoarse, 5, -2);
     gengrid.SetBC(gmeshcoarse, 6, -3);
     gengrid.SetBC(gmeshcoarse, 7, -4);
-    
+
     gmeshcoarse->BuildConnectivity();
-    
+
     std::ofstream file_base_c_vtk("base_c.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file_base_c_vtk);
-    
+
     std::ofstream file_base_c_txt("base_c.txt");
     gmeshcoarse->Print(file_base_c_txt);
-    
+
     //Refine
     TPZVec<REAL> qsi(3,0);
     TPZVec<REAL> result(3,0);
@@ -868,17 +890,17 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
             gel->Divide(indexf);
         }
     }
-  
-    
+
+
     //
     int nel = gmeshcoarse->NElements();
-    
+
     for(int i=0; i<nel; i++){
         TPZGeoEl *gel = gmeshcoarse->Element(i);
         if (!gel || gel->HasSubElement()) {
             continue;
         }
-        
+
         if(gel->Dimension()==2){
             TPZFMatrix<REAL> cooridnates1(3,4);
             TPZVec<REAL> qsi(3,0);
@@ -893,7 +915,7 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
             }
             int matid= gel2->MaterialId();
             gel->SetMaterialId(matid);
-            
+
             if(y==0 && matid==2){
                 TPZGeoEl *el1D = gel->Neighbour(4).Element();
                 el1D->SetMaterialId(-5);
@@ -903,15 +925,119 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
                 TPZGeoEl *el1D = gel->Neighbour(6).Element();
                 el1D->SetMaterialId(-6);
             }
-            
+
         }
     }
-    
+
     std::ofstream out("mazefine.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(FineMesh, out, true);
-    
+
     std::ofstream out2("mazehcoarse.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, out2, true);
-    
+
     return gmeshcoarse;
+}
+
+void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config) {
+
+    TPZMultiphysicsCompMesh *postProcMesh = errorEstimator.PostProcMesh();
+    postProcMesh->LoadReferences();
+    TPZGeoMesh * gmesh = postProcMesh->Reference();
+
+    {
+        std::ofstream out("gmeshToAdapt2.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, true);
+    }
+
+    // This variable stores the difference ||grad u_rec - sigma_fem|| over an skeleton element and the index
+    // of this element
+    std::set<std::pair<REAL, int64_t>> fluxDiffPerSkeleton;
+
+    int64_t nel = gmesh->NElements();
+    for (int64_t iel = 0; iel < nel; iel++) {
+        TPZGeoEl *skel_gel = gmesh->Element(iel);
+        if (!skel_gel) DebugStop();
+        // Filters skeleton gels
+        if (skel_gel->MaterialId() != errorEstimator.PressureSkeletonMatId()) continue;
+
+        TPZGeoElSide skel_side(skel_gel);
+        if (skel_side.NNeighbours() != 2) DebugStop(); // The skeleton element should have only right/left neighbours
+
+        // Store right and left neighbours
+        TPZGeoElSide right_side = skel_side.Neighbour();
+        TPZGeoElSide left_side = right_side.Neighbour();
+
+        TPZGeoEl *right_gel = right_side.Element();
+        TPZGeoEl *left_gel = left_side.Element();
+
+        if (!right_gel || !left_gel) DebugStop();
+        if (right_gel->Dimension() != 2 || left_gel->Dimension() != 2) DebugStop();
+
+        TPZCompEl * right_cel = right_gel->Reference();
+        TPZCompEl * left_cel = left_gel->Reference();
+        if (!right_cel || !left_cel) DebugStop();
+
+        TPZMultiphysicsElement *m_cel_right = dynamic_cast<TPZMultiphysicsElement *>(right_cel);
+        TPZMultiphysicsElement *m_cel_left = dynamic_cast<TPZMultiphysicsElement *>(left_cel);
+        if (!m_cel_right || !m_cel_left) DebugStop();
+
+        TPZVec<TPZMaterialData> right_mat_data(4);
+        TPZVec<TPZMaterialData> left_mat_data(4);
+        TPZManVector<int64_t, 4> indexes(4, 0);
+
+        TPZManVector<int> active_spaces = postProcMesh->GetActiveApproximationSpaces();
+
+        indexes[1] = 1;
+        indexes[2] = 1;
+        m_cel_right->InitMaterialData(right_mat_data, &indexes);
+        m_cel_left->InitMaterialData(left_mat_data, &indexes);
+
+        // Transformation of the skeleton to the linear side of the right element
+        TPZTransform<REAL> skel_to_right_trans = skel_side.NeighbourSideTransform(right_side);
+        // Transformation of the linear side of the right element to its face
+        TPZTransform<REAL> tmp = right_gel->SideToSideTransform(right_side.Side(), right_gel->NSides() - 1);
+        // Combine the transformations
+        skel_to_right_trans = tmp.Multiply(skel_to_right_trans);
+
+        // Analogously for the left neighbour
+        TPZTransform<REAL> skel_to_left_trans = skel_side.NeighbourSideTransform(left_side);
+        tmp = left_gel->SideToSideTransform(left_side.Side(), left_gel->NSides() - 1);
+        skel_to_left_trans = tmp.Multiply(skel_to_left_trans);
+
+        int order = 2; // TODO Gustavo: think if 2 is a good idea
+        std::unique_ptr<TPZIntPoints> intRule(skel_gel->CreateSideIntegrationRule(skel_side.Side(), order));
+        const int npts = intRule->NPoints();
+        TPZManVector<REAL, 3> xi_skel(1, 0);
+        TPZManVector<REAL, 3> xi_right(2, 0);
+        TPZManVector<REAL, 3> xi_left(2, 0);
+        REAL w;
+
+        REAL diff = 0;
+        for (auto ipt = 0; ipt < npts; ipt++) {
+            intRule->Point(ipt, xi_skel, w);
+
+            skel_to_right_trans.Apply(xi_skel, xi_right);
+            skel_to_left_trans.Apply(xi_skel, xi_left);
+
+            if (false)
+            {
+                TPZManVector<REAL> right_x(3);
+                TPZManVector<REAL> left_x(3);
+                right_gel->X(xi_right, right_x);
+                left_gel->X(xi_left, left_x);
+
+                std::cout << "R: (" << right_x[0] << ", " << right_x[1] << ", " << right_x[2] << ")\n";
+                std::cout << "L: (" << left_x[0] << ", " << left_x[1] << ", " << left_x[2] << ")\n";
+            }
+
+            TPZVec<TPZTransform<>> tr_vec(0);
+            m_cel_right->ComputeRequiredData(xi_right, tr_vec, right_mat_data, indexes);
+            //m_cel_left->ComputeRequiredData(left_mat_data, xi_left);
+
+
+
+
+        }
+
+    }
 }

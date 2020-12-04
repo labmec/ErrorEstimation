@@ -408,19 +408,15 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
         LOGPZ_DEBUG(logger, sout.str())
     }
 #endif
-
-    
-    
 }
-
 
 int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
 {
     if(name == "FluxFem") return 40;
+    if(name == "FluxReconstructed") return 41;
     if(name == "FluxExact") return 42;
     if(name == "PressureFem") return 43;
     if(name == "PressureReconstructed") return 44;
-    if(name == "FluxReconstructed") return 41;
     if(name == "PressureExact") return 45;
     if(name == "PressureErrorExact") return 100;
     if(name == "PressureErrorEstimate") return 101;

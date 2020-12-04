@@ -41,9 +41,6 @@ protected:
     TPZVec<REAL> fPressureweights;
     /// weights associated with material ids
     std::map<int,REAL> fMatid_weights;
-    /// compute the pressure weights and material weights
-    // fills in the data structure pressureweights and matid_weights
-    virtual void ComputePressureWeights();
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
 
@@ -94,7 +91,15 @@ public:
     // Plots State solution of elements of target dimension
     static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
+    int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
+
+    TPZMultiphysicsCompMesh *PostProcMesh() { return &fPostProcMesh; }
+
 protected:
+
+    /// compute the pressure weights and material weights
+    // fills in the data structure pressureweights and matid_weights
+    virtual void ComputePressureWeights();
 
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();

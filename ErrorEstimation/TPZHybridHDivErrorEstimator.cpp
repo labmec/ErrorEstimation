@@ -140,25 +140,28 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<R
     myfile.open("ErrorsReconstruction.txt", ios::app);
 
     std::stringstream ss;
-    ss << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
+    ss << "\nEstimator errors for Problem " << fProblemConfig.problemname;
     ss << "\n-------------------------------------------------- \n";
-    ss << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep " << fProblemConfig.adaptivityStep
-           << " Order k= " << fProblemConfig.porder << " Order n= " << fProblemConfig.hdivmais
-           << " K_R = " << fProblemConfig.Km << "\n";
+    ss << "Ndiv = " << fProblemConfig.ndivisions << ", AdaptativityStep = " << fProblemConfig.adaptivityStep
+       << ", Order k = " << fProblemConfig.porder << ", Order n = " << fProblemConfig.hdivmais
+       << ", K_R = " << fProblemConfig.Km << "\n";
     ss << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     ss << "Global estimator = " << errorVec[3] << "\n";
-    ss << "Global exact error = " << errorVec[2] << "\n";
-    ss << "|uex-ufem|= " << errorVec[0] << "\n";
     ss << "|ufem-urec| = " << errorVec[1] << "\n";
-    ss << "Residual ErrorL2= " << errorVec[4] << "\n";
-    ss << "Global Index = " << sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
+    ss << "Residual ErrorL2 = " << errorVec[4] << "\n";
+    if (fExact) {
+        ss << "Global exact error = " << errorVec[2] << "\n";
+        ss << "|uex-ufem| = " << errorVec[0] << "\n";
+        ss << "Global Index = " << sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
+    } else {
+        ss << "[Unknown exact solution and errors]\n";
+    }
 
     myfile << ss.str();
     myfile.close();
-
     std::cout << ss.str();
 
-    ComputeEffectivityIndices();
+    if (fExact) ComputeEffectivityIndices();
     
     //GlobalEffectivityIndex();
     
@@ -1396,7 +1399,7 @@ void TPZHybridHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int6
     }
 #endif
     
-    std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
+    //std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
 
     int target_dim = gel->Dimension();
     if (target_dim == dim - 1 && gel->MaterialId() != fPressureSkeletonMatId) {
@@ -2382,7 +2385,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     std::ofstream outStiffness("DebuggingTransfer/StiffnessAfterReconstruction.txt");
     std::set<int> matIDs = {-1};
-    TPZCompMeshTools::PrintStiffnessMatrixByGeoElement(PressureMesh(), outStiffness, matIDs);
 
 }
 

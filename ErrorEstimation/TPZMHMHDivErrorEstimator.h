@@ -25,10 +25,8 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     /// a pointer to the datastructure used to generate the MHM mesh
     TPZMHMixedMeshControl *fMHM = nullptr;
 
-
-    TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm) : TPZHybridHDivErrorEstimator(originalMesh,true, false),
-        fMHM(mhm)
-    {
+    TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
+        : TPZHybridHDivErrorEstimator(originalMesh, true, postProcWithHDiv), fMHM(mhm) {
         fPostProcesswithHDiv = false;
     }
 
