@@ -178,7 +178,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     if(fPostProcesswithHDiv) {
     
         TPZVec<int64_t> elementgroup;
- //       fHybridizer.AssociateElements(&fPostProcMesh, elementgroup);
+        fHybridizer.AssociateElements(&fPostProcMesh, elementgroup);
         // transfer the elements in the submesh indicated by elementgroup
         // associate the submesh with the volumetric elements
         for (int64_t el = 0; el<nel; el++) {

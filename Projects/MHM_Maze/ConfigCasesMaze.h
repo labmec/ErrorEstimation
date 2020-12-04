@@ -12,6 +12,7 @@
 #include <Pre/TPZAnalyticSolution.h>
 #include <iostream>
 #include <string>
+#include <utility>
 
 class ConfigCasesMaze {
     
@@ -28,8 +29,8 @@ private:
     TLaplaceExample1 * exact = nullptr;
 
 public:
-    void SetImageName( std::string name){
-        ImageName=name;
+    void SetImageName(std::string name){
+        ImageName=std::move(name);
     }
 
     void SetExactSolution(TLaplaceExample1 * exact_sol){

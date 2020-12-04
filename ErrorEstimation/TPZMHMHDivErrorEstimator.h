@@ -27,7 +27,6 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
 
     TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
         : TPZHybridHDivErrorEstimator(originalMesh, true, postProcWithHDiv), fMHM(mhm) {
-        fPostProcesswithHDiv = false;
     }
 
     // this method wont work because multiphysics meshes have no copy constructor (yet)

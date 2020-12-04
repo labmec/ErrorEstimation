@@ -455,11 +455,14 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     const int bcB = -2;
     const int bcDR = -3;
     const int bcDT = -4;
-    
-    
-    //  Mat image = imread("normal.png",IMREAD_GRAYSCALE);
-     Mat image = imread("⁨maze8x8.png",IMREAD_GRAYSCALE);
-   //     Mat image = imread("single_quad.png",IMREAD_GRAYSCALE);
+
+
+#ifdef MACOSX
+    Mat image = imread("../Mazes/maze8x8.png",IMREAD_GRAYSCALE);
+#else
+    Mat image = imread("Mazes/maze8x8.png",IMREAD_GRAYSCALE);
+#endif
+
     int k=0;
     int px=image.size[0];
     int py=image.size[1];
@@ -754,7 +757,8 @@ int MHMTest(ConfigCasesMaze Conf){
     config.gmesh = MixedMesh->Reference();
 
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
-    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->());
+    bool postProcWithHdiv = true;
+    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
     EstimateError(ErrorEstimator, config);
     //LocateElementsToAdapt(ErrorEstimator, config);
 
