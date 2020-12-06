@@ -99,7 +99,7 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder);
 TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf);
 
 // Creating the computational multphysics mesh
-TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,ConfigCasesMaze Conf);
+TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,ConfigCasesMaze &Conf);
 
 // Read a mesh from a png file. The size of the domain will be npix_x by npix_y (read from the image) . Return l=nx; h=ny.
 TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h);
@@ -115,15 +115,15 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control);
 
 // Solve the H1 problem with "Conf" configuration
 // Conf contains the maze information and the problem boundary conditions
-int H1Test(ConfigCasesMaze Conf);
+int H1Test(ConfigCasesMaze &Conf);
 
 // Solve the mixed problem with "Conf" configuration
 // Conf contains the maze information and the problem boundary conditions
-TPZCompMesh* MixedTest(ConfigCasesMaze Conf);
+TPZCompMesh* MixedTest(ConfigCasesMaze &Conf);
 
 // Solve the maze using MHM. By default (2x2 coarse elements)
 // Conf contains the maze information and the problem boundary conditions
-int MHMTest(ConfigCasesMaze Conf);
+int MHMTest(ConfigCasesMaze &Conf);
 
 void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
@@ -167,7 +167,7 @@ int main(){
 }
 
 
-TPZCompMesh* MixedTest(ConfigCasesMaze Conf){
+TPZCompMesh* MixedTest(ConfigCasesMaze &Conf){
   
     TPZGeoMesh *gmesh = GenerateGeoMesh(Conf.GetImageName(),2,2);
     int flux_order = Conf.GetFluxOrder();
@@ -251,7 +251,7 @@ TPZCompMesh* MixedTest(ConfigCasesMaze Conf){
 }
 
 
-int H1Test(ConfigCasesMaze Conf)
+int H1Test(ConfigCasesMaze &Conf)
 {
     double l;
     double h;
@@ -548,7 +548,7 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     gmesh->BuildConnectivity();
     return gmesh;
 }
-TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec, ConfigCasesMaze Conf ){
+TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec, ConfigCasesMaze &Conf ){
     
     //Creating computational mesh for multiphysic elements
     TPZCompMesh *mphysics = new TPZCompMesh(gmesh);
@@ -632,13 +632,15 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     
     return mphysics;
 }
-int MHMTest(ConfigCasesMaze Conf){
+int MHMTest(ConfigCasesMaze &Conf){
 
     TRunConfig Configuration;
 
     TPZGeoMesh *gmeshcoarse =GenerateGeoMesh(Conf.GetImageName(), 2, 2);
-    std::ofstream file(Conf.GetVTKName());
-    TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+    {
+        std::ofstream file(Conf.GetVTKName());
+        TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+    }
 //
 //
 //    std::ofstream out2("mesh4x4.txt");

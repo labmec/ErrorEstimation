@@ -85,8 +85,10 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<R
         an.SetExact(fExact->ExactSolution());
     }
     
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
+        std::ofstream out5("PostProcMesh.txt");
+        fPostProcMesh.Print(out5);
         std::ofstream out("PressureRecMeshComputeError.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
         std::ofstream out2("PressureMeshComputeError.txt");
@@ -120,7 +122,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<R
         }
     }
     
-#ifdef PZDEBUG1
+#ifdef PZDEBUG
     {
         std::ofstream out("MeshToComputeError2.txt");
         fPostProcMesh.Print(out);
@@ -2243,6 +2245,16 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         bool reconstructed = false;
         PlotLagrangeMultiplier("OriginalPressure",reconstructed);
     }
+    
+#ifdef PZDEBUG
+    {
+        REAL presnorm = Norm(fPostProcMesh.MeshVector()[1]->Solution());
+        if(std::isnan(presnorm))
+        {
+            DebugStop();
+        }
+    }
+#endif
 
     // L2 projection for Dirichlet and Robin boundary condition for H1 reconstruction
     if (!fPostProcesswithHDiv) {
@@ -2396,7 +2408,7 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
 
     if (!reconstructed) {
         pressure = fOriginal->MeshVector()[1];
-        scalnames.Push("Pressure");
+        scalnames.Push("State");
     } else {
         pressure = PressureMesh();
         scalnames.Push("State");
@@ -2404,8 +2416,12 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
 
     TPZAnalysis an(pressure, false);
 
-    std::ofstream out2("PressuretoStateGraph.txt");
-    pressure->Print(out2);
+#ifdef PZDEBUG
+    {
+        std::ofstream out2("PressuretoStateGraph.txt");
+        pressure->Print(out2);
+    }
+#endif
     
     {
         int dim = pressure->Reference()->Dimension() - 1;

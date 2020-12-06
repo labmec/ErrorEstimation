@@ -217,7 +217,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     STATE divsigmafem=data[2].divsol[0][0];
     
     
-    TPZVec<STATE> divsigma(1);
+    TPZVec<STATE> divsigma(1,0.);
     
     if(this->fForcingFunctionExact){
         
@@ -228,7 +228,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
 
     
     REAL residual = 0.;
-    std::cout<<" divsigma "<<divsigma[0] << " divsigmafem "<<divsigmafem<<"\n";
+//    std::cout<<" divsigma "<<divsigma[0] << " divsigmafem "<<divsigmafem<<"\n";
     
     residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
     
@@ -285,6 +285,10 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
     errors[4] = residual;
+    for(int i = 0; i<5; i++)
+    {
+        if(std::isnan(errors[i])) DebugStop();
+    }
 }
 
 

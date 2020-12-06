@@ -10,6 +10,7 @@
 #include <Material/TPZHDivErrorEstimateMaterial.h>
 #include <Mesh/pzmultiphysicscompel.h>
 #include <Mesh/TPZCompMeshTools.h>
+#include <Mesh/TPZGeoElSideAncestors.h>
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -38,12 +39,14 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     if (fPostProcesswithHDiv) {
         meshvec[0] = CreateFluxMesh();
         active[0] = 1;
+        std::ofstream out1("hdivpressure.txt");
+        meshvec[1]->Print(out1);
+        std::ofstream out2("hdivflux.txt");
+        meshvec[0]->Print(out2);
     }
 
-    if (!fPostProcesswithHDiv) {
-        CreateSkeletonElements(meshvec[1]);
-        CreateSkeletonApproximationSpace(meshvec[1]);
-    }
+    CreateSkeletonElements(meshvec[1]);
+    CreateSkeletonApproximationSpace(meshvec[1]);
 
     //enriquecer no MHM tbem?
     {
@@ -328,6 +331,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
 
 // a method for generating the HDiv mesh
+/*
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
 {
     
@@ -340,6 +344,9 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
     OrigFlux->CopyMaterials(*fluxmesh);
     RemoveMaterialObjects(fluxmesh->MaterialVec());
     int dim = gmesh->Dimension();
+    // creating a copy of all flux elements except for flux elements for the skeleton
+    // this will generate a consistent H(div) space over the complete domain
+    // the fluxes should be discontinuous between subdomains?
     int64_t nel = OrigFlux->NElements();
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = OrigFlux->Element(el);
@@ -372,7 +379,59 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
     fluxmesh->ExpandSolution();
     return fluxmesh;
 }
+*/
 
+TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
+{
+    
+    TPZCompMesh *OrigFlux = fOriginal->MeshVector()[0];
+    TPZGeoMesh *gmesh = OrigFlux->Reference();
+    gmesh->ResetReference();
+    TPZCompMesh *fluxmesh = OrigFlux->Clone();
+    RemoveMaterialObjects(fluxmesh->MaterialVec());
+    int dim = gmesh->Dimension();
+    // creating a copy of all flux elements except for flux elements for the skeleton
+    // this will generate a consistent H(div) space over the complete domain
+    // the fluxes should be discontinuous between subdomains?
+    int64_t nel = fluxmesh->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fluxmesh->Element(el);
+        if(!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        TPZGeoEl *gel = cel->Reference();
+        bool isbcmat = fMHM->fMaterialBCIds.find(gel->MaterialId()) != fMHM->fMaterialBCIds.end();
+        // if the element is of lower dimension and is not a boundary
+        // don't create a flux element
+        TPZMaterial *mat = fluxmesh->FindMaterial(gel->MaterialId());
+        if(!mat)
+        {
+            // this deletes the skeleton elements
+            delete cel;
+            continue;
+        }
+        if(gel->Dimension() != dim && !isbcmat) DebugStop();
+        if(gel->Dimension() != dim) continue;
+        /// equate the order of the connects with the order of the original mesh
+        for (int is = gel->NCornerNodes(); is<gel->NSides(); is++) {
+            // we are only interested in sides of dimension dim-1
+            if(gel->SideDimension(is) != dim-1) continue;
+            TPZGeoElSide gelside(gel,is);
+            TPZGeoElSideAncestors gelsideancestor(gelside);
+            // if the element is not neighbour of the skeleton mesh, continue
+            if(!gelside.HasNeighbour(fMHM->fSkeletonMatId) && !gelsideancestor.HasLarger(fMHM->fSkeletonMatId)) continue;
+            
+            int nside_connects = intel->NSideConnects(is);
+            // if the number of side connects is zero do nothing
+            if(nside_connects != 1) DebugStop();
+            // get the last connect of the side (in the case of hdiv there is always a single connect)
+            TPZConnect &corig = intel->SideConnect(nside_connects-1, is);
+            if(!corig.HasDependency()) DebugStop();
+            corig.RemoveDepend();
+        }
+    }
+    fluxmesh->ExpandSolution();
+    return fluxmesh;
+}
 // method for creating a discontinuous pressure mesh
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh() {
     if (fPostProcesswithHDiv) {
@@ -383,6 +442,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh() {
 }
 
 // a method for creating the pressure mesh
+/*
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateDiscontinuousPressureMesh()
 {
     TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
@@ -420,6 +480,32 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateDiscontinuousPressureMesh()
     for (int64_t ic=0; ic<nc; ic++) {
         pressmesh->ConnectVec()[ic].SetLagrangeMultiplier(1);
     }
+    return pressmesh;
+}
+ */
+
+TPZCompMesh *TPZMHMHDivErrorEstimator::CreateDiscontinuousPressureMesh()
+{
+    TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
+    TPZGeoMesh *gmesh = OrigPressure->Reference();
+    gmesh->ResetReference();
+    int dim = gmesh->Dimension();
+    TPZCompMesh *pressmesh = OrigPressure->Clone();
+    RemoveMaterialObjects(pressmesh->MaterialVec());
+    int64_t nel = pressmesh->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = pressmesh->Element(el);
+        if(!cel) continue;
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if(!intel) DebugStop();
+        TPZGeoEl *gel = cel->Reference();
+        int matid = gel->MaterialId();
+        if(!pressmesh->FindMaterial(matid))
+        {
+            delete cel;
+        }
+    }
+    pressmesh->ExpandSolution();
     return pressmesh;
 }
 
@@ -821,6 +907,8 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
             TPZCompElSide large = gelside.LowerLevelCompElementList2(1);
             if (large) celstack.Push(large);
 
+            // if there is no neighbour, the element must be on a boundary
+            // or the neighbour was divided
             int nstack = celstack.size();
             if (nstack == 0) continue;
 
@@ -833,6 +921,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
                 // Filters neighbour sides that belong to volume elements
                 if (neighbour.Element()->Dimension() != dim) continue;
 
+                // this would be very strange and should incur a DebugStop();
                 if (cneighbour.Element()->Mesh() != gel->Reference()->Mesh()) {
 
                     // This lambda checks if a skeleton has already been created over gelside
