@@ -21,7 +21,11 @@ class TPZCompMesh;
 // compute a reference solution without MHM
 struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
 {
-    
+    // material id of the dim-1 multiphysic inerface and wrap elements
+    // (only used for HDiv reconstruction)
+    int fMultiPhysicsInterfaceMatId = 0;
+    int fHDivWrapMatId = 0;
+
     /// a pointer to the datastructure used to generate the MHM mesh
     TPZMHMixedMeshControl *fMHM = nullptr;
 
@@ -50,7 +54,9 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     void CreateSkeletonElements(TPZCompMesh *pressure_mesh) override;
     // Creates H1 discontinuous space on skeleton elements
     void CreateSkeletonApproximationSpace(TPZCompMesh *pressure_mesh);
-
+    // Creates TPZMultiphysicsInterface elements between subdomains if reconstructing with H(div)
+    void CreateFluxSkeletonElements(TPZCompMesh *flux_mesh);
+    void CreateMultiphysicsInterfaces();
 
     // a method for generating the hybridized multiphysics post processing mesh
     void CreatePostProcessingMesh() override;

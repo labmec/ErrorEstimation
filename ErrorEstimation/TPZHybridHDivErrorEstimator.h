@@ -45,7 +45,7 @@ protected:
     TPZHybridizeHDiv fHybridizer;
 
     // material id of the dim-1 skeleton elements
-    int fPressureSkeletonMatId;
+    int fPressureSkeletonMatId = 0;
 
     TPZAnalyticSolution *fExact;
     ProblemConfig fProblemConfig;
@@ -55,7 +55,7 @@ protected:
 public:
     TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, bool inputIsHybridized, bool postProcWithHDiv)
         : fOriginal(&originalMesh), fOriginalIsHybridized(inputIsHybridized), fPostProcMesh(nullptr), fExact(nullptr) {
-        fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
+        //fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
         fPostProcesswithHDiv = postProcWithHDiv;
     }
 
@@ -94,6 +94,7 @@ public:
     int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
 
     TPZMultiphysicsCompMesh *PostProcMesh() { return &fPostProcMesh; }
+    TPZGeoMesh *GMesh() { return fOriginal->Reference(); }
 
 protected:
 
@@ -118,6 +119,9 @@ protected:
 
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
+
+    // Finds a material ID that has not been used yet
+    int FindFreeMatId(TPZGeoMesh *gmesh);
 
     // Creates skeleton geometric elements on which the average pressure will be calculated
     virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);

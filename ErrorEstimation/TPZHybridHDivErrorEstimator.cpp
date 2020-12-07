@@ -403,7 +403,7 @@ TPZCompMesh *TPZHybridHDivErrorEstimator::CreatePressureMesh() {
             TPZVTKGeoMesh::PrintCMeshVTK(pressureMesh, outVTK);
         }
 #endif
-        
+
         CreateSkeletonElements(pressureMesh);
         
         return pressureMesh;
@@ -2989,17 +2989,11 @@ void TPZHybridHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_m
 #endif
 
     // Assigns a material ID that has not been used yet // TODO move this to IdentifyPeripheralMatIds
-    int maxMatId = std::numeric_limits<int>::min();
     const int nel = gmesh->NElements();
 
-    for (int iel = 0; iel < nel; iel++) {
-        TPZGeoEl *gel = gmesh->Element(iel);
-        if(gel) maxMatId = std::max(maxMatId, gel->MaterialId());
+    if (fPressureSkeletonMatId == 0) {
+        fPressureSkeletonMatId = FindFreeMatId(gmesh);
     }
-
-    if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
-
-    fPressureSkeletonMatId = maxMatId + 1;
     int dim = gmesh->Dimension();
 
     for (int64_t iel = 0; iel < nel; iel++) {
@@ -3166,4 +3160,20 @@ bool TPZHybridHDivErrorEstimator::IsAdjacentToHangingNode(const TPZCompElSide &c
     }
 
     return allConnectedNodesAreRestrained;
+}
+
+// Finds a material ID that has not been used yet
+int TPZHybridHDivErrorEstimator::FindFreeMatId(TPZGeoMesh *gmesh) {
+
+    int maxMatId = std::numeric_limits<int>::min();
+    const int nel = gmesh->NElements();
+
+    for (int iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        if(gel) maxMatId = std::max(maxMatId, gel->MaterialId());
+    }
+
+    if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
+
+    return maxMatId + 1;
 }
