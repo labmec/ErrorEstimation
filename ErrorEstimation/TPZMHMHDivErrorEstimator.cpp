@@ -12,6 +12,8 @@
 #include <Mesh/TPZCompMeshTools.h>
 #include <Mesh/TPZGeoElSideAncestors.h>
 #include <Mesh/pzmultiphysicscompel.h>
+#include <Mesh/TPZMultiphysicsInterfaceEl.h>
+
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -52,11 +54,22 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     // If we reconstruct in H(div) we need to create an additional skeleton for the multiphysics interfaces
     if (fPostProcesswithHDiv) {
         CreateFluxSkeletonElements(meshvec[0]);
+
+        // TODO move this to InsertMaterials method
+        TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+        skeletonMat->SetDimension(GMesh()->Dimension() - 1);
+        fPostProcMesh.InsertMaterialObject(skeletonMat);
+
+        TPZNullMaterial *wrapMat = new TPZNullMaterial(fHDivWrapMatId);
+        skeletonMat->SetDimension(GMesh()->Dimension() - 1);
+        fPostProcMesh.InsertMaterialObject(wrapMat);
+
         {
             std::cout << "pressureskelmatid: " << fPressureSkeletonMatId << "\n";
+            std::cout << "hdivwrapmatid: " << fHDivWrapMatId << "\n";
             std::cout << "multiphysics interface mat id: " << fMultiPhysicsInterfaceMatId << "\n";
 
-            std::ofstream file("GmeshSkeletonsss.vtk");
+            std::ofstream file("GmeshAfterFluxSkel.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(this->GMesh(), file);
         }
     }
@@ -75,9 +88,8 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
-    bool groupelements = false;
 
-    //for reconstruction on H1 hybridezed mesh is not applied
+    //for reconstruction on H1 hybridized mesh is not applied
     //just for Hdiv reconstruction the hybridizer will be use
     if(fPostProcesswithHDiv){
         // Create multiphysics interface computational elements
@@ -86,8 +98,9 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
             std::ofstream out("PostProcMeshBeforeInterfaces.txt");
             fPostProcMesh.Print(out);
         }
-        //CreateMultiphysicsInterfaces();
+        CreateMultiphysicsInterfaces();
 
+        bool groupelements = false;
         //fHybridizer.HybridizeGivenMesh(fPostProcMesh,groupelements);
     }
 
@@ -683,7 +696,10 @@ void TPZMHMHDivErrorEstimator::RemoveMaterialObjects(std::map<int,TPZMaterial *>
             if(fMHM->fMaterialIds.find(matid) == fMHM->fMaterialIds.end() &&
                fMHM->fMaterialBCIds.find(matid) == fMHM->fMaterialBCIds.end())
             {
-                if (fPostProcesswithHDiv && matid != fMultiPhysicsInterfaceMatId && matid != fHDivWrapMatId) {
+                if (fPostProcesswithHDiv
+                    && matid != fMultiPhysicsInterfaceMatId
+                    && matid != fHDivWrapMatId
+                    && matid != fPressureSkeletonMatId) {
                     std::cout << __PRETTY_FUNCTION__  << ": Removing material " << matid << '\n';
                     TPZMaterial *mat = iter.second;
                     delete mat;
@@ -1305,18 +1321,29 @@ void TPZMHMHDivErrorEstimator::CreateMultiphysicsInterfaces() {
         TPZCompEl *skelCel = gel->Reference();
         if (!skelCel) DebugStop();
 
+        int count = 0;
         for (TPZGeoElSide neigh = skelSide.Neighbour(); neigh != skelSide; neigh++) {
+            TPZCompElSide skelCelSide = skelSide.Reference();
+            if (!skelCelSide) DebugStop();
+
             TPZGeoEl *neighGel = neigh.Element();
             if (neighGel->MaterialId() != fHDivWrapMatId) continue;
             std::cout << "blob\n";
+            count++;
 
-            //TPZCompEl *neighCel = neighGel->Reference();
-            //if (!neighCel) DebugStop();
+            TPZGeoElBC gbc(skelSide, fMultiPhysicsInterfaceMatId);
+            TPZCompElSide neighSide = neigh.Reference();
+            if (!neighSide) DebugStop();
+
+            int64_t index;
+            auto *interface = new TPZMultiphysicsInterfaceElement(fPostProcMesh, gbc.CreatedElement(), index, skelCelSide, neighSide);
+
             //TPZMultiphysicsElement *mCelNeigh = dynamic_cast<TPZMultiphysicsElement*>(neighCel);
             //if (!mCelNeigh) DebugStop();
 
             //mCelNeigh->CreateInterface(neigh.Side());
         }
+        if (count != 2) DebugStop();
         std::cout << "\n";
     }
 }
