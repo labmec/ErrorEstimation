@@ -71,11 +71,14 @@ void TPZHybridH1ErrorEstimateMaterial::SetReconstruction (bool isReconstructedFr
 void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     /**
-     Implement
-     (invK.sigma_h,v)_K = (u_h,\nabla.v):
-        int_K phi_i.phi_j dx = int_K u_h phi_i  dx
+     find (sigma_h,p_h,g_h) satisfying
+        (invK.sigma_h,v_h) - (p_h,div v_h) = 0;
+        -(div sigma_h,w_h) + (g_h,w_h) = (f,v);
+        (p_h,t_h) = (u_avg,t_h),
+    for all (v_h,w_h,t_h)
      **/
-    if(datavec.size() == 2){
+
+    if(datavec[0].fActiveApproxSpace){
         TPZFNMatrix<9,REAL> PermTensor;
         TPZFNMatrix<9,REAL> InvPermTensor;
         int dim = datavec[0].axes.Rows();
@@ -86,18 +89,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         // Setting the phis
         TPZFMatrix<REAL> &phiQ = datavec[0].phi;
         TPZFMatrix<REAL> &dphiQ = datavec[0].dphix;
-
-        TPZFMatrix<REAL> &phiuk = datavec[0].phi;
-        TPZFMatrix<REAL> &dphiukaxes = datavec[0].dphix;
-        TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
-        TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[0].axes);
-
-        int phrq;
-        phrq = datavec[0].fVecShapeIndex.NElements();
-
-        TPZFNMatrix<15, STATE> &dsolpaxes = datavec[1].dsol[0];
-        TPZFNMatrix<9, REAL> dsolp(2, dphiukaxes.Cols());
-        TPZAxesTools<REAL>::Axes2XYZ(dsolpaxes, dsolp, datavec[1].axes);
+        TPZFMatrix<REAL> &phip = datavec[1].phi;
 
         STATE force = ff;
         if(fForcingFunction) {
@@ -105,6 +97,20 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
             fForcingFunction->Execute(datavec[1].x,res);
             force = res[0];
         }
+
+
+        TPZFMatrix<REAL> &phiuk = datavec[0].phi;
+        TPZFMatrix<REAL> &dphiukaxes = datavec[0].dphix;
+        TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
+        TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[0].axes);
+
+        int phrq,phrp;
+        phrq = datavec[0].fVecShapeIndex.NElements();
+        phrp = phip.Rows();
+
+        TPZFNMatrix<15, STATE> &dsolpaxes = datavec[1].dsol[0];
+        TPZFNMatrix<9, REAL> dsolp(2, dphiukaxes.Cols());
+        TPZAxesTools<REAL>::Axes2XYZ(dsolpaxes, dsolp, datavec[1].axes);
 
         for (int ip = 0; ip < dim; ip++) {
             gradSol(ip, 0) = dsolp.Get(ip, 0);
@@ -124,7 +130,6 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
             TPZFNMatrix<3,REAL> jvecZ(3,1,0.);
             for (int jq=0; jq<phrq; jq++)
             {
-                /// (invK.sigma_h,v)_K
 
                 TPZFNMatrix<3,REAL> jvec(3,1,0.);
                 int jvecind = datavec[0].fVecShapeIndex[jq].first;
@@ -141,26 +146,24 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
                         jvecZ(id,0) += InvPermTensor(id,jd)*jvec(jd,0);
                     }
                 }
-                //jvecZ.Print("mat1 = ");
-                /// (div sigma_h, div v_h) = ...
-                if(fisFluxFromSource){
-                    REAL divqi = 0., divqj = 0.;
-                    TPZFNMatrix<3,REAL> axesivec(3,1,0.), axesjvec(3,1,0.);
-                    datavec[0].axes.Multiply(ivec,axesivec);  datavec[0].axes.Multiply(jvec,axesjvec);
-                    for(int iloc=0; iloc<fDim; iloc++)
-                    {
-                        divqi += axesivec(iloc,0)*dphiQ(iloc,ishapeind);
-                        divqj += axesjvec(iloc,0)*dphiQ(iloc,jshapeind);
-                    }
-                    ek(iq,jq) += fvisc*weight*divqi*divqj;
-                }
-                /// (sigma_h, v_h) = ...
-                else{
-                    REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
-                    ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
-                }
+                /// (invK.sigma_h,v)_K
+                REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
+                ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
             }
+        }
 
+        // Coupling terms between flux and pressure. Matrix B
+        for(int iq=0; iq<phrq; iq++)
+        {
+            int ivecind = datavec[0].fVecShapeIndex[iq].first;
+            int ishapeind = datavec[0].fVecShapeIndex[iq].second;
+
+            TPZFNMatrix<3,REAL> ivec(3,1,0.);
+            for(int id=0; id<3; id++){
+                ivec(id,0) = datavec[0].fDeformedDirections(id,ivecind);
+                //ivec(1,0) = datavec[0].fDeformedDirections(1,ivecind);
+                //ivec(2,0) = datavec[0].fDeformedDirections(2,ivecind);
+            }
             TPZFNMatrix<3,REAL> axesvec(3,1,0.);
             datavec[0].axes.Multiply(ivec,axesvec);
 
@@ -169,23 +172,29 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
             {
                 divwq += axesvec(iloc,0)*dphiQ(iloc,ishapeind);
             }
-            ///... = (f,div v_h)
-            if(fisFluxFromSource){
-                ef(iq, 0) += weight*force*divwq;
-            }
-            else {
-                /// ... = - (grad u_h, v_h)
-                if (fisPotentialRecFromFlux) {
-                    for (int iloc = 0; iloc < fDim; iloc++) {
-                        ef(iq, 0) -= weight * gradSol[iloc] * ivec(iloc, 0) * phiQ(ishapeind, 0);
-                    }
-                }
-                    /// ... = (u_h, div v_h)
-                else {
-                    ef(iq, 0) += weight * divwq * datavec[1].sol[0][0];
-                }
+            for (int jp=0; jp<phrp; jp++) {
+                /// - (p_h,div v_h)
+                REAL fact = (-1.)*weight*phip(jp,0)*divwq;
+                // Matrix B
+                ek(iq, phrq+jp) += fact;
+
+                // Matrix B^T
+                ek(phrq+jp,iq) += fact;
+
             }
         }
+        //termo fonte referente a equacao da pressao
+        for(int ip=0; ip<phrp; ip++){
+            /// (f,v)
+            ef(phrq+ip,0) += (-1.)*weight*force*phip(ip,0);
+        }
+
+        for(int ip=0; ip<phrp; ip++){
+            /// (g_h,w_h)
+            ek(phrq+ip,phrq+phrp) += phip(ip,0)*weight;
+            ek(phrq+phrp,phrq+ip) += phip(ip,0)*weight;
+        }
+        ef(phrq+phrp,0) += weight*datavec[3].sol[0][0];
     }
 
     /**
@@ -193,14 +202,8 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
 
      1) (K grad s_h, grad v)_K = (f,v):
             int_K phi_i.phi_j dx = int_K f phi_i  dx;
-
-     2) (K grad s_h, grad v)_K = (grad u_h,grad v):
-            int_K gradphi_i.gradphi_j dx = int_K gradSol.gradphi_i dx dx;
-
-    3) (K grad s_h, grad v)_K = -(sigma_h,grad v):
-    int_K gradphi_i.gradphi_j dx = int_K gradSol.gradphi_i dx dx;
      **/
-    if(datavec.size() == 4) {
+    else {
 
         int H1functionposition = 1;
 
@@ -257,7 +260,6 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         if (loggerF->isDebugEnabled()) {
             ss << "X = [" << datavec[1].x[0] << "," << datavec[1].x[1] << "," << datavec[1].x[2] << "]\n";
             ss << "f = " << divsigma[0] << "\n";
-            phiuk.Print(ss);
         }
 #endif
         TPZFMatrix<STATE> efincT(1, nphiuk);
@@ -265,27 +267,16 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         TPZFMatrix<STATE> efT(1, nphiuk);
 
         for (int irow = 0; irow < nphiuk; irow++) {
-            //K graduk
+
             for (int id = 0; id < dim; id++) {
                 for (int jd = 0; jd < dim; jd++) {
-
                     kgraduk(id, irow) += PermTensor(id, jd) * dphiuk(jd, irow);
-
                 }
                 /// ... = (grad u_h, grad v_h)
-                if(!fisPotentialRecFromFlux && fisReconstructedFromFemSol){
-                    ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
-                }
-                ///... = (sigma_h , grad v_h)
-                if(fisPotentialRecFromFlux && fisReconstructedFromFemSol) {
-                    ef(irow, 0) += (-1.) * weight * dphiuk(id, irow) * solsigmafem(id, 0);
-                }
+                //ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
             }
             ///... = (f , v_h)
-            if(!fisReconstructedFromFemSol){
-                ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
-            }
-
+            ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
 
 
 #ifdef LOG4CXX
@@ -422,7 +413,7 @@ void TPZHybridH1ErrorEstimateMaterial::ContributeBC(
 
 void TPZHybridH1ErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData > &datavec) {
 
-    if(datavec.size() == 4) {
+    if(!datavec[0].fActiveApproxSpace) {
         //fem solution for flux and potential
         datavec[0].SetAllRequirements(false);
         datavec[0].fNeedsSol = true;
@@ -435,11 +426,16 @@ void TPZHybridH1ErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialDa
         datavec[3].SetAllRequirements(false);
         datavec[3].fNeedsSol = true;
     }
+    else{
+        datavec[3].SetAllRequirements(false);
+        datavec[3].fNeedsSol = true;
+        datavec[3].fNeedsNormal = true;
+    }
 
 }
 
 void TPZHybridH1ErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int type, TPZVec<TPZMaterialData > &datavec){
-    if(datavec.size() == 4) {
+    if(!datavec[0].fActiveApproxSpace) {
         datavec[0].SetAllRequirements(false);
         datavec[0].fNeedsSol = true;
         datavec[0].fNeedsNormal = true;
@@ -447,6 +443,11 @@ void TPZHybridH1ErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int 
         datavec[2].SetAllRequirements(false);
         datavec[2].fNeedsSol = true;
         datavec[2].fNeedsNormal = true;
+    }
+    else{
+        datavec[3].SetAllRequirements(false);
+        datavec[3].fNeedsSol = true;
+        datavec[3].fNeedsNormal = true;
     }
 }
 

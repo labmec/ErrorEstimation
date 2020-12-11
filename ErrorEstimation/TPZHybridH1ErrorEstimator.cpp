@@ -359,19 +359,52 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     }
 #endif
 
+    TPZCompMesh *pressure = new TPZCompMesh(fProblemConfig.gmesh);
+    //if(fisFluxFromMixedProblem){
+    //active.Resize(3);
+    int dimMesh = fProblemConfig.gmesh->Dimension();
+
+    int potential_order = fProblemConfig.porder;
+    pressure->SetDefaultOrder(potential_order);
+    pressure->SetDimModel(dimMesh);
+
+    pressure->SetAllCreateFunctionsContinuous(); //H1 functions
+    pressure->ApproxSpace().CreateDisconnectedElements(true);
+
+    for(auto matid:fProblemConfig.materialids){
+        TPZNullMaterial *material = new TPZNullMaterial(matid); material->SetDimension(dimMesh);
+        pressure->InsertMaterialObject(material);
+    }
+    pressure->AutoBuild();
+    pressure->ExpandSolution();
+
+    TPZCompMesh *gspace = new TPZCompMesh(fProblemConfig.gmesh);
+    {
+        for (auto matid:fProblemConfig.materialids) {
+            TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+            nullmat->SetDimension(fProblemConfig.gmesh->Dimension());
+            nullmat->SetNStateVariables(1);
+            gspace->InsertMaterialObject(nullmat);
+        }
+        gspace->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
+        gspace->SetDefaultOrder(0);//sao espacos de pressao media
+        gspace->AutoBuild();
+    }
+
     TPZMultiphysicsCompMesh HdivRecMesh;
     HdivRecMesh.SetReference(fOriginal->Reference());
 
-    TPZManVector<TPZCompMesh *> mesh_vectors(2, 0);
-    TPZManVector<int> active(2, 0);
-    active[0] = 1;
+    TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
+    TPZManVector<int> active(4, 0);
+
     mesh_vectors[0] = cmeshHdiv;// flux
-    if(fisReconstructedFromFemSol) {
-        mesh_vectors[1] = fOriginal->MeshVector()[1]->Clone();
-    }
-    else{
-        mesh_vectors[1] = fPressurePostProcMesh.MeshVector()[1]->Clone();
-    }
+    mesh_vectors[1] = pressure->Clone();
+    mesh_vectors[2] = gspace->Clone(); // g-space
+    mesh_vectors[3] = fOriginal->MeshVector()[3]->Clone(); // avg-space
+
+    active[0] = 1;
+    active[1] = 1;
+    active[2] = 1;
 
     for (auto mat : mesh_vectors[0]->MaterialVec()) {
         HdivRecMesh.MaterialVec()[mat.first] = mat.second;
@@ -672,9 +705,6 @@ void TPZHybridH1ErrorEstimator::CreatePressurePostProcessingMesh() {
     TPZManVector<int> active(4, 0);
     if(fisPotentialRecFromFlux){
         mesh_vectors[0] = CreateFluxMesh();
-    }
-    else{
-        mesh_vectors[0] = 0;
     }
     mesh_vectors[1] = CreatePressureMesh();
     mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
