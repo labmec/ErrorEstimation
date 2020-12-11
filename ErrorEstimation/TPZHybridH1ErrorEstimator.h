@@ -52,9 +52,6 @@ struct TPZHybridH1ErrorEstimator
     /// Compute average pressure between skeletons on hanging nodes mode;
     /// 1 : average between both skeletons; 2 : Just small skeleton; 3 : weighted average w~1/h^(p+1)
     int fAverageMode = 0;
-    
-    /// PostProcMesh dedicated to pressure reconstruction
-    TPZMultiphysicsCompMesh fPressurePostProcMesh;
 
     /// Computational mesh with pressure and flux reconstructions
     TPZMultiphysicsCompMesh fPostProcMesh;
@@ -105,14 +102,14 @@ struct TPZHybridH1ErrorEstimator
     std::string fDebugDirName = "HybridH1_ReconstructionDebug";
 
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh) : fOriginal(&InputMesh),
-    fPressurePostProcMesh(0),fExact(NULL)
+    fPostProcMesh(0),fExact(NULL)
     {
         FindFreeMatID(fPressureSkeletonMatId);
         fHDivResconstructionMatId = fPressureSkeletonMatId+1;
     }
 
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
-                                                                    fPressurePostProcMesh(0),fExact(NULL),
+                                                                    fPostProcMesh(0),fExact(NULL),
                                                                     fPressureSkeletonMatId(fPressureSkeletonMatId),fHDivResconstructionMatId(HDivMatId)
     {
 
@@ -120,7 +117,7 @@ struct TPZHybridH1ErrorEstimator
     
     TPZHybridH1ErrorEstimator(const TPZHybridH1ErrorEstimator &copy) : fOriginal(copy.fOriginal),
         fOriginalIsHybridized(copy.fOriginalIsHybridized),fUpliftPostProcessMesh(copy.fUpliftPostProcessMesh),
-        fPressurePostProcMesh(copy.fPressurePostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig),fPressureSkeletonMatId(copy.fPressureSkeletonMatId)
+        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig),fPressureSkeletonMatId(copy.fPressureSkeletonMatId)
     {
         // this method wont work because multiphysics meshes have no copy constructor (yet)
         DebugStop();
@@ -134,7 +131,7 @@ struct TPZHybridH1ErrorEstimator
         // this method wont work because multiphysics meshes have no operator= (yet)
         DebugStop();
 
-        fPressurePostProcMesh = cp.fPressurePostProcMesh;
+        fPostProcMesh = cp.fPostProcMesh;
         fExact = cp.fExact;
         fProblemConfig = cp.fProblemConfig;
         fPressureSkeletonMatId = cp.fPressureSkeletonMatId;
@@ -179,9 +176,6 @@ struct TPZHybridH1ErrorEstimator
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
 protected:
-    
-    /// create the post processed multiphysics mesh (which is necessarily hybridized)
-    virtual void CreatePressurePostProcessingMesh();
 
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();

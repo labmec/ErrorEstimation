@@ -24,8 +24,6 @@ TPZHybridH1ErrorEstimateMaterial::TPZHybridH1ErrorEstimateMaterial() : TPZMixedP
 
 TPZHybridH1ErrorEstimateMaterial::TPZHybridH1ErrorEstimateMaterial(const TPZHybridH1ErrorEstimateMaterial &copy) : TPZMixedPoisson(copy)
 {
-    this->fisReconstructedFromFemSol = copy.fisReconstructedFromFemSol;
-    this->fisPotentialRecFromFlux = copy.fisPotentialRecFromFlux;
 }
 
 TPZHybridH1ErrorEstimateMaterial::TPZHybridH1ErrorEstimateMaterial(const TPZMixedPoisson &copy) : TPZMixedPoisson(copy)
@@ -56,16 +54,8 @@ TPZHybridH1ErrorEstimateMaterial::~TPZHybridH1ErrorEstimateMaterial()
 
 TPZHybridH1ErrorEstimateMaterial &TPZHybridH1ErrorEstimateMaterial::operator=(const TPZHybridH1ErrorEstimateMaterial &copy)
 {
-    this->fisPotentialRecFromFlux = copy.fisPotentialRecFromFlux;
-    this->fisReconstructedFromFemSol = copy.fisReconstructedFromFemSol;
     TPZMixedPoisson::operator=(copy);
     return *this;
-}
-
-void TPZHybridH1ErrorEstimateMaterial::SetReconstruction (bool isReconstructedFromFemSol, bool isPotentialRecFromFlux, bool isFluxFromGraduh){
-    fisReconstructedFromFemSol = isReconstructedFromFemSol;
-    fisPotentialRecFromFlux = isPotentialRecFromFlux;
-    fisFluxFromSource = isFluxFromGraduh;
 }
 
 void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
@@ -228,43 +218,25 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         if (!this->fForcingFunction) DebugStop();
         this->fForcingFunction->Execute(datavec[H1functionposition].x, divsigma);
 
-
-        //potetial fem
-        solukfem(0, 0) = datavec[3].sol[0][0];
-        for (int ip = 0; ip < dim; ip++) {
-            gradSol(ip, 0) = dsol.Get(ip, 0);
-        }
-
-        TPZFMatrix<STATE> solsigmafem(3,1);
-        if(fisPotentialRecFromFlux && fisReconstructedFromFemSol) {
-            for (int ip = 0; ip < 3; ip++) {
-                solsigmafem(ip, 0) = datavec[0].sol[0][ip];
-            }
-        }
-
         TPZFNMatrix<9, REAL> PermTensor;
         TPZFNMatrix<9, REAL> InvPermTensor;
 
         GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
 
+        //potetial fem
+        /*solukfem(0, 0) = datavec[3].sol[0][0];
+        for (int ip = 0; ip < dim; ip++) {
+           gradSol(ip, 0) = dsol.Get(ip, 0);
+        }
         for (int id = 0; id < dim; id++) {
             for (int jd = 0; jd < dim; jd++) {
                 kGradSol(id, 0) += PermTensor(id, jd) * gradSol(jd, 0);
             }
-        }
+        }*/
 
         TPZFMatrix<STATE> kgraduk(dim, nphiuk, 0.);
 
-        std::stringstream ss;
-#ifdef LOG4CXX
-        if (loggerF->isDebugEnabled()) {
-            ss << "X = [" << datavec[1].x[0] << "," << datavec[1].x[1] << "," << datavec[1].x[2] << "]\n";
-            ss << "f = " << divsigma[0] << "\n";
-        }
-#endif
-        TPZFMatrix<STATE> efincT(1, nphiuk);
-        TPZFMatrix<STATE> efinc(nphiuk);
-        TPZFMatrix<STATE> efT(1, nphiuk);
+
 
         for (int irow = 0; irow < nphiuk; irow++) {
 
@@ -278,17 +250,6 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
             ///... = (f , v_h)
             ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
 
-
-#ifdef LOG4CXX
-            if (loggerF->isDebugEnabled()) {
-                efincT(0, irow) = weight * phiuk(irow, 0) * divsigma[0];
-                efinc(irow, 0) = weight * phiuk(irow, 0) * divsigma[0];
-                efT(0, irow) = ef(irow, 0);
-            }
-#endif
-
-            std::cout << weight * phiuk(irow, 0) * divsigma[0] << std::endl;
-
             //matrix Sk= int_{K} K graduk.gradv
             for (int jcol = 0; jcol < nphiuk; jcol++) {
 
@@ -300,7 +261,9 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         }
 #ifdef LOG4CXX
         if (loggerF->isDebugEnabled()) {
-            efinc.Print("EFinc", ss, EMathematicaInput);
+            std::stringstream ss;
+            ss << "X = [" << datavec[1].x[0] << "," << datavec[1].x[1] << "," << datavec[1].x[2] << "]\n";
+            ss << "f = " << divsigma[0] << "\n";
             ef.Print("EF", ss, EMathematicaInput);
             LOGPZ_DEBUG(loggerF, ss.str())
         }

@@ -15,17 +15,6 @@
 
 class TPZHybridH1ErrorEstimateMaterial: public TPZMixedPoisson
 {
-private:
-    /// Weather reconstruction derives from fem solution (u_h) or from source (f)
-    bool fisReconstructedFromFemSol;
-
-    /// Weather pressure is reconstructed should be reconstructed before flux
-    bool fisPotentialRecFromFlux;
-
-    /// Weather flux comes from -(grad u_h, v) or (u_h,div(v))
-    /// Only works fisReconstructedFromFemSol = false;
-    bool fisFluxFromSource;
-
 public:
 
     TPZHybridH1ErrorEstimateMaterial(int matid, int dim);
@@ -41,8 +30,6 @@ public:
     virtual ~TPZHybridH1ErrorEstimateMaterial();
 
     TPZHybridH1ErrorEstimateMaterial &operator=(const TPZHybridH1ErrorEstimateMaterial &copy);
-
-    virtual void SetReconstruction (bool isReconstructedFromFemSol,bool isPotentialRecFromFlux,bool isFluxFromGraduh);
 
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
 
