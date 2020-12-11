@@ -66,7 +66,7 @@ struct ErrorData
     int numErrors = 4;
 
     std::string plotfile;
-    int mode =3;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
+    int mode =2;           // 1 = "ALL"; 2 = "H1"; 3 = "HybridH1"; 4 = "Mixed"; 5 = "HybridSquared;
     int argc = 1;
 
     bool last = true, post_proc = true;
@@ -112,9 +112,9 @@ void IsInteger(char *argv);
 
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 3;         // Potential and internal flux order
-    config.hdivmais =  2;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 2 ;  // p_order - H1HybridMinus = Flux order
+    config.porder = 6;         // Potential and internal flux order
+    config.hdivmais =  5;       // p_order - hdivmais = External flux order
+    config.H1Hybridminus = 5 ;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -945,7 +945,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Er
 
 #ifdef USING_MKL
     TPZSymetricSpStructMatrix strmat(cmeshH1);
-    strmat.SetNumThreads(8);
+    //strmat.SetNumThreads(8);
     //        strmat.SetDecomposeType(ELDLt);
 #else
     TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);

@@ -35,7 +35,7 @@ struct TPZHybridH1ErrorEstimator
 
     /// Weather flux comes from -(grad u_h, v) or (u_h,div(v))
     /// Only works fisPotentialRecFromFlux = true;
-    bool fisFluxFromGraduh = true;
+    bool fisFluxFromSource = true;
 
     /// The HybridSquared approximation mesh for which we will compute the error
     TPZMultiphysicsCompMesh *fOriginal;

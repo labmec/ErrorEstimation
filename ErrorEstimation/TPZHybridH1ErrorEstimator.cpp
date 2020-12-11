@@ -325,7 +325,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
         if (matlaplacian) {
             TPZHybridH1ErrorEstimateMaterial *EEMat = new TPZHybridH1ErrorEstimateMaterial(*matlaplacian); //TPZHybridH1ErrorEstimateMaterial(mat.first,fProblemConfig.gmesh->Dimension());
             cmeshHdiv->MaterialVec()[mat.first] =  EEMat;
-            EEMat->SetReconstruction(fisReconstructedFromFemSol,fisPotentialRecFromFlux,fisFluxFromGraduh);
+            EEMat->SetReconstruction(fisReconstructedFromFemSol,fisPotentialRecFromFlux,fisFluxFromSource);
 
             for (auto bcmat : cmeshHdiv->MaterialVec()) {
                 TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
@@ -3026,7 +3026,7 @@ void TPZHybridH1ErrorEstimator:: SwitchMaterialObjects() {
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
             TPZHybridH1ErrorEstimateMaterial *newmat = new TPZHybridH1ErrorEstimateMaterial(*matlaplacian);
-            newmat->SetReconstruction(fisReconstructedFromFemSol,fisPotentialRecFromFlux,fisFluxFromGraduh);
+            newmat->SetReconstruction(fisReconstructedFromFemSol,fisPotentialRecFromFlux,fisFluxFromSource);
 
             for (auto bcmat : fPressurePostProcMesh.MaterialVec()) {
                 TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);

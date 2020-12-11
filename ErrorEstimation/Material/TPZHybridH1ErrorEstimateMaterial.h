@@ -24,7 +24,7 @@ private:
 
     /// Weather flux comes from -(grad u_h, v) or (u_h,div(v))
     /// Only works fisReconstructedFromFemSol = false;
-    bool fisFluxFromGraduh = false;
+    bool fisFluxFromSource;
 
 public:
 

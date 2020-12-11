@@ -65,7 +65,7 @@ TPZHybridH1ErrorEstimateMaterial &TPZHybridH1ErrorEstimateMaterial::operator=(co
 void TPZHybridH1ErrorEstimateMaterial::SetReconstruction (bool isReconstructedFromFemSol, bool isPotentialRecFromFlux, bool isFluxFromGraduh){
     fisReconstructedFromFemSol = isReconstructedFromFemSol;
     fisPotentialRecFromFlux = isPotentialRecFromFlux;
-    fisFluxFromGraduh = isFluxFromGraduh;
+    fisFluxFromSource = isFluxFromGraduh;
 }
 
 void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
@@ -98,6 +98,13 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         TPZFNMatrix<15, STATE> &dsolpaxes = datavec[1].dsol[0];
         TPZFNMatrix<9, REAL> dsolp(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dsolpaxes, dsolp, datavec[1].axes);
+
+        STATE force = ff;
+        if(fForcingFunction) {
+            TPZManVector<STATE> res(1);
+            fForcingFunction->Execute(datavec[1].x,res);
+            force = res[0];
+        }
 
         for (int ip = 0; ip < dim; ip++) {
             gradSol(ip, 0) = dsolp.Get(ip, 0);
@@ -135,12 +142,25 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
                     }
                 }
                 //jvecZ.Print("mat1 = ");
-
-                REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
-                ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
+                /// (div sigma_h, div v_h) = ...
+                if(fisFluxFromSource){
+                    REAL divqi = 0., divqj = 0.;
+                    TPZFNMatrix<3,REAL> axesivec(3,1,0.), axesjvec(3,1,0.);
+                    datavec[0].axes.Multiply(ivec,axesivec);  datavec[0].axes.Multiply(jvec,axesjvec);
+                    for(int iloc=0; iloc<fDim; iloc++)
+                    {
+                        divqi += axesivec(iloc,0)*dphiQ(iloc,ishapeind);
+                        divqj += axesjvec(iloc,0)*dphiQ(iloc,jshapeind);
+                    }
+                    ek(iq,jq) += fvisc*weight*divqi*divqj;
+                }
+                /// (sigma_h, v_h) = ...
+                else{
+                    REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
+                    ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
+                }
             }
 
-            /// -(u_h,\nabla.v)
             TPZFNMatrix<3,REAL> axesvec(3,1,0.);
             datavec[0].axes.Multiply(ivec,axesvec);
 
@@ -149,12 +169,21 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
             {
                 divwq += axesvec(iloc,0)*dphiQ(iloc,ishapeind);
             }
-            if(fisFluxFromGraduh && fisPotentialRecFromFlux){
-                for(int iloc=0; iloc<fDim; iloc++){
-                    ef(iq,0) -= weight*gradSol[iloc]*ivec(iloc,0)*phiQ(ishapeind,0);
+            ///... = (f,div v_h)
+            if(fisFluxFromSource){
+                ef(iq, 0) += weight*force*divwq;
+            }
+            else {
+                /// ... = - (grad u_h, v_h)
+                if (fisPotentialRecFromFlux) {
+                    for (int iloc = 0; iloc < fDim; iloc++) {
+                        ef(iq, 0) -= weight * gradSol[iloc] * ivec(iloc, 0) * phiQ(ishapeind, 0);
+                    }
                 }
-            }else{
-                ef(iq, 0) += weight * divwq * datavec[1].sol[0][0];
+                    /// ... = (u_h, div v_h)
+                else {
+                    ef(iq, 0) += weight * divwq * datavec[1].sol[0][0];
+                }
             }
         }
     }
@@ -243,14 +272,16 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
                     kgraduk(id, irow) += PermTensor(id, jd) * dphiuk(jd, irow);
 
                 }
-                //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
+                /// ... = (grad u_h, grad v_h)
                 if(!fisPotentialRecFromFlux && fisReconstructedFromFemSol){
                     ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
                 }
+                ///... = (sigma_h , grad v_h)
                 if(fisPotentialRecFromFlux && fisReconstructedFromFemSol) {
                     ef(irow, 0) += (-1.) * weight * dphiuk(id, irow) * solsigmafem(id, 0);
                 }
             }
+            ///... = (f , v_h)
             if(!fisReconstructedFromFemSol){
                 ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
             }
@@ -654,12 +685,12 @@ void TPZHybridH1ErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec
             TPZFMatrix<REAL> &dsolaxes = datavec[3].dsol[0];
             TPZFNMatrix<9, REAL> dsol(3, 0);
             TPZFNMatrix<9, REAL> KGradsol(3, 0);
-            TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
+            TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[3].axes);
 
             PermTensor.Multiply(dsol, KGradsol);
 
 
-            for (int i = 0; i < 3; i++) Solout[i] = Solout[i] = KGradsol(i,0);
+            for (int i = 0; i < 3; i++) Solout[i]  = -KGradsol(i,0);
         }
             break;
         //Flux reconstrucion
@@ -678,7 +709,7 @@ void TPZHybridH1ErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec
                 }
             }else{
                 for(int id=0 ; id<3; id++) {
-                    Solout[id] = KGradsol(id,0);
+                    Solout[id] = -KGradsol(id,0);
                 }
             }
         }
