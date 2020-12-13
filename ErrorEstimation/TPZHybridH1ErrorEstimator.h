@@ -191,6 +191,9 @@ protected:
     // a method for creating the pressure mesh
     virtual TPZCompMesh *CreatePressureMesh();
 
+    // a method for generating the HDiv mesh
+    virtual TPZCompMesh *ForceProjectionMesh();
+
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
 

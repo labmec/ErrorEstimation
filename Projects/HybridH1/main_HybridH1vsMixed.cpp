@@ -112,9 +112,9 @@ void IsInteger(char *argv);
 
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 3;         // Potential and internal flux order
+    config.porder = 2;         // Potential and internal flux order
     config.hdivmais =  5;       // p_order - hdivmais = External flux order
-    config.H1Hybridminus = 2 ;  // p_order - H1HybridMinus = Flux order
+    config.H1Hybridminus = 1 ;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 3; ndiv < /*eData.maxdiv+2*/4; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 1; ndiv < /*eData.maxdiv+2*/2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 

@@ -188,7 +188,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
     }
 
     /**
-     Implement either
+     Implement
 
      1) (K grad s_h, grad v)_K = (f,v):
             int_K phi_i.phi_j dx = int_K f phi_i  dx;
@@ -275,7 +275,7 @@ void TPZHybridH1ErrorEstimateMaterial::ContributeBC(
         TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
         TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
 
-    if(datavec.size() == 4) {
+    if(!datavec[0].fActiveApproxSpace) {
         /*
          Add Robin boundary condition for local problem
          ek+= <w,Km s_i>
@@ -388,6 +388,9 @@ void TPZHybridH1ErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialDa
 
         datavec[3].SetAllRequirements(false);
         datavec[3].fNeedsSol = true;
+
+        datavec[4].SetAllRequirements(false);
+        datavec[4].fNeedsSol = true;
     }
     else{
         datavec[3].SetAllRequirements(false);
@@ -406,6 +409,8 @@ void TPZHybridH1ErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int 
         datavec[2].SetAllRequirements(false);
         datavec[2].fNeedsSol = true;
         datavec[2].fNeedsNormal = true;
+
+        datavec[4].SetAllRequirements(false);
     }
     else{
         datavec[3].SetAllRequirements(false);
@@ -440,7 +445,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors.Fill(0.0);
 
 
-    STATE divsigmarec, pressurefem, pressurereconstructed;
+    STATE divsigmarec, pressurefem, pressurereconstructed, forceProj;
 
     TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1), gradreconstructed(3,1);
     TPZFMatrix<REAL> gradfem,fluxfem(3,1);
@@ -461,9 +466,12 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
         this->fForcingFunction->Execute(data[H1functionposition].x,divsigma);
     }
 
-    REAL residual = 0.;
+    REAL residual = 0.,altResidual = 0.;
     divsigmarec= data[0].divsol[0][0];
     residual = (divsigma[0] - divsigmarec)*(divsigma[0] - divsigmarec);
+
+    forceProj = data[4].sol[0][0];
+    altResidual = forceProj - divsigma[0];
 
     pressurereconstructed = data[H1functionposition].sol[0][0];
 
@@ -545,10 +553,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
     errors[4] = /*npz;*/residual; //||f - Proj_divsigma||
     errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
-
-
-
-
+    errors[6] = altResidual*altResidual;
 }
 
 

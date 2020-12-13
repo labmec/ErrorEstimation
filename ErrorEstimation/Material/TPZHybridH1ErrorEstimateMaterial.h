@@ -53,7 +53,7 @@ public:
 
     bool fNeumannLocalProblem = true;
 
-    virtual int NEvalErrors() override {return 6;}
+    virtual int NEvalErrors() override {return 7;}
 
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure

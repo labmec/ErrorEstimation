@@ -97,7 +97,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     }
 #endif
     
-    int64_t nErrorCols = 7;
+    int64_t nErrorCols = 8;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -106,7 +106,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
-    fPostProcMesh.ElementSolution().Redim(nelem, 6);
+    fPostProcMesh.ElementSolution().Redim(nelem, nErrorCols-1);
     for(int64_t el = 0; el<nelem; el++)
     {
         TPZCompEl *cel = fPostProcMesh.Element(el);
@@ -460,8 +460,6 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     an.DefineGraphMesh(dim,matids, scalnames, vecnames, out.str());
     an.PostProcess(2, dim);
 #endif
-
-
     return cmeshHdiv->Clone();
 }
 
@@ -700,13 +698,14 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
 
     SwitchMaterialObjects();
 
-    TPZManVector<TPZCompMesh *> mesh_vectors(4, 0);
-    TPZManVector<int> active(4, 0);
+    TPZManVector<TPZCompMesh *> mesh_vectors(5, 0);
+    TPZManVector<int> active(5, 0);
 
     mesh_vectors[0] = CreateFluxMesh();
     mesh_vectors[1] = CreatePressureMesh();
     mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];// potential
+    mesh_vectors[4] = ForceProjectionMesh();
 
     active[1] = 1;
 
@@ -734,6 +733,116 @@ void TPZHybridH1ErrorEstimator::GetPressureMatIDs(std::set<int> &matIDs){
             matIDs.insert(elMatID);
         }
     }
+}
+
+TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
+
+    TPZCompMesh *forceProj = new TPZCompMesh(fProblemConfig.gmesh);
+    int dimMesh = fProblemConfig.gmesh->Dimension();
+
+    int potential_order = fProblemConfig.porder;
+    forceProj->SetDefaultOrder(potential_order);
+    forceProj->SetDimModel(dimMesh);
+
+    forceProj->SetAllCreateFunctionsContinuous(); //H1 functions
+    forceProj->ApproxSpace().CreateDisconnectedElements(true);
+
+    for(auto matid:fProblemConfig.materialids){
+        TPZNullMaterial *material = new TPZNullMaterial(matid);
+        material->SetDimension(dimMesh);
+        forceProj->InsertMaterialObject(material);
+        material->SetForcingFunction(fProblemConfig.exact.operator*().ForcingFunction());
+    }
+    forceProj->AutoBuild();
+    forceProj->ExpandSolution();
+
+    for(int iel = 0 ; iel < forceProj->NElements(); iel++) {
+        TPZGeoMesh *gmesh = forceProj->Reference();
+        int dim = gmesh->Dimension();
+        gmesh->ResetReference();
+        forceProj->LoadReferences();
+        TPZCompEl *cel = forceProj->Element(iel);
+        if (!cel) DebugStop();
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) DebugStop();
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) DebugStop();
+        int nc = cel->NConnects();
+        TPZMaterial *material = cel->Material();
+        int polyOrder = cel->Connect(nc - 1).Order();
+        int order = material->IntegrationRuleOrder(polyOrder);
+
+        int nshape = intel->NShapeF();
+        TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
+        TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dphi(dim, nshape);
+        REAL weight = 0.;
+        TPZAutoPointer<TPZIntPoints> intrule;
+        intrule = gel->CreateSideIntegrationRule(gel->NSides() - 1, order);
+
+        TPZManVector<int, 4> intorder(dim, order);
+        intrule->SetOrder(intorder);
+        int intrulepoints = intrule->NPoints();
+        if (intrulepoints > 1000) {
+            DebugStop();
+        }
+
+        TPZFMatrix<REAL> jac, axe, jacInv;
+        REAL detJac;
+        TPZManVector<REAL, 4> intpointtemp(3, 0.),x(3, 0.);
+        for (int int_ind = 0; int_ind < intrulepoints; ++int_ind) {
+            intrule->Point(int_ind, intpointtemp, weight);
+            gel->Jacobian(intpointtemp, jac, axe, detJac, jacInv);
+            weight *= fabs(detJac);
+
+            TPZMaterialData data;
+            intel->Shape(intpointtemp, phi, dphi);
+            gel->X(intpointtemp,x);
+
+            if(!material->ForcingFunction()) DebugStop();
+            STATE force;
+            TPZManVector<STATE> res(3);
+            material->ForcingFunction()->Execute(x,res);
+            force = res[0];
+
+            std::cout << "[" << intpointtemp[0] << ", " << intpointtemp[1] << ", " << intpointtemp[2] << "]\n";
+            std::cout<< "f: " << force <<"\n\n";
+            phi.Print(std::cout);
+
+
+
+            for (int ishape = 0; ishape < nshape; ishape++) {
+                L2Rhs(ishape, 0) += weight * phi(ishape, 0)*force;
+                std::cout<< "ishape/weight/phi/force/result: " << ishape << "/" << weight << "/" << phi(ishape, 0) << "/" << force << "/" << weight*phi(ishape, 0)*force << "\n\n";
+            }
+            for (int ishape = 0; ishape < nshape; ishape++) {
+                for (int jshape = 0; jshape < nshape; jshape++) {
+                    L2Mat(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
+                }
+            }
+        }
+
+        L2Mat.SolveDirect(L2Rhs, ECholesky);
+
+        // Stores solution in the computational mesh
+        int count = 0;
+        for (int ic = 0; ic < nc; ic++) {
+            TPZConnect &c = cel->Connect(ic);
+            int64_t seqnum = c.SequenceNumber();
+            int64_t pos = forceProj->Block().Position(seqnum);
+            int ndof = c.NShape() * c.NState();
+            for (int idf = 0; idf < ndof; idf++) {
+                forceProj->Solution()(pos + idf, 0) = L2Rhs(count++);
+            }
+        }
+    }
+
+    {
+        string dirPath = fDebugDirName + "/";
+        std::ofstream outCon(dirPath + "forceProj.txt");
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(forceProj, outCon, {1}, false, true);
+    }
+
+    return forceProj->Clone();
 }
 
 /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
