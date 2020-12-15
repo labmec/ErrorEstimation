@@ -25,7 +25,7 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
 
 void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
-                       bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes);
+                       bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes);
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 
@@ -39,13 +39,13 @@ int main() {
 #endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
-   // RunSinSinProblem();
+    RunSinSinProblem();
     //RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
     //RunSingularProblem();
     
-    RunAdaptivityProblem();
+    //RunAdaptivityProblem();
 
     return 0;
 }
@@ -63,8 +63,8 @@ void RunSinSinProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 3;
-    int nInternalRef = 1;
+    int nCoarseDiv = 2;
+    int nInternalRef = 0;
 
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
@@ -142,7 +142,7 @@ void RunNonConvexProblem() {
     int nDiv = 1;
     int nInternalRef = 0;
 
-    TPZVec<int64_t> coarseIndexes;
+    TPZManVector<int64_t> coarseIndexes;
     config.ndivisions = nDiv;
     config.gmesh = CreateLMHMMesh(nDiv, coarseIndexes);
 
@@ -374,7 +374,7 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
 }
 
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
-                       bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes) {
+                       bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes) {
 
     if (definePartitionByCoarseIndex) {
         mhm->DefinePartitionbyCoarseIndices(mhmIndexes);
@@ -397,7 +397,6 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     // Refine skeleton elements
     mhm->DivideSkeletonElements(0);
     mhm->DivideBoundarySkeletonElements();
-
     // Creates MHM mesh
     bool substructure = true;
     mhm->BuildComputationalMesh(substructure);
@@ -479,13 +478,30 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
-    cout << "Error Estimation processing for MHM-Hdiv problem " << endl;
+
+
+    {
+        std::cout << "GMesh elements after building MHM structure:\n";
+        for (int i = 0; i < config.gmesh->NElements();i++) {
+            TPZGeoEl * gel = config.gmesh->Element(i);
+            std::cout << "Gel: " << i;
+            if (gel) {
+                std::cout << ", matid: " << gel->MaterialId() << "\n";
+            }
+            else {
+                std:: cout << " NULL\n";
+            }
+        }
+    }
+
+    cout << "\nError Estimation processing for MHM-Hdiv problem " << endl;
 
     // Error estimation
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!originalMesh) DebugStop();
 
-    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm);
+    bool postProcWithHDiv = true;
+    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
     ErrorEstimator.SetProblemConfig(config);
     ErrorEstimator.PotentialReconstruction();

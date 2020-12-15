@@ -121,7 +121,7 @@ protected:
     virtual TPZCompMesh *PressureMesh();
 
     // Finds a material ID that has not been used yet
-    int FindFreeMatId(TPZGeoMesh *gmesh);
+    static int FindFreeMatId(TPZGeoMesh *gmesh);
 
     // Creates skeleton geometric elements on which the average pressure will be calculated
     virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);

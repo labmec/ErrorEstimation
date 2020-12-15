@@ -2242,7 +2242,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     //    }
     
     {
-        bool reconstructed = false;
+        bool reconstructed = true;
         PlotLagrangeMultiplier("OriginalPressure",reconstructed);
     }
     
