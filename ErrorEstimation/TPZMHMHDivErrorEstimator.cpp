@@ -158,8 +158,10 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     {
         std::ofstream out("PostProcMeshTransfer.txt");
         fPostProcMesh.Print(out);
-        std::ofstream out2("FluxMeshTransfer.txt");
-        fPostProcMesh.MeshVector()[0]->Print(out2);
+        if (fPostProcesswithHDiv) {
+            std::ofstream out2("FluxMeshTransfer.txt");
+            fPostProcMesh.MeshVector()[0]->Print(out2);
+        }
     }
     // associate with each geometric element a subcmesh object
     // we do this because the original mesh and post processing mesh share the same geometric mesh
@@ -278,14 +280,22 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
             if (celDomain.size() == 1) {
                 TPZSubCompMesh *submesh = *celDomain.begin();
-                std::cout << "Transfer element: " << iel << ", gel " << gel->Index() << ", matId: " << gel->MaterialId() << " connect index " << cel->ConnectIndex(0) << '\n';
+                std::cout << "Transfer element: " << iel << ", gel " << gel->Index()
+                          << ", matId: " << gel->MaterialId();
+                if (nc) std::cout << " connect index " << cel->ConnectIndex(0);
+
+                std::cout << '\n';
                 submesh->TransferElement(&fPostProcMesh, iel);
                 // log: elementos e matId
             }
 
             if (celDomain.empty()) {
-                std::cout << "Nothing happened to element: " << iel <<", gel " << gel->Index() << ", matId: " << gel->MaterialId() << " connect index " << cel->ConnectIndex(0) << '\n';
-                std::cout << " subdomain " << (void*) connectToSubcmesh[cel->ConnectIndex(0)] << std::endl;
+                std::cout << "Nothing happened to element: " << iel << ", gel " << gel->Index()
+                          << ", matId: " << gel->MaterialId();
+                if (nc) {
+                    std::cout << " connect index " << cel->ConnectIndex(0) << "\n subdomain "
+                              << (void *)connectToSubcmesh[cel->ConnectIndex(0)] << std::endl;
+                }
                 // log: elementos e matId
             }
         }
