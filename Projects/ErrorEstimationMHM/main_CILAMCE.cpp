@@ -13,6 +13,7 @@
 #include <Util/pzlog.h>
 
 void RunSinSinProblem();
+void RunConstantProblem();
 void RunOscillatoryProblem();
 void RunNonConvexProblem();
 void Run3DProblem();
@@ -39,7 +40,8 @@ int main() {
 #endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    RunSinSinProblem();
+    //RunSinSinProblem();
+    RunConstantProblem();
     //RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
@@ -56,6 +58,44 @@ void RunSinSinProblem() {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     config.problemname = "SinSin";
+    config.dir_name = "CILAMCE";
+    config.porder = 1;
+    config.hdivmais = 2;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+
+    int nCoarseDiv = 2;
+    int nInternalRef = 0;
+
+    config.ndivisions = nCoarseDiv;
+    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
+
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    TPZManVector<int64_t> coarseIndexes;
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    bool definePartitionByCoarseIndexes = true;
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+
+    SolveMHMProblem(mhm, config);
+    EstimateError(config, mhm);
+}
+
+void RunConstantProblem() {
+    ProblemConfig config;
+    config.dimension = 2;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::EConst;
+    config.problemname = "Constant";
     config.dir_name = "CILAMCE";
     config.porder = 1;
     config.hdivmais = 2;
