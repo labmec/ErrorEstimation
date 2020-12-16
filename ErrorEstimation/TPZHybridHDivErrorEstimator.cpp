@@ -2275,7 +2275,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 #endif
 
     // Calculates average pressure on interface edges and vertices
-    if (!fPostProcesswithHDiv) {
+    if (1) {
         int dim = fPostProcMesh.Dimension();
         ComputeAveragePressures(dim - 1);
         // in three dimensions make the one-d polynoms compatible
@@ -2295,7 +2295,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
 #endif
 
-    if(!fPostProcesswithHDiv)
+    if(1)
     {
         ComputeNodalAverages();
     }
@@ -2305,12 +2305,12 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier(dirPath + "AfterNodalAverage");
         std::ofstream outCon(dirPath + "PressureConnectsAfterNodalAverage.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {-1, fPressureSkeletonMatId}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {-1, fPressureSkeletonMatId, 1}, false, true);
     }
 #endif
 
     // in the case of hybrid hdiv, computing the error using h(div) spaces, nothing will be done
-    if (!fPostProcesswithHDiv) {
+    if (1) {
         CopySolutionFromSkeleton();
     }
 
@@ -2322,7 +2322,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         std::ofstream outCon(dirPath + "PressureConnectsAfterCopyFromSkeleton.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
         std::ofstream outMult(dirPath + "MultiphysicsConnectsAfterCopyFromSkeleton.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMult, {-1, 1}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMult, {-1, 1, fPressureSkeletonMatId}, false, true);
     }
 #endif
 
