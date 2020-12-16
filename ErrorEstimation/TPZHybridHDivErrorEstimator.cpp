@@ -2269,6 +2269,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         //std::ofstream out(dirPath + "PressureAfterBoundaryL2Projection.txt");
         //fPostProcMesh.MeshVector()[1]->Print(out);
         //PlotLagrangeMultiplier(dirPath + "AfterBoundaryL2Projection");
+        std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
+        fPostProcMesh.Print(out);
         std::ofstream outCon(dirPath + "PressureConnectsAfterBoundaryL2Projection.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
     }
@@ -2316,6 +2318,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
 #ifdef PZDEBUG
     {
+        std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
+        fPostProcMesh.Print(out);
         //std::ofstream out(dirPath + "PressureAfterCopyFromSkeleton.txt");
         //fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier(dirPath + "AfterCopyFromSkeleton");
@@ -2346,7 +2350,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMeshes.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMeshes.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1, fPressureSkeletonMatId});
         }
     }
 
