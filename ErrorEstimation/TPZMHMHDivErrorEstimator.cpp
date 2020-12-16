@@ -104,6 +104,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         }
 
         TPZCompMesh* fluxMesh = fPostProcMesh.MeshVector()[0];
+        fluxMesh->ComputeNodElCon();
         for (int i = 0; i < fluxMesh->NElements(); i++) {
             TPZCompEl *cel = fluxMesh->Element(i);
             if (!cel) continue;
@@ -237,15 +238,19 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 continue;
             }
             TPZSubCompMesh *submesh = new_submesh_per_cel[iel];
-            std::cout << "Transfer compel: " << iel << ", dim" << gel->Dimension() << ", matid: " << gel->MaterialId()
-                      << '\n';
-            submesh->TransferElement(&fPostProcMesh, iel);
 
-            int nc = cel->NConnects();
+            TPZStack<int64_t> connectlist;
+            cel->BuildConnectList(connectlist);
+            auto nc = connectlist.size();
             for (int ic = 0; ic < nc; ic++) {
-                TPZConnect &con = cel->Connect(ic);
-                connectToSubcmesh[con.SequenceNumber()] = submesh;
+                auto conindex = connectlist[ic];
+                connectToSubcmesh[conindex] = submesh;
             }
+            
+            std::cout << "Transfer compel: " << iel << ", dim" << gel->Dimension() << ", matid: " << gel->MaterialId() <<  ' ';
+            for(int i=0; i< nc; i++) std::cout << connectlist[i] << " ";
+            std::cout  << '\n';
+            submesh->TransferElement(&fPostProcMesh, iel);
         }
 
         std::cout << "Transferring 'dim -1' elements...\n";
@@ -261,9 +266,9 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             std::set<TPZSubCompMesh*> celDomain;
             int nc = cel->NConnects();
             for (int ic = 0; ic < nc; ic++) {
-                TPZConnect &con = cel->Connect(ic);
-                if (connectToSubcmesh[con.SequenceNumber()] != nullptr) {
-                    celDomain.insert(connectToSubcmesh[con.SequenceNumber()]);
+                auto conindex = cel->ConnectIndex(ic);
+                if (connectToSubcmesh[conindex] != nullptr) {
+                    celDomain.insert(connectToSubcmesh[conindex]);
                 }
             }
 
@@ -273,13 +278,14 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
             if (celDomain.size() == 1) {
                 TPZSubCompMesh *submesh = *celDomain.begin();
+                std::cout << "Transfer element: " << iel << ", gel " << gel->Index() << ", matId: " << gel->MaterialId() << " connect index " << cel->ConnectIndex(0) << '\n';
                 submesh->TransferElement(&fPostProcMesh, iel);
-                std::cout << "Transfer element: " << iel << ", gel " << gel->Index() << ", matId: " << gel->MaterialId() << '\n';
                 // log: elementos e matId
             }
 
             if (celDomain.empty()) {
-                std::cout << "Nothing happened to element: " << iel <<", gel " << gel->Index() << ", matId: " << gel->MaterialId() << '\n';
+                std::cout << "Nothing happened to element: " << iel <<", gel " << gel->Index() << ", matId: " << gel->MaterialId() << " connect index " << cel->ConnectIndex(0) << '\n';
+                std::cout << " subdomain " << (void*) connectToSubcmesh[cel->ConnectIndex(0)] << std::endl;
                 // log: elementos e matId
             }
         }
@@ -1286,8 +1292,20 @@ void TPZMHMHDivErrorEstimator::ComputeConnectsNextToSkeleton(std::set<int64_t>& 
 
 void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh) {
 
-    flux_mesh->LoadReferences();
+    std::map<TPZGeoEl *, TPZCompEl *> geltocel;
+    {
+        int64_t nel = flux_mesh->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = flux_mesh->Element(el);
+            if(cel)
+            {
+                TPZGeoEl *gel = cel->Reference();
+                geltocel[gel] = cel;
+            }
+        }
+    }
     TPZGeoMesh *gmesh = this->GMesh();
+    gmesh->ResetReference();
     int dim = gmesh->Dimension();
 
     if (fHDivWrapMatId == 0) {
@@ -1317,7 +1335,7 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
             TPZGeoEl *neighGel = neighbour.Element();
             if (!neighGel) continue;
             if (neighGel->Dimension() != dim) continue;
-            TPZCompEl *neighCel = neighGel->Reference();
+            TPZCompEl *neighCel = geltocel[neighGel];
             if (!neighCel) DebugStop();
             TPZInterpolatedElement *neighIntel = dynamic_cast<TPZInterpolatedElement*>(neighCel);
             if (!neighIntel) DebugStop();
@@ -1327,12 +1345,14 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
             // think if there are better ways to obtain the side connect order
             TPZConnect &c = neighIntel->SideConnect(0, neighbour.Side());
             int order = c.Order();
+            int64_t cindex = neighIntel->SideConnectIndex(0, neighbour.Side());
 
             //if (order == 1) {
             //    std::cout << "ORDER 1: matid: " << neighGel->MaterialId() << "\n";
             //}
 
             neighIntel->SetPreferredOrder(order);
+            neighGel->SetReference(neighCel);
 
             TPZGeoElBC gbc(neighbour, fHDivWrapMatId);
             int64_t index;
@@ -1341,6 +1361,10 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
                 std::cout << "Created hdivwrap gel: " << gbc.CreatedElement()->Index()
                           << " between gels: (" << gel->Index() << ", " << neighGel->Index() <<")\n";
             }
+            int64_t newc_index = wrap->ConnectIndex(0);
+            if(newc_index != cindex) DebugStop();
+            neighGel->ResetReference();
+            gbc.CreatedElement()->ResetReference();
             count++;
         }
         if (count != 2) DebugStop();
