@@ -2369,14 +2369,14 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMult.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1, fPressureSkeletonMatId});
         }
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
         {
             std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
             std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1, fPressureSkeletonMatId});
         }
 
 #ifdef PZDEBUG

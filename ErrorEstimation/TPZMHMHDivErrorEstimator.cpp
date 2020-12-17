@@ -1367,6 +1367,9 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
             TPZGeoElBC gbc(neighbour, fHDivWrapMatId);
             int64_t index;
             TPZCompEl * wrap = flux_mesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *flux_mesh, index);
+            TPZInterpolatedElement *wrapintel = dynamic_cast<TPZInterpolatedElement *>(wrap);
+            neighIntel->SetSideOrient(neighbour.Side(), 1);
+            wrapintel->SetSideOrient(gbc.CreatedElement()->NSides()-1,1);
             {
                 std::cout << "Created hdivwrap gel: " << gbc.CreatedElement()->Index()
                           << " between gels: (" << gel->Index() << ", " << neighGel->Index() <<")\n";
