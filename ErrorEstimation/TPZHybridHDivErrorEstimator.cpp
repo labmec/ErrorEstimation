@@ -87,17 +87,19 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<R
     
 #ifdef PZDEBUG
     {
-        std::ofstream out5("PostProcMesh.txt");
-        fPostProcMesh.Print(out5);
         std::ofstream out("PressureRecMeshComputeError.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
         std::ofstream out2("PressureMeshComputeError.txt");
         fPostProcMesh.MeshVector()[3]->Print(out2);
-        //        std::ofstream out3("FluxRecMeshComputeError.txt");
-        //        fPostProcMesh.MeshVector()[0]->Print(out3);
+        if (fPostProcesswithHDiv) {
+            std::ofstream out3("FluxRecMeshComputeError.txt");
+            fPostProcMesh.MeshVector()[0]->Print(out3);
+        }
         std::ofstream out4("FluxMeshComputeError.txt");
         fPostProcMesh.MeshVector()[2]->Print(out);
-        
+        std::ofstream out5("PostProcMesh.txt");
+        fPostProcMesh.Print(out5);
+
     }
 #endif
     
@@ -283,7 +285,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         out << ".vtk";
         
         an.DefineGraphMesh(dim, scalnames, vecnames, out.str());
-        an.PostProcess(2, dim);
+        an.PostProcess(0, dim);
     }
     else {
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
@@ -2243,7 +2245,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     
     {
         bool reconstructed = true;
-        PlotLagrangeMultiplier("OriginalPressure",reconstructed);
+        PlotPressureSkeleton("OriginalPressure",reconstructed);
     }
     
 #ifdef PZDEBUG
@@ -2291,7 +2293,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         //std::ofstream out(dirPath + "PressureAfterAverage.txt");
         //fPostProcMesh.MeshVector()[1]->Print(out);
-        PlotLagrangeMultiplier(dirPath + "AfterAverage");
+        PlotPressureSkeleton(dirPath + "AfterAverage");
         std::ofstream outCon(dirPath + "PressureConnectsAfterAverage.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
     }
@@ -2305,7 +2307,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     {
         std::ofstream out(dirPath + "PressureAfterNodalAverage.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
-        PlotLagrangeMultiplier(dirPath + "AfterNodalAverage");
+        PlotPressureSkeleton(dirPath + "AfterNodalAverage");
         std::ofstream outCon(dirPath + "PressureConnectsAfterNodalAverage.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {-1, fPressureSkeletonMatId, 1}, false, true);
     }
@@ -2322,7 +2324,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         fPostProcMesh.Print(out);
         //std::ofstream out(dirPath + "PressureAfterCopyFromSkeleton.txt");
         //fPostProcMesh.MeshVector()[1]->Print(out);
-        PlotLagrangeMultiplier(dirPath + "AfterCopyFromSkeleton");
+        PlotPressureSkeleton(dirPath + "AfterCopyFromSkeleton");
         std::ofstream outCon(dirPath + "PressureConnectsAfterCopyFromSkeleton.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
         std::ofstream outMult(dirPath + "MultiphysicsConnectsAfterCopyFromSkeleton.txt");
@@ -2396,15 +2398,16 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     }
 
 
-    PlotLagrangeMultiplier("FinalSkeletonPressure");
+    PlotPressureSkeleton("FinalSkeletonPressure");
 
-
-    std::ofstream outStiffness("DebuggingTransfer/StiffnessAfterReconstruction.txt");
-    std::set<int> matIDs = {-1};
+    PlotInterfaceFluxes("OriginalInterfaceFluxes", false);
+    if (fPostProcesswithHDiv) {
+        PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
+    }
 
 }
 
-void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &filename, bool reconstructed) {
+void TPZHybridHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bool reconstructed) {
     
     TPZCompMesh *pressure = nullptr;
 
@@ -2439,6 +2442,33 @@ void TPZHybridHDivErrorEstimator::PlotLagrangeMultiplier(const std::string &file
         an.PostProcess(4, dim);
     }
     
+}
+
+void TPZHybridHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, bool reconstructed) {
+    TPZCompMesh *flux_mesh = nullptr;
+    if (reconstructed) {
+        if (!fPostProcesswithHDiv) DebugStop();
+        flux_mesh = fPostProcMesh.MeshVector()[0];
+    } else {
+        flux_mesh = fPostProcMesh.MeshVector()[2];
+    }
+
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("State");
+
+    TPZAnalysis an(flux_mesh, false);
+
+    {
+        int dim = flux_mesh->Reference()->Dimension() - 1;
+        std::string plotname;
+        {
+            std::stringstream out;
+            out << filename << ".vtk";
+            plotname = out.str();
+        }
+        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+        an.PostProcess(1, dim);
+    }
 }
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)

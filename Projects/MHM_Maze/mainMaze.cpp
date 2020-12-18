@@ -807,7 +807,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
 
     TPZMixedPoisson * mat_2 = new TPZMixedPoisson(2,dim);
     mat_2->SetSymmetric();
-    mat_2->SetPermeability(1000000.0);
+    //mat_2->SetPermeability(1000000.0);
+    mat_2->SetPermeability(50.0);
     //    mat->SetForcingFunction(One);
     MixedFluxPressureCmesh->InsertMaterialObject(mat_2);
 
