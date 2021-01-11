@@ -112,7 +112,7 @@ void IsInteger(char *argv);
 
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 2;         // Potential and internal flux order
+    config.porder = 3;         // Potential and internal flux order
     config.hdivmais =  5;       // p_order - hdivmais = External flux order
     config.H1Hybridminus = 1 ;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;

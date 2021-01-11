@@ -736,7 +736,7 @@ void TPZHybridH1ErrorEstimator::GetPressureMatIDs(std::set<int> &matIDs){
 }
 
 TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
-
+//L2 projection for forcing f
     TPZCompMesh *forceProj = new TPZCompMesh(fProblemConfig.gmesh);
     int dimMesh = fProblemConfig.gmesh->Dimension();
 
