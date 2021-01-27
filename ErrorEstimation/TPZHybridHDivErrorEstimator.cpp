@@ -142,7 +142,7 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<R
     std::stringstream ss;
     ss << "\nEstimator errors for Problem " << fProblemConfig.problemname;
     ss << "\n-------------------------------------------------- \n";
-    ss << "Ndiv = " << fProblemConfig.ndivisions << ", AdaptativityStep = " << fProblemConfig.adaptivityStep
+    ss << "hsk = " << fProblemConfig.ndivisions << ", hin = " << fProblemConfig.adaptivityStep
        << ", Order k = " << fProblemConfig.porder << ", Order n = " << fProblemConfig.hdivmais
        << ", K_R = " << fProblemConfig.Km << "\n";
     ss << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
@@ -273,8 +273,9 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         << "_POrder" << fProblemConfig.porder << "_HdivMais_"
         << fProblemConfig.hdivmais;
         if (fProblemConfig.ndivisions != -1) {
-            out << "_Ndiv_" << fProblemConfig.ndivisions;
+            out << "_hsk_" << fProblemConfig.ndivisions;
         }
+        
         if (fProblemConfig.adaptivityStep != -1) {
             out << "_AdaptivityStep_" << fProblemConfig.adaptivityStep;
         }

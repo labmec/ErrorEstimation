@@ -155,9 +155,12 @@ TPZCompMesh* MixedTest(ProblemConfig &Conf);
 // Solve the maze using MHM. By default (2x2 coarse elements)
 // Conf contains the maze information and the problem boundary conditions
 int MHMTest(ProblemConfig &Conf);
+int MHMTestDenise(ProblemConfig &Conf);
 
 TPZGeoMesh *CreateCircleGeoMesh();
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes);
 
 /// Solve the problem composed of a multiphysics mesh composed of compmeshes - applies to MHM and MHM-H(div)
 void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh> >& compmeshes, TPZAnalyticSolution *analytic, const std::string& prefix, TRunConfig config);
+//adpative refinement
+void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);

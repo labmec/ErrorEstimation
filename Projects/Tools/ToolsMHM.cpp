@@ -96,6 +96,10 @@
 #include "TPZPersistenceManager.h"
 
 #include "TPZMHMHDivErrorEstimator.h"
+
+TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
+
+
 TPZCompMesh* MixedTest(ProblemConfig &Conf){
     
     TPZGeoMesh *gmesh = Conf.gmesh;
@@ -517,6 +521,11 @@ int MHMTest(ProblemConfig &Conf) {
         
     }
     else{
+        int nCoarseDiv = Configuration.numHDivisions;
+        int nInternalRef = Configuration.numDivSkeleton;
+
+        Conf.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
+        
         
         gmeshcoarse = Conf.gmesh;
     }
@@ -666,6 +675,157 @@ int MHMTest(ProblemConfig &Conf) {
         bool store_errors = true;
         ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
     }
+    
+
+    return 0;
+}
+int MHMTestDenise(ProblemConfig &Conf) {
+    
+    TRunConfig Configuration;
+    
+    Configuration.pOrderInternal = Conf.porder;
+    Configuration.pOrderSkeleton = Conf.porder;
+    Configuration.numHDivisions = Conf.ndivisions;//divisao malha coarse
+    Configuration.hdivmaismais = Conf.hdivmais;
+    //Configuration.numDivSkeleton = Conf.ndivisions;
+    
+    
+    TPZGeoMesh *gmeshcoarse = NULL;
+    TPZVec<int64_t> elementIndexes;
+
+        int nCoarseDiv = Configuration.numHDivisions;
+    
+    for(int hin = 4; hin < 5 ; hin++){
+        
+        Configuration.numDivSkeleton = hin;
+        Conf.adaptivityStep = hin;
+
+        Conf.gmesh = CreateQuadGeoMesh(nCoarseDiv, hin);
+
+        gmeshcoarse = Conf.gmesh;
+        
+    
+    TPZAutoPointer<TPZMHMixedMeshControl> MHMixed;
+    
+    {
+        TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
+//        {
+//            std::ofstream out("gmeshauto.txt");
+//            gmeshauto->Print(out);
+//
+//        }
+        TPZMHMixedMeshControl *mhm = new TPZMHMixedMeshControl(gmeshauto);
+        MHMixed = mhm;
+        
+    
+        ComputeCoarseIndices(gmeshauto.operator->(), elementIndexes);
+    
+        mhm->DefinePartitionbyCoarseIndices(elementIndexes);
+
+    
+//        if(0)
+//        {
+//            std::ofstream file("GMeshAutoL2.vtk");
+//            TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
+//        }
+        
+        // indicate the boundary material indices to  the MHM control structure
+        std::set<int> matids;
+        for (auto matid : Conf.materialids) {
+            matids.insert(matid);
+            
+        }
+        mhm->fMaterialIds = matids;
+        matids.clear();
+        
+        for (auto matid : Conf.bcmaterialids) {
+            matids.insert(matid);
+            
+        }
+        mhm->fMaterialBCIds = matids;
+        
+        // insert the material objects in the multiphysics mesh
+        InsertMaterialObjects(*mhm,Conf);
+        mhm->SetInternalPOrder(Configuration.pOrderInternal);
+        mhm->SetSkeletonPOrder(Configuration.pOrderSkeleton);
+        mhm->SetHdivmaismaisPOrder(Configuration.hdivmaismais);
+        
+        mhm->DivideSkeletonElements(Configuration.numDivSkeleton);
+        mhm->DivideBoundarySkeletonElements();
+     //   if(0)
+        {
+            std::ofstream file("GMeshWithInnerRefinement.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
+        }
+#ifdef PZDEBUG2
+        if(1)
+        {
+            std::ofstream out("MixedMeshControlHDiv.txt");
+            mhm->Print(out);
+        }
+#endif
+        bool substructure = true;
+        mhm->BuildComputationalMesh(substructure);
+        
+#ifdef PZDEBUG2
+        {
+            std::ofstream file("GMeshControlHDiv.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(mhm->GMesh().operator->(), file);
+            std::ofstream out("MixedMeshControlHDiv.txt");
+            mhm->Print(out);
+        }
+#endif
+        
+        
+        std::cout << "MHM Hdiv Computational meshes created\n";
+#ifdef PZDEBUG2
+        
+        {
+            std::ofstream gfile("geometryMHMHdiv.txt");
+            gmeshauto->Print(gfile);
+            std::ofstream out_mhm("MHM_hdiv.txt");
+            mhm->CMesh()->Print(out_mhm);
+            
+        }
+#endif
+        
+        std::cout << "Number of equations MHMixed " << mhm->CMesh()->NEquations() << std::endl;
+        
+        
+    }
+    
+    
+    std::string prefix;
+    std::cout<<"Solving MHM problem"<<std::endl;
+    
+    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(),Conf.exact.operator->(), prefix, Configuration);
+    
+    
+    
+    
+    
+    std::cout<<"Error Estimation processing for MHM-Hdiv problem "<<std::endl;
+
+    // Error estimation
+    TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
+    if(!InputMesh) DebugStop();
+
+    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
+    ErrorEstimator.SetAnalyticSolution(Conf.exact);
+    ErrorEstimator.SetProblemConfig(Conf);
+    ErrorEstimator.PotentialReconstruction();
+
+    {
+        std::string command = "mkdir " + Conf.dir_name;
+        system(command.c_str());
+
+        TPZManVector<REAL, 6> errors;
+        TPZManVector<REAL> elementerrors;
+        bool store_errors = true;
+        ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+    }
+    }
+    
 
     return 0;
 }
@@ -1209,16 +1369,16 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
     }
 
 
-    std::string plotname;
-    {
-        std::stringstream out;
-        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
-        plotname = out.str();
-
-    }
-    int resolution=0;
-    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
-    an.PostProcess(resolution,cmesh->Dimension() );
+//    std::string plotname;
+//    {
+//        std::stringstream out;
+//        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
+//        plotname = out.str();
+//
+//    }
+//    int resolution=0;
+//    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
+//    an.PostProcess(resolution,cmesh->Dimension() );
 
 
     if(analytic)
@@ -1230,17 +1390,122 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
 
         //Erro
 
-        ofstream myfile;
-        myfile.open("ArquivosErrosMHM.txt", ios::app);
-        myfile << "\n\n Error for MHM formulation " ;
-        myfile << "\n-------------------------------------------------- \n";
-        myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";
-        myfile << "DOF Total = " << cmesh->NEquations() << "\n";
-        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
-        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
-        myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
-        myfile.close();
+//        ofstream myfile;
+//        myfile.open("ArquivosErrosMHM.txt", ios::app);
+//        myfile << "\n\n Error for MHM formulation " ;
+//        myfile << "\n-------------------------------------------------- \n";
+//        myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";
+//        myfile << "DOF Total = " << cmesh->NEquations() << "\n";
+//        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
+//        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
+//        myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
+//        myfile.close();
 
     }
 
+}
+TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
+
+    TPZManVector<int, 4> bcIDs(4, -1);
+    TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs);
+    gmesh->SetDimension(2);
+    
+    {
+        std::ofstream file("GMeshCoarse.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
+    }
+
+    Tools::UniformRefinement(nInternalRef, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
+    
+    {
+        std::ofstream file("GMeshFine.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
+    }
+
+    return gmesh;
+}
+
+void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config) {
+
+    // Column of the flux error estimate on the element solution matrix
+    const int fluxErrorEstimateCol = 3;
+    
+    
+    
+    TPZMultiphysicsCompMesh *cmesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+       if (!cmesh) DebugStop();
+
+    
+   // TPZCompMesh &cmesh = mhm->CMesh();
+  
+
+    int64_t nelem = cmesh->ElementSolution().Rows();
+
+    //postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
+
+    // Iterates through element errors to get the maximum value
+    REAL maxError = 0.;
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZCompEl* cel = cmesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != cmesh->Dimension()) continue;
+        REAL elementError = cmesh->ElementSolution()(iel, fluxErrorEstimateCol);
+
+
+        if (elementError > maxError) {
+            maxError = elementError;
+        }
+    }
+
+    std::cout << "max error " << maxError << "\n";
+
+    // Refines elements which error are bigger than 30% of the maximum error
+    REAL threshold = 0.2 * maxError;
+
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZCompEl* cel = cmesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != cmesh->Dimension()) continue;
+
+        REAL elementError = cmesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        //prefinement
+        if (elementError > threshold) {
+
+            std::cout << "element error " << elementError << "el " << iel << "\n";
+            TPZGeoEl* gel = cel->Reference();
+            int iel = gel->Id();
+
+            TPZVec<TPZGeoEl*> sons;
+            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
+            if (gelToRefine && !gelToRefine->HasSubElement()) {
+                gelToRefine->Divide(sons);
+#ifdef LOG4CXX2
+                int nsides = gelToRefine->NSides();
+                TPZVec<REAL> loccenter(gelToRefine->Dimension());
+                TPZVec<REAL> center(3);
+                gelToRefine->CenterPoint(nsides - 1, loccenter);
+                
+                gelToRefine->X(loccenter, center);
+                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+                if (logger->isDebugEnabled()) {
+                    std::stringstream sout;
+                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
+                    sout << "Error = " << elementError << "\n\n";
+                    LOGPZ_DEBUG(logger, sout.str())
+                }
+#endif
+            }
+        } else {
+            std::cout << "como refinar em p? " << "\n";
+//            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
+//            if(!sp) continue;
+//            int level = sp->Reference()->Level();
+//            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
+//            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
+//            sp->PRefine(ordem);
+
+        }
+    }
+    Tools::DivideLowerDimensionalElements(gmeshToRefine);
 }
