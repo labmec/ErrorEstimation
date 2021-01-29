@@ -40,14 +40,14 @@ int main() {
 #endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    //RunSinSinProblem();
-    RunConstantProblem();
+    RunSinSinProblem();
+  //  RunConstantProblem();
     //RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
     //RunSingularProblem();
     
-    //RunAdaptivityProblem();
+   // RunAdaptivityProblem();
 
     return 0;
 }
@@ -588,68 +588,85 @@ void RunAdaptivityProblem(){
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
-    config.problemname = "SinSin";
+    config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
+    config.problemname = "EBoundaryLayer";
     config.dir_name = "Adaptivity";
     config.porder = 1;
     config.hdivmais = 3;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
-    
-    int nCoarseRef = 2;
-    int nInternalRef = 0;
-    
-    config.ndivisions = nCoarseRef;
-    config.gmesh = CreateQuadGeoMesh(nCoarseRef, nInternalRef);
-    
-    int refinementSteps = 2;
+    config.ndivisions = 3;
+    int refinementSteps = 1;
+
     
     
-    std::string command = "mkdir " + config.dir_name;
-    system(command.c_str());
+    for(int hsk=2; hsk < config.ndivisions; hsk++){
     
-    {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
-        std::ofstream file(fileName);
-        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
-    }
-    
-    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-    TPZManVector<int64_t> coarseIndexes;
-    ComputeCoarseIndices(config.gmesh, coarseIndexes);
-    bool definePartitionByCoarseIndexes = true;
-    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
-//
-//    SolveMHMProblem(mhm, config);
-//    EstimateError(config, mhm);
-    
-    for (int iSteps = 0; iSteps < refinementSteps; iSteps++) {
-        
-        {
-            std::string fileName = config.dir_name + "/" + config.problemname + "GeoMeshAdapt.vtk";
-            std::ofstream file(fileName);
-            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+        for(int hin=1 ; hin < 2 ; hin ++){
+            
+            //    int nCoarseRef = 2;
+            //    int nInternalRef = 0;
+            //
+            //    config.ndivisions = nCoarseRef;
+            config.gmesh = CreateQuadGeoMesh(hsk, hin);
+            
+            
+            
+            
+            std::string command = "mkdir " + config.dir_name;
+            system(command.c_str());
+            
+            {
+                std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+                std::ofstream file(fileName);
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+            }
+            
+            auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+            TPZManVector<int64_t> coarseIndexes;
+            ComputeCoarseIndices(config.gmesh, coarseIndexes);
+            bool definePartitionByCoarseIndexes = true;
+            CreateMHMCompMesh(mhm, config, hin, definePartitionByCoarseIndexes, coarseIndexes);
+            
+            {
+                std::string fileName = config.dir_name + "/" + config.problemname + "GeoMeshAfterPartition.vtk";
+                std::ofstream file(fileName);
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+            }
+            //
+            //    SolveMHMProblem(mhm, config);
+            //    EstimateError(config, mhm);
+            
+          //  for (int iSteps = 0; iSteps < refinementSteps; iSteps++) {
+                
+//                {
+//                    std::string fileName = config.dir_name + "/" + config.problemname + "GeoMeshAdapt.vtk";
+//                    std::ofstream file(fileName);
+//                    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+//                }
+                
+ //               config.adaptivityStep = iSteps;
+                
+                //        auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+                //        TPZManVector<int64_t> coarseIndexes;
+                //        ComputeCoarseIndices(config.gmesh, coarseIndexes);
+                //        bool definePartitionByCoarseIndexes = true;
+                //        CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+                
+                SolveMHMProblem(mhm, config);
+                EstimateError(config, mhm);
+                
+ //               MHMAdaptivity(mhm,  config.gmesh, config);
+//#ifdef PZDEBUG
+//                {
+//                    std::ofstream out("GmeshAfterAdapty.vtk");
+//                    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+//                }
+//#endif
+           // }
         }
         
-        config.adaptivityStep = iSteps;
-        
-//        auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-//        TPZManVector<int64_t> coarseIndexes;
-//        ComputeCoarseIndices(config.gmesh, coarseIndexes);
-//        bool definePartitionByCoarseIndexes = true;
-//        CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
-        
-        SolveMHMProblem(mhm, config);
-        EstimateError(config, mhm);
-        
-        MHMAdaptivity(mhm,  config.gmesh, config);
-#ifdef PZDEBUG
-        {
-            std::ofstream out("GmeshAfterAdapty.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
-        }
-#endif
     }
             
     

@@ -2318,7 +2318,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         CopySolutionFromSkeleton();
     }
 
-#ifdef PZDEBUG
+#ifdef PZDEBUG2
     {
         std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
         fPostProcMesh.Print(out);
@@ -2400,7 +2400,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     PlotPressureSkeleton("FinalSkeletonPressure");
 
-    PlotInterfaceFluxes("OriginalInterfaceFluxes", false);
+    //PlotInterfaceFluxes("OriginalInterfaceFluxes", false);
     if (fPostProcesswithHDiv) {
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
     }
