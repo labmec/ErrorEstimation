@@ -41,8 +41,8 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     //RunSinSinProblem();
-    RunConstantProblem();
-    //RunOscillatoryProblem();
+    //RunConstantProblem();
+    RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
     //RunSingularProblem();
@@ -134,16 +134,16 @@ void RunOscillatoryProblem() {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
     config.problemname = "Oscillatory";
-    config.dir_name = "CILAMCE";
+    config.dir_name = "FAPESP";
     config.porder = 1;
-    config.hdivmais = 1;
+    config.hdivmais = 3;
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 2;
-    int nInternalRef = 0;
+    int nCoarseDiv = 3;
+    int nInternalRef = 4;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir " + config.dir_name;
@@ -540,7 +540,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!originalMesh) DebugStop();
 
-    bool postProcWithHDiv = true;
+    bool postProcWithHDiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
     ErrorEstimator.SetProblemConfig(config);

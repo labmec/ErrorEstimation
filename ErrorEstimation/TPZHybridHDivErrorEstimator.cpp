@@ -2400,8 +2400,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     PlotPressureSkeleton("FinalSkeletonPressure");
 
-    PlotInterfaceFluxes("OriginalInterfaceFluxes", false);
     if (fPostProcesswithHDiv) {
+        PlotInterfaceFluxes("OriginalInterfaceFluxes", false);
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
     }
 
