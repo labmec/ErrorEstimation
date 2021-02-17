@@ -2212,10 +2212,8 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     string command = "mkdir -p " + dirPath;
     dirPath += "/";
     system(command.c_str());
-    {
-        std::ofstream outCon(dirPath + "OriginalPressureConnects.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fOriginal->MeshVector()[1], outCon, {1}, false, true);
-    }
+    std::ofstream out_gmesh("GMeshBeforePotentialRec.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(GMesh(), out_gmesh);
 #endif
 
     // Create the post processing mesh (hybridized H(div) mesh) with increased approximation order
@@ -2228,26 +2226,12 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         fPostProcMesh.Print(out);
         std::ofstream out2(dirPath + "ReconstructionPressureCMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out2);
-        
-        std::ofstream outOrig(dirPath + "PressureConnectsBeforeReconstruction.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outOrig, {}, false, true);
+        bool reconstructed = true;
+        PlotPressureSkeleton(dirPath + "SkeletonOriginal", reconstructed);
     }
 #endif
 
-    //    {
-    //        std::ofstream out("PressureOriginalPostProcessing.txt");
-    //        fOriginal->MeshVector()[1]->Print(out);
-    //        std::ofstream out2("PressureRecPostProcessing.txt");
-    //        fPostProcMesh.MeshVector()[1]->Print(out2);
-    //        std::ofstream outgvtk("gmesh.vtk");
-    //        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), outgvtk);
-    //    }
-    
-    {
-        bool reconstructed = true;
-        PlotPressureSkeleton("OriginalPressure",reconstructed);
-    }
-    
+
 #ifdef PZDEBUG
     {
         REAL presnorm = Norm(fPostProcMesh.MeshVector()[1]->Solution());
@@ -2268,9 +2252,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
 #ifdef PZDEBUG
     {
-        //std::ofstream out(dirPath + "PressureAfterBoundaryL2Projection.txt");
-        //fPostProcMesh.MeshVector()[1]->Print(out);
-        //PlotLagrangeMultiplier(dirPath + "AfterBoundaryL2Projection");
+        PlotPressureSkeleton(dirPath + "AfterBoundaryProjection");
         std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
         fPostProcMesh.Print(out);
         std::ofstream outCon(dirPath + "PressureConnectsAfterBoundaryL2Projection.txt");
@@ -2279,30 +2261,23 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 #endif
 
     // Calculates average pressure on interface edges and vertices
-    if (1) {
-        int dim = fPostProcMesh.Dimension();
-        ComputeAveragePressures(dim - 1);
-        // in three dimensions make the one-d polynoms compatible
-        if (dim == 3) {
-            ComputeAveragePressures(1);
-        }
+    int dim = fPostProcMesh.Dimension();
+    ComputeAveragePressures(dim - 1);
+    // in three dimensions make the one-d polynoms compatible
+    if (dim == 3) {
+        ComputeAveragePressures(1);
     }
-    
 
 #ifdef PZDEBUG
     {
-        //std::ofstream out(dirPath + "PressureAfterAverage.txt");
-        //fPostProcMesh.MeshVector()[1]->Print(out);
-        PlotPressureSkeleton(dirPath + "AfterAverage");
+        PlotPressureSkeleton(dirPath + "AfterInterfaceAverage");
         std::ofstream outCon(dirPath + "PressureConnectsAfterAverage.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
     }
 #endif
 
-    if(1)
-    {
-        ComputeNodalAverages();
-    }
+    ComputeNodalAverages();
+
 #ifdef PZDEBUG
     {
         std::ofstream out(dirPath + "PressureAfterNodalAverage.txt");
@@ -2316,14 +2291,15 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     // in the case of hybrid hdiv, computing the error using h(div) spaces, nothing will be done
     if (1) {
         CopySolutionFromSkeleton();
+        PlotState("PressureAfterCopyFromSkel", 2, fPostProcMesh.MeshVector()[1]);
     }
 
-#ifdef PZDEBUG2
+#ifdef PZDEBUG
     {
         std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
         fPostProcMesh.Print(out);
-        //std::ofstream out(dirPath + "PressureAfterCopyFromSkeleton.txt");
-        //fPostProcMesh.MeshVector()[1]->Print(out);
+        std::ofstream outpressure(dirPath + "PressureAfterCopyFromSkeleton.txt");
+        fPostProcMesh.MeshVector()[1]->Print(outpressure);
         PlotPressureSkeleton(dirPath + "AfterCopyFromSkeleton");
         std::ofstream outCon(dirPath + "PressureConnectsAfterCopyFromSkeleton.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outCon, {}, false, true);
@@ -2348,11 +2324,13 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
             TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1});
         }
         TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
+        std::ofstream outMultiphysics ("MultiphysicsMeshAfterTransferFromMeshes.txt");
+        fPostProcMesh.Print(outMultiphysics);
         {
             std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMeshes.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
-            std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMeshes.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1, fPressureSkeletonMatId});
+           // std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMeshes.txt");
+           // TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics, {-1, 1, fPressureSkeletonMatId});
         }
     }
 
@@ -2439,7 +2417,7 @@ void TPZHybridHDivErrorEstimator::PlotPressureSkeleton(const std::string &filena
             plotname = out.str();
         }
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(4, dim);
+        an.PostProcess(5, dim);
     }
     
 }
@@ -2922,12 +2900,6 @@ void TPZHybridHDivErrorEstimator::CopySolutionFromSkeleton() {
             }
         }
     }
-    //        {
-    //            std::ofstream out("PrssureMeshAfterCopySkeleton.txt");
-    //            pressuremesh->Print(out);
-    //            std::ofstream out2("MeshAfterCopySkeleton.txt");
-    //            fPostProcMesh.Print(out2);
-    //        }
 }
 
 
