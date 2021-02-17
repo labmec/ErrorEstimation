@@ -134,16 +134,16 @@ void RunOscillatoryProblem() {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
     config.problemname = "Oscillatory";
-    config.dir_name = "Osci";
+    config.dir_name = "TestOsci";
     config.porder = 1;
-    config.hdivmais = 1;
+    config.hdivmais = 2;
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 2;
-    int nInternalRef = 3;
+    int nCoarseDiv = 3;
+    int nInternalRef = 0;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir " + config.dir_name;
@@ -285,18 +285,8 @@ TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
     TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs);
     gmesh->SetDimension(2);
     
-    {
-        std::ofstream file("GMeshCoarse.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
-    }
-
     Tools::UniformRefinement(nInternalRef, gmesh);
     Tools::DivideLowerDimensionalElements(gmesh);
-    
-    {
-        std::ofstream file("GMeshFine.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
-    }
 
     return gmesh;
 }
@@ -440,11 +430,6 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     // Creates MHM mesh
     bool substructure = true;
     mhm->BuildComputationalMesh(substructure);
-    {
-        std::string fileName = "CompMesh.txt";
-        std::ofstream file(fileName);
-        mhm->CMesh()->Print(file);
-    }
 }
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {

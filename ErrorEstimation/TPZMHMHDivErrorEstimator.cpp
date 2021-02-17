@@ -59,14 +59,11 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         fPostProcMesh.InsertMaterialObject(wrapMat);
     }
 
-
     //enriquecer no MHM tbem?
     IncreasePressureSideOrders(meshvec[1]);//malha da pressao
     if(fPostProcesswithHDiv) {
         IncreaseSideOrders(meshvec[0]);//malha do fluxo
     }
-    std::ofstream out("PressureMeshAfterIncreaseSideOrders.txt");
-    meshvec[1]->Print(out);
 
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
@@ -113,8 +110,6 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     ComputePressureWeights();
 
     {
-        std::ofstream out("CompletePressureMeshMHM.txt");
-        fPostProcMesh.Print(out);
         std::ofstream file("GmeshAfterCreatePostProcessing.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(this->GMesh(), file);
     }
@@ -263,6 +258,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             std::set<int64_t> connectlist;
             ComputeConnectsNextToSkeleton(connectlist);
             for (auto it : connectlist) {
+                std::cout << "    " << it << '\n';
                 fPostProcMesh.ConnectVec()[it].IncrementElConnected();
             }
         }
@@ -352,10 +348,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     fPostProcMesh.ComputeNodElCon();
     fPostProcMesh.CleanUpUnconnectedNodes();
-    {
-        std::ofstream out("MalhaTeste2.txt");
-        fPostProcMesh.Print(out);
-    }
 
     // set an analysis type for the submeshes
     {
@@ -364,13 +356,8 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             TPZCompEl *cel = fPostProcMesh.Element(el);
             TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
             if (sub) {
-//                {
-//                    std::ofstream out2("Sub.txt");
-//                    sub->Print(out2);
-//                }
 
                 if (fPostProcesswithHDiv) {
- //                   fHybridizer.GroupandCondenseElements(sub);
                     sub->CleanUpUnconnectedNodes();
                 }
                 int numthreads = 0;
@@ -402,7 +389,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         }
 #endif
     }
-
 }
 
 
@@ -508,6 +494,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
     fluxmesh->ExpandSolution();
     return fluxmesh;
 }
+
 // method for creating a discontinuous pressure mesh
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreatePressureMesh() {
     if (fPostProcesswithHDiv) {
@@ -946,8 +933,6 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
     {
         std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
-        std::ofstream fileTXT("GeoMeshBeforePressureSkeleton.txt");
-        gmesh->Print(fileTXT);
     }
 #endif
 
@@ -998,8 +983,6 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
-        std::ofstream fileTXT("GeoMeshAfterPressureSkeleton.txt");
-        gmesh->Print(fileTXT);
     }
 #endif
 }
@@ -1024,14 +1007,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *pre
 
 void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
 
-    // Pressure skeleton
     TPZCompMesh *pressuremesh = PressureMesh();
-//    {
-//        std::ofstream out("MeshBeforeCopySkeletonMeshVector1.txt");
-//        pressuremesh->Print(out);
-//    }
-
-    PlotState("PressureBeforeCopyskeleton.vtk", pressuremesh->Dimension(), &fPostProcMesh);
 
     pressuremesh->Reference()->ResetReference();
 
@@ -1049,10 +1025,6 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
         cel->LoadElementReference();
     }
 
-    {
-        std::ofstream file("GmeshCopySkelton.txt");
-        pressuremesh->Reference()->Print(file);
-    }
 
     nel = pressuremesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
@@ -1070,7 +1042,6 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
             
             int matgelSide = gelside.Element()->MaterialId();
             
-            //std::cout<<"MatIdgelSide  "<<matgelSide<<"\n";
             TPZConnect &c = intel->Connect(is);
             int64_t c_gelSide_seqnum  = c.SequenceNumber();
             int c_blocksize = c.NShape() * c.NState();
@@ -1091,23 +1062,11 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
                 int con_size = con_neigh.NState() * con_neigh.NShape();
                 if (con_size != c_blocksize) DebugStop();
                 for (int ibl = 0; ibl < con_size; ibl++) {
-                    //std::cout<<"valor da pressao connect neigh (d-dimensional) "<<c_neigh_seqnum<<" = "<<pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0)<<"\n";
-                    //std::cout<<"valor da pressao connect "<<c_gelSide_seqnum<<" = "<<pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0)<<"\n";
                     pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0) = pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0);
                 }
             }
         }
     }
-//    {
-//        std::ofstream out("MultiphysicsAfterCopySkeleton.txt");
-//        fPostProcMesh.Print(out);
-//        std::string file("PressureAfterCopyskeleton.vtk");
-//        PlotState(file, 2, &fPostProcMesh);
-//    }
-
-    std::set<int64_t> connectList;
-    ComputeConnectsNextToSkeleton(connectList);
-    
 }
 
 void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {

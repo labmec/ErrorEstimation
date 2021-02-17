@@ -35,8 +35,8 @@ int main(int argc, char *argv[]) {
     // Initializing uniform refinements for reference elements
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    //RunSingularProblemHDiv();
-    RunHPQuadProblemHDiv();
+    RunSingularProblemHDiv();
+    //RunHPQuadProblemHDiv();
     //RunHPCubeProblemHDiv();
 
     return 0;
@@ -46,18 +46,18 @@ void RunSingularProblemHDiv() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
     config.problemname = "SinMarkLShapeCircle";
     config.dir_name = "ErrorResults";
-    config.porder = 1;
+    config.porder = 2;
     config.hdivmais = 3;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nRef = 0;
+    int nRef = 2;
 
-    config.ndivisions = nRef;
+    config.ndivisions = 0;
     config.gmesh = CreateLShapeGeoMesh(nRef);
 
     string command = "mkdir " + config.dir_name;
