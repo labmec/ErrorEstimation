@@ -285,7 +285,7 @@ void TPZHybridHDivErrorEstimator::PostProcessing(TPZAnalysis &an) {
         out << ".vtk";
         
         an.DefineGraphMesh(dim, scalnames, vecnames, out.str());
-        an.PostProcess(4, dim);
+        an.PostProcess(2, dim);
     }
     else {
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
@@ -2266,6 +2266,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 #endif
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
     PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMeshes", 2, &fPostProcMesh);
+    PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMeshes", 2, fPostProcMesh.MeshVector()[1]);
 #ifdef PZDEBUG
     {
         std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMeshes.txt");
@@ -2274,11 +2275,29 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 #endif
+    std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
+    fPostProcMesh.Print(out);
 
+    std::cout << fPostProcMesh.NConnects() << std::endl;
+    TPZCompMesh *pressuremesh = PressureMesh();
+    for (int i = 0; i < fPostProcMesh.NConnects();i++) {
+        TPZConnect &c = fPostProcMesh.ConnectVec()[i];
+        if (c.fSequenceNumber == -1) continue;
+        std::cout << c.fSequenceNumber << '\n';
+        std::cout << " Solution: ";
+        for (int64_t ieq = 0; ieq < fPostProcMesh.Block().Size(c.fSequenceNumber); ieq++) {
+            fPostProcMesh.Block()(c.fSequenceNumber, 0, ieq, 0) = pressuremesh->Block()(i, 0, ieq, 0);
+        }
+    }
+
+    std::ofstream outafter("ReconstructionSteps/MFMeshAfterManualTransfer.txt");
+    fPostProcMesh.Print(outafter);
     ComputeElementStiffnesses();
 
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     PlotState("ReconstructionSteps/VolumeMFPressureAfterLoadSolution", 2, &fPostProcMesh);
+    PlotState("ReconstructionSteps/VolumePressureAfterLoadSolution", 2, fPostProcMesh.MeshVector()[1]);
+
 
     {
         std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMult.txt");
@@ -2289,6 +2308,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
     {
         PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh);
+        PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
         std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");

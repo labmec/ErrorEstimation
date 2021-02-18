@@ -136,14 +136,14 @@ void RunOscillatoryProblem() {
     config.problemname = "Oscillatory";
     config.dir_name = "TestOsci";
     config.porder = 1;
-    config.hdivmais = 2;
+    config.hdivmais = 3;
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
     int nCoarseDiv = 3;
-    int nInternalRef = 0;
+    int nInternalRef = 1;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir " + config.dir_name;
