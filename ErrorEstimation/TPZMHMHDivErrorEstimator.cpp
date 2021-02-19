@@ -172,7 +172,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     fPostProcMesh.ComputeNodElCon();
     // TODO  refactor here
-    std::cout << "Transferring original volumetric elements...\n";
+    std::cout << "Transferring volumetric elements...\n";
     if(1) {
 
         TPZVec<TPZSubCompMesh *> connectToSubcmesh(fPostProcMesh.NConnects(), nullptr);
@@ -185,8 +185,8 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             TPZGeoEl *gel = cel->Reference();
             if(!gel) DebugStop();
             if(new_submesh_per_cel[iel] == nullptr) {
-                std::cout << "Not transfering compel: " << iel << ", dim" << gel->Dimension()
-                          << ", matid: " << gel->MaterialId() << '\n';
+                //std::cout << "Not transfering compel: " << iel << ", dim" << gel->Dimension()
+                //          << ", matid: " << gel->MaterialId() << '\n';
                 continue;
             }
             TPZSubCompMesh *submesh = new_submesh_per_cel[iel];
@@ -199,9 +199,9 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 connectToSubcmesh[conindex] = submesh;
             }
             
-            std::cout << "Transfer compel: " << iel << ", dim" << gel->Dimension() << ", matid: " << gel->MaterialId() <<  ' ';
-            for(int i=0; i< nc; i++) std::cout << connectlist[i] << " ";
-            std::cout  << '\n';
+            //std::cout << "Transfer compel: " << iel << ", dim" << gel->Dimension() << ", matid: " << gel->MaterialId() <<  ' ';
+            //for(int i=0; i< nc; i++) std::cout << connectlist[i] << " ";
+            //std::cout  << '\n';
             submesh->TransferElement(&fPostProcMesh, iel);
         }
 
@@ -230,11 +230,11 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
             if (celDomain.size() == 1) {
                 TPZSubCompMesh *submesh = *celDomain.begin();
-                std::cout << "Transfer element: " << iel << ", gel " << gel->Index()
-                          << ", matId: " << gel->MaterialId();
-                if (nc) std::cout << " connect index " << cel->ConnectIndex(0);
+                //std::cout << "Transfer element: " << iel << ", gel " << gel->Index()
+                //          << ", matId: " << gel->MaterialId();
+                //if (nc) std::cout << " connect index " << cel->ConnectIndex(0);
 
-                std::cout << '\n';
+                //std::cout << '\n';
                 submesh->TransferElement(&fPostProcMesh, iel);
                 // log: elementos e matId
             }
@@ -258,7 +258,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             std::set<int64_t> connectlist;
             ComputeConnectsNextToSkeleton(connectlist);
             for (auto it : connectlist) {
-                std::cout << "    " << it << '\n';
                 fPostProcMesh.ConnectVec()[it].IncrementElConnected();
             }
         }
@@ -971,7 +970,6 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
                 if (geoToMHM[gel_index] != geoToMHM[neigh_gel_index]) {
                     if (!gelside.HasNeighbour(fPressureSkeletonMatId)) {
                         TPZGeoElBC gbc(gelside, fPressureSkeletonMatId);
-                        std::cout << "Created skel: " << gbc.CreatedElement()->Index() << '\n';
                         break;
                     }
                 }

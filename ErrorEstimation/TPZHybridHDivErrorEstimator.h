@@ -90,7 +90,7 @@ public:
     void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
-    static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
+    static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
 
     int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
 
