@@ -133,8 +133,8 @@ void RunOscillatoryProblem() {
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
-    config.problemname = "Oscillatory";
-    config.dir_name = "TestOsci";
+    config.problemname = "EArcTan";
+    config.dir_name = "HdivRecTestOscillatory";
     config.porder = 1;
     config.hdivmais = 3;
     config.ndivisions = 2;
@@ -504,28 +504,13 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
-
-    {
-        std::cout << "GMesh elements after building MHM structure:\n";
-        for (int i = 0; i < config.gmesh->NElements();i++) {
-            TPZGeoEl * gel = config.gmesh->Element(i);
-            std::cout << "Gel: " << i;
-            if (gel) {
-                std::cout << ", matid: " << gel->MaterialId() << "\n";
-            }
-            else {
-                std:: cout << " NULL\n";
-            }
-        }
-    }
-
     cout << "\nError Estimation processing for MHM-Hdiv problem " << endl;
 
     // Error estimation
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!originalMesh) DebugStop();
 
-    bool postProcWithHDiv = false;
+    bool postProcWithHDiv = true;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
     ErrorEstimator.SetProblemConfig(config);
