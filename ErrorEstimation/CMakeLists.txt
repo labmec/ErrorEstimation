@@ -10,8 +10,6 @@ add_library(ErrorEstimationLib
     TPZHybridH1ErrorEstimator.h
     TPZMHMHDivErrorEstimator.cpp
     TPZMHMHDivErrorEstimator.h
-    TPZMixedHdivErrorEstimate.cpp
-    TPZMixedHdivErrorEstimate.h
     # Related tools
     TPZCreateMultiphysicsSpace.cpp
     TPZCreateMultiphysicsSpace.h
@@ -19,9 +17,8 @@ add_library(ErrorEstimationLib
     TPZMFSolutionTransfer.h
 	TPZSteklovMaterial.h
 	TPZSteklovMaterial.cpp
-	
-
 )
+
 target_link_libraries(ErrorEstimationLib pz)
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

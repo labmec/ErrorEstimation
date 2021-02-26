@@ -198,8 +198,8 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
 {
     
     /**
-     datavec[0]= Hdiv Resconstructed
-     datavec[1]= Pressure Resconstructed
+     datavec[0]= Hdiv Reconstructed
+     datavec[1]= Pressure Reconstructed
      datavec[2]= Hdiv FEM
      datavec[3]= Pressure FEM
      **/
