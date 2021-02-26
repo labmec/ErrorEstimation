@@ -514,11 +514,8 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
             PermTensor.Multiply(dsol,KGradsol);
             
             for(int id=0 ; id<fDim; id++) {
-                Solout[id] = KGradsol(id,0);//dsol(id,0);//derivate
+                Solout[id] = -KGradsol(id,0);//dsol(id,0);//derivate
             }
-            
-            
- 
         }
            
             
