@@ -15,8 +15,6 @@ add_library(ErrorEstimationLib
     TPZCreateMultiphysicsSpace.h
     TPZMFSolutionTransfer.cpp
     TPZMFSolutionTransfer.h
-	TPZSteklovMaterial.h
-	TPZSteklovMaterial.cpp
 )
 
 target_link_libraries(ErrorEstimationLib pz)

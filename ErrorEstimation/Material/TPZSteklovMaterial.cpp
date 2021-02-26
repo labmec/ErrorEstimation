@@ -1,5 +1,4 @@
 //
-//  TPZSteklovMaterial.cpp
 //  SteklovProblem
 //
 //  Created by Denise De Siqueira on 27/11/20.
