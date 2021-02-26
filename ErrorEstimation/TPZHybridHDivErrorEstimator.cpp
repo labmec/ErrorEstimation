@@ -2225,7 +2225,7 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
     // Calculates average pressure on interface edges and vertices
     int dim = fPostProcMesh.Dimension();
     ComputeAveragePressures(dim - 1);
-    // in three dimensions make the one-d polynoms compatible
+    // in three dimensions make the one-d polynomials compatible
     if (dim == 3) {
         ComputeAveragePressures(1);
     }
@@ -2269,9 +2269,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
 
     std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
     fPostProcMesh.Print(out);
-    // The solution of the post processing mesh remains zero after calling TransferFromMeshes.
-    // If I copy it manually (in lines 2288-2294) the code works. Otherwise, we load solution with zero solution of external connects
-    DebugStop();
 
 #ifdef PZDEBUG
     {
@@ -2283,15 +2280,6 @@ void TPZHybridHDivErrorEstimator::PotentialReconstruction() {
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 #endif
-
-    TPZCompMesh *pressuremesh = PressureMesh();
-    for (int i = 0; i < fPostProcMesh.NConnects();i++) {
-        TPZConnect &c = fPostProcMesh.ConnectVec()[i];
-        if (c.fSequenceNumber == -1) continue;
-        for (int64_t ieq = 0; ieq < fPostProcMesh.Block().Size(c.fSequenceNumber); ieq++) {
-            fPostProcMesh.Block()(c.fSequenceNumber, 0, ieq, 0) = pressuremesh->Block()(i, 0, ieq, 0);
-        }
-    }
 
     std::ofstream outafter("ReconstructionSteps/MFMeshAfterManualTransfer.txt");
     fPostProcMesh.Print(outafter);

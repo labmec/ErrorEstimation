@@ -1,13 +1,10 @@
 
 #include "TPZMHMHDivErrorEstimator.h"
-#include "TPZMHMHDivErrorEstimatorMaterial.h"
 #include "TPZNullMaterial.h"
 #include "TPZVTKGeoMesh.h"
-#include "TPZVecL2.h"
 #include "pzbndcond.h"
 #include "pzintel.h"
 #include "pzsubcmesh.h"
-#include <Material/TPZHDivErrorEstimateMaterial.h>
 #include <Material/TPZLagrangeMultiplier.h>
 #include <Mesh/TPZCompMeshTools.h>
 #include <Mesh/TPZGeoElSideAncestors.h>
