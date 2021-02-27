@@ -215,11 +215,10 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!InputMesh) DebugStop();
 
-    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, mhm);
-    ErrorEstimator.fOriginalIsHybridized = false;
+    bool postProcWithHDiv = false;
+    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
-    ErrorEstimator.fPostProcesswithHDiv = false;
-    ErrorEstimator.fProblemConfig = config;
+    ErrorEstimator.SetProblemConfig(config);
     ErrorEstimator.PotentialReconstruction();
 
     {
@@ -228,8 +227,8 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
-        bool store_errors = true;
-        ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+        std::string vtkPath = "error_mhm_results.vtk";
+        ErrorEstimator.ComputeErrors(errors, elementerrors, vtkPath);
     }
 }
 

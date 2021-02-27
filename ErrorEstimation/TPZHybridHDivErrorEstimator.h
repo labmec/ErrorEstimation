@@ -29,8 +29,6 @@ protected:
     /// The H(Div) approximation mesh for which we will compute the error
     TPZMultiphysicsCompMesh *fOriginal;
 
-    bool fOriginalIsHybridized = true;
-
     /// order increase of the boundary flux (depending on the original mesh)
     int fUpliftPostProcessOrder = 0;
 
@@ -53,9 +51,8 @@ protected:
     bool fPostProcesswithHDiv = false;
 
 public:
-    TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, bool inputIsHybridized, bool postProcWithHDiv)
-        : fOriginal(&originalMesh), fOriginalIsHybridized(inputIsHybridized), fPostProcMesh(nullptr), fExact(nullptr) {
-        //fPressureSkeletonMatId = fHybridizer.fLagrangeInterface;
+    explicit TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
+        : fOriginal(&originalMesh), fPostProcMesh(nullptr), fExact(nullptr) {
         fPostProcesswithHDiv = postProcWithHDiv;
     }
 
@@ -78,13 +75,13 @@ public:
 
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
-    virtual void ComputeErrors(TPZVec<REAL> &errorVec, TPZVec<REAL> &elementerrors, bool store);
+    virtual void ComputeErrors(TPZVec<REAL> &error_vec, TPZVec<REAL> &element_errors, std::string&vtkPath);
 
     // reconstruction of potential using hybrid solution on enrichment space
     virtual void PotentialReconstruction();
 
     /// create graphical output of estimated and true errors using the analysis
-    void PostProcessing(TPZAnalysis &an);
+    void PostProcessing(TPZAnalysis &an, std::string &out);
 
     void PlotPressureSkeleton(const std::string &filename, bool reconstructed = true);
     void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
@@ -132,7 +129,7 @@ protected:
 
 
     /// increase the order of the lower dimensional pressure elements
-    void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);
+    static void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);
 
     /// compute the average pressures of across faces of the H(div) mesh
     void ComputeAverageFacePressures();

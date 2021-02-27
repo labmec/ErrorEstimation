@@ -102,8 +102,8 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 }
 
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, TPZHybridizeHDiv &hybrid) {
-
-    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, true, false);
+    bool postProcWithHDiv = false;
+    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
     //HDivEstimate.SetHybridizer(hybrid);
     HDivEstimate.SetProblemConfig(config);
 
@@ -114,7 +114,8 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, T
 
     TPZManVector<REAL> elementerrors;
     TPZVec<REAL> errorVec;
-    HDivEstimate.ComputeErrors(errorVec, elementerrors, true);
+    std::string outVTK = "postProcErrors.vtk";
+    HDivEstimate.ComputeErrors(errorVec, elementerrors, outVTK);
 }
 
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef) {

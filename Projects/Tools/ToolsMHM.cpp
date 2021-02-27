@@ -664,7 +664,8 @@ int MHMTest(ProblemConfig &Conf) {
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
         bool store_errors = true;
-        ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+        std::string outVTK = Conf.dir_name+ "/out.vtk";
+        ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
     }
 
     return 0;

@@ -41,7 +41,7 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     //RunSinSinProblem();
-  //  RunConstantProblem();
+    //RunConstantProblem();
     RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
@@ -510,7 +510,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!originalMesh) DebugStop();
 
-    bool postProcWithHDiv = true;
+    bool postProcWithHDiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
     ErrorEstimator.SetProblemConfig(config);
@@ -522,8 +522,8 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
-        bool store_errors = true;
-        ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+        std::string outVTK = config.dir_name + "/out.vtk";
+        ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
     }
 }
 

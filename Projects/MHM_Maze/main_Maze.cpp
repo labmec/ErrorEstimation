@@ -695,7 +695,7 @@ int MHMTest(ConfigCasesMaze &Conf){
         meshcontrol.SetInternalPOrder(3);
         meshcontrol.SetSkeletonPOrder(1);
 
-        meshcontrol.DivideSkeletonElements(0);
+        meshcontrol.DivideSkeletonElements(2);
         meshcontrol.DivideBoundarySkeletonElements();
 
         bool substructure = true;
@@ -748,9 +748,9 @@ int MHMTest(ConfigCasesMaze &Conf){
     ProblemConfig config;
     config.dimension = 2;
     config.exact = nullptr;
-    config.problemname = "Maze8x8";
+    config.problemname = "MazeHdiv8x8";
     config.dir_name = "Results8x8";
-    config.porder = 1;
+    config.porder = 3;
     config.hdivmais = 3;
     config.materialids = {1, 2};
     config.bcmaterialids = {-1, -2, -3, -4, -5, -6};
@@ -759,7 +759,7 @@ int MHMTest(ConfigCasesMaze &Conf){
     config.gmesh = MixedMesh->Reference();
 
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
-    bool postProcWithHdiv = true;
+    bool postProcWithHdiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
     EstimateError(ErrorEstimator, config);
     //LocateElementsToAdapt(ErrorEstimator, config);
@@ -778,9 +778,9 @@ void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &conf
         system(command.c_str());
 
         TPZManVector<REAL, 6> errors;
-        TPZManVector<REAL> elementerrors;
-        bool store_errors = true;
-        errorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+        TPZManVector<REAL> element_errors;
+        std::string vtk_path = "mhm_maze_results.vtk";
+        errorEstimator.ComputeErrors(errors, element_errors, vtk_path);
     }
 }
 

@@ -34,13 +34,6 @@ void TPZHDivErrorEstimatorH1::CreatePostProcessingMesh()
     mesh_vectors[0] = fOriginal->MeshVector()[1]->Clone();//H1 mesh
     mesh_vectors[1] = CreateDiscontinuousMesh(mesh_vectors[0]);//L2 mesh
     
-    if(!fOriginalIsHybridized)
-    {
-        // if the original mesh is not hybridized, it would be much more complicated to generate the
-        // pressure interface elements etc
-        DebugStop();
-    }
-    
     IncreasePressureOrders(mesh_vectors[0]);
     IdentifyPeripheralMaterialIds();
    

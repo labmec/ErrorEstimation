@@ -8,29 +8,20 @@
 #ifndef TPZMHMHDivErrorEstimator_hpp
 #define TPZMHMHDivErrorEstimator_hpp
 
-#include <stdio.h>
 #include "TPZHybridHDivErrorEstimator.h"
 #include "TPZMHMixedMeshControl.h"
-
-class TPZCompMesh;
 
 /// this class will compute the estimated value of the energy error of an MHM mesh
 // the class should work for any MHM-H(div) mesh
 // first create the post processing mesh
 // then compute the errors
 // compute a reference solution without MHM
-struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
-{
-    // material id of the dim-1 multiphysic inerface and wrap elements
-    // (only used for HDiv reconstruction)
-    int fMultiPhysicsInterfaceMatId = 0;
-    int fHDivWrapMatId = 0;
+class TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator {
 
-    /// a pointer to the datastructure used to generate the MHM mesh
-    TPZMHMixedMeshControl *fMHM = nullptr;
+public:
 
     TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
-        : TPZHybridHDivErrorEstimator(originalMesh, true, postProcWithHDiv), fMHM(mhm) {
+        : TPZHybridHDivErrorEstimator(originalMesh, postProcWithHDiv), fMHM(mhm) {
     }
 
     // this method wont work because multiphysics meshes have no copy constructor (yet)
@@ -40,7 +31,15 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     TPZMHMHDivErrorEstimator &operator=(const TPZMHMHDivErrorEstimator &cp) = delete;
 
     virtual ~TPZMHMHDivErrorEstimator() = default;
-    
+
+private:
+    // material id of the dim-1 multiphysic inerface and wrap elements
+    // (only used for HDiv reconstruction)
+    int fMultiPhysicsInterfaceMatId = 0;
+    int fHDivWrapMatId = 0;
+
+    /// a pointer to the datastructure used to generate the MHM mesh
+    TPZMHMixedMeshControl *fMHM = nullptr;
     // a method for generating the HDiv mesh
     TPZCompMesh *CreateFluxMesh() override;
     // a method for creating the pressure mesh
@@ -77,10 +76,6 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     /// set the cornernode values equal to the averages
     void ComputeNodalAverages() override;
 
-
-   //switch the material
-    //void SwitchMaterialObjects()override;
-    
     void CopySolutionFromSkeleton() override;
 
     void VerifySolutionConsistency(TPZCompMesh* cmesh) override;
@@ -88,7 +83,6 @@ struct TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator
     // Fill a list with the connect indexes of volumetric elements sides
     // in the neighbourhood of the skeleton
     void ComputeConnectsNextToSkeleton(std::set<int64_t>& connectList);
-
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

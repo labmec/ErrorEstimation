@@ -168,19 +168,18 @@ else
    
         //reconstroi potencial e calcula o erro
         {
-            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-            HDivEstimate.fProblemConfig = config;
-            HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
+            bool postProcWithHDiv = false;
+            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
+            HDivEstimate.SetProblemConfig(config);
+            HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
             HDivEstimate.SetAnalyticSolution(config.exact);
-            HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
-            HDivEstimate.fPostProcesswithHDiv = postProcessWithHDiv;
-        
+
             HDivEstimate.PotentialReconstruction();
             TPZManVector<REAL> elementerrors;
             TPZManVector<REAL> errorvec;
-            bool store = true;
-            HDivEstimate.ComputeErrors(errorvec,elementerrors,store);
-            Tools::hAdaptivity(&HDivEstimate.fPostProcMesh, gmeshOriginal, config);
+            std::string vtkPath = "adaptivity_error_results.vtk";
+            HDivEstimate.ComputeErrors(errorvec, elementerrors, vtkPath);
+            Tools::hAdaptivity(HDivEstimate.PostProcMesh(), gmeshOriginal, config);
             #ifdef PZDEBUG
                     {
                         std::ofstream out("gmeshAdapty.vtk");
