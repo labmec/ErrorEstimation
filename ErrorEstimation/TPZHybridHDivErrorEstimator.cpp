@@ -25,9 +25,6 @@
 #include "pzmat1dlin.h"
 #include "pzsubcmesh.h"
 
-#include "TPZParFrontStructMatrix.h"
-#include "TPZSSpStructMatrix.h"
-#include "pzskylstrmatrix.h"
 #include "pzstepsolver.h"
 
 #include "TPZMultiphysicsCompMesh.h"
@@ -146,17 +143,21 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<R
     std::stringstream ss;
     ss << "\nEstimator errors for Problem " << fProblemConfig.problemname;
     ss << "\n-------------------------------------------------- \n";
-    ss << "Ndiv = " << fProblemConfig.ndivisions << ", AdaptativityStep = " << fProblemConfig.adaptivityStep
+    ss << "Ndiv = " << fProblemConfig.ndivisions << ", AdaptivityStep = " << fProblemConfig.adaptivityStep
        << ", Order k = " << fProblemConfig.porder << ", Order n = " << fProblemConfig.hdivmais
        << ", K_R = " << fProblemConfig.Km << "\n";
     ss << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     ss << "Global estimator = " << errorVec[3] << "\n";
     ss << "|ufem-urec| = " << errorVec[1] << "\n";
-    ss << "Residual ErrorL2 = " << errorVec[4] << "\n";
+    ss << "Residual Error L2 = " << errorVec[4] << "\n";
     if (fExact) {
         ss << "Global exact error = " << errorVec[2] << "\n";
         ss << "|uex-ufem| = " << errorVec[0] << "\n";
-        ss << "Global Index = " << sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
+        REAL global_index = 1;
+        if (!IsZero(errorVec[4] + errorVec[3]) && !IsZero(errorVec[2])) {
+            global_index = sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
+        }
+        ss << "Global Index = " << global_index;
     } else {
         ss << "[Unknown exact solution and errors]\n";
     }
@@ -1670,7 +1671,6 @@ void TPZHybridHDivErrorEstimator::TransferEdgeSolution() {
         }
     }
 }
-
 
 /// set the cornernode values equal to the averages
 void TPZHybridHDivErrorEstimator::ComputeNodalAverages() {
