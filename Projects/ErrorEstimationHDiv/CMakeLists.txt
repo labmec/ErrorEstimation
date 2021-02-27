@@ -8,8 +8,8 @@ target_link_libraries(HybridHDiv Tools ErrorEstimationLib)
 add_executable(AdaptivityTest mainAdaptivity.cpp)
 target_link_libraries(AdaptivityTest Tools ErrorEstimationLib)
 
-add_executable(QuadMesh mainQuadMesh.cpp)
-target_link_libraries(QuadMesh Tools ErrorEstimationLib)
+add_executable(SteklovProblem mainSteklov.cpp)
+target_link_libraries(SteklovProblem Tools ErrorEstimationLib)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)

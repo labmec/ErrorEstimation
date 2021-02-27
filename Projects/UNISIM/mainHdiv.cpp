@@ -118,11 +118,11 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
     TPZManVector<REAL> elementerrors;
     {
         // Estimates error
-        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        bool postProcWithHDiv = false;
+        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
+        HDivEstimate.SetProblemConfig(config);
+        HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
 
-        HDivEstimate.fPostProcesswithHDiv = false;
 #ifdef DEBUGTEST
         HDivEstimate.SetAnalyticSolution(config.exact);
 #endif
@@ -130,7 +130,8 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
         HDivEstimate.PotentialReconstruction();
 
         std::cout << "Computing errors...\n";
-        HDivEstimate.ComputeErrors(errorVec, elementerrors, true);
+        std::string vtkPath = "hdiv_error_results.vtk";
+        HDivEstimate.ComputeErrors(errorVec, elementerrors, vtkPath);
     }
     delete HybridMesh->MeshVector()[0];
     delete HybridMesh->MeshVector()[1];

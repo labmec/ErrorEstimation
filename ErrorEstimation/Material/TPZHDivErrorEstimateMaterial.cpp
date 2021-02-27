@@ -425,19 +425,15 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
         LOGPZ_DEBUG(logger, sout.str())
     }
 #endif
-
-    
-    
 }
-
 
 int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name)
 {
     if(name == "FluxFem") return 40;
+    if(name == "FluxReconstructed") return 41;
     if(name == "FluxExact") return 42;
     if(name == "PressureFem") return 43;
     if(name == "PressureReconstructed") return 44;
-    if(name == "FluxReconstructed") return 41;
     if(name == "PressureExact") return 45;
     if(name == "PressureErrorExact") return 100;
     if(name == "PressureErrorEstimate") return 101;
@@ -535,11 +531,8 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
             PermTensor.Multiply(dsol,KGradsol);
             
             for(int id=0 ; id<fDim; id++) {
-                Solout[id] = KGradsol(id,0);//dsol(id,0);//derivate
+                Solout[id] = -KGradsol(id,0);//dsol(id,0);//derivate
             }
-            
-            
- 
         }
            
             

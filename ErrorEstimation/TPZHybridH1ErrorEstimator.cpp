@@ -1555,7 +1555,9 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
     if (volumeNeighSides.size() == 1) {
         noHangingSide = false;
         TPZGeoElSidePartition partition(largeSkeletonSide);
-        partition.HigherLevelNeighbours(smallerSkelSides, fPressureSkeletonMatId);
+        if (!partition.HigherLevelNeighbours(smallerSkelSides, fPressureSkeletonMatId)) {
+            DebugStop();
+        }
         if (smallerSkelSides.size() == 1) DebugStop();
         for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
             smallerSkelSides[iskel].EqualLevelCompElementList(volumeNeighSides, 1, 0);

@@ -1,9 +1,6 @@
 # Project to implemented MHM Error Estimation
-add_executable(MHMEstimation main.cpp)
-target_link_libraries(MHMEstimation Tools ErrorEstimationLib)
-
-add_executable(MHM_CILAMCE main_CILAMCE.cpp)
-target_link_libraries(MHM_CILAMCE Tools ErrorEstimationLib)
+add_executable(MHM_Estimation main_MHM.cpp)
+target_link_libraries(MHM_Estimation Tools ErrorEstimationLib)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)

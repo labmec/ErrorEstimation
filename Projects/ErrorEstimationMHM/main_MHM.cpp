@@ -12,11 +12,13 @@
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
 
-void RunCosCosProblem();
+void RunSinSinProblem();
+void RunConstantProblem();
 void RunOscillatoryProblem();
 void RunNonConvexProblem();
 void Run3DProblem();
 void RunSingularProblem();
+void RunAdaptivityProblem();
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
 TPZGeoMesh *CreateCubeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &coarseIndexes);
@@ -24,11 +26,13 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
 
 void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
-                       bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes);
+                       bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes);
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
+
+void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
 
 int main() {
 #ifdef LOG4CXX
@@ -36,16 +40,19 @@ int main() {
 #endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    //RunCosCosProblem();
-    //RunOscillatoryProblem();
+    //RunSinSinProblem();
+    //RunConstantProblem();
+    RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
-    RunSingularProblem();
+    //RunSingularProblem();
+    
+   // RunAdaptivityProblem();
 
     return 0;
 }
 
-void RunCosCosProblem() {
+void RunSinSinProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
@@ -58,7 +65,45 @@ void RunCosCosProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 6;
+    int nCoarseDiv = 2;
+    int nInternalRef = 0;
+
+    config.ndivisions = nCoarseDiv;
+    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
+
+    std::string command = "mkdir " + config.dir_name;
+    system(command.c_str());
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    TPZManVector<int64_t> coarseIndexes;
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    bool definePartitionByCoarseIndexes = true;
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+
+    SolveMHMProblem(mhm, config);
+    EstimateError(config, mhm);
+}
+
+void RunConstantProblem() {
+    ProblemConfig config;
+    config.dimension = 2;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::EConst;
+    config.problemname = "Constant";
+    config.dir_name = "CILAMCE";
+    config.porder = 1;
+    config.hdivmais = 2;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+
+    int nCoarseDiv = 2;
     int nInternalRef = 0;
 
     config.ndivisions = nCoarseDiv;
@@ -88,27 +133,21 @@ void RunOscillatoryProblem() {
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
-    config.problemname = "Oscillatory";
-    config.dir_name = "CILAMCE";
+    config.problemname = "EArcTan";
+    config.dir_name = "HdivRecTestOscillatory";
     config.porder = 1;
-    config.hdivmais = 1;
+    config.hdivmais = 3;
     config.ndivisions = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 4;
-    int nInternalRef = 3;
+    int nCoarseDiv = 3;
+    int nInternalRef = 1;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
-
-    {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
-        std::ofstream file(fileName);
-        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
-    }
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
     TPZManVector<int64_t> coarseIndexes;
@@ -117,6 +156,13 @@ void RunOscillatoryProblem() {
     CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
     EstimateError(config, mhm);
 }
 
@@ -136,7 +182,7 @@ void RunNonConvexProblem() {
     int nDiv = 1;
     int nInternalRef = 0;
 
-    TPZVec<int64_t> coarseIndexes;
+    TPZManVector<int64_t> coarseIndexes;
     config.ndivisions = nDiv;
     config.gmesh = CreateLMHMMesh(nDiv, coarseIndexes);
 
@@ -238,7 +284,7 @@ TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
     TPZManVector<int, 4> bcIDs(4, -1);
     TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs);
     gmesh->SetDimension(2);
-
+    
     Tools::UniformRefinement(nInternalRef, gmesh);
     Tools::DivideLowerDimensionalElements(gmesh);
 
@@ -358,7 +404,7 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
 }
 
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
-                       bool definePartitionByCoarseIndex, TPZManVector<int64_t> mhmIndexes) {
+                       bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes) {
 
     if (definePartitionByCoarseIndex) {
         mhm->DefinePartitionbyCoarseIndices(mhmIndexes);
@@ -379,17 +425,11 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     mhm->SetHdivmaismaisPOrder(config.hdivmais);
 
     // Refine skeleton elements
-    mhm->DivideSkeletonElements(nInternalRef);
+    mhm->DivideSkeletonElements(0);
     mhm->DivideBoundarySkeletonElements();
-
     // Creates MHM mesh
     bool substructure = true;
     mhm->BuildComputationalMesh(substructure);
-    {
-        std::string fileName = "CompMesh.txt";
-        std::ofstream file(fileName);
-        mhm->CMesh()->Print(file);
-    }
 }
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
@@ -463,20 +503,17 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
-    cout << "Error Estimation processing for MHM-Hdiv problem " << endl;
+
+    cout << "\nError Estimation processing for MHM-Hdiv problem " << endl;
 
     // Error estimation
-    TPZMultiphysicsCompMesh *InputMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
-    if (!InputMesh) DebugStop();
+    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+    if (!originalMesh) DebugStop();
 
-    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, mhm);
-    ErrorEstimator.fOriginalIsHybridized = false;
+    bool postProcWithHDiv = false;
+    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
-
-    ErrorEstimator.fPostProcesswithHDiv = false;
-
-    ErrorEstimator.fProblemConfig = config;
-
+    ErrorEstimator.SetProblemConfig(config);
     ErrorEstimator.PotentialReconstruction();
 
     {
@@ -485,8 +522,8 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
-        bool store_errors = true;
-        ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+        std::string outVTK = config.dir_name + "/out.vtk";
+        ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
     }
 }
 
@@ -515,4 +552,178 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
         cmesh.InsertMaterialObject(bc);
     }
+}
+void RunAdaptivityProblem(){
+    
+    ProblemConfig config;
+    config.dimension = 2;
+    config.exact = new TLaplaceExample1;
+    config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
+    config.problemname = "EBoundaryLayer";
+    config.dir_name = "Adaptivity";
+    config.porder = 1;
+    config.hdivmais = 3;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+    config.ndivisions = 3;
+    int refinementSteps = 1;
+
+    
+    
+    for(int hsk=2; hsk < config.ndivisions; hsk++){
+    
+        for(int hin=1 ; hin < 2 ; hin ++){
+            
+            //    int nCoarseRef = 2;
+            //    int nInternalRef = 0;
+            //
+            //    config.ndivisions = nCoarseRef;
+            config.gmesh = CreateQuadGeoMesh(hsk, hin);
+            
+            
+            
+            
+            std::string command = "mkdir " + config.dir_name;
+            system(command.c_str());
+            
+            {
+                std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+                std::ofstream file(fileName);
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+            }
+            
+            auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+            TPZManVector<int64_t> coarseIndexes;
+            ComputeCoarseIndices(config.gmesh, coarseIndexes);
+            bool definePartitionByCoarseIndexes = true;
+            CreateMHMCompMesh(mhm, config, hin, definePartitionByCoarseIndexes, coarseIndexes);
+            
+            {
+                std::string fileName = config.dir_name + "/" + config.problemname + "GeoMeshAfterPartition.vtk";
+                std::ofstream file(fileName);
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+            }
+            //
+            //    SolveMHMProblem(mhm, config);
+            //    EstimateError(config, mhm);
+            
+          //  for (int iSteps = 0; iSteps < refinementSteps; iSteps++) {
+                
+//                {
+//                    std::string fileName = config.dir_name + "/" + config.problemname + "GeoMeshAdapt.vtk";
+//                    std::ofstream file(fileName);
+//                    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+//                }
+                
+ //               config.adaptivityStep = iSteps;
+                
+                //        auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+                //        TPZManVector<int64_t> coarseIndexes;
+                //        ComputeCoarseIndices(config.gmesh, coarseIndexes);
+                //        bool definePartitionByCoarseIndexes = true;
+                //        CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+                
+                SolveMHMProblem(mhm, config);
+                EstimateError(config, mhm);
+                
+ //               MHMAdaptivity(mhm,  config.gmesh, config);
+//#ifdef PZDEBUG
+//                {
+//                    std::ofstream out("GmeshAfterAdapty.vtk");
+//                    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+//                }
+//#endif
+           // }
+        }
+        
+    }
+            
+    
+}
+
+
+    
+void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config) {
+
+    // Column of the flux error estimate on the element solution matrix
+    const int fluxErrorEstimateCol = 3;
+    
+    
+    
+    TPZMultiphysicsCompMesh *cmesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+       if (!cmesh) DebugStop();
+
+    
+   // TPZCompMesh &cmesh = mhm->CMesh();
+  
+
+    int64_t nelem = cmesh->ElementSolution().Rows();
+
+    //postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
+
+    // Iterates through element errors to get the maximum value
+    REAL maxError = 0.;
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZCompEl* cel = cmesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != cmesh->Dimension()) continue;
+        REAL elementError = cmesh->ElementSolution()(iel, fluxErrorEstimateCol);
+
+
+        if (elementError > maxError) {
+            maxError = elementError;
+        }
+    }
+
+    std::cout << "max error " << maxError << "\n";
+
+    // Refines elements which error are bigger than 30% of the maximum error
+    REAL threshold = 0.2 * maxError;
+
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        TPZCompEl* cel = cmesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != cmesh->Dimension()) continue;
+
+        REAL elementError = cmesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        //prefinement
+        if (elementError > threshold) {
+
+            std::cout << "element error " << elementError << "el " << iel << "\n";
+            TPZGeoEl* gel = cel->Reference();
+            int iel = gel->Id();
+
+            TPZVec<TPZGeoEl*> sons;
+            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
+            if (gelToRefine && !gelToRefine->HasSubElement()) {
+                gelToRefine->Divide(sons);
+#ifdef LOG4CXX2
+                int nsides = gelToRefine->NSides();
+                TPZVec<REAL> loccenter(gelToRefine->Dimension());
+                TPZVec<REAL> center(3);
+                gelToRefine->CenterPoint(nsides - 1, loccenter);
+                
+                gelToRefine->X(loccenter, center);
+                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+                if (logger->isDebugEnabled()) {
+                    std::stringstream sout;
+                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
+                    sout << "Error = " << elementError << "\n\n";
+                    LOGPZ_DEBUG(logger, sout.str())
+                }
+#endif
+            }
+        } else {
+            std::cout << "como refinar em p? " << "\n";
+//            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
+//            if(!sp) continue;
+//            int level = sp->Reference()->Level();
+//            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
+//            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
+//            sp->PRefine(ordem);
+
+        }
+    }
+    Tools::DivideLowerDimensionalElements(gmeshToRefine);
 }

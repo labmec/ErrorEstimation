@@ -2,8 +2,8 @@
 target_sources(ErrorEstimationLib PUBLIC
     TPZHDivErrorEstimateMaterial.cpp
     TPZHDivErrorEstimateMaterial.h
-    TPZMHMHDivErrorEstimatorMaterial.cpp
-    TPZMHMHDivErrorEstimatorMaterial.h
+    TPZMixedHdivErrorEstimate.cpp
+    TPZMixedHdivErrorEstimate
     TPZMatLaplacianHybrid.cpp
     TPZMatLaplacianHybrid.h
     TPZPressureProjection.h
@@ -12,6 +12,8 @@ target_sources(ErrorEstimationLib PUBLIC
     TPZEEMatHybridH1ToH1.cpp
     TPZEEMatHybridH1ToHDiv.h
     TPZEEMatHybridH1ToHDiv.cpp
-    )
+    TPZSteklovMaterial.h
+    TPZSteklovMaterial.cpp
+)
 
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_LIST_DIR})

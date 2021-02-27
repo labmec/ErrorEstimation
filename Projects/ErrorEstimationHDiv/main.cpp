@@ -35,8 +35,8 @@ int main(int argc, char *argv[]) {
     // Initializing uniform refinements for reference elements
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    //RunSingularProblemHDiv();
-    RunHPQuadProblemHDiv();
+    RunSingularProblemHDiv();
+    //RunHPQuadProblemHDiv();
     //RunHPCubeProblemHDiv();
 
     return 0;
@@ -46,21 +46,21 @@ void RunSingularProblemHDiv() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
     config.problemname = "SinMarkLShapeCircle";
     config.dir_name = "ErrorResults";
-    config.porder = 1;
+    config.porder = 2;
     config.hdivmais = 3;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nRef = 0;
+    int nRef = 2;
 
-    config.ndivisions = nRef;
+    config.ndivisions = 0;
     config.gmesh = CreateLShapeGeoMesh(nRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     TPZHybridizeHDiv hybridizer;
@@ -102,20 +102,20 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 }
 
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, TPZHybridizeHDiv &hybrid) {
+    bool postProcWithHDiv = false;
+    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
+    //HDivEstimate.SetHybridizer(hybrid);
+    HDivEstimate.SetProblemConfig(config);
 
-    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
-    HDivEstimate.SetHybridizer(hybrid);
-    HDivEstimate.fProblemConfig = config;
-    HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+    HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
     HDivEstimate.SetAnalyticSolution(config.exact);
-
-    HDivEstimate.fPostProcesswithHDiv = false;
 
     HDivEstimate.PotentialReconstruction();
 
     TPZManVector<REAL> elementerrors;
     TPZVec<REAL> errorVec;
-    HDivEstimate.ComputeErrors(errorVec, elementerrors, true);
+    std::string outVTK = "postProcErrors.vtk";
+    HDivEstimate.ComputeErrors(errorVec, elementerrors, outVTK);
 }
 
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef) {
@@ -139,18 +139,19 @@ void RunHPQuadProblemHDiv() {
     config.problemname = "ESinSin";
     config.dir_name = "HP-ESinSin";
     config.porder = 1;
-    config.hdivmais = 3;
+    config.hdivmais = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nElem = 2;
+    int nElem = 3;
     config.ndivisions = nElem;
 
     TPZManVector<int, 4> bcIDs(4, -1);
     config.gmesh = Tools::CreateGeoMesh(nElem, bcIDs);
 
-   // Tools::RefineElements(config.gmesh, {1, 3});
+    //Tools::RefineElements(config.gmesh, {1, 3});
+    //Tools::RefineElements(config.gmesh, {12});
 
     string command = "mkdir " + config.dir_name;
     system(command.c_str());

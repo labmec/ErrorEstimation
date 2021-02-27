@@ -236,8 +236,7 @@ int main(int argc, char *argv[]) {
             //std::set<int> bcmatID;
             //bcmatID.insert(-5);bcmatID.insert(-6);bcmatID.insert(-8);bcmatID.insert(-9);
             //config.bcmaterialids = bcmatID;
-            test.fProblemConfig = config;
-            test.fOriginalIsHybridized = true;
+            test.SetProblemConfig(config);
             test.PotentialReconstruction();
             FlushTime(eData,start);
         }

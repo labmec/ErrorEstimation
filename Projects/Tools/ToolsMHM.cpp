@@ -511,7 +511,7 @@ int MHMTest(ProblemConfig &Conf) {
         
         gmeshcoarse = CreateLMHMMesh(nsizeH, elementIndexes);
         {
-            std::ofstream file("GMeshAutoL_1.vtk");
+            std::ofstream file("GMeshCoarse.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
         }
         
@@ -578,9 +578,9 @@ int MHMTest(ProblemConfig &Conf) {
         
         mhm->DivideSkeletonElements(Configuration.numDivSkeleton);
         mhm->DivideBoundarySkeletonElements();
-        if(0)
+     //   if(0)
         {
-            std::ofstream file("GMeshAutoLRefSk_Refint.vtk");
+            std::ofstream file("GMeshWithInnerRefinement.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmeshauto, file);
         }
 #ifdef PZDEBUG2
@@ -640,7 +640,7 @@ int MHMTest(ProblemConfig &Conf) {
     
 
     
-    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(),Conf.exact, prefix, Configuration);
+    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(),Conf.exact.operator->(), prefix, Configuration);
     
     
     
@@ -653,29 +653,19 @@ int MHMTest(ProblemConfig &Conf) {
     if(!InputMesh) DebugStop();
 
     TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, MHMixed.operator->());
-    ErrorEstimator.fOriginalIsHybridized = false;
     ErrorEstimator.SetAnalyticSolution(Conf.exact);
-
-    ErrorEstimator.fPostProcesswithHDiv = false;
-    
-    ErrorEstimator.fProblemConfig.porder =Conf.porder;
-    ErrorEstimator.fProblemConfig.ndivisions = Conf.ndivisions;
-    ErrorEstimator.fProblemConfig.hdivmais = Conf.hdivmais;
-    ErrorEstimator.fProblemConfig.adaptivityStep = Conf.adaptivityStep;
-    
-    
+    ErrorEstimator.SetProblemConfig(Conf);
     ErrorEstimator.PotentialReconstruction();
 
     {
-        ErrorEstimator.fProblemConfig.problemname = Conf.problemname;
-        ErrorEstimator.fProblemConfig.dir_name = Conf.dir_name;
         std::string command = "mkdir " + Conf.dir_name;
         system(command.c_str());
 
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
         bool store_errors = true;
-        ErrorEstimator.ComputeErrors(errors, elementerrors, store_errors);
+        std::string outVTK = Conf.dir_name+ "/out.vtk";
+        ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
     }
 
     return 0;
@@ -781,7 +771,7 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
 }
 
 
-std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel (TPZCompMesh *cmesh){
+std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *cmesh){
     
     int nelements = cmesh->NElements();
     TPZGeoElSide first_gelside;
@@ -1148,9 +1138,8 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
     return gmesh;
 }
 
-
-void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCompMesh> > compmeshes, TPZAnalyticSolution &analytic, std::string prefix, TRunConfig config)
-{
+void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh>> &compmeshes,
+                  TPZAnalyticSolution *analytic, const std::string &prefix, TRunConfig config) {
     //calculo solution
     bool shouldrenumber = true;
     TPZAnalysis an(cmesh,shouldrenumber);
@@ -1207,45 +1196,37 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, TPZVec<TPZAutoPointer<TPZCo
     if (!mat) {
         DebugStop();
     }
-    if (analytic.Exact())
+    if (analytic)
     {
-        an.SetExact(analytic.ExactSolution());
+        an.SetExact(analytic->ExactSolution());
+        scalnames.Push("ExactPressure");
+        vecnames.Push("ExactFlux");
     }
-    if (mat->NStateVariables() == 2)
-    {
-        scalnames.Push("SigmaX");
-        scalnames.Push("SigmaY");
-        scalnames.Push("TauXY");
-        vecnames.Push("Displacement");
-    }
-    else if(mat->NStateVariables() == 1)
     {
         scalnames.Push("Pressure");
         //  scalnames.Push("Permeability");
-        scalnames.Push("ExactPressure");
         vecnames.Push("Flux");
-        vecnames.Push("ExactFlux");
         //   vecnames.Push("Derivative");
     }
 
 
-//    std::string plotname;
-//    {
-//        std::stringstream out;
-//        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
-//        plotname = out.str();
-//
-//    }
-//    int resolution=0;
-//    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
-//    an.PostProcess(resolution,cmesh->Dimension() );
+    std::string plotname;
+    {
+        std::stringstream out;
+        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
+        plotname = out.str();
+
+    }
+    int resolution=0;
+    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
+    an.PostProcess(resolution,cmesh->Dimension() );
 
 
-    if(analytic.Exact())
+    if(analytic)
     {
         TPZManVector<REAL> errors(4,0.);
         an.SetThreadsForError(config.n_threads);
-        an.SetExact(analytic.ExactSolution());
+        an.SetExact(analytic->ExactSolution());
         an.PostProcessError(errors,false);
 
         //Erro

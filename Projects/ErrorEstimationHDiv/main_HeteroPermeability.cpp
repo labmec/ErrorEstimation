@@ -392,8 +392,8 @@ int main(int argc, char *argv[]) {
     {
         
        TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        HDivEstimate.SetProblemConfig(config);
+        HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
         HDivEstimate.SetAnalyticSolution(config.exact);
         
         HDivEstimate.fperformUplift = true;
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
         TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
-        HDivEstimate.fUpliftPostProcessMesh = config.hdivmais;
+        HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;
         
         if(config.GalvisExample || config.steklovexample){
             
@@ -416,9 +416,10 @@ int main(int argc, char *argv[]) {
         HDivEstimate.PotentialReconstruction();
         
         TPZManVector<REAL> elementerrors,errvec;
-        HDivEstimate.ComputeErrors(errvec,elementerrors,true);
+        std::string vtkPath = "hetero_permeability_error_results.vtk";
+        HDivEstimate.ComputeErrors(errvec,elementerrors, vtkPath);
 
-        Tools::hAdaptivity(&HDivEstimate.fPostProcMesh, markEstimatorMesh, config);
+        Tools::hAdaptivity(HDivEstimate.PostProcMesh(), markEstimatorMesh, config);
     }
     
 //    delete cmesh_HDiv;
