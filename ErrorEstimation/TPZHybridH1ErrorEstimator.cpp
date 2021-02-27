@@ -123,8 +123,8 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
     
     //Erro global
-    ofstream myfile;
-    myfile.open("ErrorsReconstruction.txt", ios::app);
+    std::ofstream myfile;
+    myfile.open("ErrorsReconstruction.txt", std::ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.porder << " Order n= "<< fProblemConfig.hdivmais<< " K_R = "<<fProblemConfig.Km<<"\n";
@@ -219,8 +219,8 @@ void TPZHybridH1ErrorEstimator::GlobalEffectivityIndex(){
     
     std::cout << "Ieff_global " << Ieff_global << std::endl;
     
-    ofstream myfile;
-    myfile.open("ErrorEstimationResults.txt", ios::app);
+    std::ofstream myfile;
+    myfile.open("ErrorEstimationResults.txt", std::ios::app);
     myfile << "\n\n Estimator errors for Problem "
     << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
@@ -294,7 +294,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
 
 #ifdef PZDEBUG
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream outTXT(dirPath + "OriginalPressureMesh.txt");
         std::ofstream outVTK(dirPath + "OriginalPressureMesh.vtk");
         pressureMesh->Print(outTXT);
@@ -434,7 +434,7 @@ void TPZHybridH1ErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mes
 
 #ifdef PZDEBUG
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream fileVTK(dirPath + "GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
         std::ofstream fileTXT(dirPath + "GeoMeshBeforePressureSkeleton.txt");
@@ -532,7 +532,7 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
 
 #ifdef PZDEBUG
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         /*std::ofstream out(dirPath + "EnrichedFluxBorder.txt");
         mesh_vectors[0]->Print(out);*/
         std::ofstream out2(dirPath + "EnrichedPressure.txt");
@@ -637,7 +637,7 @@ void TPZHybridH1ErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh) {
     cmesh->LoadReferences();
 
 #ifdef PZDEBUG
-    string dirPath = fDebugDirName + "/";
+    std::string dirPath = fDebugDirName + "/";
     std::set<int> matIDs = fProblemConfig.materialids;
     matIDs.insert(fProblemConfig.bcmaterialids.begin(),fProblemConfig.bcmaterialids.end());
     matIDs.insert(fPressureSkeletonMatId);
@@ -826,7 +826,7 @@ void TPZHybridH1ErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh
 
 #ifdef PZDEBUG
     {
-        string dirPath = fDebugDirName + '/';
+        std::string dirPath = fDebugDirName + '/';
         std::ofstream out(dirPath + "MeshBeforeRestrainSkeleton.txt");
         pressure_mesh->Print(out);
     }
@@ -884,7 +884,7 @@ void TPZHybridH1ErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh
         pressure_mesh->CleanUpUnconnectedNodes();
 #ifdef PZDEBUG
     {
-        string dirPath = fDebugDirName + '/';
+        std::string dirPath = fDebugDirName + '/';
         std::ofstream out(dirPath + "MeshAfterRestrainSkeleton.txt");
         pressure_mesh->Print(out);
     }
@@ -1904,8 +1904,8 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &celside)
         int64_t index = intel1->Index();
         REAL weight = fPressureweights[index];
 
-        cout << "Size of double : " << sizeof(double) << endl;
-        cout << "Size of REAL : " << sizeof(REAL) << endl;
+        std::cout << "Size of double : " << sizeof(double) << std::endl;
+        std::cout << "Size of REAL : " << sizeof(REAL) << std::endl;
         if(IsZero(weight)) {
             TPZMaterial *mat = intel1->Material();
             TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
@@ -2241,8 +2241,8 @@ void TPZHybridH1ErrorEstimator::PotentialReconstruction() {
     }
 
 #ifdef PZDEBUG
-    string command = "mkdir " + fDebugDirName;
-    string dirPath = fDebugDirName + "/";
+    std::string command = "mkdir " + fDebugDirName;
+    std::string dirPath = fDebugDirName + "/";
     system(command.c_str());
     {
         std::ofstream outCon(dirPath + "OriginalPressureConnects.txt");
@@ -2366,7 +2366,7 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     //BoundaryPressureProjection(pressuremesh, target_dim);
 
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath + "PressureAverageMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
         bool reconstructed = true;
@@ -2383,7 +2383,7 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
 
 
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath+"PressureAverageMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier(dirPath+"BeforeNodalAverage");
@@ -2393,7 +2393,7 @@ void TPZHybridH1ErrorEstimator::MakeSkeletonContinuous(){
     ComputeNodalAverages();
 
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath + "PressureNodalMesh.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
         PlotLagrangeMultiplier("AfterNodalAverage");
@@ -2798,7 +2798,7 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
     }
 #ifdef PZDEBUG
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream txtPostProcMesh(dirPath + "PostProcMeshAfterIncrementingConnects.txt");
         fPostProcMesh.ShortPrint(txtPostProcMesh);
     }

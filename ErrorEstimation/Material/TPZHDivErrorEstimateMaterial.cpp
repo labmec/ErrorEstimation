@@ -302,21 +302,38 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     
     TPZManVector<STATE,3> fluxfem(3);
     STATE divsigmafem, pressurefem, pressurereconstructed;
+    divsigmafem = 0.;
+    pressurefem = 0.;
+    pressurereconstructed = 0.;
+    
     
     TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
     
 
  
-    fluxfem=data[2].sol[0];
+    fluxfem = data[2].sol[0];
+    
+   
+    std::cout << "x = {" << data[2].x << "};" << std::endl;
+    std::cout << "divsol pelo material= " << data[2].divsol[0][0]  << std::endl;
+     
+    
     divsigmafem= data[2].divsol[0][0];
     
- 
-
+    STATE divtest=0.;
+    for (int j=0; j<fDim; j++) {
+        divtest += data[2].dsol[0](j,j);
+    }
+    std::cout<<"divsigmafem pelo dsol "<< divtest<<"\n";
+    
+    
     int H1functionposition = 0;
     H1functionposition = FirstNonNullApproxSpaceIndex(data);
 
     
     TPZVec<STATE> divsigma(1);
+    divsigma[0]=0.;
+    
     
     if(this->fForcingFunctionExact){
         
@@ -326,8 +343,8 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     }
     
     REAL residual = 0.;
-    
-   // std::cout<<" divsigma[0] "<<divsigma[0]<<" divsigmafem "<<divsigmafem<<"\n";
+
+    std::cout<<" divsigma_exact "<<divsigma[0]<<"\n";
     
     residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
    
