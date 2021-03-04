@@ -14,7 +14,6 @@
 #include <memory>
 #include <Pre/TPZGenGrid3D.h>
 
-#include "pzcondensedcompel.h"
 #include "pzelementgroup.h"
 
 TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
@@ -170,12 +169,6 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
     return cmesh;
 }
 
-void Tools::CloneMeshVec(TPZVec<TPZCompMesh*>& meshvec, TPZVec<TPZCompMesh*>& meshvec_clone) {
-    for (int i = 0; i < meshvec.size(); i++) {
-        meshvec_clone[i] = meshvec[i]->Clone();
-    }
-}
-
 void Tools::UniformRefinement(int nDiv, TPZGeoMesh* gmesh) {
     
     TPZManVector<TPZGeoEl*> children;
@@ -264,102 +257,6 @@ TPZGeoMesh *Tools::CreateCubeGeoMesh(const TPZVec<int> &nelDiv, const TPZVec<int
     gmesh = gen.BuildBoundaryElements(bcids[0], bcids[1], bcids[2], bcids[3], bcids[4], bcids[5]);
 
     return gmesh;
-}
-
-void Tools::MultiPhysicsCompel(const ProblemConfig& config) {
-    
-    TPZManVector<TPZCompMesh*, 2> MeshesHDiv(2);
-    TPZMultiphysicsCompMesh* mixed_cmesh = Tools::CreateHDivMesh(config);
-    MeshesHDiv = mixed_cmesh->MeshVector();
-    
-    TPZMultiphysicsCompMesh* mphysicCompMesh = new TPZMultiphysicsCompMesh(config.gmesh);
-    std::ofstream outgeo("geometria.txt");
-    mphysicCompMesh->Reference()->Print(outgeo);
-    
-    
-    //Have to include the materials. Here we just did a copy of previous materials
-    TPZCompMesh* cmesh = dynamic_cast<TPZCompMesh*>(mphysicCompMesh);
-    mixed_cmesh->CopyMaterials(*cmesh);
-    
-    TPZManVector<TPZCompMesh*, 3> mp_meshes_vec(3);
-    mp_meshes_vec[0] = mixed_cmesh;
-    mp_meshes_vec[1] = MeshesHDiv[0];
-    mp_meshes_vec[2] = MeshesHDiv[1];
-    
-    mphysicCompMesh->SetDimModel(2);
-    TPZManVector<int, 5> active_approx_spaces(3, 1);//teste usando todos os espaços
-    mphysicCompMesh->BuildMultiphysicsSpace(active_approx_spaces, mp_meshes_vec);
-    
-    {
-        std::ofstream out("mixed.txt");
-        mphysicCompMesh->MeshVector()[0]->Print(out);
-        
-        std::ofstream out2("hdiv.txt");
-        mphysicCompMesh->MeshVector()[1]->Print(out2);
-        
-        std::ofstream out3("L2.txt");
-        mphysicCompMesh->MeshVector()[2]->Print(out3);
-        
-    }
-    
-    
-}
-
-void Tools::MultiPhysicsHybrid(const ProblemConfig& config) {
-    
-    
-    TPZManVector<TPZCompMesh*, 2> MeshesHDiv(2, 0);
-    TPZMultiphysicsCompMesh* mixed_cmesh = Tools::CreateHDivMesh(config);//Hdiv x L2
-    MeshesHDiv = mixed_cmesh->MeshVector();
-    mixed_cmesh->InitializeBlock();
-    
-    //cria malha hibrida
-    TPZHybridizeHDiv hybrid;
-    auto HybridMesh = hybrid.Hybridize(mixed_cmesh);
-    (HybridMesh)->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
-    delete mixed_cmesh;
-    delete MeshesHDiv[0];
-    delete MeshesHDiv[1];
-    
-    mixed_cmesh = (HybridMesh);//malha hribrida
-    MeshesHDiv[0] = (HybridMesh)->MeshVector()[0];//malha Hdiv
-    MeshesHDiv[1] = (HybridMesh)->MeshVector()[1];//malha L2
-    
-    //////
-    
-    
-    
-    TPZMultiphysicsCompMesh* mphysicCompMesh = new TPZMultiphysicsCompMesh(config.gmesh);
-    std::ofstream outgeo("geometria.txt");
-    mphysicCompMesh->Reference()->Print(outgeo);
-    
-    
-    //Have to include the materials. Here we just did a copy of previous materials
-    TPZCompMesh* cmesh = dynamic_cast<TPZCompMesh*>(mphysicCompMesh);
-    mixed_cmesh->CopyMaterials(*cmesh);
-    
-    TPZManVector<TPZCompMesh*, 3> mp_meshes_vec(3);
-    mp_meshes_vec[0] = mixed_cmesh;
-    mp_meshes_vec[1] = MeshesHDiv[0];
-    mp_meshes_vec[2] = MeshesHDiv[1];
-    
-    mphysicCompMesh->SetDimModel(2);
-    TPZManVector<int, 5> active_approx_spaces(3, 1);//teste usando todos os espaços
-    mphysicCompMesh->BuildMultiphysicsSpace(active_approx_spaces, mp_meshes_vec);
-    
-    {
-        std::ofstream out("mixed.txt");
-        mphysicCompMesh->MeshVector()[0]->Print(out);
-        
-        std::ofstream out2("hdiv.txt");
-        mphysicCompMesh->MeshVector()[1]->Print(out2);
-        
-        std::ofstream out3("L2.txt");
-        mphysicCompMesh->MeshVector()[2]->Print(out3);
-        
-    }
-    
-    
 }
 
 void Tools::RandomRefinement(TPZGeoMesh *gmesh, int64_t numelrefine, int depth) {
@@ -459,45 +356,6 @@ void Tools::Print(const FADFADREAL& a, std::ostream& out) {
     out << "End\n";
 
 }
-
-void Tools::PrintSolAndDerivate(const ProblemConfig& config) {
-
-    TPZManVector<REAL, 3> x(3, 0.25);
-
-    TPZManVector<Fad<REAL>, 3> xfad(x.size()), graduxy(x.size());
-    TPZManVector<FADFADREAL, 3> xfadfad(x.size()), uxyfadfad(1);
-    for (int i = 0; i < 3; i++) {
-        xfad[i] = Fad<REAL>(3, i, x[i]);
-        xfadfad[i] = FADFADREAL(3, i, xfad[i]);
-        for (int j = 0; j < 3; j++) {
-            xfadfad[i].fastAccessDx(j) = Fad<REAL>(3, xfadfad[i].val().dx(j));
-        }
-    }
-    std::cout << "xfadfad = \n";
-    for (int i = 0; i < 3; i++) {
-        Print(xfadfad[i], std::cout);
-    }
-    std::cout << std::endl;
-    config.exact.operator*().graduxy(xfad, graduxy);
-    config.exact.operator*().uxy(xfadfad, uxyfadfad);
-    for (int i = 0; i < 3; i++) {
-        std::cout << "xfad = ";
-        Print(xfad[i], std::cout);
-        std::cout << std::endl;
-    }
-    std::cout << "graduxy = \n";
-    for (int i = 0; i < 3; i++) {
-        Print(graduxy[i], std::cout);
-    }
-    std::cout << std::endl;
-    std::cout << "uxyfadfad = \n";
-    for (int i = 0; i < uxyfadfad.size(); i++) {
-        Print(uxyfadfad[i], std::cout);
-    }
-    REAL laplace = uxyfadfad[0].dx(0).dx(0) + uxyfadfad[0].dx(1).dx(1) + uxyfadfad[0].dx(2).dx(2);
-    std::cout << "Laplacian " << laplace << std::endl;
-}
-
 
 void Tools::FunctionTest() {
     TLaplaceExample1 Denise;
@@ -670,67 +528,6 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
 
 }
 
-void Tools::ComputeError(TPZCompMesh *Hybridmesh, std::ofstream &out,const ProblemConfig &config)
-{
-    long nel = Hybridmesh->NElements();
-    int dim = Hybridmesh->Dimension();
-    TPZManVector<STATE,10> globerrors(10,0.);
-    for (long el=0; el<nel; el++) {
-        TPZCompEl *cel = Hybridmesh->ElementVec()[el];
-        if (!cel) {
-            continue;
-        }
-        TPZGeoEl *gel = cel->Reference();
-        if(!gel) continue;
-
-        TPZManVector<REAL,10> elerror(5,0.);
-
-        int matId = gel->MaterialId();
-
-
-        TPZMaterial *mat = Hybridmesh->FindMaterial(matId);
-
-        if(matId != 1 || matId != 4) continue;
-
-
-        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-
-
-
-        cel->EvaluateError(config.exact->ExactSolution(), elerror, NULL);
-
-        int nerr = elerror.size();
-        for (int i=0; i<nerr; i++) {
-            globerrors[i] += elerror[i]*elerror[i];
-        }
-
-    }
-    // out << "Errors associated with HDiv space\n";
-    out << "L2 Norm for flux = "    << sqrt(globerrors[1]) << std::endl;
-    out << "L2 Norm for divergence = "    << sqrt(globerrors[2]) << std::endl;
-    out << "Hdiv Norm for flux = "    << sqrt(globerrors[3])  <<std::endl;
-
-}
-
-
-void Tools::PlotLagrangeMultiplier(TPZCompMesh* cmesh, const ProblemConfig& problem) {
-
-    TPZAnalysis an(cmesh, false);
-    TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("State");
-
-    int dim = cmesh->Reference()->Dimension() - 1;
-    std::string plotname;
-    {
-        std::stringstream out;
-        out << problem.dir_name << "/" << "OriginalLagrangeMultiplier" << ".vtk";
-        plotname = out.str();
-    }
-    an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-    an.PostProcess(2, dim);
-
-}
-
 void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config) {
 #ifdef PZDEBUG
     {
@@ -883,59 +680,6 @@ TPZGeoMesh* Tools::ReadGeometricMesh(struct ProblemConfig& config, bool IsgmeshR
     return gmesh;
 
 
-}
-
-TPZMultiphysicsCompMesh* Tools::HybridSolveProblem(TPZMultiphysicsCompMesh* cmesh_HDiv, struct ProblemConfig& config) {
-
-    TPZManVector<TPZCompMesh*, 2> hybridmeshvec;
-    hybridmeshvec = cmesh_HDiv->MeshVector();
-
-    //cria malha hibrida
-    std::cout << "Initializing the hybridization procedure" << std::endl;
-
-    TPZHybridizeHDiv hybrid;
-    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
-    HybridMesh->CleanUpUnconnectedNodes();//enumerar adequadamente os connects
-    HybridMesh->AdjustBoundaryElements();
-    delete cmesh_HDiv;
-    delete hybridmeshvec[0];
-    delete hybridmeshvec[1];
-
-
-    std::cout << "---Original PerifericalMaterialId --- " << std::endl;
-    std::cout << " LagrangeInterface = " << hybrid.fLagrangeInterface << std::endl;
-    std::cout << " HDivWrapMatid = " << hybrid.fHDivWrapMatid << std::endl;
-    std::cout << " InterfaceMatid = " << hybrid.fInterfaceMatid << std::endl;
-
-
-#ifdef PZDEBUG
-    {
-
-        std::ofstream out2("OriginalFluxMesh.txt");
-        HybridMesh->MeshVector()[0]->Print(out2);
-
-        std::ofstream out3("OriginalPotentialMesh.txt");
-        HybridMesh->MeshVector()[1]->Print(out3);
-
-    }
-#endif
-
-
-    SolveHybridProblem(HybridMesh, hybrid.fInterfaceMatid, config, false);
-
-#ifdef PZDEBUG
-    {
-        std::ofstream out("OriginalHybridMesh.txt");
-        (HybridMesh)->Print(out);
-    }
-#endif
-
-   // PlotLagrangeMultiplier(HybridMesh->MeshVector()[1], config);
-
-    cmesh_HDiv = HybridMesh;
-
-    //return HybridMesh;
-    return cmesh_HDiv;
 }
 
 /// Divide lower dimensional elements
@@ -1465,62 +1209,5 @@ TPZGeoMesh* Tools::CreateQuadMeshRefTriang(TPZVec<int>& bcids) {
     gmesh->BuildConnectivity();
 
     return gmesh;
-
-}
-
-void Tools::VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out,  const ProblemConfig& problem)
-{
-
-
-    //
-     TPZGeoMesh *gmesh = hdivmesh->Reference();
-     gmesh->ResetReference();
-     int dim = gmesh->Dimension();
-
-     int64_t nel = hdivmesh->NElements();
-
-
-     // loop over the elements
-     for (int64_t el = 0; el < nel; el++) {
-         TPZCompEl *cel = hdivmesh->Element(el);
-         if (!cel) continue;
-         TPZGeoEl *gel = cel->Reference();
-         if (!gel) continue;
-         int matId = gel->MaterialId();
-         std::cout<<"matId "<<matId<<"\n";
-
-
-         int nsides = gel->NSides();
-         for (int side = 0; side < nsides; side++) {
-             TPZGeoElSide gelside(gel, nsides - 1);
-             TPZStack<TPZCompElSide> equal;
-             int onlyinterpolated = 1;
-             int removeduplicated = 0;
-             gelside.EqualLevelCompElementList(equal, onlyinterpolated, removeduplicated);
-             int nequal = equal.size();
-             if(nequal==0) continue;
-
-             for (int ieq = 0; ieq < nequal; ieq++) {
-                 TPZCompEl *celneigh = equal[ieq].Element();
-                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
-                 TPZVec<REAL> errors(5,0.);
-
-                intelneigh->EvaluateError(problem.exact->ExactSolution(),errors,false);
-
-
-             }
-         }
-     }
-
-
-    //
-
-
-
-//        nkaux[iel] = residuo2;
-//        out << "\nErrors associated with flux on element Ek\n";
-//        out << "L2 Norm flux = "    << nkaux[iel] << endl;
-
-
 
 }

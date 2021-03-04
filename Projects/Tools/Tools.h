@@ -34,8 +34,6 @@
 
 #include "TPZHybridHDivErrorEstimator.h"
 
-class TPZMultiphysicsCompMesh;
-
 #include <tuple>
 #include <memory>
 
@@ -69,14 +67,6 @@ namespace Tools {
 
     TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem);
 
-    void CloneMeshVec(TPZVec<TPZCompMesh *> &meshvec, TPZVec<TPZCompMesh *> &meshvec_clone);
-
-/// Increase the approximation orders of the sides of the flux elements
-    void IncreaseSideOrders(TPZCompMesh *fluxmesh);
-
-/// Set the interface pressure to the average pressure
-    void ComputeAveragePressure(TPZCompMesh *pressure, TPZCompMesh *pressureHybrid, int InterfaceMatid);
-
     void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 
     void UniformRefinement(int nDiv, int dim, TPZGeoMesh *gmesh);
@@ -86,8 +76,6 @@ namespace Tools {
 
 /// Divide lower dimensional elements
     void DivideLowerDimensionalElements(TPZGeoMesh *gmesh);
-
-    void MultiPhysicsCompel(const ProblemConfig &config);
 
 /// numelrefine : number of elements to refine
 /// depth : refinement depth of the mesh
@@ -99,11 +87,8 @@ namespace Tools {
     std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> >
     CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);
 
-    void PrintSolAndDerivate(const ProblemConfig& config);
 
     void FunctionTest();
-
-    void MultiPhysicsHybrid(const ProblemConfig &config);
 
     void Prefinamento(TPZCompMesh *cmesh, int ndiv, int porder);
 
@@ -113,23 +98,13 @@ namespace Tools {
 
     void SolveMixedProblem(TPZCompMesh *cmesh_HDiv, const ProblemConfig &config);
 
-    void PlotLagrangeMultiplier(TPZCompMesh *cmesh, const ProblemConfig &problem);
-
-
-    TPZMultiphysicsCompMesh *HybridSolveProblem(TPZMultiphysicsCompMesh *cmesh_HDiv, struct ProblemConfig &config);
-
     TPZCompMesh *CMeshH1(ProblemConfig problem);
 
     void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, ProblemConfig &config);
 
-    void ComputeError(TPZCompMesh *Hybridmesh, std::ofstream &out, const ProblemConfig &config);
-
-    void VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out, const ProblemConfig &problem);
-
     void Print(const FADREAL& a, std::ostream& out);
 
     void Print(const FADFADREAL& a, std::ostream& out);
-
 
 }
 
