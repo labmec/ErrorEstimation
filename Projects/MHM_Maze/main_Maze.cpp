@@ -3,94 +3,46 @@
 #endif
 
 #include <iostream>
-#include <fstream>
 #include "pzvec.h"
 #include "pzstack.h"
 #include "pzfmatrix.h"
-#include "pzfstrmatrix.h"
 #include "pzlog.h"
 #include "pzreal.h"
 #include "pzgmesh.h"
 #include "pzcmesh.h"
 #include "pzcompel.h"
-#include "TPZInterfaceEl.h"
 #include "pzgeoelside.h"
-#include "TPZGeoLinear.h"
-#include "pzgeopoint.h"
-
-#include "TPZRefPattern.h"
 #include "tpzgeoelrefpattern.h"
-#include "tpzcompmeshreferred.h"
 #include "tpzautopointer.h"
 #include "pzbndcond.h"
 #include "pzanalysis.h"
 
-#include "TPZParSkylineStructMatrix.h"
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
 #include "pzstrmatrix.h"
-#include "pzfstrmatrix.h"
-#include "TPZFrontNonSym.h"
-#include "TPZFrontSym.h"
-#include "TPBSpStructMatrix.h"
-#include "TPZSpStructMatrix.h"
-#include "pzbstrmatrix.h"
 
 #include "pzpoisson3d.h"
-//#include "pzhybridpoisson.h"
-#include "pzpoisson3dreferred.h"
 #include "mixedpoisson.h"
-#include "pzelasmat.h"
-#include "pzelasthybrid.h"
-#include "pzmat1dlin.h"
 #include "TPZVecL2.h"
-//#include "TPZMatLaplacianHybrid.h"
-#include "TPZLagrangeMultiplier.h"
 #include "pzmultiphysicscompel.h"
-
-
 #include "pzbuildmultiphysicsmesh.h"
-#include "pzelementgroup.h"
-#include "TPZCompMeshTools.h"
-#include "pzcondensedcompel.h"
-#include "pzfunction.h"
-#include "pzgraphmesh.h"
-#include "pzfmatrix.h"
-
-#include "pzlog.h"
 
 #include "TPZVTKGeoMesh.h"
-#include "pzvisualmatrix.h"
 #include "TPZGenGrid2D.h"
-#include "TPZExtendGridDimension.h"
-#include "pzcheckgeom.h"
-
-#include "TPZMHMeshControl.h"
 #include "TPZMHMixedMeshControl.h"
 #include "TPZMHMixedMeshChannelControl.h"
-
-#include "TPZMHMixedHybridMeshControl.h"
 #include "TPZHybridizeHDiv.h"
-//#include "meshgen.h"
 #include "ConfigCasesMaze.h"
-#include "pzsolve.h"
-#include <Mesh/pzmultiphysicscompel.h>
 #include <ToolsMHM.h>
-#include <iostream>
-#include <math.h>
-#include <meshgen.h>
+#include <cmath>
 #include <opencv2/opencv.hpp>
 #include <set>
 #include <string>
 
 #include "TPZPersistenceManager.h"
 
-
 using namespace std;
 using namespace cv;
-
-// Creating the computational H1 mesh
-TPZCompMesh *CMeshH1(TPZGeoMesh *gmesh, int p_order, ConfigCasesMaze Conf);
 
 // Creating the computational flux mesh
 TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder);
@@ -112,10 +64,6 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices);
 
 // Insert the necessary objects material in the computational mesh
 void InsertMaterialObjects(TPZMHMixedMeshControl &control);
-
-// Solve the H1 problem with "Conf" configuration
-// Conf contains the maze information and the problem boundary conditions
-int H1Test(ConfigCasesMaze &Conf);
 
 // Solve the mixed problem with "Conf" configuration
 // Conf contains the maze information and the problem boundary conditions
@@ -143,27 +91,8 @@ int main(){
     ConfCasesMeze.SetMHMOpenChannel(false);
     ConfCasesMeze.SetVTKName("maze8x8.vtk");
 
-//    H1Test(ConfCasesMeze);
- //   MixedTest(ConfCasesMeze);
-      MHMTest(ConfCasesMeze);
-    
-//    ConfCasesMeze.SetImageName("maze200x200.png");
-//    ConfCasesMeze.SetImperviousMatPermeability(1);
-//    ConfCasesMeze.SetPermeableMatPermeability(1000000);
-//    ConfCasesMeze.SetFluxOrder(1);
-//    ConfCasesMeze.SetPressureOrder(1);
-//    ConfCasesMeze.SetCCPressureIn(100);
-//    ConfCasesMeze.SetCCPressureOut(1);
-//    ConfCasesMeze.SetMHMOpenChannel(true);
-//    ConfCasesMeze.SetVTKName("maze200x200_open_channel.vtk");
-//
-//    MHMTest(ConfCasesMeze);
-//
-    
-
-      return 0;
-    
-    
+    MHMTest(ConfCasesMeze);
+    return 0;
 }
 
 
@@ -198,14 +127,8 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf){
     TPZVTKGeoMesh::PrintCMeshVTK(MixedMesh, file);
     
     std::ofstream out("MixedCMesh.txt");
-    //    MixedMesh->Print(out);
-    
-    
-    
     std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
-    
-    
-    
+
     //Solving the system:
     bool optimizeBandwidth = true;
     MixedMesh->InitializeBlock();
@@ -229,17 +152,13 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf){
     an->SetSolver(step);
     an->Assemble();
     an->Solve();
-    
-   
-    
+
     //POS
     TPZManVector<std::string,10> scalnames(2), vecnames(1);
     vecnames[0]  = "Flux";
-    
     scalnames[0] = "Pressure";
     scalnames[1] = "Permeability";
-    
-    
+
     const int dim = an->Mesh()->Dimension();
     int div = 0;
     
@@ -248,152 +167,6 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf){
     std::cout << "Standard post-processing finished." << std::endl;
     
     return cmesh_flux;
-}
-
-
-int H1Test(ConfigCasesMaze &Conf)
-{
-    double l;
-    double h;
-    TPZGeoMesh *gmesh = GeoMeshFromPng(Conf.GetImageName(),l,h);
-    {
-#ifdef PZDEBUG
-        std::ofstream file("mazeh1.txt");
-        gmesh->Print(file);
-        
-        std::ofstream out("mazeh1.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, true);
-        
-#endif
-    }
-    
-    //Creando a malla computacional
-    int p_order = Conf.GetPressureOrder() ;
-    int number_threads = 4;
-    bool must_opt_band_width_Q = true;
-    TPZCompMesh *cmesh = CMeshH1(gmesh,p_order,Conf);
-    TPZAnalysis *an = new TPZAnalysis(cmesh,must_opt_band_width_Q);
-    
-#ifdef USING_MKL
-    TPZSymetricSpStructMatrix struct_mat(cmesh);
-    struct_mat.SetNumThreads(number_threads);
-    an->SetStructuralMatrix(struct_mat);
-#else
-    TPZSkylineStructMatrix struct_mat(cmesh);
-    struct_mat.SetNumThreads(number_threads);
-    an->SetStructuralMatrix(struct_mat);
-#endif
-   // TPZStepSolver<STATE> step;
-    //step.SetDirect(ECholesky);
-    
-    
-    
-    int neq = cmesh->NEquations();
-    TPZFMatrix<STATE>  cheia(neq,neq, 1.);
-    TPZStepSolver<STATE> step(&cheia);
-    TPZStepSolver<STATE> precond(step);
-    TPZStepSolver<STATE> iterSolver;
-    iterSolver.SetCG(100, precond, 0.0000000000001, 0);
-    
-    an->SetSolver(iterSolver);
-    an->Run();
-    
-    an->Assemble();
-    // Solving the LS
-    an->Solve();
-    an->Solve();
-    // post-processing step
-    {
-        const int dim = an->Mesh()->Dimension();
-        int div = 0;
-        std::string plotfile = Conf.GetVTKName();
-        TPZStack<std::string> scalar_names, vec_names;
-        
-        scalar_names.push_back("Solution");
-        vec_names.push_back("MinusKGradU");
-        an->DefineGraphMesh(dim,scalar_names,vec_names,plotfile);
-        an->PostProcess(div,dim);
-        std::cout << "Standard post-processing finished." << std::endl;
-    }
-    
-    return 0;
-}
-TPZCompMesh *CMeshH1(TPZGeoMesh *gmesh, int p_order, ConfigCasesMaze Conf){
-    
-    int impervious_mat = 1;
-    int permeable_mat = 2;
-    int dim = gmesh->Dimension();
-    
-    REAL perm_0 = Conf.GetImperviousMatPermeability();
-    REAL perm_1 = Conf.GetPermeableMatPermeability();
-    
-    REAL conv=0;
-    TPZVec<REAL> convdir(dim,0.0);
-    
-    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
-    cmesh->SetDimModel(dim);
-    
-    TPZMatPoisson3d *mat_0 = new TPZMatPoisson3d(impervious_mat,dim);
-    TPZMatPoisson3d *mat_1 = new TPZMatPoisson3d(permeable_mat,dim);
-    mat_0->SetParameters(perm_0, conv, convdir);
-    mat_1->SetParameters(perm_1, conv, convdir);
-    
-    //  inserting volumetric materials objects
-    cmesh->InsertMaterialObject(mat_0);
-    cmesh->InsertMaterialObject(mat_1);
-    
-    
-    int type_D = 0;
-    int type_N = 1;
-    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
-    
-    // Insert boundary conditions
-    //Neumann boundary conditions (flux = 0)
-    int right_bc_id = -2;
-    val2(0,0) = 0.0;
-    TPZMaterial * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(right_bc);
-    
-    int left_bc_id = -4;
-    val2(0,0) = 0.0;
-    TPZMaterial * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(left_bc);
-    
-    int bottom_bc_1id = -1;
-    val2(0,0) = 0.0;
-    TPZMaterial * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(bottom_bc_1);
-    
-    int top_bc_1id = -3;
-    val2(0,0) = 0.0;
-    TPZMaterial * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(top_bc_1);
-    
-    
-    //Dirichlet Conditions (p=1 in, p=0 out)
-    int bottom_bc_id = -5;
-    val2(0,0) = Conf.GetCCPressureIn();
-    TPZMaterial * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
-    cmesh->InsertMaterialObject(bottom_bc);
-    
-    int top_bc_id = -6;
-    val2(0,0) = Conf.GetCCPressureOut();
-    TPZMaterial * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
-    cmesh->InsertMaterialObject(top_bc);
-    
-    cmesh->SetName("LaberintoTest");
-    cmesh->SetAllCreateFunctionsContinuous();
-    cmesh->SetDefaultOrder(p_order);
-    cmesh->AutoBuild();
-    
-    
-    
-#ifdef PZDEBUG
-    std::ofstream file("cmesh_h.txt");
-    cmesh->Print(file);
-#endif
-    
-    return cmesh;
 }
 
 TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf){
@@ -641,10 +414,6 @@ int MHMTest(ConfigCasesMaze &Conf){
         std::ofstream file(Conf.GetVTKName());
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
     }
-//
-//
-//    std::ofstream out2("mesh4x4.txt");
-//    gmeshcoarse->Print(out2);
 
     int interface_mat_id = 600;
     bool OpenChannel = Conf.GetMHMOpenChannel();
@@ -686,12 +455,6 @@ int MHMTest(ConfigCasesMaze &Conf){
 
         InsertMaterialObjects(*mhm);
 
-#ifdef PZDEBUG2
-        if (1) {
-            std::ofstream out("MixedMeshControlHDiv.txt");
-            meshcontrol.Print(out);
-        }
-#endif
         meshcontrol.SetInternalPOrder(3);
         meshcontrol.SetSkeletonPOrder(1);
 
@@ -713,36 +476,15 @@ int MHMTest(ConfigCasesMaze &Conf){
             TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
         }
 #endif
-#ifdef PZDEBUG2
-        if(1)
-        {
-            std::ofstream out("MixedMeshControlHDiv.txt");
-            meshcontrol.Print(out);
-        }
-#endif
-        
+
         std::cout << "MHM Hdiv Computational meshes created\n";
-#ifdef PZDEBUG2
-        if(1)
-        {
-            std::ofstream gfile("geometryMHMHdiv.txt");
-            gmeshauto->Print(gfile);
-            std::ofstream out_mhm("MHM_hdiv.txt");
-            meshcontrol.CMesh()->Print(out_mhm);
-            
-        }
-#endif
-        
+
         std::cout << "Number of equations MHMixed " << MHMixed->CMesh()->NEquations() << std::endl;
-        
-        
+
     }
     
     TPZCompMesh *MixedMesh = MHMixed->CMesh().operator->();
     
-    //    MixedMesh->Print(out);
-    
-//    std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
 
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
     ProblemConfig config;
@@ -861,7 +603,7 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     gengrid.SetElementType(MMeshType::EQuadrilateral);
     TPZGeoMesh *gmeshcoarse = new TPZGeoMesh;
     gmeshcoarse->SetDimension(2);
-        gengrid.SetRefpatternElements(true);
+    gengrid.SetRefpatternElements(true);
     gengrid.Read(gmeshcoarse);
     //gengrid.Read(gmesh,2);
 
@@ -897,7 +639,6 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
             gel->Divide(indexf);
         }
     }
-
 
     //
     int nel = gmeshcoarse->NElements();
@@ -1040,11 +781,6 @@ void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConf
             TPZVec<TPZTransform<>> tr_vec(0);
             m_cel_right->ComputeRequiredData(xi_right, tr_vec, right_mat_data, indexes);
             //m_cel_left->ComputeRequiredData(left_mat_data, xi_left);
-
-
-
-
         }
-
     }
 }

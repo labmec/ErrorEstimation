@@ -91,7 +91,6 @@
 
 #include "TPZMHMixedHybridMeshControl.h"
 #include "TPZHybridizeHDiv.h"
-#include "meshgen.h"
 //#include "ConfigCasesMaze.h"
 #include <iostream>
 #include <string>
@@ -105,6 +104,57 @@
 #include "Tools.h"
 #include "TPZGenGrid2D.h"
 
+struct TRunConfig
+{
+    int nelxcoarse = -1;
+    int nelycoarse = -1;
+    int numHDivisions = 0;
+    int pOrderInternal = 1;
+    int hdivmaismais = 1;
+    int numDivSkeleton = 0;
+    int pOrderSkeleton = 1;
+    int Hybridize = 0;
+    int Condensed = 1;
+    int LagrangeMult = 0;
+    int newline = 0;
+    int n_threads = 0;
+    bool MHM_HDiv_Elast = false;
+
+    /// number of equations when not condensing anything
+    int64_t fGlobalSystemSize = -1;
+    /// number of equations considering local condensation
+    int64_t fGlobalSystemWithLocalCondensationSize = -1;
+    /// number of equations of the global system
+    int64_t fNumeq = -1;
+
+    REAL fDeltaT = 1.;
+
+    /// number of timesteps
+    int64_t nTimeSteps = 10;
+
+    std::ostream &InlinePrint(std::ostream &out)
+    {
+//        out << "nelxCoarse " << nelxcoarse << " nelyCoarse " << nelycoarse << " numHDiv " << numHDivisions << " porderInternal " << pOrderInternal << " numDivSkeleton " << numDivSkeleton
+//        << " porderSkeleton " << pOrderSkeleton << " Hybridize " << Hybridize << " Condensed " << Condensed << " LagrangeMult " << LagrangeMult
+//        << " sysnocondense " << fGlobalSystemSize << " syslocalcondense " << fGlobalSystemWithLocalCondensationSize << " neq " << fNumeq;
+        // <inputs>: n_dx n_dy k_skeleton m_div k_subelement
+        out << "n_dx " << nelxcoarse << " n_dy " << nelycoarse  << " k_skeleton " << pOrderSkeleton << " m_div " << numHDivisions << " k_subelement " << pOrderInternal << " upscaling_dof " << fNumeq << " total_dof " << fGlobalSystemSize;
+        return out;
+    }
+    std::ostream &MathematicaInlinePrint(std::ostream &out)
+    {
+        out << "nelxCoarse, " << nelxcoarse << ", nelyCoarse, " << nelycoarse << " ,numHDiv, " << numHDivisions << " ,porderInternal, " << pOrderInternal << " ,numDivSkeleton, " << numDivSkeleton
+            << " ,porderSkeleton, " << pOrderSkeleton << " ,Hybridize, " << Hybridize << " ,Condensed, " << Condensed << " ,LagrangeMult, " << LagrangeMult
+            << " ,sysnocondense, " << fGlobalSystemSize << " ,syslocalcondense, " << fGlobalSystemWithLocalCondensationSize << " ,neq, " << fNumeq;
+        return out;
+    }
+
+    std::ostream &ConfigPrint(std::ostream &out)
+    {
+        out << nelxcoarse << "x" << nelycoarse << "_HSkel" << numDivSkeleton << "_pSkel" << pOrderSkeleton << "_HDiv" << numHDivisions << "_pInt" << pOrderInternal;
+        return out;
+    }
+};
 // Creating the computational flux mesh
 TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder);
 
