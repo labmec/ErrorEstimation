@@ -95,8 +95,7 @@
 //#include "ConfigCasesMaze.h"
 #include <iostream>
 #include <string>
-//#include <opencv2/opencv.hpp>
-#include <math.h>
+#include <cmath>
 #include <set>
 #include "pzsolve.h"
 
@@ -106,29 +105,11 @@
 #include "Tools.h"
 #include "TPZGenGrid2D.h"
 
-using namespace std;
-
-#define LMESH
-
-
-
-// Creating the computational H1 mesh
-TPZCompMesh *CMeshH1(TPZGeoMesh *gmesh, int p_order, ProblemConfig &Conf);
-
-TPZCompMesh *CMesh_H1(struct ProblemConfig &problem);
-
 // Creating the computational flux mesh
 TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder);
 
-// Creating the computational pressure mesh
-TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ProblemConfig &Conf);
-
 // Creating the computational multphysics mesh
 TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,ProblemConfig &Conf);
-
-// Read a mesh from a png file. The size of the domain will be npix_x by npix_y (read from the image) . Return l=nx; h=ny.
-// on entry image_size_x and image_size_y are equal to the number of MHM elements in x and y
-TPZGeoMesh *GeoMeshFromPng(string name, int &image_size_x, int &image_size_y);
 
 // Create a geometric mesh with the given parameters, nx and ny are the coarse elements number. The total number of elements are defined by the image read.
 TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny);
@@ -137,26 +118,9 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny);
 // cmesh is the flux mesh obtained from a Hdiv previus simulation.
 std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel (TPZCompMesh *cmesh);
 
-
 // Compute the geometric mesh coarse indices
 void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices);
 
-// Insert the necessary objects material in the computational mesh
-void InsertMaterialObjects(TPZMHMixedMeshControl &control,const ProblemConfig &config);
-
-// Solve the H1 problem with "Conf" configuration
-// Conf contains the maze information and the problem boundary conditions
-int H1Test(ProblemConfig &Conf);
-
-// Solve the mixed problem with "Conf" configuration
-// Conf contains the maze information and the problem boundary conditions
-TPZCompMesh* MixedTest(ProblemConfig &Conf);
-
-// Solve the maze using MHM. By default (2x2 coarse elements)
-// Conf contains the maze information and the problem boundary conditions
-int MHMTest(ProblemConfig &Conf);
-
-TPZGeoMesh *CreateCircleGeoMesh();
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes);
 
 /// Solve the problem composed of a multiphysics mesh composed of compmeshes - applies to MHM and MHM-H(div)
