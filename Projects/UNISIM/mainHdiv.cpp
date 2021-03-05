@@ -147,7 +147,7 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
 TPZCompMesh *CreatePressureCMesh(const ProblemConfig &problem) {
     auto *cmesh = new TPZCompMesh(problem.gmesh);
 
-    auto *pressureMat = new TPZNullMaterial(1);
+    auto *pressureMat = new TPZNullMaterial(1, problem.gmesh->Dimension(), 1);
     cmesh->InsertMaterialObject(pressureMat);
 
     cmesh->SetDefaultOrder(problem.porder + problem.hdivmais);
