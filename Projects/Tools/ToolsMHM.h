@@ -158,9 +158,6 @@ struct TRunConfig
 // Creating the computational flux mesh
 TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder);
 
-// Creating the computational multphysics mesh
-TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,ProblemConfig &Conf);
-
 // Create a geometric mesh with the given parameters, nx and ny are the coarse elements number. The total number of elements are defined by the image read.
 TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny);
 
