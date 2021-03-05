@@ -538,7 +538,10 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
 
             gelside.EqualLevelCompElementList(celstack, onlyinterpolated, removeduplicates);
             // A BC element should have only one neighbour from its highest dimension side
-            if (celstack.size() != 1) DebugStop();
+            if (celstack.size() != 1) {
+                continue;
+                //DebugStop();
+            }
 
             int neigh_side_id = celstack[0].Side();
             int order = celstack[0].Element()->Connect(neigh_side_id).Order();

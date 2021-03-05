@@ -227,7 +227,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
-        std::string vtkPath = "error_mhm_results.vtk";
+        std::string vtkPath = config.dir_name + "/" + config.problemname + "Errors.vtk";
         ErrorEstimator.ComputeErrors(errors, elementerrors, vtkPath);
     }
 }

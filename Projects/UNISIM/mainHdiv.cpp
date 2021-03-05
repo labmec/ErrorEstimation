@@ -41,7 +41,7 @@ int main() {
     bool modifyZCoords = false;
     TPZGeoMesh *gmesh = CreateUNISIMSurfaceGeoMesh(false);
     std::string meshFileName{"UNISIMMesh"};
-    int nDirectionalRefinements = 3;
+    int nDirectionalRefinements = 0;
     PrintGeometry(gmesh, meshFileName, false, true);
     ApplyDirectionalRefinement(gmesh, nDirectionalRefinements);
     meshFileName.append("AfterDirectionalRef");
@@ -79,7 +79,7 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
 #else
     config.dir_name = "UNISIM_Flat_AdaptivityMore";
 #endif
-    config.problemname = "UNISIM_Errors";
+    config.problemname = "UNISIM_HDIV";
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -96,17 +96,6 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
 
     TPZMultiphysicsCompMesh *cmesh_HDiv = CreateMixedCMesh(config);
     cmesh_HDiv->InitializeBlock();
-
-    // Hybridizes mesh
-    TPZHybridizeHDiv hybrid;
-    auto HybridMesh = hybrid.Hybridize(cmesh_HDiv);
-    delete cmesh_HDiv->MeshVector()[0];
-    delete cmesh_HDiv->MeshVector()[1];
-    delete cmesh_HDiv;
-    HybridMesh->CleanUpUnconnectedNodes();
-    HybridMesh->AdjustBoundaryElements();
-
-    cmesh_HDiv = HybridMesh;
 
     // Solves FEM problem
     SolveMHMProblem(cmesh_HDiv, config);
@@ -133,12 +122,9 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
         std::string vtkPath = config.dir_name + "/UNISIM_error_results" + std::to_string(config.adaptivityStep) + ".vtk";
         HDivEstimate.ComputeErrors(errorVec, elementerrors, vtkPath);
     }
-    delete HybridMesh->MeshVector()[0];
-    delete HybridMesh->MeshVector()[1];
-    delete HybridMesh;
     delete config.gmesh;
     // h-refinement on elements with bigger errors
-    hAdaptivity(gmesh, elementerrors, 0.3);
+    // hAdaptivity(gmesh, elementerrors, 0.3);
     // UniformRefinement(1, gmesh);
     results.emplace_back(errorVec[1], neq);
     adaptivityStep++;
