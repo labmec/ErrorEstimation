@@ -130,7 +130,7 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
         HDivEstimate.PotentialReconstruction();
 
         std::cout << "Computing errors...\n";
-        std::string vtkPath = "hdiv_error_results.vtk";
+        std::string vtkPath = config.dir_name + "/UNISIM_error_results" + std::to_string(config.adaptivityStep) + ".vtk";
         HDivEstimate.ComputeErrors(errorVec, elementerrors, vtkPath);
     }
     delete HybridMesh->MeshVector()[0];
