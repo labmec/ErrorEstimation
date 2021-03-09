@@ -40,11 +40,6 @@ public:
     virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
     virtual void FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec) override;
 
-    virtual void UpdateBCValues(TPZVec<TPZMaterialData> &datavec);
-
-
-
-
     bool fNeumannLocalProblem = true;
 
     virtual int NEvalErrors() override {return 5;}//erro de oscilacao de dados tbem

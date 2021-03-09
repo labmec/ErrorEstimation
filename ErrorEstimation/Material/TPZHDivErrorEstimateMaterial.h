@@ -38,8 +38,6 @@ public:
     virtual void FillDataRequirements(TPZVec<TPZMaterialData> &datavec) override;
     virtual void FillBoundaryConditionDataRequirement(int type, TPZVec<TPZMaterialData> &datavec) override;
 
-    virtual void UpdateBCValues(TPZVec<TPZMaterialData> &datavec);
-
     bool fNeumannLocalProblem = false;
 
     void SetNeumannProblem(bool neumannProblem) {

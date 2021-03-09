@@ -291,11 +291,6 @@ void TPZEEMatHybridH1ToH1::FillBoundaryConditionDataRequirement(int type,TPZVec<
 
 }
 
-void TPZEEMatHybridH1ToH1::UpdateBCValues(TPZVec<TPZMaterialData> & datavec){
-    DebugStop();
-
-}
-
 void TPZEEMatHybridH1ToH1::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**
