@@ -30,7 +30,7 @@ add_subdirectory(ErrorEstimation)
 # Created executable targets
 add_subdirectory(Projects)
 
-option(USING_LOG4CXX "Whether the LOG4CXX library will be linked in" OFF)
+option(USING_LOG4CXX "Whether the LOG4CXX library will be linked in" ON)
 if(USING_LOG4CXX)
     #this is the definition used in pz lib
     find_package(Log4cxx REQUIRED)
