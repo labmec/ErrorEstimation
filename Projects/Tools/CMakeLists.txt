@@ -6,5 +6,5 @@ add_library(Tools
     ToolsMHM.h
 )
 
-target_link_libraries(Tools ErrorEstimationLib)
+target_link_libraries(Tools ErrorEstimationLib PZ::pz)
 target_include_directories(Tools PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
