@@ -2374,7 +2374,7 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
                 TPZMixedHDivErrorEstimate<TPZMixedPoisson> *newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
                 
                 if (mixpoisson->HasForcingFunction()) {
-                    newmat->SetForcingFunctionExact(mixpoisson->ForcingFunctionExact());
+                    newmat->SetExactSol(mixpoisson->GetExactSol());
                     newmat->SetForcingFunction(mixpoisson->ForcingFunction());
                 }
                 
@@ -2400,7 +2400,7 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
                 newmat->SetNeumannProblem(false);
 
                 if (mixpoisson->HasForcingFunction()) {
-                    newmat->SetForcingFunctionExact(mixpoisson->ForcingFunctionExact());
+                    newmat->SetExactSol(mixpoisson->GetExactSol());
                     newmat->SetForcingFunction(mixpoisson->ForcingFunction());
                 }
                 

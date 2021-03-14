@@ -325,9 +325,9 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
     TPZManVector<STATE,2> pressexact(1,0.);
     TPZFNMatrix<9,STATE> grad(fDim,1,0.), fluxinv(fDim,1),gradu(fDim,1,0);//no TPZAnalytic solution grad é 3x1
     
-    if(fForcingFunctionExact)
+    if(fExactSol)
     {
-        this->fForcingFunctionExact->Execute(datavec[1].x, pressexact,grad);
+        this->fExactSol->Execute(datavec[1].x, pressexact,grad);
         
         for(int i = 1; i<fDim ; i++){
             
@@ -382,9 +382,9 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     
 
     
-    if(this->fForcingFunctionExact){
+    if(this->fExactSol){
         
-        this->fForcingFunctionExact->Execute(data[1].x,u_exact,du_exact);
+        this->fExactSol->Execute(data[1].x,u_exact,du_exact);
     }
     
 

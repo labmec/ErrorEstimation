@@ -40,7 +40,6 @@
 #include "pzbndcond.h"
 #include "pzanalysis.h"
 
-#include "TPZParSkylineStructMatrix.h"
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
 #include "pzstrmatrix.h"

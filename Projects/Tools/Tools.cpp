@@ -113,7 +113,7 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
         mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
-        mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
+        mix->SetExactSol(problem.exact.operator*().Exact());
         mix->SetPermeabilityTensor(K, invK);
 
         if (!mat) mat = mix;
@@ -737,7 +737,7 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
 
     for (auto matid : problem.materialids) {
         TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
+        mix->SetExactSol(problem.exact.operator*().Exact());
         mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
 
         if (!mat) mat = mix;

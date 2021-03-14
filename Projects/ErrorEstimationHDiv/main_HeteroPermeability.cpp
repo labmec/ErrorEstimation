@@ -708,8 +708,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 
                 if(problem.steklovexample){
 
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
                     K(0, 0) = 5.;
                     K(1,1)=5.;
                     K(2,2)=5.;
@@ -723,10 +722,8 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 }
                 
                 else if(problem.GalvisExample) {
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
-                    mix->SetForcingFunction(
-                        problem.exact.operator*().ForcingFunction());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
+                    mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
                     K(0, 0) = k1 * k2;
                     K(1, 1) = k1 * k2;
                     K(2, 2) = k1 * k2;
@@ -742,7 +739,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                     
                     solexata = new TPZDummyFunction<STATE>(ExataOmega1,10);
                     TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-                    mix->SetForcingFunctionExact(sol);
+                    mix->SetExactSol(sol);
                     mix->SetPermeabilityTensor(K, invK);
                     if (!mat) mat = mix;
                     cmesh->InsertMaterialObject(mix);
@@ -762,8 +759,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 
                 if(problem.steklovexample){
 
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
                     mix->SetPermeabilityTensor(K, invK);
                     if (!mat) mat = mix;
                     cmesh->InsertMaterialObject(mix);
@@ -771,10 +767,8 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 }
                 
                 else if(problem.GalvisExample) {
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
-                    mix->SetForcingFunction(
-                        problem.exact.operator*().ForcingFunction());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
+                    mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
                     K(0, 0) = k2;
                     K(1, 1) = k2;
                     K(2, 2) = k2;
@@ -792,7 +786,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                     
                     solexata = new TPZDummyFunction<STATE>(ExataOmega2,10);
                     TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-                    mix->SetForcingFunctionExact(sol);
+                    mix->SetExactSol(sol);
                     
                     STATE alpha2=(problem.alpha)*(problem.alpha);
                     
@@ -822,8 +816,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 
                 if(problem.steklovexample){
 
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
                     K(0, 0) = 5.;
                     K(1,1)=5.;
                     K(2,2)=5.;
@@ -837,8 +830,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 }
                 
                else if(problem.GalvisExample) {
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
                     mix->SetForcingFunction(
                         problem.exact.operator*().ForcingFunction());
                     K(0, 0) = k1;
@@ -858,7 +850,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                     
                     solexata = new TPZDummyFunction<STATE>(ExataOmega3,10);
                     TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-                    mix->SetForcingFunctionExact(sol);
+                    mix->SetExactSol(sol);
                     mix->SetPermeabilityTensor(K, invK);
                     if (!mat) mat = mix;
                     cmesh->InsertMaterialObject(mix);
@@ -878,8 +870,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 
                 if(problem.steklovexample){
 
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
                     K(0, 0) = 1.;
                     K(1,1)=1.;
                     K(2,2)=1.;
@@ -892,8 +883,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                     
                 }
                else if(problem.GalvisExample) {
-                    mix->SetForcingFunctionExact(
-                        problem.exact.operator*().Exact());
+                    mix->SetExactSol(problem.exact.operator*().Exact());
                     mix->SetForcingFunction(
                         problem.exact.operator*().ForcingFunction());
 
@@ -911,7 +901,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                     
                     solexata = new TPZDummyFunction<STATE>(ExataOmega4,10);
                     TPZAutoPointer<TPZFunction<STATE>> sol(solexata);
-                    mix->SetForcingFunctionExact(sol);
+                    mix->SetExactSol(sol);
                     
                     STATE alpha4=pow(problem.alpha, 4);
                 
@@ -1100,7 +1090,7 @@ TPZMultiphysicsCompMesh *CreateBoundaryLayerHDivMesh(const ProblemConfig &proble
         K.Identity();
         invK.Identity();
 
-        mix->SetForcingFunctionExact(problem.exact.operator*().Exact());
+        mix->SetExactSol(problem.exact.operator*().Exact());
         mix->SetPermeabilityTensor(K, invK);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
