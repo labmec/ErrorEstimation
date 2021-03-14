@@ -598,7 +598,7 @@ TPZCompMesh *CompMeshH1(struct SimulationCase &problem) {
     
     for (auto matid : problem.materialids) {
         TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetForcingFunctionExact(problem.exact.Exact());
+        mix->SetExactSol(problem.exact.Exact());
         mix->SetForcingFunction(problem.exact.ForcingFunction());
         
         if (!mat) mat = mix;

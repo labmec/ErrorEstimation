@@ -332,9 +332,9 @@ void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_mixed, REAL permQ
     TPZMixedPoisson *material_Q1 = new TPZMixedPoisson(matID_Q1,dim); //Using standard PermealityTensor = Identity.
     TPZMixedPoisson *material_Q2 = new TPZMixedPoisson(matID_Q2,dim);
     material_Q1->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    material_Q1->SetForcingFunctionExact(config.exact.operator*().Exact());
+    material_Q1->SetExactSol(config.exact.operator*().Exact());
     material_Q2->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    material_Q2->SetForcingFunctionExact(config.exact.operator*().Exact());
+    material_Q2->SetExactSol(config.exact.operator*().Exact());
 
     material_Q1->SetPermeability(permQ1);
     material_Q2->SetPermeability(permQ2);
@@ -397,12 +397,12 @@ void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL p
         //material_Q1->SetForcingFunction(config.exact.operator*().ForcingFunction());
         //material_Q1->SetForcingFunctionExact(config.exact.operator*().Exact());
         material_Q1->SetForcingFunction(mat1->ForcingFunction());
-        material_Q1->SetForcingFunctionExact(mat1->Exact());
+        material_Q1->SetExactSol(mat1->Exact());
 
         //material_Q2->SetForcingFunction(config.exact.operator*().ForcingFunction());
         //material_Q2->SetForcingFunctionExact(config.exact.operator*().Exact());
         material_Q2->SetForcingFunction(mat2->ForcingFunction());
-        material_Q2->SetForcingFunctionExact(mat2->Exact());
+        material_Q2->SetExactSol(mat2->Exact());
     }
 
     // Inserts boundary conditions
@@ -770,7 +770,7 @@ void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig con
 
         TPZMixedPoisson *material = new TPZMixedPoisson(matID, dim); //Using standard PermealityTensor = Identity.
         material->SetForcingFunction(config.exact.operator*().ForcingFunction());
-        material->SetForcingFunctionExact(config.exact.operator*().Exact());
+        material->SetExactSol(config.exact.operator*().Exact());
         cmesh_mixed->InsertMaterialObject(material);
 
         //Boundary Conditions
@@ -808,7 +808,7 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
         if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
             material->SetForcingFunction(
                     config.exact.operator*().ForcingFunction());
-            material->SetForcingFunctionExact(config.exact.operator*().Exact());
+            material->SetExactSol(config.exact.operator*().Exact());
         }
         //    TPZMaterial * mat(material);
         //    cmesh->InsertMaterialObject(mat);
@@ -1006,7 +1006,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
         //    strmat.SetNumThreads(2);
         //    strmat.SetDecomposeType(ELDLt);
-        TPZSkylineStructMatrix strmat(cmesh_H1Hybrid);
+        TPZSkylineStructMatrix strmat(cmesh_Mixed);
         strmat.SetNumThreads(0);
 #endif
     //std::set<int> matIds;

@@ -2557,10 +2557,10 @@ void TPZHybridH1ErrorEstimator::InsertEEMaterial() {
             TPZEEMatHybridH1ToH1 *newmat = new TPZEEMatHybridH1ToH1(*matlaplacian);
 
             if (matlaplacian->HasForcingFunction()) {
-                newmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
+                newmat->SetExactSol(matlaplacian->GetExactSol());
                 newmat->SetForcingFunction(matlaplacian->ForcingFunction());
 
-                newHDivmat->SetForcingFunctionExact(matlaplacian->ForcingFunctionExact());
+                newHDivmat->SetExactSol(matlaplacian->GetExactSol());
                 newHDivmat->SetForcingFunction(matlaplacian->ForcingFunction());
             }
 

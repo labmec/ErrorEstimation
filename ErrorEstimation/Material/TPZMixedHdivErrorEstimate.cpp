@@ -152,10 +152,10 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     TPZManVector<STATE,2> pressvec(1,0.);
     TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
     
-    if(MixedMat::fForcingFunctionExact)
+    if(MixedMat::fExactSol)
     {
 
-        MixedMat::fForcingFunctionExact->Execute(datavec[0].x, pressvec,gradu);
+        MixedMat::fExactSol->Execute(datavec[0].x, pressvec,gradu);
         gradu.Resize(3, 1);
         //gradu(2,0) = 0.;
     }
@@ -219,9 +219,9 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     
     TPZVec<STATE> divsigma(1,0.);
     
-    if(this->fForcingFunctionExact){
+    if(this->fExactSol){
         
-        this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
+        this->fExactSol->Execute(data[0].x,u_exact,du_exact);
         this->fForcingFunction->Execute(data[0].x,divsigma);
     }
     

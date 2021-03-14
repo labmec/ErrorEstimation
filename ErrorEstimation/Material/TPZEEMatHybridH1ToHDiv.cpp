@@ -338,9 +338,9 @@ void TPZEEMatHybridH1ToHDiv::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE>
 
     TPZVec<STATE> divsigma(1);
 
-    if(this->fForcingFunctionExact){
+    if(this->fExactSol){
 
-        this->fForcingFunctionExact->Execute(data[H1functionposition].x,u_exact,du_exact);
+        this->fExactSol->Execute(data[H1functionposition].x,u_exact,du_exact);
 
         this->fForcingFunction->Execute(data[H1functionposition].x,divsigma);
     }
@@ -502,9 +502,9 @@ void TPZEEMatHybridH1ToHDiv::Solution(TPZVec<TPZMaterialData> &datavec, int var,
     TPZManVector<STATE,2> pressexact(1,0.);
     TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
 
-    if(fForcingFunctionExact)
+    if(fExactSol)
     {
-        this->fForcingFunctionExact->Execute(datavec[H1functionposition].x, pressexact,gradu);
+        this->fExactSol->Execute(datavec[H1functionposition].x, pressexact,gradu);
 
     }
 

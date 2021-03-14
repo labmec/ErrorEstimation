@@ -444,7 +444,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     strmat.SetNumThreads(0 /*config.n_threads*/);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(config.n_threads);
+    strmat.SetNumThreads(0);
 #endif
 
     an.SetStructuralMatrix(strmat);
@@ -539,7 +539,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     K.Identity();
     invK.Identity();
 
-    mat->SetForcingFunctionExact(config.exact.operator*().Exact());
+    mat->SetExactSol(config.exact.operator*().Exact());
     mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
     mat->SetPermeabilityTensor(K, invK);
 
