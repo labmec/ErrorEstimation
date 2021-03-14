@@ -17,7 +17,7 @@ add_library(ErrorEstimationLib
     TPZMFSolutionTransfer.h
 )
 
-target_link_libraries(ErrorEstimationLib PRIVATE PZ::pz)
+target_link_libraries(ErrorEstimationLib PRIVATE NeoPZ::pz)
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PZ_INCLUDE_DIR})
 
 # Add material files to ErrorEstimationLib
