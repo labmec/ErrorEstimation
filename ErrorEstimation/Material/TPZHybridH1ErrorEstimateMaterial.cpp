@@ -431,6 +431,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
      datavec[1] L2 mesh,
      datavec[2] Hdiv fem mesh, sigma_h
      datavec[3] L2 mesh fem, u_h
+     datavec[4] L2 projection 
 
       error[0] - error computed with exact pressure
       error[1] - error computed with reconstructed pressure

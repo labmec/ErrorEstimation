@@ -6,6 +6,13 @@ target_link_libraries(HybridH1 Tools ErrorEstimationLib)
 add_executable(HybridH1vsMixed main_HybridH1vsMixed.cpp)
 target_link_libraries(HybridH1vsMixed Tools ErrorEstimationLib)
 
+
+# Project to apply error estimation for hybrid H1 approximations created by denise
+add_executable(HybridH1TEst MainHybridH1EstimatorTest.cpp)
+target_link_libraries(HybridH1TEst Tools ErrorEstimationLib)
+
+MainHybridH1EstimatorTest
+
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
 configure_file(../Meshes/BasicMesh.msh BasicMesh.msh COPYONLY)
