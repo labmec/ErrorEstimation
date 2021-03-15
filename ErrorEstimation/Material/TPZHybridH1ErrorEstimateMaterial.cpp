@@ -551,7 +551,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
-    errors[4] = /*npz;*/residual; //||f - Proj_divsigma||
+    errors[4] = residual; //||f - Proj_divsigma||
     errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
     errors[6] = altResidual*altResidual;
 }
@@ -571,8 +571,8 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "EnergyErrorExact") return 102;
     if(name == "EnergyErrorEstimate") return 103;
     if(name == "ResidualError") return 104;
-    if(name == "PressureEffectivityIndex") return 106;
-    if(name == "EnergyEffectivityIndex") return 107;
+    if(name == "PressureEffectivityIndex") return 107;
+    if(name == "EnergyEffectivityIndex") return 108;
     if(name == "POrder") return 46;
 
     return -1;
@@ -601,6 +601,7 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var)
         case 105:
         case 106:
         case 107:
+        case 108:
             return 1;
             break;
         default:

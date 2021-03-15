@@ -804,15 +804,15 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
             material->ForcingFunction()->Execute(x,res);
             force = res[0];
 
-            std::cout << "[" << intpointtemp[0] << ", " << intpointtemp[1] << ", " << intpointtemp[2] << "]\n";
-            std::cout<< "f: " << force <<"\n\n";
-            phi.Print(std::cout);
+            //std::cout << "[" << intpointtemp[0] << ", " << intpointtemp[1] << ", " << intpointtemp[2] << "]\n";
+            //std::cout<< "f: " << force <<"\n\n";
+            //phi.Print(std::cout);
 
 
 
             for (int ishape = 0; ishape < nshape; ishape++) {
                 L2Rhs(ishape, 0) += weight * phi(ishape, 0)*force;
-                std::cout<< "ishape/weight/phi/force/result: " << ishape << "/" << weight << "/" << phi(ishape, 0) << "/" << force << "/" << weight*phi(ishape, 0)*force << "\n\n";
+                //std::cout<< "ishape/weight/phi/force/result: " << ishape << "/" << weight << "/" << phi(ishape, 0) << "/" << force << "/" << weight*phi(ishape, 0)*force << "\n\n";
             }
             for (int ishape = 0; ishape < nshape; ishape++) {
                 for (int jshape = 0; jshape < nshape; jshape++) {
@@ -2587,7 +2587,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
     int dim = cmesh->Dimension();
     cmesh->ElementSolution().Resize(nrows, ncols+2);
     REAL oscilatorytherm = 0;
-
+    REAL fluxestimator = 0;
     for (int64_t el = 0; el < nrows; el++) {
         
         TPZCompEl *cel = cmesh->Element(el);
@@ -2652,6 +2652,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
             }
         }
     }
+    REAL globalResidual =0., globalProjResidual =0.;;
     for (int64_t el = 0; el < nrows; el++) {
         
         TPZCompEl *cel = cmesh->Element(el);
@@ -2665,14 +2666,22 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
         if(!gel) continue;
         REAL hk = gel->CharacteristicSize();
 
+        REAL elementResidual,elementProjResidual;
+        elementResidual = (hk/M_PI)*cmesh->ElementSolution()(el, 4);
+        elementProjResidual = (hk/M_PI)*cmesh->ElementSolution()(el, 6);
+        globalResidual += elementResidual*elementResidual;
+        globalProjResidual += elementProjResidual*elementProjResidual;
 
         for (int i = 0; i < 3; i += 2) {
             
             //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
             
             REAL tol = 1.e-10;
+            oscilatorytherm = 0.;
+            fluxestimator = 0.;
             REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
             REAL ErrorExact = cmesh->ElementSolution()(el, i);
+           // cmesh->ElementSolution().Print(std::cout);
             
             TPZGeoEl *gel = cel->Reference();
             
@@ -2681,6 +2690,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
             if(i==2){
                 oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
                 oscilatorytherm *= (hk/M_PI);
+                fluxestimator = cmesh->ElementSolution()(el, i + 3);
             }
             
             
@@ -2690,13 +2700,21 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
                 
             }
             else {
-                REAL EfIndex = (ErrorEstimate +oscilatorytherm)/ ErrorExact;
+                REAL EfIndex = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator))/ErrorExact;
                 dataIeff(el,0)= EfIndex;
                 
                 cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
             }
         }
     }
+
+    globalResidual = sqrt(globalResidual);
+    globalProjResidual = sqrt(globalProjResidual);
+    std::cout << "\n\n";
+    std::cout << "Residual = " << globalResidual << "\n";
+    std::cout << "ProjResidual = " << globalProjResidual << "\n";
+    std::cout << "\n\n";
+
     
     //  cmesh->ElementSolution().Print("ElSolution",std::cout);
     //    ofstream out("IeffPerElement3DEx.nb");

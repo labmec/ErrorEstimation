@@ -112,15 +112,15 @@ void IsInteger(char *argv);
 
 
 void Configure(ProblemConfig &config,int ndiv,ErrorData &eData,char *argv[]){
-    config.porder = 2;         // Potential and internal flux order
-    config.hdivmais =  5;       // p_order - hdivmais = External flux order
+    config.porder =2;         // Potential and internal flux order
+    config.hdivmais =  1;       // p_order - hdivmais = External flux order
     config.H1Hybridminus = 1 ;  // p_order - H1HybridMinus = Flux order
     config.ndivisions = ndiv;
     config.dimension = 2;
     config.prefine = false;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinSin/*EArcTan*//*ESinSin*/;
+    config.exact.operator*().fExact = TLaplaceExample1::ESinSin;//ESinSin/*EArcTan*//*ESinSin*/;
     config.exact.operator*().fSignConvention = 1;
 
     config.problemname = "ESinSin";///*"EArcTan"*//*"ESinSin"*/;
@@ -182,13 +182,13 @@ int main(int argc, char *argv[]) {
 
     const clock_t begin_iter = clock();
 
-    for (int ndiv = 1; ndiv < /*eData.maxdiv+2*/2; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 3; ndiv < 4; ndiv++) { //ndiv = 1 corresponds to a 2x2 mesh.
         if (ndiv == eData.maxdiv+1) eData.last = true;
         eData.h = 1./eData.exp;
 
         ProblemConfig config;
         Configure(config,ndiv,eData,argv);
-        std::cout <<"HyybridH1Minus = " << config.H1Hybridminus << "\n\n\n\n";
+
         if(eData.isMultiK){
             SetMultiPermeMaterials(config.gmesh);
         }
@@ -219,8 +219,8 @@ int main(int argc, char *argv[]) {
             CreateHybridH1ComputationalMesh(cmesh_H1Hybrid, interfaceMatID,fluxmatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_H1Hybrid, interfaceMatID, config, eData,hybridLevel);
             {
-                std::ofstream outCon("OriginalLambdasPerConnect.txt");
-                TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh_H1Hybrid->MeshVector()[0], outCon, {}, false, true);
+                //std::ofstream outCon("OriginalLambdasPerConnect.txt");
+                //TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh_H1Hybrid->MeshVector()[0], outCon, {}, false, true);
             }
             TPZHybridH1ErrorEstimator HybridH1Estimate(*cmesh_H1Hybrid);
             HybridH1Estimate.fProblemConfig = config;
@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
             TPZVec<REAL> errorVec;
             HybridH1Estimate.ComputeErrors(errorVec, elementerrors, true);
 
-            FlushTime(eData,start);
+            //FlushTime(eData,start);
         }
 
         //Mixed
@@ -268,10 +268,10 @@ int main(int argc, char *argv[]) {
             int hybridLevel = 2;
             CreateHybridH1ComputationalMesh(cmesh_HybridSquared, interfaceMatID,fluxmatID,eData, config,hybridLevel);
             SolveHybridH1Problem(cmesh_HybridSquared, interfaceMatID, config, eData, hybridLevel);
-            TPZHybridH1ErrorEstimator test(*cmesh_HybridSquared);
-            test.fProblemConfig = config;
-            test.PotentialReconstruction();
-            FlushTime(eData,start);
+            //TPZHybridH1ErrorEstimator test(*cmesh_HybridSquared);
+            //test.fProblemConfig = config;
+            //test.PotentialReconstruction();
+            //FlushTime(eData,start);
         }
         //finish clock
 
@@ -334,8 +334,8 @@ void CreateMaterialMultiK_Mixed(TPZMultiphysicsCompMesh *cmesh_mixed, REAL permQ
     cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    mat1->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
-    mat2->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
+    mat1->fExact = TLaplaceExample1::ESinSin;//ESinSin/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::ESinSin;/*EArcTan*/;
     mat1->fSignConvention = 1;
     mat2->fSignConvention = 1;
     TPZFNMatrix<9,REAL> K, invK;
@@ -388,8 +388,8 @@ void CreateMaterialMultiK_Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, REAL p
     int dirichlet = 0;
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    mat1->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
-    mat2->fExact = TLaplaceExample1::ESinSin/*EArcTan*/;
+    mat1->fExact = TLaplaceExample1::ESinSin;//ESinSin/*EArcTan*/;
+    mat2->fExact = TLaplaceExample1::ESinSin;//ESinSin/*EArcTan*/;
     mat1->fSignConvention = 1;
     mat2->fSignConvention = 1;
     TPZFNMatrix<9,REAL> K, invK;
