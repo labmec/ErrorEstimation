@@ -492,8 +492,8 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
              */
 
             // Erro
-            ofstream myfile;
-            myfile.open("ErrorBCFemProblem.txt", ios::app);
+            std::ofstream myfile;
+            myfile.open("ErrorBCFemProblem.txt", std::ios::app);
 
             myfile << "\n\n Error for Mixed formulation ";
             myfile << "\n-------------------------------------------------- \n";
@@ -605,7 +605,7 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
         an.PostProcessError(errors, false);
 
         // Erro
-        ofstream myfile;
+        std::ofstream myfile;
         /*Error on MixedPoisson
            [0] L2 for pressure
            [1] L2 for flux
@@ -615,7 +615,7 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
            */
 
           // Erro
-          myfile.open("ErrorMixed.txt", ios::app);
+          myfile.open("ErrorMixed.txt", std::ios::app);
           myfile << "\n\n Error for Mixed formulation ";
           myfile << "\n-------------------------------------------------- \n";
           myfile << "Ndiv = " << config.ndivisions

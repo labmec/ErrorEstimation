@@ -110,8 +110,8 @@ void TPZHybridHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<RE
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
 
-    ofstream myfile;
-    myfile.open("ErrorsReconstruction.txt", ios::app);
+    std::ofstream myfile;
+    myfile.open("ErrorsReconstruction.txt", std::ios::app);
 
     std::stringstream ss;
     ss << "\nEstimator errors for Problem " << fProblemConfig.problemname;
@@ -205,8 +205,8 @@ void TPZHybridHDivErrorEstimator::GlobalEffectivityIndex(){
     
     std::cout << "Ieff_global " << Ieff_global << std::endl;
     
-    ofstream myfile;
-    myfile.open("ErrorEstimationResults.txt", ios::app);
+    std::ofstream myfile;
+    myfile.open("ErrorEstimationResults.txt", std::ios::app);
     myfile << "\n\n Estimator errors for Problem "
     << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
@@ -656,7 +656,7 @@ void TPZHybridHDivErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressureme
 #endif
                 int polorder = gelpressures[gelindex];
                 if (polorder != polynomialorder) {
-                    polorder = max(polorder, polynomialorder);
+                    polorder = std::max(polorder, polynomialorder);
                     gelpressures[gelindex] = polorder;
                 }
             }
@@ -2041,15 +2041,15 @@ void TPZHybridHDivErrorEstimator::ComputeEffectivityIndices() {
     }
 
     {
-        ofstream out("IeffPerElement.nb");
+        std::ofstream out("IeffPerElement.nb");
         dataIeff.Print("Ieff = ", out, EMathematicaInput);
-        ofstream out1("InnerEstimated.nb");
+        std::ofstream out1("InnerEstimated.nb");
         InnerEstimated.Print("InnerEstimated = ", out1, EMathematicaInput);
-        ofstream out2("InnerExact.nb");
+        std::ofstream out2("InnerExact.nb");
         InnerExact.Print("InnerExact = ", out2, EMathematicaInput);
-        ofstream out3("BoundExact.nb");
+        std::ofstream out3("BoundExact.nb");
         BoundExact.Print("BoundExact = ", out3, EMathematicaInput);
-        ofstream out4("BoundEstimated.nb");
+        std::ofstream out4("BoundEstimated.nb");
         BoundEstimated.Print("BoundEstimated = ", out4, EMathematicaInput);
     }
 }

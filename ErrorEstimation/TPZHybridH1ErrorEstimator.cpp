@@ -546,7 +546,7 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
     
     fPostProcMesh.BuildMultiphysicsSpace(active, mesh_vectors);
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream out(dirPath + "multiphysicsCreated.txt");
         fPostProcMesh.Print(out);
     }
@@ -783,7 +783,7 @@ void TPZHybridH1ErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh
 #endif
                 int polorder = gelpressures[gelindex];
                 if (polorder != polynomialorder) {
-                    polorder = max(polorder, polynomialorder);
+                    polorder = std::max(polorder, polynomialorder);
                     gelpressures[gelindex] = polorder;
                 }
             }
