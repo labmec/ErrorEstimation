@@ -4,6 +4,7 @@ add_library(Tools
     Tools.h
     ToolsMHM.cpp
     ToolsMHM.h
+    DataStructure.h
 )
 
 target_link_libraries(Tools ErrorEstimationLib)

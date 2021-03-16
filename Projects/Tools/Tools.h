@@ -38,6 +38,7 @@ class TPZMultiphysicsCompMesh;
 
 #include <tuple>
 #include <memory>
+#include "DataStructure.h"
 
 #include <cstdio>
 
@@ -129,7 +130,11 @@ namespace Tools {
 
     void Print(const FADFADREAL& a, std::ostream& out);
 
+    void DrawGeoMesh(ProblemConfig &config, PreConfig &preConfig);
 
+    void DrawCompMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *multiCmesh);
+
+    TPZGeoMesh* CreateGeoMesh(int nelem, TPZVec<int>& bcids,int dim, bool isOriginCentered, int topologyMode);
 }
 
 #endif
