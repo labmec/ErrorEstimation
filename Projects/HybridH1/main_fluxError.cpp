@@ -6,3 +6,41 @@
 //// with homogeneous Neumann BC over 3 sides and a linear Neumann condition over the last side.
 //// For a given value of k, the flux index will be evaluated for different enrichment values.
 
+#include "InputTreatment.h"
+#include "Solver.h"
+#include "Output.h"
+#include "tpzgeoelrefpattern.h"
+#include "DataStructure.h"
+#include "Tools.h"
+#include <tuple>
+
+int main(int argc, char *argv[]) {
+
+#ifdef LOG4CXX
+    InitializePZLOG();
+#endif
+    PreConfig pConfig;
+    pConfig.k = 1;
+    pConfig.n = 2;
+    pConfig.problem = "ESinSin";               //// {"ESinSin","EArcTan",ESteklovNonConst"}
+    pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
+    pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
+    pConfig.refLevel = 1;                      //// How many refinements
+    pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
+    pConfig.debugger = true;                  //// Print geometric and computational mesh
+
+    EvaluateEntry(argc,argv,pConfig);
+    InitializeOutstream(pConfig,argv);
+    {
+        pConfig.h = 1.;
+        ProblemConfig config;
+        ConfigureNFconvergence(config,  pConfig);
+
+        Solve(config, pConfig);
+    }
+    std::string command = "cp Erro.txt " + pConfig.plotfile + "/Erro.txt";
+    system(command.c_str());
+    FlushTable(pConfig,argv);
+
+    return 0.;
+}

@@ -49,6 +49,28 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
 }
 
+void ConfigureNFconvergence(ProblemConfig &config,PreConfig &pConfig){
+    ReadEntry(config, pConfig);
+    config.dimension = pConfig.dim;
+    config.prefine = false;
+    config.exact.operator*().fSignConvention = 1;
+    config.exact->fDimension = config.dimension;
+
+    TPZGeoMesh *gmesh;
+    TPZManVector<int, 4> bcids(4, -1);
+    bcids[3] = -2;
+    gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,0,pConfig.topologyMode);
+
+    config.gmesh = gmesh;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.bcmaterialids.insert(-2);
+
+    if(pConfig.debugger == true){
+        Tools::DrawGeoMesh(config,pConfig);
+    }
+}
+
 void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
     if(argc != 1 && argc != 5){
         std::cout << "Invalid entry";

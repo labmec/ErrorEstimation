@@ -57,6 +57,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
 
 void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, TPZMultiphysicsCompMesh *multiCmesh){
 
+    //if(preConfig.topologyMode != 2) DebugStop();
     if(preConfig.mode == 1){
         TPZHybridH1ErrorEstimator HybridH1Estimate(*multiCmesh);
         HybridH1Estimate.fProblemConfig = config;

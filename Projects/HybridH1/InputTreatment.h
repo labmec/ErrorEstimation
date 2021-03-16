@@ -13,5 +13,6 @@ void InitializeOutstream(PreConfig &pConfig,char *argv[]);
 void IsInteger(char *argv);
 void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]);
 void ReadEntry(ProblemConfig &config, PreConfig &pConfig);
+void ConfigureNFconvergence(ProblemConfig &config,PreConfig &pConfig);
 
 #endif //ERRORESTIMATION_INPUTTREATMENT_H

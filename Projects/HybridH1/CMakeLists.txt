@@ -20,6 +20,10 @@ target_link_libraries(HybridH1 Tools ErrorEstimationLib)
 add_executable(HybridH1vsMixed main_HybridH1vsMixed.cpp)
 target_link_libraries(HybridH1vsMixed Tools Methods ErrorEstimationLib)
 
+# Project to apply error estimation for hybrid H1 approximations
+add_executable(FluxError main_fluxError.cpp)
+target_link_libraries(FluxError Tools Methods ErrorEstimationLib)
+
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
 configure_file(../Meshes/BasicMesh.msh BasicMesh.msh COPYONLY)
