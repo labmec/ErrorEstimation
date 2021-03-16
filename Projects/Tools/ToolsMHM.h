@@ -158,7 +158,7 @@ struct TRunConfig
 TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder);
 
 // Create a geometric mesh with the given parameters, nx and ny are the coarse elements number. The total number of elements are defined by the image read.
-TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny);
+TPZGeoMesh *GenerateGeoMesh(std::string name, int nx, int ny);
 
 // Create a geoElSide map to be open because it has flux.
 // cmesh is the flux mesh obtained from a Hdiv previus simulation.

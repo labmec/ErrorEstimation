@@ -504,7 +504,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
-    cout << "\nError Estimation processing for MHM-Hdiv problem " << endl;
+    std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
 
     // Error estimation
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
@@ -517,7 +517,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     ErrorEstimator.PotentialReconstruction();
 
     {
-        string command = "mkdir " + config.dir_name;
+        std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
 
         TPZManVector<REAL, 6> errors;
