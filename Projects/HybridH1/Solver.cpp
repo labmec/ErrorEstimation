@@ -73,13 +73,13 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
     if (preConfig.mode == 2){
         TPZHybridHDivErrorEstimator test(*multiCmesh);
         test.SetAnalyticSolution(config.exact);
-        test.fProblemConfig = config;
-        test.fOriginalIsHybridized = true;
+        test.SetProblemConfig(config);
         test.PotentialReconstruction();
 
         TPZManVector<REAL> elementerrors;
         TPZVec<REAL> errorVec;
-        test.ComputeErrors(errorVec, elementerrors, true);
+        std::string outVTK = config.dir_name + "/out.vtk";
+        test.ComputeErrors(errorVec, elementerrors,outVTK);
     }
 }
 

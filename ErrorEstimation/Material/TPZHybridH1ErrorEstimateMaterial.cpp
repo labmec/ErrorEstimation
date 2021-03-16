@@ -419,11 +419,6 @@ void TPZHybridH1ErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int 
     }
 }
 
-void TPZHybridH1ErrorEstimateMaterial::UpdateBCValues(TPZVec<TPZMaterialData> & datavec){
-    DebugStop();
-
-}
-
 void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**

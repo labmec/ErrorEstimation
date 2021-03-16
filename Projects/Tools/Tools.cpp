@@ -1213,51 +1213,6 @@ TPZGeoMesh* Tools::CreateQuadMeshRefTriang(TPZVec<int>& bcids) {
 
 }
 
-void Tools::VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out,  const ProblemConfig& problem)
-{
-
-
-    //
-     TPZGeoMesh *gmesh = hdivmesh->Reference();
-     gmesh->ResetReference();
-     int dim = gmesh->Dimension();
-
-     int64_t nel = hdivmesh->NElements();
-
-
-     // loop over the elements
-     for (int64_t el = 0; el < nel; el++) {
-         TPZCompEl *cel = hdivmesh->Element(el);
-         if (!cel) continue;
-         TPZGeoEl *gel = cel->Reference();
-         if (!gel) continue;
-         int matId = gel->MaterialId();
-         std::cout<<"matId "<<matId<<"\n";
-
-
-         int nsides = gel->NSides();
-         for (int side = 0; side < nsides; side++) {
-             TPZGeoElSide gelside(gel, nsides - 1);
-             TPZStack<TPZCompElSide> equal;
-             int onlyinterpolated = 1;
-             int removeduplicated = 0;
-             gelside.EqualLevelCompElementList(equal, onlyinterpolated, removeduplicated);
-             int nequal = equal.size();
-             if(nequal==0) continue;
-
-             for (int ieq = 0; ieq < nequal; ieq++) {
-                 TPZCompEl *celneigh = equal[ieq].Element();
-                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
-                 TPZVec<REAL> errors(5,0.);
-
-                intelneigh->EvaluateError(problem.exact->ExactSolution(),errors,false);
-
-
-             }
-         }
-     }
-}
-
 TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode) {
 
     if (dim == 2){
