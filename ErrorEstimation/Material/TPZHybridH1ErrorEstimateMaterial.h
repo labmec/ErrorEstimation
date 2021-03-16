@@ -11,38 +11,47 @@
 
 #include <stdio.h>
 #include "TPZMatLaplacianHybrid.h"
+#include "mixedpoisson.h"
 
-
-class TPZEEMatHybridH1ToH1: public TPZMatLaplacianHybrid
+class TPZHybridH1ErrorEstimateMaterial: public TPZMixedPoisson
 {
-
 public:
 
+    TPZHybridH1ErrorEstimateMaterial(int matid, int dim);
 
-    TPZEEMatHybridH1ToH1(int matid, int dim);
+    TPZHybridH1ErrorEstimateMaterial();
 
-    TPZEEMatHybridH1ToH1();
+    TPZHybridH1ErrorEstimateMaterial(TPZMatLaplacianHybrid &matlaplacian);
 
-    TPZEEMatHybridH1ToH1(const TPZEEMatHybridH1ToH1 &copy);
+    TPZHybridH1ErrorEstimateMaterial(const TPZHybridH1ErrorEstimateMaterial &copy);
 
-    TPZEEMatHybridH1ToH1(const TPZMatLaplacianHybrid &copy);
+    TPZHybridH1ErrorEstimateMaterial(const TPZMixedPoisson &copy);
 
-    virtual ~TPZEEMatHybridH1ToH1();
+    virtual ~TPZHybridH1ErrorEstimateMaterial();
 
-    TPZEEMatHybridH1ToH1 &operator=(const TPZEEMatHybridH1ToH1 &copy);
-
+    TPZHybridH1ErrorEstimateMaterial &operator=(const TPZHybridH1ErrorEstimateMaterial &copy);
 
     virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
 
     virtual void ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) override;
 
+    virtual void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override{
+        DebugStop();
+    }
+    virtual void ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) override{
+        DebugStop();
+    }
 
     virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
     virtual void FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec) override;
 
+    virtual TPZMaterial * NewMaterial() override{
+        return new TPZHybridH1ErrorEstimateMaterial(*this);
+    }
+
     bool fNeumannLocalProblem = true;
 
-    virtual int NEvalErrors() override {return 5;}//erro de oscilacao de dados tbem
+    virtual int NEvalErrors() override {return 7;}
 
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure
@@ -58,9 +67,5 @@ public:
     virtual int NSolutionVariables(int var) override;
     virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var,
                           TPZVec<STATE> &Solout) override;
-
-    // Returns the first non-null approximation space index, which will be the
-    // H1 reconstruction space
-    int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
 };
 #endif //ERRORESTIMATION_TPZEEMatHybridH1ToH1_H

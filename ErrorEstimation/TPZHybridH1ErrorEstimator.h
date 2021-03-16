@@ -27,7 +27,16 @@ class TPZSubCompMesh;
 // then compute the errors
 struct TPZHybridH1ErrorEstimator
 {
-    
+    /// Weather flux is reconstructed from fem solution (u_h) or from the reconstructed potential (s_h)
+    bool fisReconstructedFromFemSol =true;
+
+    /// Weather pressure should be reconstructed before flux
+    bool fisPotentialRecFromFlux = false;
+
+    /// Weather flux comes from -(grad u_h, v) or (u_h,div(v))
+    /// Only works fisPotentialRecFromFlux = true;
+    bool fisFluxFromSource = true;
+
     /// The HybridSquared approximation mesh for which we will compute the error
     TPZMultiphysicsCompMesh *fOriginal;
 
@@ -39,10 +48,13 @@ struct TPZHybridH1ErrorEstimator
     
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = true;
-    
-    /// Locally created computational mesh to compute the error
+
+    /// Compute average pressure between skeletons on hanging nodes mode;
+    /// 1 : average between both skeletons; 2 : Just small skeleton; 3 : weighted average w~1/h^(p+1)
+    int fAverageMode = 0;
+
+    /// Computational mesh with pressure and flux reconstructions
     TPZMultiphysicsCompMesh fPostProcMesh;
-//    TPZManVector<TPZCompMesh *,7> fPostProcMesh;
     
     /// weights associated with the dim-1 pressure elements to compute the averages
     TPZVec<REAL> fPressureweights;
@@ -52,8 +64,30 @@ struct TPZHybridH1ErrorEstimator
     // fills in the data structure pressureweights and matid_weights
    virtual void ComputePressureWeights();
     // object to assist in creating a hybridized version of the computational mesh
-    TPZHybridizeHDiv fHybridizer;
-    //TPZCreateMultiphysicsSpace fHybrid;
+    /// All parameters needed for creating a hybrid H1 space
+    struct TPZH1HybridConfiguration
+    {
+        /// material id of the dim-1 flux elements
+        int fFluxMatId = -999;
+
+        /// indicated whether the boundary conditions should be hybridized as well
+        int fHybridizeBCLevel = 0;
+
+        /// indicates whether a second hybridizations will be applied
+        bool fHybridSquared = false;
+
+        /// default constructor
+        TPZH1HybridConfiguration(){}
+
+        /// copy constructor
+        TPZH1HybridConfiguration(const TPZH1HybridConfiguration &copy);
+
+        /// copy operator
+        TPZH1HybridConfiguration &operator=(const TPZH1HybridConfiguration &copy);
+    };
+
+    /// object which contains the relevant information for create a hybrid H1 mesh
+    TPZH1HybridConfiguration fHybridizer;
 
     // material id of the dim-1 skeleton elements
     int fPressureSkeletonMatId;
@@ -71,7 +105,7 @@ struct TPZHybridH1ErrorEstimator
     fPostProcMesh(0),fExact(NULL)
     {
         FindFreeMatID(fPressureSkeletonMatId);
-        FindFreeMatID(fHDivResconstructionMatId);
+        fHDivResconstructionMatId = fPressureSkeletonMatId+1;
     }
 
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
@@ -105,6 +139,14 @@ struct TPZHybridH1ErrorEstimator
     }
     
     ~TPZHybridH1ErrorEstimator();
+
+    void SetHybridizer(int fluxID,int HybridizeBCLevel,bool HybridSquare){
+        fHybridizer.fFluxMatId = fluxID;
+        fHybridizer.fHybridizeBCLevel = HybridizeBCLevel;
+        fHybridizer.fHybridSquared = HybridSquare;
+    }
+
+    void GetPressureMatIDs(std::set<int> &matIDs);
     
     /// Set the analytic solution object
     void SetAnalyticSolution(TPZAnalyticSolution &exact)
@@ -112,16 +154,19 @@ struct TPZHybridH1ErrorEstimator
         fExact = &exact;
     }
 
-    void SetHybridizer(TPZHybridizeHDiv &hybridizer) {
-        fHybridizer = hybridizer;
-    }
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
     virtual void ComputeErrors(TPZVec<REAL> &errorVec, TPZVec<REAL> &elementerrors, bool store);
 
-    //reconstruction of potential using hybrid solution on enrichement space
+    /// Pressure Reconstruction s.t. u \in H1(\Omega)
     virtual void PotentialReconstruction();
-    
+
+    /// Extend border flux to interior
+    void FluxReconstruction();
+
+    /// Create pos processing mesh, call H1 and HDiv reconstructions
+    void CreateReconstructionSpaces();
+
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an);
     
@@ -131,20 +176,28 @@ struct TPZHybridH1ErrorEstimator
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
 protected:
-    
+
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
     
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
+
+    /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
+    void ComputeElementStiffnesses(TPZCompMesh &cmesh);
     
     // a method for generating the HDiv mesh
     virtual TPZCompMesh *CreateFluxMesh();
     // a method for creating the pressure mesh
     virtual TPZCompMesh *CreatePressureMesh();
 
+    // a method for generating the HDiv mesh
+    virtual TPZCompMesh *ForceProjectionMesh();
+
     /// return a pointer to the pressure mesh
     virtual TPZCompMesh *PressureMesh();
+
+    virtual TPZCompMesh *FluxMesh();
 
     // Creates skeleton geometric elements on which the average pressure will be calculated
     virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
@@ -186,7 +239,7 @@ protected:
     virtual void ComputeNodalAverages();
     
     /// compute the nodal average of all elements that share a point
-    void ComputeNodalAverage(TPZCompElSide &celside);
+    void ComputeNodalAverage(TPZCompElSide &node_celside);
     //compute the global efectivity index using the CharacteristicSize() of element
     void GlobalEffectivityIndex();
     
@@ -196,7 +249,7 @@ protected:
 
     /// Insert material for HDiv reconstruction
     /// Switch H1 material for H1 reconstruction material
-    virtual void InsertEEMaterial();
+    virtual void SwitchMaterialObjects();
 
     /// Find free matID number
     void FindFreeMatID(int &matID);
@@ -226,14 +279,30 @@ protected:
 
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
-    
+
+    // If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side.
+    bool LiesOnHangingSide(TPZCompElSide &node_celside);
+
+    // Impose the solution on a hanging side
+    void ImposeHangingNodeSolution(TPZCompElSide &node_celside);
+
+    // Checks if the skeleton is continuous
+    void VerifySkeletonContinuity(TPZCompMesh* cmesh);
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
-    
+
+    // Checks if lagrange coefficients are continuous
+    virtual void VerifyBoundaryFluxConsistency(TPZCompMesh* cmesh);
+
+    // Verify if average were well executed
+    void VerifyAverage(int target_dim);
   //  int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
 
 protected:
+
+    //
+    void AdditionalAverageWeights(TPZGeoEl *large, TPZGeoEl *small, REAL &large_weight, REAL &small_weight, REAL sum);
     
     // compute the average of an element iel in the pressure mesh looking at its neighbours
     void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);

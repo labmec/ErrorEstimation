@@ -13,6 +13,7 @@
 #include <tuple>
 #include <memory>
 #include <Pre/TPZGenGrid3D.h>
+#include "DataStructure.h"
 
 #include "pzelementgroup.h"
 
@@ -208,12 +209,12 @@ void Tools::UniformRefinement(int nDiv, int dim, TPZGeoMesh* gmesh) {
 }
 
 TPZGeoMesh* Tools::CreateNewGeoMesh(int nel, TPZVec<int>& bcids) {
-    
+
     TPZManVector<int> nx(2, nel);
     TPZManVector<REAL> x0(3, -1.), x1(3, 1.);
     x1[2] = 0.;
     TPZGenGrid2D gen(nx, x0, x1, 1, 0);
-    
+
     gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
@@ -221,9 +222,9 @@ TPZGeoMesh* Tools::CreateNewGeoMesh(int nel, TPZVec<int>& bcids) {
     gen.SetBC(gmesh, 5, bcids[1]);
     gen.SetBC(gmesh, 6, bcids[2]);
     gen.SetBC(gmesh, 7, bcids[3]);
-    
+
     gmesh->SetDimension(2);
-    
+
     return gmesh;
 }
 
@@ -1211,3 +1212,143 @@ TPZGeoMesh* Tools::CreateQuadMeshRefTriang(TPZVec<int>& bcids) {
     return gmesh;
 
 }
+
+void Tools::VectorEnergyNorm(TPZCompMesh *hdivmesh, std::ostream &out,  const ProblemConfig& problem)
+{
+
+
+    //
+     TPZGeoMesh *gmesh = hdivmesh->Reference();
+     gmesh->ResetReference();
+     int dim = gmesh->Dimension();
+
+     int64_t nel = hdivmesh->NElements();
+
+
+     // loop over the elements
+     for (int64_t el = 0; el < nel; el++) {
+         TPZCompEl *cel = hdivmesh->Element(el);
+         if (!cel) continue;
+         TPZGeoEl *gel = cel->Reference();
+         if (!gel) continue;
+         int matId = gel->MaterialId();
+         std::cout<<"matId "<<matId<<"\n";
+
+
+         int nsides = gel->NSides();
+         for (int side = 0; side < nsides; side++) {
+             TPZGeoElSide gelside(gel, nsides - 1);
+             TPZStack<TPZCompElSide> equal;
+             int onlyinterpolated = 1;
+             int removeduplicated = 0;
+             gelside.EqualLevelCompElementList(equal, onlyinterpolated, removeduplicated);
+             int nequal = equal.size();
+             if(nequal==0) continue;
+
+             for (int ieq = 0; ieq < nequal; ieq++) {
+                 TPZCompEl *celneigh = equal[ieq].Element();
+                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
+                 TPZVec<REAL> errors(5,0.);
+
+                intelneigh->EvaluateError(problem.exact->ExactSolution(),errors,false);
+
+
+             }
+         }
+     }
+}
+
+TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode) {
+
+    if (dim == 2){
+        TPZManVector<int> nx(2, nel);
+        TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
+        if(isOriginCentered == 1){
+            x0[0]= x0[1] = -1;
+        }
+        x1[2] = x0[2] = 0.;
+
+        TPZGenGrid2D gen(nx, x0, x1, 1, 0);
+        MMeshType eltype;
+        if(topologyMode == 1) eltype = MMeshType::ETriangular;
+        else if(topologyMode == 2) eltype = MMeshType::EQuadrilateral;
+        else DebugStop();
+        gen.SetElementType(eltype);
+
+        //TPZGenGrid2D gen(nx, x0, x1);
+        gen.SetRefpatternElements(true);
+        TPZGeoMesh* gmesh = new TPZGeoMesh;
+        gen.Read(gmesh);
+        gen.SetBC(gmesh, 4, bcids[0]);
+        gen.SetBC(gmesh, 5, bcids[1]);
+        gen.SetBC(gmesh, 6, bcids[2]);
+        gen.SetBC(gmesh, 7, bcids[3]);
+
+        gmesh->SetDimension(2);
+
+        return gmesh;
+    }
+    if (dim == 3){
+        int volID = 1;
+        int bcID = -1;
+        TPZManVector<int> nx(2, nel);
+        TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
+        if(isOriginCentered == 1){
+            x0[0]= x0[1] = x0[2]  = -1;
+        }
+
+        TPZManVector<int> nelDiv(3, 1);
+        MMeshType  eltype;
+        if(topologyMode == 3) eltype = MMeshType::ETetrahedral;
+        else if(topologyMode == 4) eltype = MMeshType::EHexahedral;
+        else if(topologyMode == 5) eltype = MMeshType::EPrismatic;
+        else DebugStop();
+        TPZGenGrid3D *gen = new TPZGenGrid3D(x0, x1, nelDiv, eltype);
+
+        TPZGeoMesh* gmesh = new TPZGeoMesh;
+        gmesh = gen->BuildVolumetricElements(volID);
+        gmesh = gen->BuildBoundaryElements(bcID,bcID,bcID,bcID,bcID,bcID);
+
+        gmesh->SetDimension(3);
+        return gmesh;
+    }
+    DebugStop(); // Dim should be 2 or 3
+}
+
+void Tools::DrawGeoMesh(ProblemConfig &config, PreConfig &preConfig) {
+
+    std::stringstream ref;
+    ref << "_ref-" << 1/preConfig.h <<" x " << 1/preConfig.h;
+    std::string refinement =  ref.str();
+
+    std::ofstream out(preConfig.plotfile + "/gmesh_"+ preConfig.topologyFileName + refinement + ".vtk");
+    std::ofstream out2(preConfig.plotfile + "/gmesh"+ refinement + ".txt");
+
+    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+    config.gmesh->Print(out2);
+}
+
+void Tools::DrawCompMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *multiCmesh) {
+
+    std::stringstream ref;
+    ref << "_ref-" << 1/preConfig.h <<" x " << 1/preConfig.h;
+    std::string refinement =  ref.str();
+
+    std::ofstream out(preConfig.plotfile + "/cmesh" + refinement + ".txt");
+
+    if (preConfig.mode == 0) cmesh->Print(out);
+    else multiCmesh->Print(out);
+}
+
+
+    //
+
+
+
+//        nkaux[iel] = residuo2;
+//        out << "\nErrors associated with flux on element Ek\n";
+//        out << "L2 Norm flux = "    << nkaux[iel] << endl;
+
+
+
+
