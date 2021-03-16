@@ -138,7 +138,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     myfile.open("ErrorsReconstruction.txt", ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.porder << " Order n= "<< fProblemConfig.hdivmais<< " K_R = "<<fProblemConfig.Km<<"\n";
+    myfile << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.k << " Order n= "<< fProblemConfig.n<< " K_R = "<<fProblemConfig.Km<<"\n";
     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     myfile << "Global estimator = " << errorVec[3] << "\n";
     myfile << "Global exact error = " << errorVec[2] << "\n";
@@ -236,8 +236,8 @@ void TPZHybridH1ErrorEstimator::GlobalEffectivityIndex(){
     << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "AdaptativStep " << fProblemConfig.adaptivityStep
-    << " Order k= " << fProblemConfig.porder
-    << " Order n= " << fProblemConfig.hdivmais << "\n";
+    << " Order k= " << fProblemConfig.k
+    << " Order n= " << fProblemConfig.n << "\n";
     myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
     myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
     myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
@@ -363,7 +363,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     //active.Resize(3);
     int dimMesh = fProblemConfig.gmesh->Dimension();
 
-    int potential_order = fProblemConfig.porder;
+    int potential_order = fProblemConfig.k+fProblemConfig.n;
     pressure->SetDefaultOrder(potential_order);
     pressure->SetDimModel(dimMesh);
 
@@ -740,7 +740,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
     TPZCompMesh *forceProj = new TPZCompMesh(fProblemConfig.gmesh);
     int dimMesh = fProblemConfig.gmesh->Dimension();
 
-    int potential_order = fProblemConfig.porder;
+    int potential_order = fProblemConfig.k+fProblemConfig.n;
     forceProj->SetDefaultOrder(potential_order);
     forceProj->SetDimModel(dimMesh);
 
