@@ -21,8 +21,13 @@ struct ProblemConfig
     int porder = 2;
     /// increment in internal order of flux and pressure
     int hdivmais = 1;
-    /// decrement of the order of the lagrangian space (H-1/2)
-    int H1Hybridminus = 1;
+
+    /// Instead of specifying "porder" and "hdivmais", one may specify "k" and "n"
+    /// Enrichment order
+    int n = 1;
+    /// Flux order for HDiv configuration or Lagrange coefficient order for Primal Hybrid.
+    int k = 1;
+
     /// option to compute the error based on continuous pressures or not
     bool makepressurecontinuous = true;
     

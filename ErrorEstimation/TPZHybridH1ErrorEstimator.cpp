@@ -274,8 +274,8 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
         
         std::stringstream out;
         out << fProblemConfig.dir_name << "/" << fProblemConfig.problemname
-        << "_POrder" << fProblemConfig.porder << "_HybrdidH1_"
-        << fProblemConfig.H1Hybridminus;
+        << "_k_" << fProblemConfig.k << "_n_"
+        << fProblemConfig.n;
         if (fProblemConfig.ndivisions != -1) {
             out << "_Ndiv_" << fProblemConfig.ndivisions;
         }
@@ -313,7 +313,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 
     VerifyBoundaryFluxConsistency(cmeshHdiv);
 
-    int flux_order = fProblemConfig.porder - fProblemConfig.H1Hybridminus;
+    int flux_order = fProblemConfig.k;
     cmeshHdiv->SetDefaultOrder(flux_order);
     cmeshHdiv->SetDimModel(fProblemConfig.gmesh->Dimension());
 
@@ -338,7 +338,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     cmeshHdiv->AutoBuild();
     cmeshHdiv->InitializeBlock();
 
-    TPZCompMeshTools::AdjustFluxPolynomialOrders(cmeshHdiv, fProblemConfig.H1Hybridminus); //Increases internal flux order by "hdivmais"
+    TPZCompMeshTools::AdjustFluxPolynomialOrders(cmeshHdiv, fProblemConfig.n); //Increases internal flux order by "hdivmais"
 
 #ifdef PZDEBUG
     {

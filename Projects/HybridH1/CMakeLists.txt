@@ -11,7 +11,7 @@ target_link_libraries(HybridH1vsMixed Tools ErrorEstimationLib)
 add_executable(HybridH1TEst MainHybridH1EstimatorTest.cpp)
 target_link_libraries(HybridH1TEst Tools ErrorEstimationLib)
 
-MainHybridH1EstimatorTest
+#MainHybridH1EstimatorTest
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
