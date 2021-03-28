@@ -35,11 +35,8 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
 
 int main() {
-#ifdef LOG4CXX
-    InitializePZLOG();
-#endif
+    TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
-
     //RunSinSinProblem();
     //RunConstantProblem();
     RunOscillatoryProblem();
