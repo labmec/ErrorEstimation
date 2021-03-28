@@ -983,16 +983,14 @@ void TPZHybridHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressure_mesh->FindMaterial(matid);
         // TODO change this. Look for matIDs in bcMatIds instead. Only cast in debug mode for further checks
-#ifdef PZDEBUG
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (bc) continue;
         
-#endif
         // Skip calculation if the element is a small skeleton
         bool largeSideExists = false;
         if (cel->Connect(0).HasDependency()) largeSideExists = true;
 
-#ifdef PZDEBUG 
+#ifdef PZDEBUG
         int nsides = gel->NSides();
         TPZGeoElSide side(gel, nsides - 1);
         TPZGeoElSideAncestors ancestors(side);
