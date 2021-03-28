@@ -327,8 +327,8 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     TPZVec<STATE> divsigma(1);
     divsigma[0]=0.;
 
-    TPZManVector<STATE, 1> u_exact;
-    TPZFNMatrix<9, STATE> du_exact;
+    TPZManVector<STATE, 1> u_exact(1);
+    TPZFNMatrix<9, STATE> du_exact(3, 3);
     if(this->fExactSol){
         
         this->fExactSol->Execute(data[H1functionposition].x,u_exact,du_exact);
