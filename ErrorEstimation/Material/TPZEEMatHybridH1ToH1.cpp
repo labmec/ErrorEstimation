@@ -84,7 +84,7 @@ void TPZEEMatHybridH1ToH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL wei
     TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix; //(2xnphiuk)
     TPZFNMatrix<9,REAL> dphiuk(2,dphiukaxes.Cols());
     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes); //(3xnphiuk)
-    TPZFNMatrix<15, STATE> &dsol = datavec[H1functionposition].dsol[0];
+    TPZFMatrix<STATE> &dsol = datavec[H1functionposition].dsol[0];
 
     int nphiuk = phiuk.Rows();
 
