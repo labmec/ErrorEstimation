@@ -5,11 +5,9 @@
 #define ERRORESTIMATION_TPZHDIVERRORESTIMATORH1_H
 
 
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimator.h"
 
-
-
-class TPZHDivErrorEstimatorH1 : public TPZHybridHDivErrorEstimator {
+class TPZHDivErrorEstimatorH1 : public TPZHDivErrorEstimator {
 
 public:
     /// number of orders the pressure polynomial order is increase
@@ -18,7 +16,7 @@ public:
     bool fperformUplift = true;
 public:
     
-    TPZHDivErrorEstimatorH1(TPZMultiphysicsCompMesh &InputMesh) : TPZHybridHDivErrorEstimator(InputMesh, false)
+    TPZHDivErrorEstimatorH1(TPZMultiphysicsCompMesh &InputMesh) : TPZHDivErrorEstimator(InputMesh, false)
     {
         
     }

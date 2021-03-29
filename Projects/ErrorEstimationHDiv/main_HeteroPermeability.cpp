@@ -36,9 +36,9 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "Tools.h"
+#include "TPZHDivErrorEstimator.h"
 #include "TPZHDivErrorEstimatorH1.h"
-#include "TPZHybridHDivErrorEstimator.h"
+#include "Tools.h"
 
 #include "TPZBFileStream.h"
 #include <tuple>
@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
  
         /*
       
-        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+        TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;

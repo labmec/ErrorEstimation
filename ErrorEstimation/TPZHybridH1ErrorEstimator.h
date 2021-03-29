@@ -1,5 +1,5 @@
 //
-//  TPZHybridHDivErrorEstimator.hpp
+//  TPZHDivErrorEstimator.hpp
 //  ErrorEstimateHDiv
 //
 //  Created by Philippe Devloo on 10/06/18.

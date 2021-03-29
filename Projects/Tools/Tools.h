@@ -32,7 +32,7 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimator.h"
 
 #include <tuple>
 #include <memory>

@@ -12,10 +12,10 @@
 #include <cmath>
 #include <tuple>
 
-#include "Tools.h"
 #include "ProblemConfig.h"
+#include "TPZHDivErrorEstimator.h"
 #include "TPZHDivErrorEstimatorH1.h"
-#include "TPZHybridHDivErrorEstimator.h"
+#include "Tools.h"
 
 //#include "pzelchdiv.h"
 
@@ -169,7 +169,7 @@ else
         //reconstroi potencial e calcula o erro
         {
             bool postProcWithHDiv = false;
-            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
+            TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
             HDivEstimate.SetProblemConfig(config);
             HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
             HDivEstimate.SetAnalyticSolution(config.exact);

@@ -1,5 +1,5 @@
 //
-//  TPZHybridHDivErrorEstimator.hpp
+//  TPZHDivErrorEstimator.hpp
 //  ErrorEstimateHDiv
 //
 //  Created by Philippe Devloo on 10/06/18.
@@ -23,8 +23,7 @@ class TPZSubCompMesh;
 // the class should work for any H(div) mesh
 // first create the post processing mesh
 // then compute the errors
-class TPZHybridHDivErrorEstimator
-{
+class TPZHDivErrorEstimator {
 protected:
     /// The H(Div) approximation mesh for which we will compute the error
     TPZMultiphysicsCompMesh *fOriginal;
@@ -51,18 +50,18 @@ protected:
     bool fPostProcesswithHDiv = false;
 
 public:
-    explicit TPZHybridHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
+    explicit TPZHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
         : fOriginal(&originalMesh), fPostProcMesh(nullptr), fExact(nullptr) {
         fPostProcesswithHDiv = postProcWithHDiv;
     }
 
     // this method wont work because multiphysics meshes have no operator= (yet)
-    TPZHybridHDivErrorEstimator(const TPZHybridHDivErrorEstimator &copy) = delete;
+    TPZHDivErrorEstimator(const TPZHDivErrorEstimator &copy) = delete;
 
     // this method wont work because multiphysics meshes have no operator= (yet)
-    TPZHybridHDivErrorEstimator &operator=(const TPZHybridHDivErrorEstimator &cp) = delete;
+    TPZHDivErrorEstimator &operator=(const TPZHDivErrorEstimator &cp) = delete;
 
-    ~TPZHybridHDivErrorEstimator();
+    ~TPZHDivErrorEstimator();
 
     void SetProblemConfig(const ProblemConfig &cfg) { fProblemConfig = cfg; }
 

@@ -5,19 +5,18 @@
 //  Created by Denise De Siqueira on 25/11/20.
 //
 
-#include "TPZGmshReader.h"
-#include "TPZRefPatternDataBase.h"
-#include "pzlog.h"
-#include "tpzgeoelrefpattern.h"
 #include "ProblemConfig.h"
-#include "pzbndcond.h"
+#include "TPZBFileStream.h"
+#include "TPZGmshReader.h"
+#include "TPZHDivErrorEstimator.h"
 #include "TPZHybridizeHDiv.h"
 #include "TPZMultiphysicsCompMesh.h"
-#include "TPZHybridHDivErrorEstimator.h"
-#include "Tools.h"
-#include "TPZBFileStream.h"
+#include "TPZRefPatternDataBase.h"
 #include "TPZSteklovMaterial.h"
-
+#include "Tools.h"
+#include "pzbndcond.h"
+#include "pzlog.h"
+#include "tpzgeoelrefpattern.h"
 
 TPZMultiphysicsCompMesh * CreateMixedMesh(const ProblemConfig& problem);
 

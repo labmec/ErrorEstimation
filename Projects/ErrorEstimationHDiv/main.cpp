@@ -5,17 +5,17 @@
 //  Created by Denise De Siqueira on 01/04/19.
 //
 
-#include "TPZGmshReader.h"
-#include "TPZRefPatternDataBase.h"
-#include "pzlog.h"
-#include "tpzgeoelrefpattern.h"
 #include "ProblemConfig.h"
-#include "pzbndcond.h"
+#include "TPZBFileStream.h"
+#include "TPZGmshReader.h"
+#include "TPZHDivErrorEstimator.h"
 #include "TPZHybridizeHDiv.h"
 #include "TPZMultiphysicsCompMesh.h"
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZRefPatternDataBase.h"
 #include "Tools.h"
-#include "TPZBFileStream.h"
+#include "pzbndcond.h"
+#include "pzlog.h"
+#include "tpzgeoelrefpattern.h"
 #include <tuple>
 
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef);
@@ -103,7 +103,7 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, TPZHybridizeHDiv &hybrid) {
     bool postProcWithHDiv = false;
-    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
+    TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
     //HDivEstimate.SetHybridizer(hybrid);
     HDivEstimate.SetProblemConfig(config);
 

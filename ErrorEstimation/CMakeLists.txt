@@ -4,8 +4,8 @@ add_library(ErrorEstimationLib
     ProblemConfig.h
     TPZHDivErrorEstimatorH1.cpp
     TPZHDivErrorEstimatorH1.h
-    TPZHybridHDivErrorEstimator.cpp
-    TPZHybridHDivErrorEstimator.h
+        TPZHDivErrorEstimator.cpp
+        TPZHDivErrorEstimator.h
     TPZHybridH1ErrorEstimator.cpp
     TPZHybridH1ErrorEstimator.h
     TPZMHMHDivErrorEstimator.cpp
