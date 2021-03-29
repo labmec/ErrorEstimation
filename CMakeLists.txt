@@ -24,6 +24,7 @@ if (ENABLE_ALL_WARNINGS)
     set(CMAKE_CXX_FLAGS "")
 endif ()
 
+find_package(Threads)
 # Creates ErrorEstimationLib with common error estimation file
 add_subdirectory(ErrorEstimation)
 

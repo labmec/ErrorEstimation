@@ -1089,7 +1089,7 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
     }
     
     gmesh->ResetReference();
-    
+
     TPZElementMatrix ekbc,efbc;
 
     int64_t nel = fPostProcMesh.NElements();
@@ -1152,7 +1152,7 @@ void TPZHybridHDivErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressu
             fPostProcMesh.MaterialVec()[matid] = matvec[matid];
         }
     }
-    
+
     {
         std::ofstream out("PressureProjectionAfter.txt");
         pressuremesh->Print(out);
@@ -1693,15 +1693,15 @@ void TPZHybridHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celsid
     int skeletonMatId = fPressureSkeletonMatId;
     TPZCompMesh *pressure_mesh = PressureMesh();
     int dim = pressure_mesh->Dimension();
-    
+
     TPZMaterial *mat = pressure_mesh->FindMaterial(skeletonMatId);
     if (!mat) DebugStop();
     int nstate = mat->NStateVariables();
-    
+
     TPZGeoElSide node_gelside(node_celside.Reference());
     TPZGeoEl *gel = node_gelside.Element();
     int side = node_gelside.Side();
-    
+
     // celstack will contain all zero dimensional sides connected to the side
     TPZStack<TPZCompElSide> celstack;
     int onlyinterpolated = 1;
@@ -2396,7 +2396,7 @@ void TPZHybridHDivErrorEstimator::SwitchMaterialObjects() {
             {
                 TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
                 newmat->SetNeumannProblem(false);
-                
+
                 if (mixpoisson->HasForcingFunction()) {
                     newmat->SetExactSol(mixpoisson->GetExactSol());
                     newmat->SetForcingFunction(mixpoisson->ForcingFunction());

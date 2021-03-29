@@ -1,8 +1,10 @@
-// Comparison between HybridH1 and Mixed Poisson
-// Modified from main_HybridH1.cpp
 //
-// Created by victor on 28/04/2020.
+// Created by victor on 16/03/2021.
 //
+//// This target focuses on the p-convergence of the flux contribution (NF) to the estimated error;
+//// As such, the laplacian equation is evaluated over a single quadrilateral,
+//// with homogeneous Neumann BC over 3 sides and a linear Neumann condition over the last side.
+//// For a given value of k, the flux index will be evaluated for different enrichment values.
 
 #include "InputTreatment.h"
 #include "Solver.h"
@@ -29,16 +31,12 @@ int main(int argc, char *argv[]) {
 
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
-
-    for (int ndiv = 3; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
-        pConfig.h = 1./pConfig.exp;
+    {
+        pConfig.h = 1.;
         ProblemConfig config;
-        Configure(config,ndiv,pConfig,argv);
+        ConfigureNFconvergence(config,  pConfig);
 
-        Solve(config,pConfig);
-
-        pConfig.hLog = pConfig.h;
-        pConfig.exp *=2;
+        Solve(config, pConfig);
     }
     std::string command = "cp Erro.txt " + pConfig.plotfile + "/Erro.txt";
     system(command.c_str());

@@ -13,6 +13,7 @@
 #include <tuple>
 #include <memory>
 #include <Pre/TPZGenGrid3D.h>
+#include "DataStructure.h"
 
 #include "pzelementgroup.h"
 
@@ -208,12 +209,12 @@ void Tools::UniformRefinement(int nDiv, int dim, TPZGeoMesh* gmesh) {
 }
 
 TPZGeoMesh* Tools::CreateNewGeoMesh(int nel, TPZVec<int>& bcids) {
-    
+
     TPZManVector<int> nx(2, nel);
     TPZManVector<REAL> x0(3, -1.), x1(3, 1.);
     x1[2] = 0.;
     TPZGenGrid2D gen(nx, x0, x1, 1, 0);
-    
+
     gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
@@ -221,9 +222,9 @@ TPZGeoMesh* Tools::CreateNewGeoMesh(int nel, TPZVec<int>& bcids) {
     gen.SetBC(gmesh, 5, bcids[1]);
     gen.SetBC(gmesh, 6, bcids[2]);
     gen.SetBC(gmesh, 7, bcids[3]);
-    
+
     gmesh->SetDimension(2);
-    
+
     return gmesh;
 }
 
@@ -1211,3 +1212,98 @@ TPZGeoMesh* Tools::CreateQuadMeshRefTriang(TPZVec<int>& bcids) {
     return gmesh;
 
 }
+
+TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode) {
+
+    if (dim == 2){
+        TPZManVector<int> nx(2, nel);
+        TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
+        if(isOriginCentered == 1){
+            x0[0]= x0[1] = -1;
+        }
+        x1[2] = x0[2] = 0.;
+
+        TPZGenGrid2D gen(nx, x0, x1, 1, 0);
+        MMeshType eltype;
+        if(topologyMode == 1) eltype = MMeshType::ETriangular;
+        else if(topologyMode == 2) eltype = MMeshType::EQuadrilateral;
+        else DebugStop();
+        gen.SetElementType(eltype);
+
+        //TPZGenGrid2D gen(nx, x0, x1);
+        gen.SetRefpatternElements(true);
+        TPZGeoMesh* gmesh = new TPZGeoMesh;
+        gen.Read(gmesh);
+        gen.SetBC(gmesh, 4, bcids[0]);
+        gen.SetBC(gmesh, 5, bcids[1]);
+        gen.SetBC(gmesh, 6, bcids[2]);
+        gen.SetBC(gmesh, 7, bcids[3]);
+
+        gmesh->SetDimension(2);
+
+        return gmesh;
+    }
+    if (dim == 3){
+        int volID = 1;
+        int bcID = -1;
+        TPZManVector<int> nx(2, nel);
+        TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
+        if(isOriginCentered == 1){
+            x0[0]= x0[1] = x0[2]  = -1;
+        }
+
+        TPZManVector<int> nelDiv(3, 1);
+        MMeshType  eltype;
+        if(topologyMode == 3) eltype = MMeshType::ETetrahedral;
+        else if(topologyMode == 4) eltype = MMeshType::EHexahedral;
+        else if(topologyMode == 5) eltype = MMeshType::EPrismatic;
+        else DebugStop();
+        TPZGenGrid3D *gen = new TPZGenGrid3D(x0, x1, nelDiv, eltype);
+
+        TPZGeoMesh* gmesh = new TPZGeoMesh;
+        gmesh = gen->BuildVolumetricElements(volID);
+        gmesh = gen->BuildBoundaryElements(bcID,bcID,bcID,bcID,bcID,bcID);
+
+        gmesh->SetDimension(3);
+        return gmesh;
+    }
+    DebugStop(); // Dim should be 2 or 3
+}
+
+void Tools::DrawGeoMesh(ProblemConfig &config, PreConfig &preConfig) {
+
+    std::stringstream ref;
+    ref << "_ref-" << 1/preConfig.h <<" x " << 1/preConfig.h;
+    std::string refinement =  ref.str();
+
+    std::ofstream out(preConfig.plotfile + "/gmesh_"+ preConfig.topologyFileName + refinement + ".vtk");
+    std::ofstream out2(preConfig.plotfile + "/gmesh"+ refinement + ".txt");
+
+    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
+    config.gmesh->Print(out2);
+}
+
+void Tools::DrawCompMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *multiCmesh) {
+
+    std::stringstream ref;
+    ref << "_ref-" << 1/preConfig.h <<" x " << 1/preConfig.h;
+    std::string refinement =  ref.str();
+
+    std::ofstream out(preConfig.plotfile + "/cmesh" + refinement + ".txt");
+
+    if (preConfig.mode == 0) cmesh->Print(out);
+    else multiCmesh->Print(out);
+}
+
+
+    //
+
+
+
+//        nkaux[iel] = residuo2;
+//        out << "\nErrors associated with flux on element Ek\n";
+//        out << "L2 Norm flux = "    << nkaux[iel] << endl;
+
+
+
+

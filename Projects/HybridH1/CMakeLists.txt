@@ -1,10 +1,28 @@
+add_library(Methods
+        InputTreatment.h
+        InputTreatment.cpp
+        MeshInit.h
+        MeshInit.cpp
+        Output.cpp
+        Output.h
+        Solver.cpp
+        Solver.h
+        )
+
+target_link_libraries(Methods pz Tools ErrorEstimationLib)
+target_include_directories(Methods PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 # Project to apply error estimation for hybrid H1 approximations
 add_executable(HybridH1 main_HybridH1.cpp)
 target_link_libraries(HybridH1 Tools ErrorEstimationLib)
 
 # Project to apply error estimation for hybrid H1 approximations
 add_executable(HybridH1vsMixed main_HybridH1vsMixed.cpp)
-target_link_libraries(HybridH1vsMixed Tools ErrorEstimationLib)
+target_link_libraries(HybridH1vsMixed Tools Methods ErrorEstimationLib)
+
+# Project to apply error estimation for hybrid H1 approximations
+add_executable(FluxError main_fluxError.cpp)
+target_link_libraries(FluxError Tools Methods ErrorEstimationLib)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
