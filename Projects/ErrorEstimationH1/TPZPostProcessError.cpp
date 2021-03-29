@@ -314,7 +314,7 @@ void TPZPostProcessError::ComputeHDivSolution()
     an.PostProcess(1,ModelDimension);
 
 }
-
+using namespace std;
 // compute the estimated H1 seminorm errors
 void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {

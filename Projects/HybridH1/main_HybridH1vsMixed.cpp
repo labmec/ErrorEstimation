@@ -72,6 +72,8 @@ struct ErrorData
     bool last = false, post_proc = true;
     int exp = 2; // Initial exponent of mesh refinement (numElem = 2*2^exp)
 };
+
+using namespace std;
 ////Insert materials
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config,ErrorData &eData);
 void BuildFluxMesh(TPZCompMesh *cmesh_flux, ProblemConfig &config);

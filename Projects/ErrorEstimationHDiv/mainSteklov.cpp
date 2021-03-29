@@ -60,7 +60,7 @@ void RunSteklovProblem() {
     config.gmesh = Tools::CreateNewGeoMesh(nElem, bcIDs);
     
    
-    string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
     {
          std::string fileName = config.dir_name + "/" + config.problemname + "GeoSquareMesh.vtk";
