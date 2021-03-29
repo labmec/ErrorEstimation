@@ -20,7 +20,7 @@
 #include "MeshInit.h"
 #include "TPZHybridH1ErrorEstimator.h"
 
-
+using namespace std;
 void Solve(ProblemConfig &config, PreConfig &preConfig){
 
     TPZCompMesh *cmesh = InsertCMeshH1(config,preConfig);

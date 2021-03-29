@@ -42,7 +42,7 @@ TPZHybridH1ErrorEstimateMaterial::TPZHybridH1ErrorEstimateMaterial(TPZMatLaplaci
     this->SetPermeabilityTensor(K,invK);
 
     if (matlaplacian.HasForcingFunction()) {
-        this->SetForcingFunctionExact(matlaplacian.ForcingFunctionExact());
+        this->SetExactSol(matlaplacian.GetExactSol());
         this->SetForcingFunction(matlaplacian.ForcingFunction());
     }
 }
@@ -98,7 +98,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         phrq = datavec[0].fVecShapeIndex.NElements();
         phrp = phip.Rows();
 
-        TPZFNMatrix<15, STATE> &dsolpaxes = datavec[1].dsol[0];
+        TPZFMatrix<STATE> &dsolpaxes = datavec[1].dsol[0];
         TPZFNMatrix<9, REAL> dsolp(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dsolpaxes, dsolp, datavec[1].axes);
 
@@ -204,7 +204,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix; //(2xnphiuk)
         TPZFNMatrix<9, REAL> dphiuk(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes); //(3xnphiuk)
-        TPZFNMatrix<15, STATE> &dsolaxes = datavec[H1functionposition].dsol[0];
+        TPZFMatrix<STATE> &dsolaxes = datavec[H1functionposition].dsol[0];
         TPZFNMatrix<9, REAL> dsol(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
 
@@ -455,9 +455,9 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
 
     TPZVec<STATE> divsigma(1);
 
-    if(this->fForcingFunctionExact){
+    if(this->fExactSol){
 
-        this->fForcingFunctionExact->Execute(data[H1functionposition].x,u_exact,du_exact);
+        this->fExactSol->Execute(data[H1functionposition].x,u_exact,du_exact);
 
         this->fForcingFunction->Execute(data[H1functionposition].x,divsigma);
     }
@@ -635,9 +635,9 @@ void TPZHybridH1ErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec
     TPZManVector<STATE,2> pressexact(1,0.);
     TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
 
-    if(fForcingFunctionExact)
+    if(fExactSol)
     {
-        this->fForcingFunctionExact->Execute(datavec[H1functionposition].x, pressexact,gradu);
+        this->fExactSol->Execute(datavec[H1functionposition].x, pressexact,gradu);
 
     }
 

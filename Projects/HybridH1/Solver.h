@@ -28,10 +28,10 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int Interface
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct PreConfig &eData);
 
 //// Error Management
-void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, PreConfig &eData);
+void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh,std::ofstream &Erro, TPZVec<REAL> *Log, PreConfig &eData);
 
 //// Error Management
-void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh,ofstream &Erro, TPZVec<REAL> *Log, PreConfig &eData);
+void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh,std::ofstream &Erro, TPZVec<REAL> *Log, PreConfig &eData);
 
 //// Solve desired problem
 void Solve(ProblemConfig &config, PreConfig &preConfig);

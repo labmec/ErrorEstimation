@@ -5,7 +5,7 @@
 #include "Output.h"
 #include "InputTreatment.h"
 #include "DataStructure.h"
-
+using namespace std;
 void FlushTime(PreConfig &pConfig, clock_t start){
     float timer = float( clock () - start )/CLOCKS_PER_SEC;
     pConfig.timer << "Simulation time (" << pConfig.h << "x" << pConfig.h <<"): " << timer << "\n";
