@@ -63,6 +63,7 @@ TPZGeoMesh *CreateGeoCircleMesh();
 static LoggerPtr logger(Logger::getLogger("pz.refine"));
 #endif
 
+ using namespace std;
 // Laplace equation on square 1D 2D 3D - Volker John article 2000
 int main(int argc, char *argv[]) {
 

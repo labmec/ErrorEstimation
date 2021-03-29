@@ -60,7 +60,7 @@ void RunSingularProblemHDiv() {
     config.ndivisions = 0;
     config.gmesh = CreateLShapeGeoMesh(nRef);
 
-    string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     TPZHybridizeHDiv hybridizer;
@@ -94,10 +94,10 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 
     delete cmesh_HDiv;
 
-    cout << "---Original PerifericalMaterialId --- " << endl;
-    cout << " LagrangeInterface = " << hybridizer.fLagrangeInterface << endl;
-    cout << " HDivWrapMatid = " << hybridizer.fHDivWrapMatid << endl;
-    cout << " InterfaceMatid = " << hybridizer.fInterfaceMatid << endl;
+    std::cout << "---Original PerifericalMaterialId --- " << std::endl;
+    std::cout << " LagrangeInterface = " << hybridizer.fLagrangeInterface << std::endl;
+    std::cout << " HDivWrapMatid = " << hybridizer.fHDivWrapMatid << std::endl;
+    std::cout << " InterfaceMatid = " << hybridizer.fInterfaceMatid << std::endl;
     return hybridMesh;
 }
 
@@ -153,7 +153,7 @@ void RunHPQuadProblemHDiv() {
     //Tools::RefineElements(config.gmesh, {1, 3});
     //Tools::RefineElements(config.gmesh, {12});
 
-    string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     {
@@ -198,7 +198,7 @@ void RunHPCubeProblemHDiv() {
 
     Tools::RefineElements(config.gmesh, {1, 3});
 
-    string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
     {
