@@ -2,10 +2,8 @@
 add_library(ErrorEstimationLib
     # Error estimation
     ProblemConfig.h
-    TPZHDivErrorEstimatorH1.cpp
-    TPZHDivErrorEstimatorH1.h
-        TPZHDivErrorEstimator.cpp
-        TPZHDivErrorEstimator.h
+    TPZHDivErrorEstimator.cpp
+    TPZHDivErrorEstimator.h
     TPZHybridH1ErrorEstimator.cpp
     TPZHybridH1ErrorEstimator.h
     TPZMHMHDivErrorEstimator.cpp
@@ -15,7 +13,7 @@ add_library(ErrorEstimationLib
     TPZCreateMultiphysicsSpace.h
     TPZMFSolutionTransfer.cpp
     TPZMFSolutionTransfer.h
-)
+    )
 
 target_link_libraries(ErrorEstimationLib PRIVATE NeoPZ::pz)
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PZ_INCLUDE_DIR})
