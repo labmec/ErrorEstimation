@@ -16,7 +16,7 @@ add_library(ErrorEstimationLib
     )
 
 target_link_libraries(ErrorEstimationLib PRIVATE NeoPZ::pz)
-target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PZ_INCLUDE_DIR})
+target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PZ_INCLUDE_DIRS})
 
 # Add material files to ErrorEstimationLib
 add_subdirectory(Material)
