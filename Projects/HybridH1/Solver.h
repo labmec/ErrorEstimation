@@ -17,6 +17,8 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, in
 //// Call required methods to build a computational mesh for a Mixed approximation
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Mixed,PreConfig &eData, ProblemConfig &config);
 void CreateCondensedMixedElements(TPZMultiphysicsCompMesh *cmesh_Mixed);
+// Cretes multiphysics computational mesh to compute the solution difference between Hyb and Mix approximations.
+void CreateHybMixCompMesh(TPZMultiphysicsCompMesh *multiHyb, TPZMultiphysicsCompMesh *multiMix, TPZMultiphysicsCompMesh *multiHybMix,PreConfig &hybConfig, ProblemConfig &ConfHyb);
 
 //// Solve classical H1 problem
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct PreConfig &eData);
@@ -35,11 +37,16 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh,ofstream &Erro, 
 
 //// Solve desired problem
 void Solve(ProblemConfig &config, PreConfig &preConfig);
+//// Solve hybrid and mixed problem and compute its difference
+void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]);
 
 void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, TPZMultiphysicsCompMesh *multiCmesh);
 
 //// Draw geometric and computational mesh
 void DrawMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *multiCmesh);
 
+void PostProcessHybMix(TPZMultiphysicsCompMesh *multiHybMix,PreConfig &hybConfig,ProblemConfig &config);
+
+void FluxErrorCreateCompMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId, int &fluxMatID,PreConfig &eData, ProblemConfig &config);
 
 #endif //ERRORESTIMATION_SOLVER_H

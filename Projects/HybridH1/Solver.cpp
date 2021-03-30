@@ -19,6 +19,7 @@
 #include "pzvisualmatrix.h"
 #include "MeshInit.h"
 #include "TPZHybridH1ErrorEstimator.h"
+#include "InputTreatment.h"
 
 
 void Solve(ProblemConfig &config, PreConfig &preConfig){
@@ -53,6 +54,91 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     FlushTime(preConfig,start);
 
     if(preConfig.debugger) Tools::DrawCompMesh(config,preConfig,cmesh,multiCmesh);
+}
+
+void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]){
+    if (hybConfig.mode != 1 || mixConfig.mode != 2) DebugStop();
+
+    ProblemConfig conf;
+    Configure(conf,hybConfig.refLevel,hybConfig,argv);
+
+    TPZMultiphysicsCompMesh *multiHyb = new TPZMultiphysicsCompMesh(conf.gmesh);
+    TPZMultiphysicsCompMesh *multiMix = new TPZMultiphysicsCompMesh(conf.gmesh);
+
+    int interfaceMatID = -10;
+    int fluxMatID = -10;
+    int hybridLevel = 1;
+
+    CreateHybridH1ComputationalMesh(multiHyb, interfaceMatID, fluxMatID,hybConfig, conf,hybridLevel);
+    SolveHybridH1Problem(multiHyb, interfaceMatID, conf, hybConfig,hybridLevel);
+
+    CreateMixedComputationalMesh(multiMix, mixConfig, conf);
+    SolveMixedProblem(multiMix, conf, mixConfig);
+
+    if(hybConfig.debugger){
+        TPZCompMesh *cmesh;
+        Tools::DrawCompMesh(conf,hybConfig,cmesh,multiHyb);
+        conf.problemname = mixConfig.problem;
+        Tools::DrawCompMesh(conf,hybConfig,cmesh,multiHyb);
+    }
+
+    TPZMultiphysicsCompMesh *multiHybMix = new TPZMultiphysicsCompMesh(conf.gmesh);
+    CreateHybMixCompMesh(multiHyb, multiMix, multiHybMix,hybConfig,conf);
+
+    std::ofstream out("Test.txt");
+    multiHybMix->Print(out);
+
+    PostProcessHybMix(multiHybMix,hybConfig,conf);
+}
+
+void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, ProblemConfig &config){
+
+    TPZAnalysis an(multHybMix);
+
+    std::cout << "Post Processing ""Hyb - Mix"" difference " << std::endl;
+    an.SetExact(config.exact.operator*().ExactSolution());
+
+    TPZVec<REAL> errorVec;
+    int64_t nErrorCols = 8;
+    errorVec.resize(nErrorCols);
+    for (int64_t i = 0; i < nErrorCols; i++) {
+        errorVec[i] = 0;
+    }
+
+    int64_t nelem = multHybMix->NElements();
+    multHybMix->LoadSolution(multHybMix->Solution());
+    multHybMix->ExpandSolution();
+    multHybMix->ElementSolution().Redim(nelem, nErrorCols - 1);
+
+    an.PostProcessError(errorVec, true);
+
+    ////PostProcess
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("hybP");
+    scalnames.Push("mixP");
+    scalnames.Push("exactP");
+    scalnames.Push("DiffP");
+
+    vecnames.Push("hybF");
+    vecnames.Push("mixF");
+    vecnames.Push("exactF");
+    vecnames.Push("DiffF");
+
+    int dim = pConfig.dim;
+    std::string plotname;
+    {
+        std::stringstream out;
+        out << pConfig.plotfile << "/" << config.problemname <<"_" << pConfig.topologyFileName << "_k-" << config.k << "_n-" << config.n;
+
+        if(dim == 2) out  << "_numEl_" << 1/pConfig.h << " x " << 1/pConfig.h <<".vtk";
+        if(dim == 3) out  << "_numEl_" << 1/pConfig.h << " x " << 1/pConfig.h << " x " << 1/pConfig.h <<".vtk";
+
+        plotname = out.str();
+    }
+    int resolution = 3;
+    an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+    an.PostProcess(resolution, dim);
+
 }
 
 void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, TPZMultiphysicsCompMesh *multiCmesh){
@@ -98,6 +184,70 @@ void DrawMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, T
 
     if (preConfig.mode == 0) cmesh->Print(out3);
     else multiCmesh->Print(out3);
+}
+
+void CreateHybMixCompMesh(TPZMultiphysicsCompMesh *multiHyb, TPZMultiphysicsCompMesh *multiMix, TPZMultiphysicsCompMesh *multHybMix,PreConfig &hybConfig, ProblemConfig &ConfHyb){
+    // initialize the post processing mesh
+    //fOriginal->CopyMaterials(fPostProcMesh);
+
+    InsertMaterialMixHyb(multHybMix,hybConfig,ConfHyb);
+
+    TPZManVector<TPZCompMesh *> mesh_vectors(3, 0);
+    TPZManVector<int> active(3, 1);
+
+    mesh_vectors[0] = multiHyb->MeshVector()[1]->Clone();      // HybH1 potential
+    mesh_vectors[1] = multiMix->MeshVector()[1]->Clone();      // Mixed potential
+    mesh_vectors[2] = multiMix->MeshVector()[0]->Clone();      // HDiv mixed flux
+
+    // mesh_vector[2]: mixF
+    /*{
+        TPZCompMesh *mixF = mesh_vectors[2];
+        int flux_order = hybConfig.k;
+        mixF->SetDefaultOrder(flux_order);
+        mixF->SetDimModel(hybConfig.dim);
+
+        mixF->SetAllCreateFunctionsHDiv();
+
+        mixF->AutoBuild();
+        mixF->InitializeBlock();
+        TPZCompMeshTools::AdjustFluxPolynomialOrders(mixF, hybConfig.n);
+    }
+    {
+        TPZCompMesh *hybP = mesh_vectors[0],*mixP = mesh_vectors[1];
+
+        hybP->ApproxSpace().SetAllCreateFunctionsContinuous();
+        hybP->ApproxSpace().CreateDisconnectedElements(true);
+        mixP->ApproxSpace().SetAllCreateFunctionsContinuous();
+        mixP->ApproxSpace().CreateDisconnectedElements(true);
+    }*/
+
+    multHybMix->BuildMultiphysicsSpace(active,mesh_vectors);
+    multHybMix->LoadReferences();
+    multHybMix->InitializeBlock();
+
+    //int64_t nelem = multHybMix->NElements();
+    //multHybMix->LoadSolution(multHybMix->Solution());
+    //multHybMix->ExpandSolution();
+    //multHybMix->ElementSolution().Redim(nelem, 8 - 1);
+
+    std::ofstream outHybP("hybP.txt");
+    std::ofstream outMixP("mixP.txt");
+    std::ofstream outMixF("mixF.txt");
+    multHybMix->MeshVector()[0]->Print(outHybP);
+    multHybMix->MeshVector()[1]->Print(outMixP);
+    multHybMix->MeshVector()[2]->Print(outMixF);
+
+    std::ofstream outOrigHybP("OrigHybP.txt");
+    std::ofstream outOrigMixP("OrigMixP.txt");
+    std::ofstream outOrigMixF("OrigMixF.txt");
+    multiHyb->MeshVector()[1]->Print(outOrigHybP);
+    multiMix->MeshVector()[1]->Print(outOrigMixP);
+    multiMix->MeshVector()[0]->Print(outOrigMixF);
+
+    std::ofstream outMult("multHybMix.txt");
+    multHybMix->Print(outMult);
+    std::ofstream outGeo("geomeshTest.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(multHybMix->Reference(), outGeo);
 }
 
 void CreateMixedComputationalMesh(TPZMultiphysicsCompMesh *cmesh_Mixed, PreConfig &pConfig, ProblemConfig &config){
@@ -423,4 +573,35 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
     for (int i = 0; i < pConfig.numErrors; i++)
         (*Log)[i] = Errors[i];
     Errors.clear();
+}
+
+void FluxErrorCreateCompMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID,int &fluxMatID , PreConfig &pConfig, ProblemConfig &config){
+    auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
+
+    TPZCreateMultiphysicsSpace createspace(config.gmesh, spaceType);
+
+    std::cout << cmesh_H1Hybrid->NEquations();
+
+    createspace.SetMaterialIds({1}, {-2,-1});
+    createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
+    createspace.ComputePeriferalMaterialIds();
+
+    TPZManVector<TPZCompMesh *> meshvec;
+
+    int pOrder = config.n+config.k;
+    createspace.CreateAtomicMeshes(meshvec,pOrder,config.k);
+
+    FluxErrorInsertMaterial(cmesh_H1Hybrid, config,pConfig);
+    createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
+    cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
+    createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
+
+    createspace.AddInterfaceElements(cmesh_H1Hybrid);
+    createspace.GroupandCondenseElements(cmesh_H1Hybrid);
+
+    cmesh_H1Hybrid->InitializeBlock();
+    cmesh_H1Hybrid->ComputeNodElCon();
+
+    interFaceMatID = createspace.fH1Hybrid.fLagrangeMatid.first;
+    fluxMatID = createspace.fH1Hybrid.fFluxMatId;
 }

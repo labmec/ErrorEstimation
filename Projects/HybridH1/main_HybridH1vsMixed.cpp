@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
 
-    for (int ndiv = 3; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 1; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
         ProblemConfig config;
         Configure(config,ndiv,pConfig,argv);

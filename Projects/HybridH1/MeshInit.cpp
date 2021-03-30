@@ -12,6 +12,7 @@
 #include "TPZGenGrid2D.h"
 #include "TPZCompMeshTools.h"
 #include "TPZCompElDisc.h"
+#include "TPZHybMixDiffMaterial.h"
 
 void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig &config, PreConfig &pConfig){
     int matID_Q1 = 2;
@@ -434,15 +435,13 @@ void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig con
         cmesh_mixed->SetDimModel(dim);
         cmesh_mixed->SetAllCreateFunctionsMultiphysicElem();
 
-        TPZMatLaplacianHybrid *material = new TPZMatLaplacianHybrid(matID, dim); //Using standard PermealityTensor = Identity.
-        /*if(pConfig.debugger)*/ //Done for efficiency purposes
-        {
+        TPZMixedPoisson *material = new TPZMixedPoisson(matID, dim); //Using standard PermealityTensor = Identity.
+        if(pConfig.debugger) {
             material->SetForcingFunction(config.exact.operator*().ForcingFunction());
             material->SetForcingFunctionExact(config.exact.operator*().Exact());
+        } else {
+            material->SetInternalFlux(1.);
         }
-        //else {
-        //    material->SetInternalFlux(1.);
-        //}
         cmesh_mixed->InsertMaterialObject(material);
 
         //Boundary Conditions
@@ -462,6 +461,47 @@ void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig con
 
     else {
         InsertMaterialMixed_MultiK(cmesh_mixed, config, pConfig);
+    }
+}
+
+void InsertMaterialMixHyb(TPZMultiphysicsCompMesh *multMesh, PreConfig &pConfig, ProblemConfig &config){
+
+    int dim = pConfig.dim;
+    int matID = 1;
+    int dirichlet = 0;
+    int neumann = 1;
+
+    if(pConfig.type != 2) {
+        multMesh->SetDefaultOrder(pConfig.k + pConfig.n);
+        multMesh->SetDimModel(dim);
+        multMesh->SetAllCreateFunctionsMultiphysicElem();
+
+        TPZHybMixDiffMaterial *material = new TPZHybMixDiffMaterial(matID, dim); //Using standard PermealityTensor = Identity.
+        if(pConfig.debugger) {
+            material->SetForcingFunction(config.exact.operator*().ForcingFunction());
+            material->SetForcingFunctionExact(config.exact.operator*().Exact());
+        } else {
+            material->SetInternalFlux(1.);
+        }
+        multMesh->InsertMaterialObject(material);
+
+        //Boundary Conditions
+        TPZFMatrix<STATE> val1(2, 2, 0.), val2(2, 1, 0.);
+
+        TPZMaterial *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
+        if(pConfig.debugger)
+        {
+            BCond0->SetForcingFunction(config.exact.operator*().Exact());
+        }
+
+        TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+
+        multMesh->InsertMaterialObject(BCond0);
+        multMesh->InsertMaterialObject(BCond1);
+    }
+
+    else {
+        DebugStop();
     }
 }
 
@@ -590,4 +630,36 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
 
 
     return cmesh;
+}
+
+void FluxErrorInsertMaterial(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig &config, PreConfig &pConfig)
+{
+    TPZGeoMesh *gmesh = cmesh_H1Hybrid->Reference();
+    int dim = gmesh->Dimension();
+    int matID = 1;
+    int dirichlet = 0;
+    int neumann = 1;
+
+    // Creates Poisson material
+    TPZMatLaplacianHybrid *material = new TPZMatLaplacianHybrid(matID, dim);
+    material->SetPermeability(1.);
+    cmesh_H1Hybrid->InsertMaterialObject(material);
+
+    material->SetForcingFunction(config.exact.operator*().ForcingFunction());
+    material->SetForcingFunctionExact(config.exact.operator*().Exact());
+
+    // Inserts boundary conditions
+    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 1.);
+    TPZMaterial *BCond0 =
+            material->CreateBC(material, -1, dirichlet, val1, val2);
+
+    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+        BCond0->SetForcingFunction(config.exact.operator*().Exact());
+    }
+    val2.Zero();
+    TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+
+    cmesh_H1Hybrid->InsertMaterialObject(BCond0);
+    cmesh_H1Hybrid->InsertMaterialObject(BCond1);
+
 }

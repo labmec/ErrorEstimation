@@ -49,8 +49,27 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
 }
 
-void ConfigureNFconvergence(ProblemConfig &config,PreConfig &pConfig){
-    ReadEntry(config, pConfig);
+void DataInitialization(int argc, char *argv[],PreConfig &hybConfig,PreConfig &mixConfig){
+    EvaluateEntry(argc,argv,hybConfig);
+    InitializeOutstream(hybConfig,argv);
+
+    EvaluateEntry(argc,argv,mixConfig);
+    InitializeOutstream(mixConfig,argv);
+}
+
+void CopyHybSetup(PreConfig &hybConfig, PreConfig &mixConfig){
+    mixConfig.k = hybConfig.k;
+    mixConfig.n = hybConfig.n;
+    mixConfig.problem =   hybConfig.problem;
+    mixConfig.approx =    "Mixed";
+    mixConfig.topology =  hybConfig.topology;
+
+    mixConfig.refLevel = hybConfig.refLevel;
+    mixConfig.debugger = hybConfig.debugger;
+}
+
+void FluxErrorConfigure(ProblemConfig &config,PreConfig &pConfig){
+    //config.exact.operator*().fExact = TPZAnalyticSolution::TForce;
     config.dimension = pConfig.dim;
     config.prefine = false;
     config.exact.operator*().fSignConvention = 1;
