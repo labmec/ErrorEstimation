@@ -219,7 +219,7 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
     
     
     int n_el_chain = chain.size();
-    std::map<int,pair<TPZGeoElSide, TPZGeoElSide>> skelchanel;
+    std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> skelchanel;
     int count_skel_chanel=0;
     int matId_skel_chanel = 10;
     count =0;
@@ -495,8 +495,8 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
 
         //Erro
 
-        ofstream myfile;
-        myfile.open("ArquivosErrosMHM.txt", ios::app);
+        std::ofstream myfile;
+        myfile.open("ArquivosErrosMHM.txt", std::ios::app);
         myfile << "\n\n Error for MHM formulation " ;
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";

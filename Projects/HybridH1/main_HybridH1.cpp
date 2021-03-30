@@ -58,7 +58,7 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
 //TPZCompMesh *CMeshH1(const ProblemConfig &problem);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config);
-
+using namespace std;
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
@@ -275,7 +275,7 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
     if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
         material->SetForcingFunction(
             config.exact.operator*().ForcingFunction());
-        material->SetForcingFunctionExact(config.exact.operator*().Exact());
+        material->SetExactSol(config.exact.operator*().Exact());
     }
     //    TPZMaterial * mat(material);
     //    cmesh->InsertMaterialObject(mat);

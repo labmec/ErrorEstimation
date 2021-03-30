@@ -21,7 +21,7 @@
 #include "TPZHybridH1ErrorEstimator.h"
 #include "InputTreatment.h"
 
-
+using namespace std;
 void Solve(ProblemConfig &config, PreConfig &preConfig){
 
     TPZCompMesh *cmesh = InsertCMeshH1(config,preConfig);

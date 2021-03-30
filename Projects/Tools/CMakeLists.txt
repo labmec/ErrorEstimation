@@ -7,5 +7,5 @@ add_library(Tools
     DataStructure.h
 )
 
-target_link_libraries(Tools ErrorEstimationLib)
+target_link_libraries(Tools ErrorEstimationLib NeoPZ::pz)
 target_include_directories(Tools PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

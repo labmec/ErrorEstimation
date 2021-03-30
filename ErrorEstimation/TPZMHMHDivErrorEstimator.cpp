@@ -809,7 +809,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *pre
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
 
-    set<int> matIdSkeleton = { fPressureSkeletonMatId };
+    std::set<int> matIdSkeleton = { fPressureSkeletonMatId };
     gmesh->ResetReference();
 
     pressure_mesh->ApproxSpace().CreateDisconnectedElements(true);

@@ -35,11 +35,8 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
 
 int main() {
-#ifdef LOG4CXX
-    InitializePZLOG();
-#endif
+    TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
-
     //RunSinSinProblem();
     //RunConstantProblem();
     RunOscillatoryProblem();
@@ -444,7 +441,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     strmat.SetNumThreads(0 /*config.n_threads*/);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(config.n_threads);
+    strmat.SetNumThreads(0);
 #endif
 
     an.SetStructuralMatrix(strmat);
@@ -504,7 +501,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
-    cout << "\nError Estimation processing for MHM-Hdiv problem " << endl;
+    std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
 
     // Error estimation
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
@@ -517,7 +514,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     ErrorEstimator.PotentialReconstruction();
 
     {
-        string command = "mkdir " + config.dir_name;
+        std::string command = "mkdir " + config.dir_name;
         system(command.c_str());
 
         TPZManVector<REAL, 6> errors;
@@ -539,7 +536,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     K.Identity();
     invK.Identity();
 
-    mat->SetForcingFunctionExact(config.exact.operator*().Exact());
+    mat->SetExactSol(config.exact.operator*().Exact());
     mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
     mat->SetPermeabilityTensor(K, invK);
 

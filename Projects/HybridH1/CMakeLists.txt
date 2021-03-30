@@ -11,7 +11,7 @@ add_library(Methods
         TPZHybMixDiffMaterial.cpp
         )
 
-target_link_libraries(Methods pz Tools ErrorEstimationLib)
+target_link_libraries(Methods Tools ErrorEstimationLib)
 target_include_directories(Methods PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Project to apply error estimation for hybrid H1 approximations

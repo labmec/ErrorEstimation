@@ -837,7 +837,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
     }
 
     {
-        string dirPath = fDebugDirName + "/";
+        std::string dirPath = fDebugDirName + "/";
         std::ofstream outCon(dirPath + "forceProj.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(forceProj, outCon, {1}, false, true);
     }
@@ -1090,7 +1090,7 @@ void TPZHybridH1ErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh
 #endif
                 int polorder = gelpressures[gelindex];
                 if (polorder != polynomialorder) {
-                    polorder = max(polorder, polynomialorder);
+                    polorder = std::max(polorder, polynomialorder);
                     gelpressures[gelindex] = polorder;
                 }
             }

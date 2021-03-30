@@ -276,7 +276,7 @@ void TPZHDivErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int type
     
 }
 
-void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
+void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors)
 {    
     /**
      datavec[0] H1 mesh, uh_reconstructed
@@ -321,11 +321,12 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
     
     TPZVec<STATE> divsigma(1);
     divsigma[0]=0.;
-    
-    
-    if(this->fForcingFunctionExact){
+
+    TPZManVector<STATE, 1> u_exact(1);
+    TPZFNMatrix<9, STATE> du_exact(3, 3);
+    if(this->fExactSol){
         
-        this->fForcingFunctionExact->Execute(data[H1functionposition].x,u_exact,du_exact);
+        this->fExactSol->Execute(data[H1functionposition].x,u_exact,du_exact);
     
         this->fForcingFunction->Execute(data[H1functionposition].x,divsigma);
     }
@@ -492,9 +493,9 @@ void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, in
     TPZManVector<STATE,2> pressexact(1,0.);
     TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
     
-    if(fForcingFunctionExact)
+    if(fExactSol)
     {
-        this->fForcingFunctionExact->Execute(datavec[H1functionposition].x, pressexact,gradu);
+        this->fExactSol->Execute(datavec[H1functionposition].x, pressexact,gradu);
        
     }
     
