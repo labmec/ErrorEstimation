@@ -34,7 +34,7 @@ TPZHybMixDiffMaterial::TPZHybMixDiffMaterial(TPZMatLaplacianHybrid &matlaplacian
     this->SetPermeabilityTensor(K,invK);
 
     if (matlaplacian.HasForcingFunction()) {
-        this->SetForcingFunctionExact(matlaplacian.ForcingFunctionExact());
+        this->SetExactSol(matlaplacian.GetExactSol());
         this->SetForcingFunction(matlaplacian.ForcingFunction());
     }
 }
@@ -92,8 +92,8 @@ void TPZHybMixDiffMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     hybP = data[0].sol[0][0];
     mixP = data[1].sol[0][0];
 
-    if(this->fForcingFunctionExact){
-        this->fForcingFunctionExact->Execute(data[0].x,u_exact,du_exact);
+    if(this->fExactSol){
+        this->fExactSol->Execute(data[0].x,u_exact,du_exact);
     }
 
     errors[0] = (hybP-u_exact[0])*(hybP-u_exact[0]);
@@ -196,9 +196,9 @@ void TPZHybMixDiffMaterial::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
     TPZManVector<STATE,2> pressexact(1,0.);
     TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
 
-    if(fForcingFunctionExact)
+    if(fExactSol)
     {
-        this->fForcingFunctionExact->Execute(datavec[0].x, pressexact,gradu);
+        this->fExactSol->Execute(datavec[0].x, pressexact,gradu);
     }
 
     PermTensor.Multiply(gradu, fluxinv);
