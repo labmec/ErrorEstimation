@@ -38,6 +38,8 @@ public:
 
     /// Compute the error and error estimate
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
+
+    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors) override;
     
     virtual int VariableIndex(const std::string &name) override;
     virtual int NSolutionVariables(int var) override;

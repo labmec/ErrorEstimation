@@ -68,6 +68,83 @@ void TPZHybMixDiffMaterial::FillBoundaryConditionDataRequirement(int type, TPZVe
     }
 }
 
+void TPZHybMixDiffMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors){
+/**
+datavec[0] HybH1 potential
+datavec[1] Mixed potential
+datavec[2] Mixed Flux
+
+error[0] - HybH1 potential exact error
+error[1] - Mixed potential exact error
+error[2] - HybH1 - Mixed error
+error[3] - HybH1 flux exact error (-k\nabla u)
+error[4] - Mixed flux exact error (\sigma)
+error[5] - HybH1 - Mixed flux
+
+**/
+
+errors.Resize(NEvalErrors());
+errors.Fill(0.0);
+
+STATE hybP, mixP;
+
+hybP = data[0].sol[0][0];
+mixP = data[1].sol[0][0];
+
+TPZVec<STATE> u_exact(1,0);
+TPZFMatrix<STATE> du_exact(3,1,0);
+if(this->fExactSol){
+this->fExactSol->Execute(data[0].x,u_exact,du_exact);
+}
+
+errors[0] = (hybP-u_exact[0])*(hybP-u_exact[0]);
+errors[1] = (mixP-u_exact[0])*(mixP-u_exact[0]);
+errors[2] = (hybP-mixP)*(hybP-mixP);
+
+TPZFNMatrix<3,REAL> gradHyb(3,1), mixF(3,1), hybF(3,1);
+
+gradHyb = data[0].dsol[0];
+for(int id=0 ; id<3; id++) {
+    mixF(id,0) = data[2].sol[0][id];
+}
+
+gradHyb.Resize(3,1);
+
+TPZFNMatrix<9,REAL> PermTensor;
+TPZFNMatrix<9,REAL> InvPermTensor;
+GetPermeabilities(data[0].x, PermTensor, InvPermTensor);
+PermTensor.Resize(3,3);
+InvPermTensor.Resize(3,3);
+
+PermTensor.Multiply(gradHyb,hybF);
+for(int ip = 0 ; ip < 3 ; ip++){
+hybF(ip,0) = -hybF(ip,0);
+}
+
+TPZFNMatrix<3,REAL> flux;
+
+{
+TPZFNMatrix<9,REAL> minusGradP(3,1);
+for (int i=0; i<3; i++) {
+minusGradP(i,0) = (-1.)*du_exact[i];
+}
+PermTensor.Multiply(minusGradP,flux);
+}
+
+STATE hybExactF = 0., mixExactF = 0., DiffF = 0.;
+for (int i=0; i<3; i++) {
+for (int j=0; j<3; j++) {
+hybExactF += (hybF[i]-flux(i,0))*InvPermTensor(i,j)*(hybF[j]-flux(j,0));
+mixExactF += (mixF[i]-flux(i,0))*InvPermTensor(i,j)*(mixF[j]-flux(j,0));
+DiffF += (hybF[i]-mixF[i])*InvPermTensor(i,j)*(hybF[i]-mixF[i]);
+}
+}
+
+errors[3] = hybExactF;
+errors[4] = mixExactF;
+errors[5] = DiffF;
+}
+
 void TPZHybMixDiffMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
     /**
@@ -103,7 +180,9 @@ void TPZHybMixDiffMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     TPZFNMatrix<3,REAL> gradHyb(3,1), mixF(3,1), hybF(3,1);
 
     gradHyb = data[0].dsol[0];
-    mixF = data[2].divsol[0][0];
+    for(int id=0 ; id<3; id++) {
+        mixF(id,0) = data[2].sol[0][id];
+    }
 
     gradHyb.Resize(3,1);
 
@@ -204,9 +283,9 @@ void TPZHybMixDiffMaterial::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
     PermTensor.Multiply(gradu, fluxinv);
 
     TPZFMatrix<REAL> &dsolaxes = datavec[0].dsol[0];
-    TPZFNMatrix<9, REAL> dsol(3, 0);
-    TPZFNMatrix<9, REAL> KGradsol(3, 0);
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[3].axes);
+    TPZFNMatrix<9, REAL> dsol(3, 1);
+    TPZFNMatrix<9, REAL> KGradsol(3, 1);
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[2].axes);
 
     PermTensor.Multiply(dsol, KGradsol);
 

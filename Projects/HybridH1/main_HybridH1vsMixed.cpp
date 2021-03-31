@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
     pConfig.refLevel = 1;                      //// How many refinements
-    pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
+    pConfig.estimateError = false;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                  //// Print geometric and computational mesh
 
     EvaluateEntry(argc,argv,pConfig);
