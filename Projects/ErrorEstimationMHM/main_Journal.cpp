@@ -34,8 +34,8 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     //RunSmoothProblem();
-    RunNonConvexProblem();
-    //RunHighGradientProblem();
+    //RunNonConvexProblem();
+    RunHighGradientProblem();
     //RunInnerSingularityProblem();
 
     return 0;
@@ -64,7 +64,7 @@ void RunSmoothProblem() {
     system(command.c_str());
 
     {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
         std::ofstream file(fileName);
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
     }
@@ -83,7 +83,7 @@ void RunHighGradientProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EConst;
+    config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
     config.problemname = "HighGradient";
     config.dir_name = "Journal";
     config.porder = 1;
@@ -92,8 +92,8 @@ void RunHighGradientProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 2;
-    int nInternalRef = 0;
+    int nCoarseDiv = 5;
+    int nInternalRef = 1;
 
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
@@ -102,7 +102,7 @@ void RunHighGradientProblem() {
     system(command.c_str());
 
     {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
         std::ofstream file(fileName);
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
     }
@@ -147,7 +147,7 @@ void RunOscillatoryProblem() {
     SolveMHMProblem(mhm, config);
 
     {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
         std::ofstream file(fileName);
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
     }
@@ -179,7 +179,7 @@ void RunNonConvexProblem() {
     system(command.c_str());
 
     {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
         std::ofstream file(fileName);
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
     }
@@ -216,7 +216,7 @@ void Run3DProblem() {
     system(command.c_str());
 
     {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
         std::ofstream file(fileName);
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
     }
@@ -257,7 +257,7 @@ void RunInnerSingularityProblem() {
     CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, mhmIndexes);
 
     {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
         std::ofstream file(fileName);
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
     }
@@ -467,28 +467,9 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     vecnames.Push("ExactFlux");
 
     int resolution = 0;
-    std::string plotname = config.dir_name + "/" + config.problemname + "Results.vtk";
+    std::string plotname = config.dir_name + "/" + config.problemname + "-Results.vtk";
     an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname);
     an.PostProcess(resolution, cmesh->Dimension());
-
-    {
-        TPZCompMesh* cmesh =  mhm->CMesh().operator->();
-        std::ofstream out("SolvedMHMMesh.txt");
-        cmesh->Print(out);
-
-        std::ofstream outFlux("SolvedFluxMHMMesh.txt");
-        mhm->FluxMesh()->Print(outFlux);
-
-        std::stringstream solByElement;
-        TPZCompMeshTools::PrintSolutionByGeoElement(mhm->PressureMesh().operator->(), solByElement);
-        std::ofstream solByElementFile("SolByElementPressureMHM.txt");
-        solByElementFile << solByElement.str();
-    }
-
-    //TPZManVector<REAL> errors(4, 0.);
-    //an.SetThreadsForError(2);
-    //an.SetExact(analytic->ExactSolution());
-    //an.PostProcessError(errors, false);
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
@@ -511,7 +492,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
-        std::string outVTK = config.dir_name + "/out.vtk";
+        std::string outVTK = config.dir_name + "/" + config.problemname + "-Errors.vtk";
         ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
     }
 }
@@ -577,7 +558,7 @@ void RunAdaptivityProblem(){
             system(command.c_str());
 
             {
-                std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+                std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
                 std::ofstream file(fileName);
                 TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
             }
