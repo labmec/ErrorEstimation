@@ -1,8 +1,6 @@
 //
 // Created by Gustavo A. Batistela on 06/07/2020.
 //
-// This file contains the numerical tests to be shown in the CILAMCE 2020 article.
-//
 
 #include <Mesh/pzgmesh.h>
 #include <Pre/TPZGenGrid3D.h>
@@ -12,12 +10,12 @@
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
 
-void RunSinSinProblem();
-void RunConstantProblem();
+void RunSmoothProblem();
+void RunHighGradientProblem();
 void RunOscillatoryProblem();
 void RunNonConvexProblem();
 void Run3DProblem();
-void RunSingularProblem();
+void RunInnerSingularityProblem();
 void RunAdaptivityProblem();
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
@@ -37,25 +35,25 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, Proble
 int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
-    //RunSinSinProblem();
-    //RunConstantProblem();
+    //RunSmoothProblem();
+    //RunHighGradientProblem();
     RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
-    //RunSingularProblem();
+    //RunInnerSingularityProblem();
     
    // RunAdaptivityProblem();
 
     return 0;
 }
 
-void RunSinSinProblem() {
+void RunSmoothProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     config.problemname = "SinSin";
-    config.dir_name = "CILAMCE";
+    config.dir_name = "MHM";
     config.porder = 1;
     config.hdivmais = 2;
     config.materialids.insert(1);
@@ -87,13 +85,13 @@ void RunSinSinProblem() {
     EstimateError(config, mhm);
 }
 
-void RunConstantProblem() {
+void RunHighGradientProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::EConst;
     config.problemname = "Constant";
-    config.dir_name = "CILAMCE";
+    config.dir_name = "MHM";
     config.porder = 1;
     config.hdivmais = 2;
     config.materialids.insert(1);
@@ -169,7 +167,7 @@ void RunNonConvexProblem() {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     config.problemname = "NonConvex";
-    config.dir_name = "CILAMCE";
+    config.dir_name = "MHM";
     config.porder = 1;
     config.hdivmais = 3;
     config.materialids.insert(1);
@@ -206,7 +204,7 @@ void Run3DProblem() {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     config.problemname = "SinSinCube";
-    config.dir_name = "CILAMCE";
+    config.dir_name = "MHM";
     config.porder = 1;
     config.hdivmais = 1;
     config.ndivisions = 2;
@@ -237,13 +235,13 @@ void Run3DProblem() {
     EstimateError(config, mhm);
 }
 
-void RunSingularProblem() {
+void RunInnerSingularityProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
     config.problemname = "SinMarkLShape";
-    config.dir_name = "CILAMCE";
+    config.dir_name = "MHM";
     config.porder = 1;
     config.hdivmais = 3;
     config.materialids.insert(1);
