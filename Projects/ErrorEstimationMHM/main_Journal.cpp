@@ -21,6 +21,8 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
 void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
                        bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes);
+void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
+                                 bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes);
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 
@@ -162,15 +164,14 @@ void RunInnerSingularityProblem() {
     config.dir_name = "Journal";
     config.porder = 1;
     config.hdivmais = 2;
-    config.materialids.insert(1);
+    config.materialids = {1, 2};
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 5;
+    int nCoarseDiv = 3;
     int nInternalRef = 1;
 
     config.ndivisions = nCoarseDiv;
-
 
     TPZManVector<REAL> x0(3, -1.), x1(3, 1.);
     x1[2] = 0.;
@@ -191,6 +192,21 @@ void RunInnerSingularityProblem() {
     Tools::UniformRefinement(nInternalRef, config.gmesh);
     Tools::DivideLowerDimensionalElements(config.gmesh);
 
+    for (int i = 0; i < config.gmesh->NElements(); i++) {
+        TPZGeoEl * gel = config.gmesh->Element(i);
+        if (gel->HasSubElement()) continue;
+        if (gel->Dimension() != 2) continue;
+
+        TPZManVector<REAL,2> qsi(2,0.);
+        TPZManVector<REAL,3> result(3,0.);
+        gel->X(qsi, result);
+
+        if (result[0] * result[1] < 0) {
+            gel->SetMaterialId(2);
+            std::cout << result[0] << ", " << result[1] << "\n";
+        }
+    }
+
     std::string command = "mkdir " + config.dir_name;
     system(command.c_str());
 
@@ -204,7 +220,7 @@ void RunInnerSingularityProblem() {
     TPZManVector<int64_t> coarseIndexes;
     ComputeCoarseIndices(config.gmesh, coarseIndexes);
     bool definePartitionByCoarseIndexes = true;
-    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+    CreateMHMCompMeshHeteroPerm(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
@@ -464,4 +480,72 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
         cmesh.InsertMaterialObject(bc);
     }
+}
+
+void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
+                       bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes) {
+
+    if (definePartitionByCoarseIndex) {
+        mhm->DefinePartitionbyCoarseIndices(mhmIndexes);
+    } else {
+        mhm->DefinePartition(mhmIndexes);
+    }
+
+    // Indicate material indices to the MHM control structure
+    mhm->fMaterialIds = config.materialids;
+    mhm->fMaterialBCIds = config.bcmaterialids;
+
+    // Insert the material objects in the multiphysics mesh
+    TPZCompMesh &cmesh = mhm->CMesh();
+
+    int dim = mhm->GMesh()->Dimension();
+    cmesh.SetDimModel(dim);
+
+    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+
+    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
+    K.Identity();
+    K *= 5.;
+    invK.Identity();
+    invK *= 1./5.;
+
+    mat->SetExactSol(config.exact.operator*().Exact());
+    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
+    mat->SetPermeabilityTensor(K, invK);
+
+    cmesh.InsertMaterialObject(mat);
+
+    TPZMixedPoisson *mat2 = new TPZMixedPoisson(2, dim);
+
+    TPZFMatrix<REAL> K2(3, 3, 0), invK2(3, 3, 0);
+    K2.Identity();
+    K2 *= 1.;
+    invK2.Identity();
+    invK2 *= 1./1.;
+
+    mat2->SetExactSol(config.exact.operator*().Exact());
+    mat2->SetForcingFunction(config.exact.operator*().ForcingFunction());
+    mat2->SetPermeabilityTensor(K2, invK2);
+
+    cmesh.InsertMaterialObject(mat2);
+
+    for (auto matid : config.bcmaterialids) {
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        int bctype = 0;
+        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        cmesh.InsertMaterialObject(bc);
+    }
+
+    // General approximation order settings
+    mhm->SetInternalPOrder(config.porder);
+    mhm->SetSkeletonPOrder(config.porder);
+    mhm->SetHdivmaismaisPOrder(config.hdivmais);
+
+    // Refine skeleton elements
+    mhm->DivideSkeletonElements(0);
+    mhm->DivideBoundarySkeletonElements();
+    // Creates MHM mesh
+    bool substructure = true;
+    mhm->BuildComputationalMesh(substructure);
 }
