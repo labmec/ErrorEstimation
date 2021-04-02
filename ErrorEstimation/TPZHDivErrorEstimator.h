@@ -14,9 +14,7 @@
 #include "TPZAnalyticSolution.h"
 #include "ProblemConfig.h"
 #include "pzanalysis.h"
-
-class TPZCompMesh;
-class TPZSubCompMesh;
+#include "pzsubcmesh.h"
 
 /// this class will compute the estimated value of the energy error of the input mesh
 // it is expected that the estimated value of the error is improved if the input mesh is of H(div)++ type
@@ -27,9 +25,6 @@ class TPZHDivErrorEstimator {
 protected:
     /// The H(Div) approximation mesh for which we will compute the error
     TPZMultiphysicsCompMesh *fOriginal;
-
-    /// order increase of the boundary flux (depending on the original mesh)
-    int fUpliftPostProcessOrder = 0;
 
     /// Locally created computational mesh to compute the error
     TPZMultiphysicsCompMesh fPostProcMesh;
@@ -64,8 +59,6 @@ public:
     ~TPZHDivErrorEstimator();
 
     void SetProblemConfig(const ProblemConfig &cfg) { fProblemConfig = cfg; }
-
-    void SetPostProcUpliftOrder(const int order) { fUpliftPostProcessOrder = order; }
 
     /// Set the analytic solution object
     void SetAnalyticSolution(TPZAnalyticSolution &exact) { fExact = &exact; }
@@ -130,12 +123,8 @@ protected:
     /// increase the order of the lower dimensional pressure elements
     static void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);
 
-    /// compute the average pressures of across faces of the H(div) mesh
-    void ComputeAverageFacePressures();
 
     void ComputeBoundaryL2Projection(int target_dim);
-    void NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
-    void BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim);
 
     /// compute the average pressures of across edges of the H(div) mesh
     virtual void ComputeAveragePressures(int target_dim);
@@ -169,31 +158,20 @@ protected:
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
     virtual void SwitchMaterialObjects();
 
-    /// clone the meshes into the post processing mesh
-    void CloneMeshVec();
-
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices();
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
-    void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
+    void ComputeEffectivityIndices(TPZSubCompMesh *subcmesh);
 
     /// returns true if the material associated with the element is a boundary condition
     /// and if the boundary condition is dirichlet type
     bool IsDirichletCondition(TPZGeoElSide gelside);
 
-    /// return the value of the Dirichlet condition
-    void GetDirichletValue(TPZGeoElSide gelside, TPZVec<STATE> &vals);
-
-    /// identify the peripheral material objects and store the information in fHybridizer
-    void IdentifyPeripheralMaterialIds();
-
     void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
-
-  //  int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
 
     // compute the average of an element iel in the pressure mesh looking at its neighbours
     void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
