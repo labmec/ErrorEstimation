@@ -14,7 +14,6 @@
 
 #include "ProblemConfig.h"
 #include "TPZHDivErrorEstimator.h"
-#include "TPZHDivErrorEstimatorH1.h"
 #include "Tools.h"
 
 //#include "pzelchdiv.h"
@@ -171,7 +170,6 @@ else
             bool postProcWithHDiv = false;
             TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
             HDivEstimate.SetProblemConfig(config);
-            HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
             HDivEstimate.SetAnalyticSolution(config.exact);
 
             HDivEstimate.PotentialReconstruction();

@@ -107,7 +107,6 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, T
     //HDivEstimate.SetHybridizer(hybrid);
     HDivEstimate.SetProblemConfig(config);
 
-    HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
     HDivEstimate.SetAnalyticSolution(config.exact);
 
     HDivEstimate.PotentialReconstruction();
