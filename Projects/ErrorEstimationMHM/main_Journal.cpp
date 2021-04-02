@@ -203,7 +203,6 @@ void RunInnerSingularityProblem() {
 
         if (result[0] * result[1] < 0) {
             gel->SetMaterialId(2);
-            std::cout << result[0] << ", " << result[1] << "\n";
         }
     }
 
