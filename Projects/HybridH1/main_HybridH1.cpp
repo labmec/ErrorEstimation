@@ -37,8 +37,6 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "TPZHDivErrorEstimatorH1.h"
-
 #include "Tools.h"
 
 #include "TPZBFileStream.h"

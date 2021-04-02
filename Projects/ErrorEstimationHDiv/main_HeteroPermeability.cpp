@@ -37,7 +37,6 @@
 #include "TPZMultiphysicsCompMesh.h"
 
 #include "TPZHDivErrorEstimator.h"
-#include "TPZHDivErrorEstimatorH1.h"
 #include "Tools.h"
 
 #include "TPZBFileStream.h"
