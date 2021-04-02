@@ -77,7 +77,7 @@ void UNISIMMHM(TPZGeoMesh *gmesh) {
 
     config.dir_name = "CILAMCE_UNISIM_MHM";
     config.problemname = "UNISIM_MHM";
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
 #ifdef FORCING_FUNCTION_DEBUG
@@ -222,7 +222,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     ErrorEstimator.PotentialReconstruction();
 
     {
-        string command = "mkdir " + config.dir_name;
+        string command = "mkdir -p " + config.dir_name;
         system(command.c_str());
 
         TPZManVector<REAL, 6> errors;

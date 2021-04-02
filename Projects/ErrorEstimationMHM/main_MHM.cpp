@@ -66,7 +66,7 @@ void RunSmoothProblem() {
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -104,7 +104,7 @@ void RunHighGradientProblem() {
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -141,7 +141,7 @@ void RunOscillatoryProblem() {
     int nInternalRef = 1;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
@@ -181,7 +181,7 @@ void RunNonConvexProblem() {
     config.ndivisions = nDiv;
     config.gmesh = CreateLMHMMesh(nDiv, coarseIndexes);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -218,7 +218,7 @@ void Run3DProblem() {
     TPZStack<int64_t> mhmIndexes;
     config.gmesh = CreateCubeGeoMesh(nCoarseDiv, nInternalRef, mhmIndexes);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -255,7 +255,7 @@ void RunInnerSingularityProblem() {
     TPZStack<int64_t> mhmIndexes;
     config.gmesh = CreateLShapeGeoMesh(nCoarseRef, nInternalRef, mhmIndexes);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
@@ -512,7 +512,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     ErrorEstimator.PotentialReconstruction();
 
     {
-        std::string command = "mkdir " + config.dir_name;
+        std::string command = "mkdir -p " + config.dir_name;
         system(command.c_str());
 
         TPZManVector<REAL, 6> errors;
@@ -579,7 +579,7 @@ void RunAdaptivityProblem(){
             
             
             
-            std::string command = "mkdir " + config.dir_name;
+            std::string command = "mkdir -p " + config.dir_name;
             system(command.c_str());
             
             {

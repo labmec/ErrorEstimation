@@ -80,7 +80,7 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
     config.dir_name = "UNISIM_Flat_AdaptivityMore";
 #endif
     config.problemname = "UNISIM_HDIV";
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     std::stringstream gmeshFileName;

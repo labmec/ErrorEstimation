@@ -61,7 +61,7 @@ void RunSmoothProblem() {
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -99,7 +99,7 @@ void RunHighGradientProblem() {
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -138,7 +138,7 @@ void RunNonConvexProblem() {
     config.ndivisions = nDiv;
     config.gmesh = CreateLMHMMesh(nDiv, coarseIndexes);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -206,7 +206,7 @@ void RunInnerSingularityProblem() {
         }
     }
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -443,14 +443,18 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     ErrorEstimator.SetProblemConfig(config);
     ErrorEstimator.PotentialReconstruction();
 
-    {
-        std::string command = "mkdir " + config.dir_name;
-        system(command.c_str());
+    std::string command = "mkdir -p " + config.dir_name;
+    system(command.c_str());
 
-        TPZManVector<REAL, 6> errors;
-        TPZManVector<REAL> elementerrors;
-        std::string outVTK = config.dir_name + "/" + config.problemname + "-Errors.vtk";
-        ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
+    TPZManVector<REAL, 6> errors;
+    TPZManVector<REAL> elementerrors;
+    std::string outVTK = config.dir_name + "/" + config.problemname + "-Errors.vtk";
+    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
+        std::ofstream file(fileName);
+        Tools::PrintErrors(file, config, errors);
     }
 }
 

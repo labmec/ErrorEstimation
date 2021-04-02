@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     config.dir_name = "AdaptivityLShape";
     config.problemname = "ESinSinMark";
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     if (readGeoMeshFromFile) {

@@ -195,7 +195,7 @@ void InitializeOutstream(PreConfig &pConfig, char *argv[]){
             DebugStop();
             break;
     }
-    std::string command = "mkdir " + pConfig.plotfile;
+    std::string command = "mkdir -p " + pConfig.plotfile;
     system(command.c_str());
 
     std::string timer_name = pConfig.plotfile + "/timer.txt";

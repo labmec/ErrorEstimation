@@ -516,7 +516,7 @@ void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &conf
     errorEstimator.PotentialReconstruction();
 
     {
-        string command = "mkdir " + config.dir_name;
+        string command = "mkdir -p " + config.dir_name;
         system(command.c_str());
 
         TPZManVector<REAL, 6> errors;

@@ -60,7 +60,7 @@ void RunSingularProblemHDiv() {
     config.ndivisions = 0;
     config.gmesh = CreateLShapeGeoMesh(nRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     TPZHybridizeHDiv hybridizer;
@@ -153,7 +153,7 @@ void RunHPQuadProblemHDiv() {
     //Tools::RefineElements(config.gmesh, {1, 3});
     //Tools::RefineElements(config.gmesh, {12});
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -198,7 +198,7 @@ void RunHPCubeProblemHDiv() {
 
     Tools::RefineElements(config.gmesh, {1, 3});
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
