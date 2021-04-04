@@ -122,68 +122,6 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
     
 }
 
-void TPZHDivErrorEstimator::GlobalEffectivityIndex(){
-    
-    //    error[0] - error computed with exact pressure
-    //    error[1] - error computed with reconstructed pressure
-    //    error[2] - energy error computed with exact solution
-    //    error[3] - energy error computed with reconstructed solution
-    //    error[4] - residual data error
-    
-    int dim = fPostProcMesh.Dimension();
-    int64_t nelem = fPostProcMesh.NElements();
-    TPZManVector<REAL, 10> globalerrors(5, 0.);
-    REAL Ieff_global = 0.;
-    
-    for (int64_t el = 0; el < nelem; el++) {
-        
-        TPZCompEl *cel = fPostProcMesh.ElementVec()[el];
-        TPZGeoEl *gel = cel->Reference();
-        REAL hk = gel->CharacteristicSize();
-        if (cel->Reference()->Dimension() != dim) continue;
-        TPZManVector<REAL, 10> elerror(10, 0.);
-        elerror.Fill(0.);
-        cel->EvaluateError(fExact->ExactSolution(), elerror, false);
-        int nerr = elerror.size();
-        
-        for (int i = 0; i < nerr; i++) {
-            
-            globalerrors[i] += elerror[i] * elerror[i];
-        }
-        
-        REAL coef1 = (hk / M_PI) * (hk / M_PI);
-        
-        globalerrors[nerr - 1] += coef1 * elerror[nerr - 1] * elerror[nerr - 1];
-    }
-    
-    if (sqrt(globalerrors[2]) < 1.e-10) {
-        Ieff_global = 1.;
-    } else {
-        std::cout << "residual " << globalerrors[4] << " estimated "
-        << globalerrors[3] << " exact " << globalerrors[2] << "\n";
-        
-        Ieff_global =
-        sqrt(globalerrors[4] + globalerrors[3]) / sqrt(globalerrors[2]);
-    }
-    
-    std::cout << "Ieff_global " << Ieff_global << std::endl;
-    
-    std::ofstream myfile;
-    myfile.open("ErrorEstimationResults.txt", std::ios::app);
-    myfile << "\n\n Estimator errors for Problem "
-    << fProblemConfig.problemname;
-    myfile << "\n-------------------------------------------------- \n";
-    myfile << "AdaptativStep " << fProblemConfig.adaptivityStep
-    << " Order k= " << fProblemConfig.porder
-    << " Order n= " << fProblemConfig.hdivmais << "\n";
-    myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
-    myfile << "Global exact error = " << sqrt(globalerrors[2]) << "\n";
-    myfile << "Global estimator = " << sqrt(globalerrors[3]) << "\n";
-    myfile << "Global residual error = " << sqrt(globalerrors[4]) << "\n";
-    myfile << "Ieff_global = " << Ieff_global << "\n";
-    myfile.close();
-}
-
 void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
 
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
@@ -256,7 +194,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
         pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
 
         // Insert BC materials in pressure reconstruction mesh
-        std::set<int> bcMatIDs = fProblemConfig.bcmaterialids;
+        std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
         for (auto bcID : bcMatIDs) {
             TPZMaterial *mat = mult->FindMaterial(bcID);
             TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
@@ -1537,6 +1475,8 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
     int dim = cmesh->Dimension();
     cmesh->ElementSolution().Resize(nrows, ncols + 2);
 
+    std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
+
     for (int64_t el = 0; el < nrows; el++) {
 
         TPZCompEl *cel = cmesh->Element(el);
@@ -1565,7 +1505,7 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
                 int eldim = gequal->Dimension();
                 if (eldim != dim - 1) continue;
                 int elmatid = gequal->MaterialId();
-                if (fProblemConfig.bcmaterialids.find(elmatid) != fProblemConfig.bcmaterialids.end()) {
+                if (bcMatIDs.find(elmatid) != bcMatIDs.end()) {
                     neighbour = equal[i].Reference();
                     selected = equal[i];
                     break;
@@ -2338,6 +2278,10 @@ void TPZHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
     if (fPressureSkeletonMatId == 0) {
         fPressureSkeletonMatId = FindFreeMatId(gmesh);
     }
+
+    std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
+    bcMatIDs.insert(fPressureSkeletonMatId);
+
     int dim = gmesh->Dimension();
 
     for (int64_t iel = 0; iel < nel; iel++) {
@@ -2354,10 +2298,8 @@ void TPZHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
             // Filters boundary sides
             if (gelside.Dimension() != dim - 1) continue;
 
-            //Create Geometric element if there is no boundary neighbour and no skeleton neighbour were created.
-            std::set<int> matIDs = fProblemConfig.bcmaterialids;
-            matIDs.insert(fPressureSkeletonMatId);
-            TPZGeoElSide neighSide = gelside.HasNeighbour(matIDs);
+            // Create Geometric element if there is no boundary neighbour and no skeleton neighbour were created
+            TPZGeoElSide neighSide = gelside.HasNeighbour(bcMatIDs);
             if(!neighSide.Exists())
             {
                 TPZGeoElBC gbc(gelside, fPressureSkeletonMatId);
@@ -2520,4 +2462,15 @@ int TPZHDivErrorEstimator::FindFreeMatId(TPZGeoMesh *gmesh) {
     if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
 
     return maxMatId + 1;
+}
+
+std::set<int> TPZHDivErrorEstimator::GetBCMatIDs(const TPZCompMesh* cmesh) {
+    std::set<int> bc_mat_ids;
+    const auto mat_vec = cmesh->MaterialVec();
+    for (const auto mat : mat_vec) {
+        if (dynamic_cast<TPZBndCond*>(mat.second)) {
+            bc_mat_ids.insert(mat.first);
+        }
+    }
+    return bc_mat_ids;
 }

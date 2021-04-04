@@ -34,9 +34,9 @@ int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    //RunSmoothProblem();
-    //RunNonConvexProblem();
-    //RunHighGradientProblem();
+    RunSmoothProblem();
+    RunNonConvexProblem();
+    RunHighGradientProblem();
     RunInnerSingularityProblem();
 
     return 0;
@@ -160,7 +160,7 @@ void RunInnerSingularityProblem() {
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
-    config.problemname = "InnerSingularity";
+    config.problemname = "InnerSingularity15x15";
     config.dir_name = "Journal";
     config.porder = 1;
     config.hdivmais = 2;
@@ -168,7 +168,7 @@ void RunInnerSingularityProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 3;
+    int nCoarseDiv = 15;
     int nInternalRef = 1;
 
     config.ndivisions = nCoarseDiv;
@@ -440,7 +440,6 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     bool postProcWithHDiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
-    ErrorEstimator.SetProblemConfig(config);
     ErrorEstimator.PotentialReconstruction();
 
     std::string command = "mkdir -p " + config.dir_name;

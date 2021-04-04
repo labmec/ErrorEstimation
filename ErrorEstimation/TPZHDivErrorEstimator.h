@@ -40,7 +40,6 @@ protected:
     int fPressureSkeletonMatId = 0;
 
     TPZAnalyticSolution *fExact;
-    ProblemConfig fProblemConfig;
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = false;
 
@@ -58,7 +57,7 @@ public:
 
     ~TPZHDivErrorEstimator();
 
-    void SetProblemConfig(const ProblemConfig &cfg) { fProblemConfig = cfg; }
+    //void SetProblemConfig(const ProblemConfig &cfg) { fProblemConfig = cfg; }
 
     /// Set the analytic solution object
     void SetAnalyticSolution(TPZAnalyticSolution &exact) { fExact = &exact; }
@@ -179,6 +178,8 @@ protected:
     void PrepareElementsForH1Reconstruction();
 
     bool IsAdjacentToHangingNode(const TPZCompElSide &celside);
+
+    static std::set<int> GetBCMatIDs(const TPZCompMesh* cmesh);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
