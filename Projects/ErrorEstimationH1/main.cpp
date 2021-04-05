@@ -360,7 +360,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
 //    }
 //#endif
 
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     // Solves using a symmetric matrix then using Cholesky decomposition (direct method)
 //    TPZSymetricSpStructMatrix strmat(pressuremesh);
     TPZSkylineStructMatrix strmat(pressuremesh);
@@ -510,7 +510,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct SimulationCase &config){
      an.SetExact(config.exact.ExactSolution());
     
     
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     TPZSymetricSpStructMatrix strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
