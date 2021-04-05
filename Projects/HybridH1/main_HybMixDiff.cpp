@@ -22,11 +22,11 @@ int main(int argc, char *argv[]) {
     PreConfig hybConfig, mixConfig;
     hybConfig.k = 1;
     hybConfig.n = 2;
-    hybConfig.problem = "ESinSin";               //// {"ESinSin","EArcTan",ESteklovNonConst"}
+    hybConfig.problem = "EBubble2D";                //// {"ESinSin","EArcTan",ESteklovNonConst"}
     hybConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     hybConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
 
-    hybConfig.refLevel = 1;                       //// How many refinements
+    hybConfig.refLevel = 3;                       //// How many refinements
     hybConfig.debugger = true;                    //// Print geometric and computational mesh
 
     // Copy the Hybrid set up to the Mixed problem

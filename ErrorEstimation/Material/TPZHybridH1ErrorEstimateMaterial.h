@@ -60,6 +60,8 @@ public:
     // error[3] - energy error computed with reconstructed solution
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
 
+    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors) override;
+
     void ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc)override;
 
 

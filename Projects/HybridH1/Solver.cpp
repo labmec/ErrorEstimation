@@ -99,7 +99,7 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, P
     an.SetExact(config.exact.operator*().ExactSolution());
 
     TPZVec<REAL> errorVec;
-    int64_t nErrorCols = 8;
+    int64_t nErrorCols =multHybMix->MaterialVec().at(1)->NEvalErrors()+1;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -111,6 +111,7 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, P
     multHybMix->ElementSolution().Redim(nelem, nErrorCols - 1);
 
     an.PostProcessError(errorVec, true);
+    PrintErrorsDiff(errorVec);
 
     ////PostProcess
     TPZStack<std::string> scalnames, vecnames;
@@ -140,7 +141,15 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, P
     an.PostProcess(resolution, dim);
 
 }
+void PrintErrorsDiff(TPZVec<REAL> errorVec){
+    std::cout << "\nPotential error for HybH1 approx.: " << errorVec[0] << std::endl;
+    std::cout << "Potential error for Mixed approx.: " << errorVec[1] << std::endl;
+    std::cout << "Potential difference bet. HybH1 & Mix approx.: " << errorVec[2] << std::endl;
 
+    std::cout << "Flux error for HybH1 approx.: " << errorVec[3] << std::endl;
+    std::cout << "Flux error for Mixed approx.: " << errorVec[4] << std::endl;
+    std::cout << "Flux difference bet. HybH1 & Mix approx.: " << errorVec[5] << std::endl;
+}
 void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, TPZMultiphysicsCompMesh *multiCmesh){
 
     //if(preConfig.topologyMode != 2) DebugStop();

@@ -125,7 +125,10 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
         
     }
 #endif
-    
+    std::ofstream outTest("testing");
+    fPostProcMesh.Print(outTest);
+    std::ofstream geoTest("geoTesting");
+    fPostProcMesh.Print(geoTest);
     an.PostProcessError(errorVec, store);//calculo do erro com sol exata e aprox e armazena no elementsolution
     
     std::cout << "\n\n############\n\n";
@@ -494,7 +497,6 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
             delete cel;
         }
     }
-
     //RemoveNullCompEl(pressureMesh);
 
     pressureMesh->ComputeNodElCon();
@@ -578,7 +580,7 @@ void TPZHybridH1ErrorEstimator::AddBC2PressureMesh(TPZCompMesh *pressureMesh){
         }
     }
 
-    // Create BC condition elements. We reset references at each step to allow for a discontinuous mesh globally
+    // Create BC elements. We reset references at each step to allow for a discontinuous mesh globally
     gmesh->ResetReference();
     for (const auto &it : bcGeoElToNeighCompEl) {
         int64_t bcElID = it.first;
@@ -1501,11 +1503,10 @@ void TPZHybridH1ErrorEstimator::ComputeAveragePressures(int target_dim) {
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressure_mesh->FindMaterial(matid);
         // TODO change this. Look for matIDs in bcMatIds instead. Only cast in debug mode for further checks
-#ifdef PZDEBUG
+
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (bc) continue;
 
-#endif
         // Skip calculation if the element is a small skeleton
         bool largeSideExists = false;
         if (cel->Connect(0).HasDependency()) largeSideExists = true;
@@ -1519,13 +1520,17 @@ void TPZHybridH1ErrorEstimator::ComputeAveragePressures(int target_dim) {
 #endif
         if (largeSideExists) continue;
 
+        {
+            std::string dirName = "DebuggingConsistency";
+            std::string command = "mkdir -p " + dirName;
+            system(command.c_str());
+        }
+
         ComputeAverage(pressure_mesh, el);
     }
 
     {
         std::string dirName = "DebuggingConsistency";
-        std::string command = "mkdir -p " + dirName;
-        system(command.c_str());
         std::string dirPath = dirName + "/";
         std::ofstream outCon(dirPath + "AverageB4LoadSolution.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(pressure_mesh, outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
@@ -1913,7 +1918,10 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
 #endif
 
     //std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
-
+    {
+        std::ofstream out("PressureB4Debug.txt");
+        pressuremesh->Print(out);
+    }
     int target_dim = gel->Dimension();
     if (target_dim == dim - 1 && gel->MaterialId() != fPressureSkeletonMatId) {
         DebugStop();

@@ -142,6 +142,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         if (pConfig.problem== "ESinSin") pConfig.type= 0;
         else if (pConfig.problem=="EArcTan")  pConfig.type = 1;
         else if (pConfig.problem == "ESteklovNonConst") pConfig.type = 2;
+        else if (pConfig.problem == "EBubble2D") pConfig.type = 3;
         else DebugStop();
     }
 
@@ -214,7 +215,7 @@ void InitializeOutstream(PreConfig &pConfig, char *argv[]){
             DebugStop();
             break;
     }
-    std::string command = "mkdir " + pConfig.plotfile;
+    std::string command = "mkdir -p " + pConfig.plotfile;
     system(command.c_str());
 
     std::string timer_name = pConfig.plotfile + "/timer.txt";
@@ -249,6 +250,10 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
             break;
         case 2:
             config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
+            preConfig.h*=2;
+            break;
+        case 3:
+            config.exact.operator*().fExact = TLaplaceExample1::EBubble2D;
             preConfig.h*=2;
             break;
         default:

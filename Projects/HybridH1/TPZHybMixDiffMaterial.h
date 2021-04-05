@@ -34,7 +34,7 @@ public:
         return new TPZHybMixDiffMaterial(*this);
     }
 
-    virtual int NEvalErrors() override {return 7;}
+    virtual int NEvalErrors() override {return 6;}
 
     /// Compute the error and error estimate
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;

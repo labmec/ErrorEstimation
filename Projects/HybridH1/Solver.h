@@ -39,6 +39,8 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh,std::ofstream &E
 void Solve(ProblemConfig &config, PreConfig &preConfig);
 //// Solve hybrid and mixed problem and compute its difference
 void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]);
+//// Print errors for simutaneously Hyb and Mix simulations
+void PrintErrorsDiff(TPZVec<REAL> errorVec);
 
 void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, TPZMultiphysicsCompMesh *multiCmesh);
 
