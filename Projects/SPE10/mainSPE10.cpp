@@ -2,11 +2,12 @@
 // Created by Gustavo Batistela on 4/5/21.
 //
 
+#include "Tools.h"
+#include <TPZGenGrid2D.h>
 #include <TPZGenGrid3D.h>
 #include <iostream>
 #include <memory>
 #include <pzgmesh.h>
-#include "Tools.h"
 
 TPZGeoMesh *CreateSPE10GeoMesh();
 void ReadSPE10CellPermeabilities(TPZFMatrix<REAL>* perm_mat);
@@ -28,21 +29,16 @@ int main() {
 
     TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
 
-    int n_cells2 = 0;
-
-    constexpr int c1 = 85;
-    constexpr int c2 = 220;
-    constexpr int c3 = 60;
-    for (int i = 0; i < c1; i++) {
-        for (int j = 0; j < c2; j++) {
-            for (int k = 0; k < c3; k++) {
-                const int cell_id = c2 * c3 * i + c3 * j + k;
-                const double perm = perm_mat->operator()(cell_id, 0);
-                const double relative_perm = (perm - min_perm) / (max_perm - min_perm);
-                const int mat_id = static_cast<int>(std::round(255 * relative_perm));
-                gmesh->Element(cell_id)->SetMaterialId(mat_id);
-                n_cells2++;
-            }
+    constexpr int layer = 35;
+    constexpr int nx = 220;
+    constexpr int ny = 60;
+    for (int i = 0; i < nx; i++) {
+        for (int j = 0; j < ny; j++) {
+            const int cell_id = ny * i + j;
+            const double perm = perm_mat->operator()(cell_id + nx * ny * layer, 0);
+            const double relative_perm = (perm - min_perm) / (max_perm - min_perm);
+            const int mat_id = static_cast<int>(std::round(255 * relative_perm));
+            gmesh->Element(cell_id)->SetMaterialId(mat_id);
         }
     }
     Tools::PrintGeometry(gmesh, "SPE10Grid", false, true);
@@ -57,15 +53,19 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
     std::cout << "Creating SPE10 initial grid...\n";
 
     const TPZManVector<REAL, 3> x0 = {0, 0, 0};
-    const TPZManVector<REAL, 3> x1 = {1, 11./3, 85.};
-    const TPZManVector<int, 3> ndiv = {60, 220, 85};
+    const TPZManVector<REAL, 3> x1 = {1, 11./3, 0.};
+    const TPZManVector<int, 3> ndiv = {60, 220, 0};
 
-    constexpr std::array bcIDs = {-1, -1, -1, -1, -1, -1};
-    constexpr int domainID = 1;
+    TPZGenGrid2D gen(ndiv, x0, x1);
 
-    TPZGenGrid3D gen(x0, x1, ndiv, MMeshType::EHexahedral);
-    TPZGeoMesh * gmesh = gen.BuildVolumetricElements(domainID);
-    //TPZGeoMesh *gmesh = gen.BuildBoundaryElements(bcIDs[0], bcIDs[1], bcIDs[2], bcIDs[3], bcIDs[4], bcIDs[5]);
+    gen.SetRefpatternElements(true);
+    auto gmesh = new TPZGeoMesh;
+    gen.Read(gmesh);
+
+    gen.SetBC(gmesh, 4, -2);
+    gen.SetBC(gmesh, 5, -2);
+    gen.SetBC(gmesh, 6, -1);
+    gen.SetBC(gmesh, 7, -2);
 
     std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
 
