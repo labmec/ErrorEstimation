@@ -61,15 +61,15 @@ void TPZMatLaplacianHybrid::Read(TPZStream &buf, void *context)
 
 int TPZMatLaplacianHybrid::VariableIndex(const std::string &name)
 {
-
+    
     if(name == "Pressure") return 44;
     if(name == "PressureExact") return 45;
-
+    
     if(name == "Flux") return 10;
     if(name == "ExactFlux") return 13;
-
+    
     if(name == "ExactFluxShiftedOrigin") return 23;
-
+    
     return -1;
 }
 
@@ -90,18 +90,18 @@ int TPZMatLaplacianHybrid::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const{
     if (fForcingFunction) {
         order = fForcingFunction->PolynomialOrder();
     }
-
+    
     int pmax = 0;
     for (int ip = 0; ip < elPMaxOrder.size(); ip++) {
         if (elPMaxOrder[ip] > pmax) pmax = elPMaxOrder[ip];
     }
     pmax += 1; // HDiv simulations use an additional integration order. In order to test if HybridH1 and HDiv are equivalents, both integration orders shall be equivalent.
-
+    
     int integrationorder = 2 * pmax;
     if (pmax < order) {
         integrationorder = order + pmax;
     }
-
+    
     return integrationorder;
 }
 
@@ -130,7 +130,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
     TPZFMatrix<REAL>  &phi = datavec[1].phi;
     TPZFMatrix<REAL> &dphi = datavec[1].dphix;
     TPZVec<REAL>  &x = datavec[1].x;
-
+    
     int phr = phi.Rows();
     
     STATE fXfLoc = fXf;
@@ -151,7 +151,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
         fPermeabilityFunction->Execute(x, func, dfunc);
         KPerm = dfunc(0,0);
     }
-
+    
     //Equacao de Poisson
     for( int in = 0; in < phr; in++ ) {
         int kd;
@@ -169,7 +169,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
         ek(phr,in) += weight*phi(in,0);
         ek(in,phr) += weight*phi(in,0);
     }
-
+    
     ek(phr,phr+1) -= weight;
     ek(phr+1,phr) -= weight;
     
@@ -216,7 +216,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
     }
     ef(phr,0) += weight*(-datavec[1].sol[0][0]+ datavec[3].sol[0][0]);
     ef(phr+1,0) += weight*datavec[2].sol[0][0];
-
+    
 }
 
 void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc)
@@ -339,11 +339,11 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
     
     PermTensor.Multiply(gradu, fluxinv);
     
-
+    
     switch (var)
     {
-  
-
+            
+            
         case 44://PressureFem
             Solout[0] = datavec[1].sol[0][0];
             break;
@@ -362,79 +362,69 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
 
 void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors)
 {
-    /**
-    datavec[1] L2 mesh (phi's)
-    datavec[0] Hdiv mesh,
-    datavec[2] Interface Mesh
-    datavec[3] Interface Mesh
-
-    error[0] = L2 norm
-    error[1] = semi H1 norm
-    error[2] = H1 norm
-    error[3] = energy norm
-
-
-    **/
-
+    if(!fExactSol) return;
+    
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
-
-
-    TPZVec<STATE> u_exact(1,0);
-    TPZFMatrix<STATE> du_exact(3,1);
+    
+    TPZManVector<STATE> u_exact(1);
+    TPZFNMatrix<9,STATE> du_exact;
+    
+    
     if(this->fExactSol){
-
+        
         this->fExactSol->Execute(data[1].x,u_exact,du_exact);
     }
-
-
+    
+    
     REAL pressure = data[1].sol[0][0];
-
-
-
+    
+    
+    
     // errors[0] norm L2 || u ||_l2
-
+    
     errors[0] = (pressure-u_exact[0])*(pressure-u_exact[0]);//exact error pressure
-
+    
     // errors[1] Semi norm H1 || grad u ||_l2
-
+    
     TPZManVector<STATE,3> sol(1),dsol(3,0.);
-
+    
     TPZFMatrix<REAL> &dsolaxes = data[1].dsol[0];
     TPZFNMatrix<9,REAL> flux(3,0);
     TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, flux, data[1].axes);
-
+    
     for(int id=0; id<fDim; id++) {
         REAL diff = fabs(flux(id,0) - du_exact(id,0));
         errors[1]  += diff*diff;
     }
-
+    
     // error[2] H1 norm
-
+    
     errors[2] = errors[0] +errors[1];
-
+    
     // error[3] Energy norm || u ||_e = a(u,u)= int_K K gradu.gradu dx
-
+    
     TPZFNMatrix<9,REAL> PermTensor = fTensorK;
     TPZFNMatrix<9,REAL> gradpressure(fDim,1),Kgradu(fDim,1);
     for (int i=0; i<fDim; i++) {
         gradpressure(i,0) = du_exact(i,0);
     }
     PermTensor.Multiply(gradpressure,Kgradu);
-
-
-
+    
+    
+    
     REAL energy = 0.;
     for (int i=0; i<fDim; i++) {
         for (int j=0; j<fDim; j++) {
             energy += PermTensor(i,j)*fabs(flux(j,0) - du_exact(j,0))*fabs(flux(i,0) - du_exact(i,0));
         }
     }
-
+    
     errors[3] = energy;
-
-
+    
+    
 }
+
 
 void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
 {
@@ -443,34 +433,34 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
      datavec[0] Hdiv mesh,
      datavec[2] Interface Mesh
      datavec[3] Interface Mesh
-
+     
      error[0] = L2 norm
      error[1] = semi H1 norm
      error[2] = H1 norm
      error[3] = energy norm
      
- 
+     
      **/
     
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
     
-
+    
     
     if(this->fExactSol){
         
         this->fExactSol->Execute(data[1].x,u_exact,du_exact);
     }
     
-
+    
     REAL pressure = data[1].sol[0][0];
     
-
+    
     
     // errors[0] norm L2 || u ||_l2
-
+    
     errors[0] = (pressure-u_exact[0])*(pressure-u_exact[0]);//exact error pressure
-
+    
     // errors[1] Semi norm H1 || grad u ||_l2
     
     TPZManVector<STATE,3> sol(1),dsol(3,0.);
@@ -489,15 +479,15 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     errors[2] = errors[0] +errors[1];
     
     // error[3] Energy norm || u ||_e = a(u,u)= int_K K gradu.gradu dx
- 
-        TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-        TPZFNMatrix<9,REAL> gradpressure(fDim,1),Kgradu(fDim,1);
-        for (int i=0; i<fDim; i++) {
-            gradpressure(i,0) = du_exact(i,0);
-        }
-        PermTensor.Multiply(gradpressure,Kgradu);
-
-
+    
+    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
+    TPZFNMatrix<9,REAL> gradpressure(fDim,1),Kgradu(fDim,1);
+    for (int i=0; i<fDim; i++) {
+        gradpressure(i,0) = du_exact(i,0);
+    }
+    PermTensor.Multiply(gradpressure,Kgradu);
+    
+    
     
     REAL energy = 0.;
     for (int i=0; i<fDim; i++) {
@@ -507,7 +497,7 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     }
     
     errors[3] = energy;
-
-
+    
+    
     
 }
