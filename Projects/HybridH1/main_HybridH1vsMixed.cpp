@@ -14,16 +14,16 @@
 
 int main(int argc, char *argv[]) {
 
-#ifdef LOG4CXX
-    InitializePZLOG();
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
 #endif
     PreConfig pConfig;
     pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "ESinSin";               //// {"ESinSin","EArcTan",ESteklovNonConst"}
+    pConfig.problem = "ESinSin";//"EBubble2D";               //// {"ESinSin","EArcTan",ESteklovNonConst"}
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 1;                      //// How many refinements
+    pConfig.refLevel = 3;                      //// How many refinements
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                  //// Print geometric and computational mesh
 
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     InitializeOutstream(pConfig,argv);
 //#define PZDEBUG
 
-    for (int ndiv = 1; ndiv < /*pConfig.refLevel+1*/3; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 3; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
         ProblemConfig config;
         Configure(config,ndiv,pConfig,argv);

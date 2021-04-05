@@ -16,13 +16,13 @@
 
 int main(int argc, char *argv[]) {
 
-#ifdef LOG4CXX
-    InitializePZLOG();
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
 #endif
     PreConfig hybConfig, mixConfig;
     hybConfig.k = 1;
     hybConfig.n = 2;
-    hybConfig.problem = "EBubble2D";                //// {"ESinSin","EArcTan",ESteklovNonConst"}
+    hybConfig.problem = "ESinSin";                //// {"ESinSin","EArcTan",ESteklovNonConst"}
     hybConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     hybConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
 
