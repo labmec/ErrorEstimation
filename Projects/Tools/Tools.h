@@ -42,7 +42,9 @@
 
 namespace Tools {
 
-    // Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
+    void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT, bool printVTK);
+
+// Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
     TPZGeoMesh *CreateGeoMesh(int nelem, TPZVec<int> &bcids);
     TPZGeoMesh *CreateNewGeoMesh(int nelem, TPZVec<int> &bcids);
 

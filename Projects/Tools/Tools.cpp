@@ -17,6 +17,21 @@
 
 #include "pzelementgroup.h"
 
+void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT, bool printVTK) {
+    if (printTXT) {
+        std::stringstream txt_name;
+        txt_name << file_name << ".txt";
+        std::ofstream textfile(txt_name.str().c_str());
+        gmesh->Print(textfile);
+    }
+    if (printVTK) {
+        std::stringstream vtk_name;
+        vtk_name << file_name << ".vtk";
+        std::ofstream vtkfile(vtk_name.str().c_str());
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
+    }
+}
+
 TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
     TPZMaterial* mat = 0;
