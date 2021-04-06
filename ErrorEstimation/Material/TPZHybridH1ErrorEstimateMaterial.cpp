@@ -682,9 +682,9 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
-    errors[4] = residual; //||f - Proj_divsigma||
+    errors[4] = residual; // ||f - div (sigma_h)||
     errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
-    errors[6] = altResidual*altResidual;
+    errors[6] = altResidual*altResidual; //||f - Proj_divsigma||
 }
 
 

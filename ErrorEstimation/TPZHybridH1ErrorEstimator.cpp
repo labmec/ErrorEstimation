@@ -141,12 +141,15 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     myfile.open("ErrorsReconstruction.txt", std::ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.k << " Order n= "<< fProblemConfig.n<< " K_R = "<<fProblemConfig.Km<<"\n";
-    myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
-    myfile << "Global estimator = " << errorVec[3] << "\n";
-    myfile << "Global exact error = " << errorVec[2] << "\n";
-    myfile <<"|uex-ufem|= "<< errorVec[0] << "\n";
-    myfile <<"|ufem-urec| = "<< errorVec[1] << "\n";
+    myfile << "Ndiv = " << fProblemConfig.ndivisions <<" Order k= " << fProblemConfig.k << " Order n= "<< fProblemConfig.n<<"\n";
+    //myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
+    myfile << "||u-u_h|| = " << errorVec[0] << "\n";
+    myfile << "||u_h-s_h|| = " << errorVec[1] << "\n";
+    myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << errorVec[2] << "\n";
+    myfile << "n_{NC}: ||K^{0.5}.grad(u_h-s_h)|| = " << errorVec[3] << "\n";
+    myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << errorVec[5] << "\n";
+    myfile << "||f-Proj(f)|| = " << errorVec[6] << "\n";
+    myfile << "||f-Div(T_h)|| = " << errorVec[4] << "\n";
     //myfile <<"Residual ErrorL2= "<< errorVec[4] << "\n";
     //myfile <<"Global Index = "<< sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
     
