@@ -64,6 +64,7 @@ public:
 
     void ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc)override;
 
+    void ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors,TPZBndCond &bc)override;
 
     virtual int VariableIndex(const std::string &name) override;
     virtual int NSolutionVariables(int var) override;

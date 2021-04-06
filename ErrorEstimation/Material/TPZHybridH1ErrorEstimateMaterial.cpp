@@ -922,3 +922,85 @@ void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, 
 
 
 }
+
+void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors, TPZBndCond &bc){
+
+    if(bc.Type()== 4){
+
+
+        errors.Resize(NEvalErrors());
+        errors.Fill(0.0);
+
+
+        TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
+        TPZManVector<STATE,3> fluxfem(3);
+
+        int H1functionposition = 1;
+
+        REAL normalsigmafem = 0.,normalsigmarec = 0.,urec=0.;;
+        normalsigmafem = data[2].sol[0][0];// sigma.n
+        urec = data[H1functionposition].sol[0][0];
+
+
+
+        REAL u_D = 0.,g = 0.;
+        REAL normflux = 0.;
+
+        TPZManVector<STATE,3> fluxrec(fDim);
+        this->Solution(data,VariableIndex("FluxReconstructed"), fluxrec);
+
+        std::cout<<"flux_rec "<<fluxrec[0]<<" , "<<fluxrec[1]<<"\n";
+
+
+        TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
+        TPZManVector<STATE> res(3);
+        TPZFNMatrix<9, STATE> gradu(this->Dimension(), 1);
+
+        if (bc.HasForcingFunction()) {
+            bc.ForcingFunction()->Execute(data[H1functionposition].x, res, gradu);
+            GetPermeabilities(data[0].x, PermTensor, InvPermTensor);
+            u_D = res[0];
+
+
+        } else {
+            // usualmente updatebc coloca o valor exato no val2
+            u_D = bc.Val2()(0, 0);
+        }
+
+
+        for(int i=0; i<3; i++)
+        {
+            for(int j=0; j<3; j++)
+            {
+
+                normflux += data[2].normal[i]*PermTensor(i,j)*gradu(j,0);
+
+            }
+        }
+        g = (-1)*normflux;
+
+        std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
+
+
+
+
+
+
+        REAL Km = bc.Val1()(0, 0);
+        REAL InvKm = 1./Km;
+        std::cout<<"Km "<<Km<<" InvKm "<<InvKm<<"\n";
+        REAL errorEstimated =0.,errorReal = 0.;
+
+        normalsigmarec = Km*(urec-u_D)+g;
+
+//    std::cout<<"normalsigmarec "<<normalsigmarec<<"\n";
+//    std::cout<<"normalsigmafem "<<normalsigmafem<<"\n";
+//    std::cout<<"----------"<<"\n";
+        errorEstimated = InvKm * (normalsigmarec - normalsigmafem)* (normalsigmarec - normalsigmafem);
+        errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
+        errors[2] = errorReal;
+        errors[3] = errorEstimated;
+    }
+
+
+}
