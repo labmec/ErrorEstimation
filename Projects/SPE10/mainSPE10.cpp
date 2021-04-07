@@ -14,50 +14,35 @@ typedef _2D::BicubicInterpolator<REAL> Interpolator;
 
 // Global variables
 Interpolator interpolator;
-constexpr long int n_cells = 60 * 220 * 85;
-auto perm_mat = TPZFNMatrix<n_cells * 3, REAL>(n_cells, 3);
 
 // Function declarations
 TPZGeoMesh *CreateSPE10GeoMesh();
 TPZCompMesh *CreateSPE10CompMesh(TPZGeoMesh *gmesh);
-void ReadSPE10CellPermeabilities(TPZFMatrix<REAL>* perm_mat);
+void ReadSPE10CellPermeabilities(TPZVec<REAL>*perm_vec, int layer);
 void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
 void InsertMaterials(TPZCompMesh *cmesh);
 
 int main() {
 
+    constexpr int layer = 35;
+    constexpr int nx = 220;
+    constexpr int ny = 60;
+    constexpr int n_cells = nx * ny;
 
-    ReadSPE10CellPermeabilities(&perm_mat);
-
-    // Init max and min perms with absurd values
-    REAL max_perm = std::numeric_limits<REAL>::min();
-    REAL min_perm = std::numeric_limits<REAL>::max();
-    // Find max and min perms
-    for (int i = 0; i < perm_mat.Rows(); i++) {
-        for (int j = 0; j < perm_mat.Cols(); j++) {
-            const REAL perm = perm_mat.operator()(i, j);
-            if (perm > max_perm) max_perm = perm;
-            if (perm < min_perm) min_perm = perm;
-        }
-    }
+    auto perm_vec = TPZManVector<REAL, n_cells>(n_cells, 1);
+    ReadSPE10CellPermeabilities(&perm_vec, layer);
 
     TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
     std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
 
-    constexpr int layer = 35;
-    constexpr int nx = 220;
-    constexpr int ny = 60;
     std::vector<REAL> x, y, perm;
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
             const int cell_id = ny * i + j;
-            const double cell_perm = perm_mat(cell_id + nx * ny * layer, 0);
+            const double cell_perm = perm_vec[cell_id + nx * ny * layer];
             x.push_back(0.5 + nx);
             y.push_back(0.5 + ny);
             perm.push_back(cell_perm);
-            //const double relative_perm = (cell_perm - min_perm) / (max_perm - min_perm);
-            //const int mat_id = static_cast<int>(std::round(255 * relative_perm));
-            //gmesh->Element(cell_id)->SetMaterialId(mat_id);
         }
     }
 
@@ -91,7 +76,7 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
     return gmesh;
 }
 
-void ReadSPE10CellPermeabilities(TPZFMatrix<REAL> *perm_mat) {
+void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
 
     std::cout << "Reading permeability data...\n";
 
@@ -102,25 +87,25 @@ void ReadSPE10CellPermeabilities(TPZFMatrix<REAL> *perm_mat) {
     }
 
     int cell_id = 0;
-    int coord_id = 0;
-    int line_num = 0;
-    //const int n_cells = perm_mat->Rows();
+    const int n_cells = perm_vec->size();
+    const int start_line = 1 + n_cells * (layer - 1) / 6;
 
+    int line_num = 0;
+    int line_num2 = 0;
     while (perm_file) {
         line_num++;
+        line_num2++;
         std::string line;
         std::getline(perm_file, line, '\n');
-        if (line.length() <= 1) continue;
+
+        if (line_num < start_line) continue;
+
         std::stringstream stream(line);
-        if (cell_id == n_cells) {
-            cell_id = 0;
-            coord_id++;
-            if (coord_id > 2) DebugStop();
-        }
         for (int i = 0; i < 6; i++) {
-            stream >> perm_mat->operator()(cell_id, coord_id);
+            stream >> perm_vec->operator[](cell_id);
             cell_id++;
         }
+        if (cell_id == n_cells) break;
     }
     std::cout << "Finished reading permeability data from input file!\n";
 }
