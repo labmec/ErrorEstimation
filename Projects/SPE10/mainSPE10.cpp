@@ -8,27 +8,31 @@
 #include <iostream>
 #include <memory>
 #include <pzgmesh.h>
-
 #include <libInterpolate/Interpolate.hpp>
+
 typedef _2D::BicubicInterpolator<REAL> Interpolator;
 
 // Global variables
-constexpr int n_cells = 60 * 220 * 85;
-auto perm_mat = TPZFNMatrix<n_cells * 3, REAL>(n_cells, 3);
 Interpolator interpolator;
+constexpr long int n_cells = 60 * 220 * 85;
+auto perm_mat = TPZFNMatrix<n_cells * 3, REAL>(n_cells, 3);
 
 // Function declarations
 TPZGeoMesh *CreateSPE10GeoMesh();
 TPZCompMesh *CreateSPE10CompMesh(TPZGeoMesh *gmesh);
-void ReadSPE10CellPermeabilities();
+void ReadSPE10CellPermeabilities(TPZFMatrix<REAL>* perm_mat);
 void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
 void InsertMaterials(TPZCompMesh *cmesh);
 
 int main() {
-    ReadSPE10CellPermeabilities();
 
-    REAL max_perm = 0.;
-    REAL min_perm = 1e15;
+
+    ReadSPE10CellPermeabilities(&perm_mat);
+
+    // Init max and min perms with absurd values
+    REAL max_perm = std::numeric_limits<REAL>::min();
+    REAL min_perm = std::numeric_limits<REAL>::max();
+    // Find max and min perms
     for (int i = 0; i < perm_mat.Rows(); i++) {
         for (int j = 0; j < perm_mat.Cols(); j++) {
             const REAL perm = perm_mat.operator()(i, j);
@@ -38,21 +42,26 @@ int main() {
     }
 
     TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
-    Tools::PrintGeometry(gmesh, "SPE10Grid", false, true);
     std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
 
-    //constexpr int layer = 35;
-    //constexpr int nx = 220;
-    //constexpr int ny = 60;
-    //for (int i = 0; i < nx; i++) {
-    //    for (int j = 0; j < ny; j++) {
-    //        const int cell_id = ny * i + j;
-    //        const double perm = perm_mat(cell_id + nx * ny * layer, 0);
-    //        const double relative_perm = (perm - min_perm) / (max_perm - min_perm);
-    //        const int mat_id = static_cast<int>(std::round(255 * relative_perm));
-    //        gmesh->Element(cell_id)->SetMaterialId(mat_id);
-    //    }
-    //}
+    constexpr int layer = 35;
+    constexpr int nx = 220;
+    constexpr int ny = 60;
+    std::vector<REAL> x, y, perm;
+    for (int i = 0; i < nx; i++) {
+        for (int j = 0; j < ny; j++) {
+            const int cell_id = ny * i + j;
+            const double cell_perm = perm_mat(cell_id + nx * ny * layer, 0);
+            x.push_back(0.5 + nx);
+            y.push_back(0.5 + ny);
+            perm.push_back(cell_perm);
+            //const double relative_perm = (cell_perm - min_perm) / (max_perm - min_perm);
+            //const int mat_id = static_cast<int>(std::round(255 * relative_perm));
+            //gmesh->Element(cell_id)->SetMaterialId(mat_id);
+        }
+    }
+
+    interpolator.setData(x.size(), x.data(), y.data(), perm.data());
 
     TPZCompMesh *cmesh = CreateSPE10CompMesh(gmesh);
 
@@ -63,7 +72,7 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
     std::cout << "Creating SPE10 initial grid...\n";
 
     const TPZManVector<REAL, 3> x0 = {0, 0, 0};
-    const TPZManVector<REAL, 3> x1 = {1, 11./3, 0.};
+    const TPZManVector<REAL, 3> x1 = {60., 220., 0.};
     const TPZManVector<int, 3> ndiv = {60, 220, 0};
 
     TPZGenGrid2D gen(ndiv, x0, x1);
@@ -82,7 +91,7 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
     return gmesh;
 }
 
-void ReadSPE10CellPermeabilities() {
+void ReadSPE10CellPermeabilities(TPZFMatrix<REAL> *perm_mat) {
 
     std::cout << "Reading permeability data...\n";
 
@@ -95,6 +104,8 @@ void ReadSPE10CellPermeabilities() {
     int cell_id = 0;
     int coord_id = 0;
     int line_num = 0;
+    //const int n_cells = perm_mat->Rows();
+
     while (perm_file) {
         line_num++;
         std::string line;
@@ -107,7 +118,7 @@ void ReadSPE10CellPermeabilities() {
             if (coord_id > 2) DebugStop();
         }
         for (int i = 0; i < 6; i++) {
-            stream >> perm_mat(cell_id, coord_id);
+            stream >> perm_mat->operator()(cell_id, coord_id);
             cell_id++;
         }
     }
