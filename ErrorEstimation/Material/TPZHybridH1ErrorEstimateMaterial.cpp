@@ -644,6 +644,12 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     }
     PermTensor.Multiply(fluxreconstructed2,gradreconstructed);
 
+    {
+        //std::cout << "Checking the result of integration points\n";
+        //std::cout << "X: (" << data[0].x[0] << ", " << data[0].x[1] << ", "<< data[0].x[2] << ");\n";
+        //std::cout << "u_h: " << pressurefem << ";\n";
+        //std::cout << "u  : "  << u_exact[0] << ";\n";
+    }
     //data[H1functionposition].axes.Print(std::cout);
     //dsolaxes.Print(std::cout);
     //fluxrec.Print(std::cout);

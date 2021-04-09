@@ -143,6 +143,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem=="EArcTan")  pConfig.type = 1;
         else if (pConfig.problem == "ESteklovNonConst") pConfig.type = 2;
         else if (pConfig.problem == "EBubble2D") pConfig.type = 3;
+        else if (pConfig.problem == "ELaplace") pConfig.type = 4;
         else DebugStop();
     }
 
@@ -253,8 +254,10 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
             preConfig.h*=2;
             break;
         case 3:
-            config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
-            preConfig.h*=2;
+            config.exact.operator*().fExact = TLaplaceExample1::EBubble2D;
+            break;
+        case 4:
+            config.exact.operator*().fExact = TLaplaceExample1::ELaplace2D;
             break;
         default:
             DebugStop();

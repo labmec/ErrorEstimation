@@ -85,9 +85,6 @@ void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]){
     TPZMultiphysicsCompMesh *multiHybMix = new TPZMultiphysicsCompMesh(conf.gmesh);
     CreateHybMixCompMesh(multiHyb, multiMix, multiHybMix,hybConfig,conf);
 
-    std::ofstream out("Test.txt");
-    multiHybMix->Print(out);
-
     PostProcessHybMix(multiHybMix,hybConfig,conf);
 }
 
@@ -111,7 +108,7 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, P
     multHybMix->ElementSolution().Redim(nelem, nErrorCols - 1);
 
     an.PostProcessError(errorVec, true);
-    PrintErrorsDiff(errorVec);
+    PrintErrorsDiff(errorVec,config);
 
     ////PostProcess
     TPZStack<std::string> scalnames, vecnames;
@@ -141,7 +138,7 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, P
     an.PostProcess(resolution, dim);
 
 }
-void PrintErrorsDiff(TPZVec<REAL> errorVec){
+void PrintErrorsDiff(TPZVec<REAL> errorVec, ProblemConfig &config){
     std::cout << "\nPotential error for HybH1 approx.: " << errorVec[0] << std::endl;
     std::cout << "Potential error for Mixed approx.: " << errorVec[1] << std::endl;
     std::cout << "Potential difference bet. HybH1 & Mix approx.: " << errorVec[2] << std::endl;
@@ -149,6 +146,19 @@ void PrintErrorsDiff(TPZVec<REAL> errorVec){
     std::cout << "Flux error for HybH1 approx.: " << errorVec[3] << std::endl;
     std::cout << "Flux error for Mixed approx.: " << errorVec[4] << std::endl;
     std::cout << "Flux difference bet. HybH1 & Mix approx.: " << errorVec[5] << std::endl;
+
+    //Erro global
+    std::ofstream myfile;
+    myfile.open("HybMixDiff.txt", std::ios::app);
+    myfile << "\n\n Estimator errors for Problem " << config.problemname;
+    myfile << "\n-------------------------------------------------- \n";
+    myfile << "Ndiv = " << config.ndivisions <<" Order k= " << config.k << " Order n= "<< config.n<<"\n"; std::cout << "\nPotential error for HybH1 approx.: " << errorVec[0] << std::endl;
+    myfile << "\nPotential error for HybH1 approx.: " << errorVec[0] << std::endl;
+    myfile << "Potential error for Mixed approx.: " << errorVec[1] << std::endl;
+    myfile << "Potential difference bet. HybH1 & Mix approx.: " << errorVec[2] << std::endl;
+    myfile << "Flux error for HybH1 approx.: " << errorVec[3] << std::endl;
+    myfile << "Flux error for Mixed approx.: " << errorVec[4] << std::endl;
+    myfile << "Flux difference bet. HybH1 & Mix approx.: " << errorVec[5] << std::endl;
 }
 void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, TPZMultiphysicsCompMesh *multiCmesh){
 
@@ -563,6 +573,7 @@ void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh, ofstream &Erro, TPZVec<RE
 void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro, TPZVec<REAL> *Log,PreConfig &pConfig){
 
     TPZManVector<REAL,6> Errors;
+    Errors.Fill(0);
     Errors.resize(pConfig.numErrors);
     bool store_errors = false;
 

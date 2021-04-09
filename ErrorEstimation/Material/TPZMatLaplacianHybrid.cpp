@@ -375,12 +375,11 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &
         
         this->fExactSol->Execute(data[1].x,u_exact,du_exact);
     }
-    
-    
+
     REAL pressure = data[1].sol[0][0];
     
     
-    
+
     // errors[0] norm L2 || u ||_l2
     
     errors[0] = (pressure-u_exact[0])*(pressure-u_exact[0]);//exact error pressure

@@ -99,6 +99,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     
     int64_t nErrorCols = 8;
     errorVec.resize(nErrorCols);
+    errorVec.Fill(0);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
     }
@@ -125,10 +126,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
         
     }
 #endif
-    std::ofstream outTest("testing");
-    fPostProcMesh.Print(outTest);
-    std::ofstream geoTest("geoTesting");
-    fPostProcMesh.Print(geoTest);
+
     an.PostProcessError(errorVec, store);//calculo do erro com sol exata e aprox e armazena no elementsolution
     
     std::cout << "\n\n############\n\n";
