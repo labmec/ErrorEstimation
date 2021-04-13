@@ -364,7 +364,6 @@ void TPZCreateMultiphysicsSpace::InsertFluxMaterialIds(TPZCompMesh *fluxmesh)
             fluxmesh->InsertMaterialObject(nullmat);
         }
     }
-
 }
 
 /// insert materialids for the null space

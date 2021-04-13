@@ -20,18 +20,18 @@ int main(int argc, char *argv[]) {
     PreConfig pConfig;
     pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "ESinSin";//"EBubble2D";               //// {"ESinSin","EArcTan",ESteklovNonConst"}
+    pConfig.problem = "ELaplace";               //// {"ESinSin","EArcTan",ESteklovNonConst"}
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 3;                      //// How many refinements
-    pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
+    pConfig.refLevel = 1;                      //// How many refinements
+    pConfig.estimateError = false;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                  //// Print geometric and computational mesh
 
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
 //#define PZDEBUG
 
-    for (int ndiv = 3; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = 1; ndiv < /*pConfig.refLevel+1*/2; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
         ProblemConfig config;
         Configure(config,ndiv,pConfig,argv);

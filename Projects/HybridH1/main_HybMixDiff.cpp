@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     hybConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     hybConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
 
-    hybConfig.refLevel = 5;                       //// How many refinements
+    hybConfig.refLevel = 1;                       //// How many refinements
     hybConfig.debugger = true;                    //// Print geometric and computational mesh
 
     // Copy the Hybrid set up to the Mixed problem

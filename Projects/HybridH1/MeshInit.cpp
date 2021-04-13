@@ -448,12 +448,12 @@ void InsertMaterialMixed(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig con
         TPZFMatrix<STATE> val1(2, 2, 0.), val2(2, 1, 0.);
 
         TPZMaterial *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
+        TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
         if(pConfig.debugger)
         {
             BCond0->SetForcingFunction(config.exact.operator*().Exact());
+            BCond1->SetForcingFunction(config.exact.operator*().Exact());
         }
-
-        TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
         cmesh_mixed->InsertMaterialObject(BCond0);
         cmesh_mixed->InsertMaterialObject(BCond1);
@@ -524,14 +524,15 @@ void InsertMaterialHybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig
 
         // Inserts boundary conditions
         TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 1.);
-        TPZMaterial *BCond0 =
-                material->CreateBC(material, -1, dirichlet, val1, val2);
+        TPZMaterial *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
+        TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
         if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
             BCond0->SetForcingFunction(config.exact.operator*().Exact());
+            BCond1->SetForcingFunction(config.exact.operator*().Exact());
         }
         val2.Zero();
-        TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+
 
         cmesh_H1Hybrid->InsertMaterialObject(BCond0);
         cmesh_H1Hybrid->InsertMaterialObject(BCond1);

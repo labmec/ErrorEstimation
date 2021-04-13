@@ -19,7 +19,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     if(pConfig.type == 2) isOriginCentered = 1;
 
     TPZGeoMesh *gmesh;
-    TPZManVector<int, 4> bcids(4, -1);
+    TPZManVector<int, 4> bcids(4, -2);bcids[2] = -1;
     gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
 
     Tools::UniformRefinement(config.ndivisions, gmesh);
@@ -27,6 +27,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     config.gmesh = gmesh;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+    config.bcmaterialids.insert(-2);
 
     if (pConfig.type  == 2) {
         config.materialids.insert(2);
