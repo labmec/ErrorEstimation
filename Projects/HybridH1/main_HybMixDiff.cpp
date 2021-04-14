@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
     hybConfig.problem = "ELaplace";                //// {"ESinSin","EArcTan",ESteklovNonConst"}
     hybConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     hybConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
+    hybConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
 
     hybConfig.refLevel = 1;                       //// How many refinements
     hybConfig.debugger = true;                    //// Print geometric and computational mesh

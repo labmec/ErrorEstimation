@@ -152,7 +152,7 @@ void PrintErrorsDiff(TPZVec<REAL> errorVec, ProblemConfig &config){
     myfile.open("HybMixDiff.txt", std::ios::app);
     myfile << "\n\n Estimator errors for Problem " << config.problemname;
     myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << config.ndivisions <<" Order k= " << config.k << " Order n= "<< config.n<<"\n"; std::cout << "\nPotential error for HybH1 approx.: " << errorVec[0] << std::endl;
+    myfile << "Ndiv = " << config.ndivisions <<" Order k= " << config.k << " Order n= "<< config.n<<"\n";
     myfile << "\nPotential error for HybH1 approx.: " << errorVec[0] << std::endl;
     myfile << "Potential error for Mixed approx.: " << errorVec[1] << std::endl;
     myfile << "Potential difference bet. HybH1 & Mix approx.: " << errorVec[2] << std::endl;
@@ -308,7 +308,7 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     //TPZCreateMultiphysicsSpace createspace(config.gmesh);
     std::cout << cmesh_H1Hybrid->NEquations();
 
-    createspace.SetMaterialIds({1,2,3}, {-6,-5,-2,-1});
+    createspace.SetMaterialIds({1,2,3}, {-6,-5,-3,-2,-1});
     createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
 

@@ -40,9 +40,12 @@ void SetMultiPermeMaterials(TPZGeoMesh* gmesh);
 
 //// Create different materials for even an odd quadrants
 void InsertMaterialHybrid_MultiK(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,ProblemConfig &config, PreConfig &pConfig);
+//// Creates material for ELaplace simulation
+void InsertMaterialHybrid_ELaplace(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,ProblemConfig &config, PreConfig &pConfig);
 
 //// Create different materials for even an odd quadrants
-void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig &config, PreConfig &pConfig);
+void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig &config, PreConfig &pConfig);
+void InsertMaterialMixed_ELaplace(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig &config, PreConfig &pConfig);
 void InsertNullSpaceMaterialIds(TPZCompMesh *nullspace, ProblemConfig &config);
 
 //// Set exact solution

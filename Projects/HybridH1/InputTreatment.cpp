@@ -19,7 +19,11 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     if(pConfig.type == 2) isOriginCentered = 1;
 
     TPZGeoMesh *gmesh;
-    TPZManVector<int, 4> bcids(4, -2);bcids[2] = -1;
+    TPZManVector<int, 4> bcids(4, -1);
+    if(pConfig.type == 4){
+        bcids[0] = -3;
+        bcids[1] = bcids[3] = -2;
+    }
     gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
 
     Tools::UniformRefinement(config.ndivisions, gmesh);
@@ -28,6 +32,10 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.bcmaterialids.insert(-2);
+
+    if(pConfig.type == 4){
+        config.bcmaterialids.insert(-3);
+    }
 
     if (pConfig.type  == 2) {
         config.materialids.insert(2);
@@ -64,6 +72,7 @@ void CopyHybSetup(PreConfig &hybConfig, PreConfig &mixConfig){
     mixConfig.problem =   hybConfig.problem;
     mixConfig.approx =    "Mixed";
     mixConfig.topology =  hybConfig.topology;
+    mixConfig.maxIter = hybConfig.maxIter;
 
     mixConfig.refLevel = hybConfig.refLevel;
     mixConfig.debugger = hybConfig.debugger;
@@ -268,4 +277,5 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
     config.k = preConfig.k;
     config.n = preConfig.n;
     config.problemname = preConfig.problem;
+    config.exact->fmaxIter = preConfig.maxIter;
 }

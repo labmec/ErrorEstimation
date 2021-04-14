@@ -245,40 +245,41 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
         TPZFNMatrix<3, STATE> dres(3, 1);
         bc.ForcingFunction()->Execute(x, res, dres);       // dphi(i,j) = dphi_j/dxi
         v2[0] = res[0];
-        TPZManVector<REAL, 3> normal(3,0), vec(3), axes1(3), axes2(3), zaxes(3, 0);
+        TPZManVector<REAL, 3> normal(3, 0), vec(3), axes1(3), axes2(3), zaxes(3, 0);
         zaxes[2] = 1;
         bool unitary = true;
         if (!primal && bc.Type() == 1) {
-                TPZFNMatrix<9, STATE> PermTensor, InvPermTensor;
-                GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
-                for (int i = 0; i < 3; i++) {
-                    axes1[i] = datavec[0].axes(0, i);
-                }
-                switch (dimBC) {
-                    case 0: //normal = axes
-                        std::cout << "Implement me\n";
-                        DebugStop();
-                        break;
-                    case 1: // axes x (0,0,1)
-                        this->VectorialProd(axes1, zaxes, normal, unitary);
-                        break;
-                    case 2:
-                        for (int i = 0; i < 3; i++) {
-                            axes2[i] = datavec[0].axes(1, i);
-                        }
-                        this->VectorialProd(axes1, axes2, normal, unitary);
-                        break;
-                    default:
-                        DebugStop();
-                }
-
-                for (int i = 0; i < dim; i++) {
-                    for (int j = 0; j < dim; j++) {
-                        normflux += normal[i] * PermTensor(i, j) * dres(j, 0);
+            TPZFNMatrix<9, STATE> PermTensor, InvPermTensor;
+            GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
+            for (int i = 0; i < 3; i++) {
+                axes1[i] = datavec[0].axes(0, i);
+            }
+            switch (dimBC) {
+                case 0: //normal = axes
+                    std::cout << "Implement me\n";
+                    DebugStop();
+                    break;
+                case 1: // axes x (0,0,1)
+                    this->VectorialProd(axes1, zaxes, normal, unitary);
+                    break;
+                case 2:
+                    for (int i = 0; i < 3; i++) {
+                        axes2[i] = datavec[0].axes(1, i);
                     }
+                    this->VectorialProd(axes1, axes2, normal, unitary);
+                    break;
+                default:
+                    DebugStop();
+            }
+
+            for (int i = 0; i < dim; i++) {
+                for (int j = 0; j < dim; j++) {
+                    normflux += normal[i] * PermTensor(i, j) * dres(j, 0);
                 }
-                v2[0] = -normflux;
+            }
+            v2[0] = -normflux;
         }
+    }
 
         if (primal) {
             switch (bc.Type()) {
@@ -334,7 +335,6 @@ void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL 
                     break;
             }
         }
-    }
 }
 
 void TPZMatLaplacianHybrid::VectorialProd(TPZVec<REAL> & ivec, TPZVec<REAL> & jvec, TPZVec<REAL> & kvec, bool unitary)
@@ -428,8 +428,6 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &
     }
 
     REAL pressure = data[1].sol[0][0];
-    
-    
 
     // errors[0] norm L2 || u ||_l2
     
@@ -501,12 +499,9 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
         
         this->fExactSol->Execute(data[1].x,u_exact,du_exact);
     }
-    
-    
+
     REAL pressure = data[1].sol[0][0];
-    
-    
-    
+
     // errors[0] norm L2 || u ||_l2
     
     errors[0] = (pressure-u_exact[0])*(pressure-u_exact[0]);//exact error pressure
@@ -536,9 +531,7 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
         gradpressure(i,0) = du_exact(i,0);
     }
     PermTensor.Multiply(gradpressure,Kgradu);
-    
-    
-    
+
     REAL energy = 0.;
     for (int i=0; i<fDim; i++) {
         for (int j=0; j<fDim; j++) {
