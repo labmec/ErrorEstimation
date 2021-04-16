@@ -552,6 +552,147 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[6] = altResidual*altResidual;
 }
 
+void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors)
+{
+    /**
+     datavec[0] H1 mesh, uh_reconstructed
+     datavec[1] L2 mesh,
+     datavec[2] Hdiv fem mesh, sigma_h
+     datavec[3] L2 mesh fem, u_h
+     datavec[4] L2 projection
+
+      error[0] - error computed with exact pressure
+      error[1] - error computed with reconstructed pressure
+      error[2] - energy error computed with exact solution
+      error[3] - energy error computed with reconstructed flux
+      error[4] - energy error computed with reconstructed potential
+      error[5] - oscilatory data error
+
+     **/
+
+    errors.Resize(NEvalErrors());
+    errors.Fill(0.0);
+
+
+    STATE divsigmarec, pressurefem, pressurereconstructed, forceProj;
+
+    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1), gradreconstructed(3,1);
+    TPZFMatrix<REAL> gradfem,fluxfem(3,1);
+
+    gradfem=data[3].dsol[0];
+
+    gradfem.Resize(3,1);
+
+
+    int H1functionposition = 1;
+
+    TPZVec<STATE> divsigma(1);
+
+    TPZVec<STATE> u_exact(1,0);
+    TPZFMatrix<STATE> du_exact(3,1,0);
+    if(this->fExactSol){
+
+        this->fExactSol->Execute(data[H1functionposition].x,u_exact,du_exact);
+
+        this->fForcingFunction->Execute(data[H1functionposition].x,divsigma);
+    }
+
+    REAL residual = 0.,altResidual = 0.;
+    divsigmarec= data[0].divsol[0][0];
+    residual = (divsigma[0] - divsigmarec)*(divsigma[0] - divsigmarec);
+
+    forceProj = data[4].sol[0][0];
+    altResidual = forceProj - divsigma[0];
+
+    pressurereconstructed = data[H1functionposition].sol[0][0];
+
+
+    pressurefem = data[3].sol[0][0];
+
+    TPZFNMatrix<9,REAL> PermTensor;
+    TPZFNMatrix<9,REAL> InvPermTensor;
+
+    GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
+
+    PermTensor.Resize(3,3);
+    InvPermTensor.Resize(3,3);
+
+
+    TPZFNMatrix<3,REAL> fluxexactneg;
+
+    {
+        TPZFNMatrix<9,REAL> gradpressure(3,1);
+        for (int i=0; i<3; i++) {
+            gradpressure(i,0) = (-1.)*du_exact[i];
+            gradfem(i,0) = (-1.)* gradfem(i,0);
+        }
+        PermTensor.Multiply(gradpressure,fluxexactneg);
+    }
+    PermTensor.Multiply(gradfem,fluxfem);
+
+    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
+    TPZFNMatrix<9,REAL> fluxrec(dsolaxes.Rows(),0);
+
+
+    for(int ip = 0 ; ip < 3 ; ip++){
+        fluxreconstructed(ip,0) = data[0].sol[0][ip];
+    }
+
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
+    for(int id=0 ; id<3; id++) {
+        fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
+    }
+    PermTensor.Multiply(fluxreconstructed2,gradreconstructed);
+
+    {
+        //std::cout << "Checking the result of integration points\n";
+        //std::cout << "X: (" << data[0].x[0] << ", " << data[0].x[1] << ", "<< data[0].x[2] << ");\n";
+        //std::cout << "u_h: " << pressurefem << ";\n";
+        //std::cout << "u  : "  << u_exact[0] << ";\n";
+    }
+    //data[H1functionposition].axes.Print(std::cout);
+    //dsolaxes.Print(std::cout);
+    //fluxrec.Print(std::cout);
+
+
+    REAL innerexact = 0.;
+    REAL innerestimate = 0.;
+    REAL gradinnerestimate = 0.;
+    REAL npz =0.;
+
+
+
+#ifdef PZDEBUG2
+    std::cout<<"flux fem "<<fluxfem<<std::endl;
+    std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
+    std::cout<<"-------"<<std::endl;
+#endif
+
+
+
+    for (int i=0; i<3; i++) {
+        for (int j=0; j<3; j++) {
+            innerexact += (fluxfem[i]-fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]-fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
+            innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
+            gradinnerestimate += (fluxfem[i]-gradreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-gradreconstructed[j]);
+            npz += (gradreconstructed[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(gradreconstructed[i]-fluxreconstructed[i]);
+        }
+    }
+
+#ifdef PZDEBUG2
+    std::cout<<"potential fem "<<pressurefem<<std::endl;
+    std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
+    std::cout<<"-------"<<std::endl;
+#endif
+    errors[0] = (pressurefem-u_exact[0])*(pressurefem-u_exact[0]);//exact error pressure
+    errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
+    errors[2] = innerexact;//error flux exact
+    errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
+    errors[4] = residual; // ||f - div (sigma_h)||
+    errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    errors[6] = altResidual*altResidual; //||f - Proj_divsigma||
+}
+
 
 int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
 {
@@ -701,11 +842,94 @@ void TPZHybridH1ErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec
             break;
 
         default:
+            //TPZMixedPoisson::Solution(datavec,var, Solout);
             DebugStop();
     }
 }
 
 void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors, TPZBndCond &bc){
+
+    if(bc.Type()== 4){
+
+
+        errors.Resize(NEvalErrors());
+        errors.Fill(0.0);
+
+
+        TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
+        TPZManVector<STATE,3> fluxfem(3);
+
+        int H1functionposition = 1;
+
+        REAL normalsigmafem = 0.,normalsigmarec = 0.,urec=0.;;
+        normalsigmafem = data[2].sol[0][0];// sigma.n
+        urec = data[H1functionposition].sol[0][0];
+
+
+
+        REAL u_D = 0.,g = 0.;
+        REAL normflux = 0.;
+
+        TPZManVector<STATE,3> fluxrec(fDim);
+        this->Solution(data,VariableIndex("FluxReconstructed"), fluxrec);
+
+        std::cout<<"flux_rec "<<fluxrec[0]<<" , "<<fluxrec[1]<<"\n";
+
+
+        TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
+        TPZManVector<STATE> res(3);
+        TPZFNMatrix<9, STATE> gradu(this->Dimension(), 1);
+
+        if (bc.HasForcingFunction()) {
+            bc.ForcingFunction()->Execute(data[H1functionposition].x, res, gradu);
+            GetPermeabilities(data[0].x, PermTensor, InvPermTensor);
+            u_D = res[0];
+
+
+        } else {
+            // usualmente updatebc coloca o valor exato no val2
+            u_D = bc.Val2()(0, 0);
+        }
+
+
+        for(int i=0; i<3; i++)
+        {
+            for(int j=0; j<3; j++)
+            {
+
+                normflux += data[2].normal[i]*PermTensor(i,j)*gradu(j,0);
+
+            }
+        }
+        g = (-1)*normflux;
+
+        std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
+
+
+
+
+
+
+        REAL Km = bc.Val1()(0, 0);
+        REAL InvKm = 1./Km;
+        std::cout<<"Km "<<Km<<" InvKm "<<InvKm<<"\n";
+        REAL errorEstimated =0.,errorReal = 0.;
+
+        normalsigmarec = Km*(urec-u_D)+g;
+
+//    std::cout<<"normalsigmarec "<<normalsigmarec<<"\n";
+//    std::cout<<"normalsigmafem "<<normalsigmafem<<"\n";
+//    std::cout<<"----------"<<"\n";
+        errorEstimated = InvKm * (normalsigmarec - normalsigmafem)* (normalsigmarec - normalsigmafem);
+        errorReal = InvKm * (normflux - normalsigmafem)* (normflux - normalsigmafem);
+        errors[2] = errorReal;
+        errors[3] = errorEstimated;
+    }
+
+
+}
+
+void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors, TPZBndCond &bc){
 
     if(bc.Type()== 4){
 

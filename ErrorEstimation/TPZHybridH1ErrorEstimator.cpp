@@ -99,6 +99,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     
     int64_t nErrorCols = 8;
     errorVec.resize(nErrorCols);
+    errorVec.Fill(0);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
     }
@@ -125,7 +126,7 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
         
     }
 #endif
-    
+
     an.PostProcessError(errorVec, store);//calculo do erro com sol exata e aprox e armazena no elementsolution
     
     std::cout << "\n\n############\n\n";
@@ -138,12 +139,15 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     myfile.open("ErrorsReconstruction.txt", std::ios::app);
     myfile << "\n\n Estimator errors for Problem " << fProblemConfig.problemname;
     myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fProblemConfig.ndivisions << "AdaptativStep "<<fProblemConfig.adaptivityStep<<" Order k= " << fProblemConfig.k << " Order n= "<< fProblemConfig.n<< " K_R = "<<fProblemConfig.Km<<"\n";
-    myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
-    myfile << "Global estimator = " << errorVec[3] << "\n";
-    myfile << "Global exact error = " << errorVec[2] << "\n";
-    myfile <<"|uex-ufem|= "<< errorVec[0] << "\n";
-    myfile <<"|ufem-urec| = "<< errorVec[1] << "\n";
+    myfile << "Ndiv = " << fProblemConfig.ndivisions <<" Order k= " << fProblemConfig.k << " Order n= "<< fProblemConfig.n<<"\n";
+    //myfile << "DOF Total = " << fPostProcMesh.NEquations() << "\n";
+    myfile << "||u-u_h|| = " << errorVec[0] << "\n";
+    myfile << "||u_h-s_h|| = " << errorVec[1] << "\n";
+    myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << errorVec[2] << "\n";
+    myfile << "n_{NC}: ||K^{0.5}.grad(u_h-s_h)|| = " << errorVec[3] << "\n";
+    myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << errorVec[5] << "\n";
+    myfile << "||f-Proj(f)|| = " << errorVec[6] << "\n";
+    myfile << "||f-Div(T_h)|| = " << errorVec[4] << "\n";
     //myfile <<"Residual ErrorL2= "<< errorVec[4] << "\n";
     //myfile <<"Global Index = "<< sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
     
@@ -494,7 +498,6 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreatePressureMesh()
             delete cel;
         }
     }
-
     //RemoveNullCompEl(pressureMesh);
 
     pressureMesh->ComputeNodElCon();
@@ -578,7 +581,7 @@ void TPZHybridH1ErrorEstimator::AddBC2PressureMesh(TPZCompMesh *pressureMesh){
         }
     }
 
-    // Create BC condition elements. We reset references at each step to allow for a discontinuous mesh globally
+    // Create BC elements. We reset references at each step to allow for a discontinuous mesh globally
     gmesh->ResetReference();
     for (const auto &it : bcGeoElToNeighCompEl) {
         int64_t bcElID = it.first;
@@ -1501,11 +1504,10 @@ void TPZHybridH1ErrorEstimator::ComputeAveragePressures(int target_dim) {
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressure_mesh->FindMaterial(matid);
         // TODO change this. Look for matIDs in bcMatIds instead. Only cast in debug mode for further checks
-#ifdef PZDEBUG
+
         TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (bc) continue;
 
-#endif
         // Skip calculation if the element is a small skeleton
         bool largeSideExists = false;
         if (cel->Connect(0).HasDependency()) largeSideExists = true;
@@ -1519,13 +1521,17 @@ void TPZHybridH1ErrorEstimator::ComputeAveragePressures(int target_dim) {
 #endif
         if (largeSideExists) continue;
 
+        {
+            std::string dirName = "DebuggingConsistency";
+            std::string command = "mkdir -p " + dirName;
+            system(command.c_str());
+        }
+
         ComputeAverage(pressure_mesh, el);
     }
 
     {
         std::string dirName = "DebuggingConsistency";
-        std::string command = "mkdir -p " + dirName;
-        system(command.c_str());
         std::string dirPath = dirName + "/";
         std::ofstream outCon(dirPath + "AverageB4LoadSolution.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(pressure_mesh, outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
@@ -1913,7 +1919,10 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
 #endif
 
     //std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
-
+    {
+        std::ofstream out("PressureB4Debug.txt");
+        pressuremesh->Print(out);
+    }
     int target_dim = gel->Dimension();
     if (target_dim == dim - 1 && gel->MaterialId() != fPressureSkeletonMatId) {
         DebugStop();

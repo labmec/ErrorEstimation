@@ -33,6 +33,7 @@ struct PreConfig{
     int mode = -1;           // 0 = "H1"; 1 = "Hybrid"; 2 = "Mixed";
     int argc = 1;
     int type= -1;
+    int maxIter = 15;
 
     bool estimateError;
     bool debugger = true;

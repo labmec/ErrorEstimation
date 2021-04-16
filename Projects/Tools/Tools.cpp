@@ -428,7 +428,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
 
     TPZAnalysis an(Hybridmesh);
 
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     TPZSymetricSpStructMatrix strmat(Hybridmesh);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
@@ -542,7 +542,7 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
     TPZAnalysis an(cmesh_HDiv, false);
 
 
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);

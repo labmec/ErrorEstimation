@@ -20,6 +20,10 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
 
     TPZGeoMesh *gmesh;
     TPZManVector<int, 4> bcids(4, -1);
+    if(pConfig.type == 4){
+        bcids[0] = -3;
+        bcids[1] = bcids[3] = -2;
+    }
     gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
 
     Tools::UniformRefinement(config.ndivisions, gmesh);
@@ -27,6 +31,11 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     config.gmesh = gmesh;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
+    config.bcmaterialids.insert(-2);
+
+    if(pConfig.type == 4){
+        config.bcmaterialids.insert(-3);
+    }
 
     if (pConfig.type  == 2) {
         config.materialids.insert(2);
@@ -49,8 +58,28 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
 }
 
-void ConfigureNFconvergence(ProblemConfig &config,PreConfig &pConfig){
-    ReadEntry(config, pConfig);
+void DataInitialization(int argc, char *argv[],PreConfig &hybConfig,PreConfig &mixConfig){
+    EvaluateEntry(argc,argv,hybConfig);
+    InitializeOutstream(hybConfig,argv);
+
+    EvaluateEntry(argc,argv,mixConfig);
+    InitializeOutstream(mixConfig,argv);
+}
+
+void CopyHybSetup(PreConfig &hybConfig, PreConfig &mixConfig){
+    mixConfig.k = hybConfig.k;
+    mixConfig.n = hybConfig.n;
+    mixConfig.problem =   hybConfig.problem;
+    mixConfig.approx =    "Mixed";
+    mixConfig.topology =  hybConfig.topology;
+    mixConfig.maxIter = hybConfig.maxIter;
+
+    mixConfig.refLevel = hybConfig.refLevel;
+    mixConfig.debugger = hybConfig.debugger;
+}
+
+void FluxErrorConfigure(ProblemConfig &config,PreConfig &pConfig){
+    //config.exact.operator*().fExact = TPZAnalyticSolution::TForce;
     config.dimension = pConfig.dim;
     config.prefine = false;
     config.exact.operator*().fSignConvention = 1;
@@ -123,6 +152,8 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         if (pConfig.problem== "ESinSin") pConfig.type= 0;
         else if (pConfig.problem=="EArcTan")  pConfig.type = 1;
         else if (pConfig.problem == "ESteklovNonConst") pConfig.type = 2;
+        else if (pConfig.problem == "EBubble2D") pConfig.type = 3;
+        else if (pConfig.problem == "ELaplace") pConfig.type = 4;
         else DebugStop();
     }
 
@@ -195,7 +226,7 @@ void InitializeOutstream(PreConfig &pConfig, char *argv[]){
             DebugStop();
             break;
     }
-    std::string command = "mkdir " + pConfig.plotfile;
+    std::string command = "mkdir -p " + pConfig.plotfile;
     system(command.c_str());
 
     std::string timer_name = pConfig.plotfile + "/timer.txt";
@@ -232,6 +263,12 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
             config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
             preConfig.h*=2;
             break;
+        case 3:
+            config.exact.operator*().fExact = TLaplaceExample1::EBubble2D;
+            break;
+        case 4:
+            config.exact.operator*().fExact = TLaplaceExample1::ELaplace2D;
+            break;
         default:
             DebugStop();
             break;
@@ -240,4 +277,5 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
     config.k = preConfig.k;
     config.n = preConfig.n;
     config.problemname = preConfig.problem;
+    config.exact->fmaxIter = preConfig.maxIter;
 }

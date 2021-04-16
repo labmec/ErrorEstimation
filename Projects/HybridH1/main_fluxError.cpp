@@ -12,6 +12,7 @@
 #include "tpzgeoelrefpattern.h"
 #include "DataStructure.h"
 #include "Tools.h"
+#include "TPZCreateMultiphysicsSpace.h"
 #include <tuple>
 
 int main(int argc, char *argv[]) {
@@ -34,13 +35,14 @@ int main(int argc, char *argv[]) {
     {
         pConfig.h = 1.;
         ProblemConfig config;
-        ConfigureNFconvergence(config,  pConfig);
+        FluxErrorConfigure(config,  pConfig);
 
-        Solve(config, pConfig);
+        TPZMultiphysicsCompMesh *multiCmesh = new TPZMultiphysicsCompMesh(config.gmesh);
+        int interfaceMatID = -10;
+        int fluxMatID = -10;
+
+        FluxErrorCreateCompMesh(multiCmesh, interfaceMatID, fluxMatID,pConfig, config);
+
     }
-    std::string command = "cp Erro.txt " + pConfig.plotfile + "/Erro.txt";
-    system(command.c_str());
-    FlushTable(pConfig,argv);
-
     return 0.;
 }

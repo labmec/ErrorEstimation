@@ -407,7 +407,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
     //calculo solution
     bool shouldrenumber = true;
     TPZAnalysis an(cmesh,shouldrenumber);
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     TPZSymetricSpStructMatrix strmat(cmesh.operator->());
     strmat.SetNumThreads(0/*config.n_threads*/);
 #else

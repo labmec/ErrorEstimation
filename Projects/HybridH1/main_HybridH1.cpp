@@ -334,7 +334,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
     TPZAnalysis an(cmeshH1);
 
 
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     TPZSymetricSpStructMatrix strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
@@ -419,7 +419,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     
     TPZAnalysis an(cmesh_H1Hybrid);
 
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     TPZSymetricSpStructMatrix strmat(cmesh_H1Hybrid);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
