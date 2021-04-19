@@ -10,10 +10,11 @@
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
 
-void RunSmoothProblem();
+void RunSmoothProblem(int nCoarseDiv, int nInternalRef);
 void RunNonConvexProblem();
-void RunHighGradientProblem();
-void RunInnerSingularityProblem();
+void RunHighGradientProblem(int nCoarseDiv, int nInternalRef);
+void RunInnerSingularityProblem(int nCoarseDiv, int nInternalRef);
+void RunPeriodicPermProblem(int nCoarseDiv, int nInternalRef);
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes);
@@ -30,19 +31,30 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
 
+void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm);
+void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
+void PeriodicProblemForcingFunction(const TPZVec <REAL> &pt, TPZVec <STATE> &result);
+
 int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    RunSmoothProblem();
+    const std::set<int> nCoarseDiv = {3, 4, 5, 6};
+    const std::set<int> nInternalRef = {0, 1, 2, 3};
+    for (const auto coarse_div : nCoarseDiv) {
+        for (const auto internal_ref : nInternalRef) {
+            RunSmoothProblem(coarse_div, internal_ref);
+            RunInnerSingularityProblem(coarse_div, internal_ref);
+            RunHighGradientProblem(coarse_div, internal_ref);
+            //RunPeriodicPermProblem(coarse_div, internal_ref);
+        }
+    }
     RunNonConvexProblem();
-    RunHighGradientProblem();
-    RunInnerSingularityProblem();
 
     return 0;
 }
 
-void RunSmoothProblem() {
+void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
@@ -55,10 +67,8 @@ void RunSmoothProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 4;
-    int nInternalRef = 2;
-
     config.ndivisions = nCoarseDiv;
+    config.ninternalref = nInternalRef;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir -p " + config.dir_name;
@@ -80,7 +90,7 @@ void RunSmoothProblem() {
     EstimateError(config, mhm);
 }
 
-void RunHighGradientProblem() {
+void RunHighGradientProblem(const int nCoarseDiv, const int nInternalRef) {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
@@ -93,10 +103,8 @@ void RunHighGradientProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 5;
-    int nInternalRef = 1;
-
     config.ndivisions = nCoarseDiv;
+    config.ninternalref = nInternalRef;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
 
     std::string command = "mkdir -p " + config.dir_name;
@@ -155,12 +163,12 @@ void RunNonConvexProblem() {
     EstimateError(config, mhm);
 }
 
-void RunInnerSingularityProblem() {
+void RunInnerSingularityProblem(const int nCoarseDiv, const int nInternalRef) {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
-    config.problemname = "InnerSingularity15x15";
+    config.problemname = "InnerSingularity";
     config.dir_name = "Journal";
     config.porder = 1;
     config.hdivmais = 2;
@@ -168,10 +176,8 @@ void RunInnerSingularityProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 15;
-    int nInternalRef = 1;
-
     config.ndivisions = nCoarseDiv;
+    config.ninternalref = nInternalRef;
 
     TPZManVector<REAL> x0(3, -1.), x1(3, 1.);
     x1[2] = 0.;
@@ -220,6 +226,40 @@ void RunInnerSingularityProblem() {
     ComputeCoarseIndices(config.gmesh, coarseIndexes);
     bool definePartitionByCoarseIndexes = true;
     CreateMHMCompMeshHeteroPerm(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+
+    SolveMHMProblem(mhm, config);
+    EstimateError(config, mhm);
+}
+
+void RunPeriodicPermProblem(const int nCoarseDiv, const int nInternalRef) {
+    ProblemConfig config;
+    config.dimension = 2;
+    // TODO: do we know the exact solution?
+    //config.exact = new TLaplaceExample1;
+    //config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
+    config.problemname = "PeriodicPerm";
+    config.dir_name = "Journal";
+    config.porder = 1;
+    config.hdivmais = 2;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+
+    config.ndivisions = nCoarseDiv;
+    config.ninternalref = nInternalRef;
+    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
+
+    std::string command = "mkdir -p " + config.dir_name;
+    system(command.c_str());
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    CreateMHMCompMeshPermFunction(*mhm);
 
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
@@ -385,9 +425,9 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     bool shouldrenumber = true;
     TPZAnalysis an(cmesh, shouldrenumber);
 
-#ifdef USING_MKL
+#ifdef PZ_USING_MKL
     TPZSymetricSpStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(0 /*config.n_threads*/);
+    strmat.SetNumThreads(8);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
     strmat.SetNumThreads(0);
@@ -415,17 +455,22 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
         DebugStop();
     }
 
-    TLaplaceExample1 *analytic = &config.exact.operator*();
-    an.SetExact(analytic->ExactSolution());
-
     scalnames.Push("Pressure");
-    scalnames.Push("ExactPressure");
+    scalnames.Push("Permeability");
     vecnames.Push("Flux");
-    vecnames.Push("ExactFlux");
 
-    int resolution = 0;
-    std::string plotname = config.dir_name + "/" + config.problemname + "-Results.vtk";
-    an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname);
+    if (config.exact) {
+        scalnames.Push("ExactPressure");
+        vecnames.Push("ExactFlux");
+    }
+
+    std::cout << "Post Processing...\n";
+
+    int resolution = 2;
+    std::stringstream plotname;
+    plotname << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
+             << "-Results.vtk";
+    an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname.str());
     an.PostProcess(resolution, cmesh->Dimension());
 }
 
@@ -447,12 +492,15 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
 
     TPZManVector<REAL, 6> errors;
     TPZManVector<REAL> elementerrors;
-    std::string outVTK = config.dir_name + "/" + config.problemname + "-Errors.vtk";
-    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
+    std::stringstream outVTK;
+    outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
+           << "-Errors.vtk";
+    std::string outVTKstring = outVTK.str();
+    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
 
     {
         std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
-        std::ofstream file(fileName);
+        std::ofstream file(fileName, std::ios::app);
         Tools::PrintErrors(file, config, errors);
     }
 }
@@ -551,3 +599,67 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
     bool substructure = true;
     mhm->BuildComputationalMesh(substructure);
 }
+
+void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
+
+    TPZGeoMesh *gmesh = mhm.GMesh().operator->();
+    TPZManVector<int64_t, 22 * 6> coarse_indexes;
+    ComputeCoarseIndices(gmesh, coarse_indexes);
+
+    int nInternalRef = 0;
+    Tools::UniformRefinement(nInternalRef, 2, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
+
+    mhm.DefinePartitionbyCoarseIndices(coarse_indexes);
+
+    // Indicate material indices to the MHM control structure
+    mhm.fMaterialIds = {1};
+    mhm.fMaterialBCIds = {-1};
+
+    // Insert the material objects in the multiphysics mesh
+    TPZCompMesh *cmesh = mhm.CMesh().operator->();
+    auto *mix = new TPZMixedPoisson(1, cmesh->Dimension());
+    TPZAutoPointer<TPZFunction<STATE>> perm_function = new TPZDummyFunction<STATE>(&PeriodicPermeabilityFunction, 3);
+    mix->SetPermeabilityFunction(perm_function);
+    mix->SetForcingFunction(PeriodicProblemForcingFunction, 1);
+
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+    constexpr int dirichlet_bc = 0;
+    TPZBndCond *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
+
+    cmesh->InsertMaterialObject(mix);
+    cmesh->InsertMaterialObject(pressure_left);
+
+    // General approximation order settings
+    mhm.SetInternalPOrder(2);
+    mhm.SetSkeletonPOrder(2);
+    mhm.SetHdivmaismaisPOrder(2);
+
+    // Refine skeleton elements
+    mhm.DivideSkeletonElements(0);
+    mhm.DivideBoundarySkeletonElements();
+
+    // Creates MHM mesh
+    bool substructure = true;
+    mhm.BuildComputationalMesh(substructure);
+}
+
+void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat) {
+
+    constexpr auto epsilon = 0.04;
+    constexpr auto P = 1.8;
+    const auto x = coord[0];
+    const auto y = coord[1];
+
+    REAL term_1 = 2 + P * cos(2 * M_PI * (x - 0.5) / epsilon);
+    REAL term_2 = 2 + P * cos(2 * M_PI * (y - 0.5) / epsilon);
+
+    auto perm = 1 / (term_1 * term_2);
+
+    for (int i = 0; i < 2; i++) {
+        res_mat(i, i) = perm;
+        res_mat(i + 2, i) = 1 / perm;
+    }
+}
+
+void PeriodicProblemForcingFunction(const TPZVec<REAL> &pt, TPZVec<STATE> &result) { result[0] = -1; }
