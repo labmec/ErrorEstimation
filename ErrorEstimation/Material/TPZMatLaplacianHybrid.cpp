@@ -61,15 +61,15 @@ void TPZMatLaplacianHybrid::Read(TPZStream &buf, void *context)
 
 int TPZMatLaplacianHybrid::VariableIndex(const std::string &name)
 {
-
+    
     if(name == "Pressure") return 44;
     if(name == "PressureExact") return 45;
-
+    
     if(name == "Flux") return 10;
     if(name == "ExactFlux") return 13;
-
+    
     if(name == "ExactFluxShiftedOrigin") return 23;
-
+    
     return -1;
 }
 
@@ -90,18 +90,18 @@ int TPZMatLaplacianHybrid::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const{
     if (fForcingFunction) {
         order = fForcingFunction->PolynomialOrder();
     }
-
+    
     int pmax = 0;
     for (int ip = 0; ip < elPMaxOrder.size(); ip++) {
         if (elPMaxOrder[ip] > pmax) pmax = elPMaxOrder[ip];
     }
     pmax += 1; // HDiv simulations use an additional integration order. In order to test if HybridH1 and HDiv are equivalents, both integration orders shall be equivalent.
-
+    
     int integrationorder = 2 * pmax;
     if (pmax < order) {
         integrationorder = order + pmax;
     }
-
+    
     return integrationorder;
 }
 
@@ -130,7 +130,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
     TPZFMatrix<REAL>  &phi = datavec[1].phi;
     TPZFMatrix<REAL> &dphi = datavec[1].dphix;
     TPZVec<REAL>  &x = datavec[1].x;
-
+    
     int phr = phi.Rows();
     
     STATE fXfLoc = fXf;
@@ -151,7 +151,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
         fPermeabilityFunction->Execute(x, func, dfunc);
         KPerm = dfunc(0,0);
     }
-
+    
     //Equacao de Poisson
     for( int in = 0; in < phr; in++ ) {
         int kd;
@@ -169,7 +169,7 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
         ek(phr,in) += weight*phi(in,0);
         ek(in,phr) += weight*phi(in,0);
     }
-
+    
     ek(phr,phr+1) -= weight;
     ek(phr+1,phr) -= weight;
     
@@ -216,91 +216,142 @@ void TPZMatLaplacianHybrid::Contribute(TPZVec<TPZMaterialData> &datavec, REAL we
     }
     ef(phr,0) += weight*(-datavec[1].sol[0][0]+ datavec[3].sol[0][0]);
     ef(phr+1,0) += weight*datavec[2].sol[0][0];
-
+    
 }
 
-void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc)
-{
-    TPZFMatrix<REAL>  &phi_u = datavec[1].phi;
-    TPZFMatrix<REAL>  &phi_flux = datavec[0].phi;
+void TPZMatLaplacianHybrid::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) {
+    TPZFMatrix<REAL> &phi_u = datavec[1].phi;
+    TPZFMatrix<REAL> &phi_flux = datavec[0].phi;
     //    TPZFMatrix<REAL> &axes = data.axes;
     int phr_primal = phi_u.Rows();
     int phr_hybrid = phi_flux.Rows();
     bool primal = true;
-    TPZManVector<REAL,3> x(3);
-    if(phr_hybrid)
-    {
+    TPZManVector<REAL, 3> x(3);
+    if (phr_hybrid) {
         primal = false;
         x = datavec[0].x;
-    }
-    else
-    {
+    } else {
         x = datavec[1].x;
     }
-    short in,jn;
+    short in, jn;
     STATE v2[1];
-    v2[0] = bc.Val2()(0,0);
-    
-    if(bc.HasForcingFunction()) {            // phi(in, 0) = phi_in                          // JORGE 2013 01 26
+    v2[0] = bc.Val2()(0, 0);
+    REAL normflux = 0.;
+    int dim = Dimension();
+    int dimBC = Dimension()-1;
+
+    if (bc.HasForcingFunction()) {            // phi(in, 0) = phi_in                          // JORGE 2013 01 26
         TPZManVector<STATE> res(1);
-        TPZFNMatrix<3,STATE> dres(3,1);
-        bc.ForcingFunction()->Execute(x,res,dres);       // dphi(i,j) = dphi_j/dxi
+        TPZFNMatrix<3, STATE> dres(3, 1);
+        bc.ForcingFunction()->Execute(x, res, dres);       // dphi(i,j) = dphi_j/dxi
         v2[0] = res[0];
+        TPZManVector<REAL, 3> normal(3, 0), vec(3), axes1(3), axes2(3), zaxes(3, 0);
+        zaxes[2] = 1;
+        bool unitary = true;
+        if (!primal && bc.Type() == 1) {
+            TPZFNMatrix<9, STATE> PermTensor, InvPermTensor;
+            GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
+            for (int i = 0; i < 3; i++) {
+                axes1[i] = datavec[0].axes(0, i);
+            }
+            switch (dimBC) {
+                case 0: //normal = axes
+                    std::cout << "Implement me\n";
+                    DebugStop();
+                    break;
+                case 1: // axes x (0,0,1)
+                    this->VectorialProd(axes1, zaxes, normal, unitary);
+                    break;
+                case 2:
+                    for (int i = 0; i < 3; i++) {
+                        axes2[i] = datavec[0].axes(1, i);
+                    }
+                    this->VectorialProd(axes1, axes2, normal, unitary);
+                    break;
+                default:
+                    DebugStop();
+            }
+
+            for (int i = 0; i < dim; i++) {
+                for (int j = 0; j < dim; j++) {
+                    normflux += normal[i] * PermTensor(i, j) * dres(j, 0);
+                }
+            }
+            v2[0] = -normflux;
+        }
     }
-    
-    if(primal)
-    {
-        switch (bc.Type()) {
-            case 0 :            // Dirichlet condition
-                for(in = 0 ; in < phr_primal; in++) {
-                    ef(in,0) += (STATE)(gBigNumber* phi_u(in,0) * weight) * v2[0];
-                    for (jn = 0 ; jn < phr_primal; jn++) {
-                        ek(in,jn) += gBigNumber * phi_u(in,0) * phi_u(jn,0) * weight;
+
+        if (primal) {
+            switch (bc.Type()) {
+                case 0 :            // Dirichlet condition
+                    for (in = 0; in < phr_primal; in++) {
+                        ef(in, 0) += (STATE) (gBigNumber * phi_u(in, 0) * weight) * v2[0];
+                        for (jn = 0; jn < phr_primal; jn++) {
+                            ek(in, jn) += gBigNumber * phi_u(in, 0) * phi_u(jn, 0) * weight;
+                        }
                     }
-                }
-                break;
-            case 1 :            // Neumann condition
-                for(in = 0 ; in < phr_primal; in++) {
-                    ef(in,0) += v2[0] * (STATE)(phi_u(in,0) * weight);
-                }
-                break;
-            case 2 :        // mixed condition
-                for(in = 0 ; in < phr_primal; in++) {
-                    ef(in, 0) += v2[0] * (STATE)(phi_u(in, 0) * weight);
-                    for (jn = 0 ; jn < phi_u.Rows(); jn++) {
-                        ek(in,jn) += bc.Val1()(0,0) * (STATE)(phi_u(in,0) * phi_u(jn,0) * weight);     // peso de contorno => integral de contorno
+                    break;
+                case 1 :            // Neumann condition
+                    for (in = 0; in < phr_primal; in++) {
+                        ef(in, 0) += v2[0] * (STATE) (phi_u(in, 0) * weight);
                     }
-                }
-                break;
-            default:
-                DebugStop();
+                    break;
+                case 2 :        // mixed condition
+                    for (in = 0; in < phr_primal; in++) {
+                        ef(in, 0) += v2[0] * (STATE) (phi_u(in, 0) * weight);
+                        for (jn = 0; jn < phi_u.Rows(); jn++) {
+                            ek(in, jn) += bc.Val1()(0, 0) * (STATE) (phi_u(in, 0) * phi_u(jn, 0) *
+                                                                     weight);     // peso de contorno => integral de contorno
+                        }
+                    }
+                    break;
+                default:
+                    DebugStop();
+            }
+        } else {
+            switch (bc.Type()) {
+                case 0 :            // Dirichlet condition
+                    for (in = 0; in < phr_hybrid; in++) {
+                        ef(in, 0) += v2[0] * (STATE) (phi_flux(in, 0) * weight);
+                    }
+                    break;
+                case 1 :            // Neumann condition
+                    for (in = 0; in < phr_hybrid; in++) {
+                        ef(in, 0) += (STATE) (gBigNumber * phi_flux(in, 0) * weight) * v2[0];
+                        for (jn = 0; jn < phr_hybrid; jn++) {
+                            ek(in, jn) += gBigNumber * phi_flux(in, 0) * phi_flux(jn, 0) * weight;
+                        }
+                    }
+                    break;
+                case 2 :        // mixed condition
+                    DebugStop();
+                    for (in = 0; in < phr_hybrid; in++) {
+                        ef(in, 0) += v2[0] * (STATE) (phi_flux(in, 0) * weight);
+                        for (jn = 0; jn < phi_flux.Rows(); jn++) {
+                            ek(in, jn) += 1. / bc.Val1()(0, 0) * (STATE) (phi_flux(in, 0) * phi_flux(jn, 0) *
+                                                                          weight);     // peso de contorno => integral de contorno
+                        }
+                    }
+                    break;
+            }
         }
-    } else
+}
+
+void TPZMatLaplacianHybrid::VectorialProd(TPZVec<REAL> & ivec, TPZVec<REAL> & jvec, TPZVec<REAL> & kvec, bool unitary)
+{
+    kvec.Resize(3);
+    kvec[0] =  ivec[1]*jvec[2] - ivec[2]*jvec[1];
+    kvec[1] = -ivec[0]*jvec[2] + ivec[2]*jvec[0];
+    kvec[2] =  ivec[0]*jvec[1] - ivec[1]*jvec[0];
+
+    if(unitary)
     {
-        switch (bc.Type()) {
-            case 0 :            // Dirichlet condition
-                for(in = 0 ; in < phr_hybrid; in++) {
-                    ef(in,0) += v2[0] * (STATE)(phi_flux(in,0) * weight);
-                }
-                break;
-            case 1 :            // Neumann condition
-                for(in = 0 ; in < phr_hybrid; in++) {
-                    ef(in,0) += (STATE)(gBigNumber* phi_flux(in,0) * weight) * v2[0];
-                    for (jn = 0 ; jn < phr_hybrid; jn++) {
-                        ek(in,jn) += gBigNumber * phi_flux(in,0) * phi_flux(jn,0) * weight;
-                    }
-                }
-                break;
-            case 2 :        // mixed condition
-                DebugStop();
-                for(in = 0 ; in < phr_hybrid; in++) {
-                    ef(in, 0) += v2[0] * (STATE)(phi_flux(in, 0) * weight);
-                    for (jn = 0 ; jn < phi_flux.Rows(); jn++) {
-                        ek(in,jn) += 1./bc.Val1()(0,0) * (STATE)(phi_flux(in,0) * phi_flux(jn,0) * weight);     // peso de contorno => integral de contorno
-                    }
-                }
-                break;
-        }
+        REAL size = 0.;
+        int i;
+        for(i = 0; i < 3; i++)size += kvec[i] * kvec[i];
+        size = sqrt(size);
+        //if(size <= 1.e-9)PZError << "\nTPZInterpolationSpace::VectorialProd - null result\n";
+        for(i = 0; i < 3; i++)kvec[i] /= size;
     }
 }
 
@@ -339,11 +390,11 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
     
     PermTensor.Multiply(gradu, fluxinv);
     
-
+    
     switch (var)
     {
-  
-
+            
+            
         case 44://PressureFem
             Solout[0] = datavec[1].sol[0][0];
             break;
@@ -360,42 +411,28 @@ void TPZMatLaplacianHybrid::Solution(TPZVec<TPZMaterialData> &datavec, int var, 
     }
 }
 
-
-void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
+void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors)
 {
-    /**
-     datavec[1] L2 mesh (phi's)
-     datavec[0] Hdiv mesh,
-     datavec[2] Interface Mesh
-     datavec[3] Interface Mesh
-
-     error[0] = L2 norm
-     error[1] = semi H1 norm
-     error[2] = H1 norm
-     error[3] = energy norm
-     
- 
-     **/
+    if(!fExactSol) return;
     
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
     
-
+    TPZManVector<STATE> u_exact(1);
+    TPZFNMatrix<9,STATE> du_exact;
+    
     
     if(this->fExactSol){
         
         this->fExactSol->Execute(data[1].x,u_exact,du_exact);
     }
-    
 
     REAL pressure = data[1].sol[0][0];
-    
 
-    
     // errors[0] norm L2 || u ||_l2
-
+    
     errors[0] = (pressure-u_exact[0])*(pressure-u_exact[0]);//exact error pressure
-
+    
     // errors[1] Semi norm H1 || grad u ||_l2
     
     TPZManVector<STATE,3> sol(1),dsol(3,0.);
@@ -414,15 +451,15 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     errors[2] = errors[0] +errors[1];
     
     // error[3] Energy norm || u ||_e = a(u,u)= int_K K gradu.gradu dx
- 
-        TPZFNMatrix<9,REAL> PermTensor = fTensorK;
-        TPZFNMatrix<9,REAL> gradpressure(fDim,1),Kgradu(fDim,1);
-        for (int i=0; i<fDim; i++) {
-            gradpressure(i,0) = du_exact(i,0);
-        }
-        PermTensor.Multiply(gradpressure,Kgradu);
-
-
+    
+    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
+    TPZFNMatrix<9,REAL> gradpressure(fDim,1),Kgradu(fDim,1);
+    for (int i=0; i<fDim; i++) {
+        gradpressure(i,0) = du_exact(i,0);
+    }
+    PermTensor.Multiply(gradpressure,Kgradu);
+    
+    
     
     REAL energy = 0.;
     for (int i=0; i<fDim; i++) {
@@ -432,7 +469,78 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     }
     
     errors[3] = energy;
+    
+    
+}
 
 
+void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
+{
+    /**
+     datavec[1] L2 mesh (phi's)
+     datavec[0] Hdiv mesh,
+     datavec[2] Interface Mesh
+     datavec[3] Interface Mesh
+     
+     error[0] = L2 norm
+     error[1] = semi H1 norm
+     error[2] = H1 norm
+     error[3] = energy norm
+     
+     
+     **/
+    
+    errors.Resize(NEvalErrors());
+    errors.Fill(0.0);
+    
+    
+    
+    if(this->fExactSol){
+        
+        this->fExactSol->Execute(data[1].x,u_exact,du_exact);
+    }
+
+    REAL pressure = data[1].sol[0][0];
+
+    // errors[0] norm L2 || u ||_l2
+    
+    errors[0] = (pressure-u_exact[0])*(pressure-u_exact[0]);//exact error pressure
+    
+    // errors[1] Semi norm H1 || grad u ||_l2
+    
+    TPZManVector<STATE,3> sol(1),dsol(3,0.);
+    
+    TPZFMatrix<REAL> &dsolaxes = data[1].dsol[0];
+    TPZFNMatrix<9,REAL> flux(3,0);
+    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, flux, data[1].axes);
+    
+    for(int id=0; id<fDim; id++) {
+        REAL diff = fabs(flux(id,0) - du_exact(id,0));
+        errors[1]  += diff*diff;
+    }
+    
+    // error[2] H1 norm
+    
+    errors[2] = errors[0] +errors[1];
+    
+    // error[3] Energy norm || u ||_e = a(u,u)= int_K K gradu.gradu dx
+    
+    TPZFNMatrix<9,REAL> PermTensor = fTensorK;
+    TPZFNMatrix<9,REAL> gradpressure(fDim,1),Kgradu(fDim,1);
+    for (int i=0; i<fDim; i++) {
+        gradpressure(i,0) = du_exact(i,0);
+    }
+    PermTensor.Multiply(gradpressure,Kgradu);
+
+    REAL energy = 0.;
+    for (int i=0; i<fDim; i++) {
+        for (int j=0; j<fDim; j++) {
+            energy += PermTensor(i,j)*fabs(flux(j,0) - du_exact(j,0))*fabs(flux(i,0) - du_exact(i,0));
+        }
+    }
+    
+    errors[3] = energy;
+    
+    
     
 }

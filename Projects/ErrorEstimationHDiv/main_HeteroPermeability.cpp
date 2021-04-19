@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
 //        }
 //        
 //        
-//#ifdef USING_MKL
+//#ifdef PZ_USING_MKL
 //        TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
 //        strmat.SetNumThreads(0);
 //        //        strmat.SetDecomposeType(ELDLt);

@@ -45,12 +45,26 @@ public:
     
     virtual void ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc) override;
     virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)override;
+
     virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)override;
-    
-    virtual void ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc)override{
-    
-        
+
+    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors)override;
+
+    void VectorialProd(TPZVec<REAL> & ivec, TPZVec<REAL> & jvec, TPZVec<REAL> & kvec, bool unitary);
+
+    virtual void FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec) override
+    {
+        datavec[0].fNeedsNormal = true;
     }
+    
+
+    virtual void ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors,TPZBndCond &bc)override{
+    }
+    
+    virtual void ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors,TPZBndCond &bc)override
+    {
+    }
+
 
     /** @brief Gets the order of the integration rule necessary to integrate an element with polinomial order p */
     ///  HDiv simulations use an additional integration order.
