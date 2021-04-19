@@ -227,8 +227,13 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 // log: elementos e matId
             }
         }
+        std::cout << "Finished transfering dim-1 elems\n";
+        std::cout << "Printing gmeshsub\n";
+
         std::ofstream file("GmeshSub.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
+
+        std::cout << "Finished  printing gmesh\n";
 
         fPostProcMesh.ComputeNodElCon();
         if (!fPostProcesswithHDiv) {
@@ -312,6 +317,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             }
         }
     }
+    std::cout << "Finished substructuring post proc mesh\n";
 }
 
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()

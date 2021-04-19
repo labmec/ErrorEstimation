@@ -817,6 +817,7 @@ void TPZHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
 
 //compute de L2 projection of Dirichlet boundary condition for Hdi-H1 reconstruction
 void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
+    std::cout << "Computing boundary L2 projection\n";
     TPZCompMesh* pressuremesh = PressureMesh();
     {
         std::ofstream out("PressureBeforeL2Projection.txt");
@@ -2181,6 +2182,7 @@ void TPZHDivErrorEstimator::CopySolutionFromSkeleton() {
 /// compute the pressure weights and material weights
 // fills in the data structure fPressureweights and fMatid_weights
 void TPZHDivErrorEstimator::ComputePressureWeights() {
+    std::cout << "Computing pressure weights\n";
     TPZCompMesh *pressuremesh = fPostProcMesh.MeshVector()[1];
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
@@ -2228,6 +2230,7 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
             fMatid_weights[matid] = perm;
         }
     }
+    std::cout << "Finished computing pressure weights\n";
 }
 
 void TPZHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic) {
