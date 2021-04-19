@@ -12,10 +12,9 @@
 #include <cmath>
 #include <tuple>
 
-#include "Tools.h"
 #include "ProblemConfig.h"
-#include "TPZHDivErrorEstimatorH1.h"
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimator.h"
+#include "Tools.h"
 
 //#include "pzelchdiv.h"
 
@@ -55,7 +54,7 @@ int main(int argc, char* argv[]) {
     config.dir_name = "AdaptivityLShape";
     config.problemname = "ESinSinMark";
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     if (readGeoMeshFromFile) {
@@ -169,9 +168,7 @@ else
         //reconstroi potencial e calcula o erro
         {
             bool postProcWithHDiv = false;
-            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
-            HDivEstimate.SetProblemConfig(config);
-            HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
+            TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
             HDivEstimate.SetAnalyticSolution(config.exact);
 
             HDivEstimate.PotentialReconstruction();

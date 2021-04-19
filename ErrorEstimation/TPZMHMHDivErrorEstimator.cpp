@@ -226,19 +226,14 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 submesh->TransferElement(&fPostProcMesh, iel);
                 // log: elementos e matId
             }
-
-            if (celDomain.empty()) {
-                //std::cout << "Nothing happened to element: " << iel << ", gel " << gel->Index()
-                //          << ", matId: " << gel->MaterialId();
-                if (nc) {
-                //    std::cout << " connect index " << cel->ConnectIndex(0) << "\n subdomain "
-                //              << (void *)connectToSubcmesh[cel->ConnectIndex(0)] << std::endl;
-                }
-                // log: elementos e matId
-            }
         }
+        std::cout << "Finished transfering dim-1 elems\n";
+        std::cout << "Printing gmeshsub\n";
+
         std::ofstream file("GmeshSub.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
+
+        std::cout << "Finished  printing gmesh\n";
 
         fPostProcMesh.ComputeNodElCon();
         if (!fPostProcesswithHDiv) {
@@ -322,6 +317,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
             }
         }
     }
+    std::cout << "Finished substructuring post proc mesh\n";
 }
 
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()

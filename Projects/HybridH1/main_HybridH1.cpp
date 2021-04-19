@@ -37,8 +37,6 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "TPZHDivErrorEstimatorH1.h"
-
 #include "Tools.h"
 
 #include "TPZBFileStream.h"
@@ -81,7 +79,7 @@ int main(int argc, char *argv[]) {
         config.problemname = "ESinSin k=1 e lagrange order 2";
 
         config.dir_name = "HybridH1_ESinSin";
-        std::string command = "mkdir " + config.dir_name;
+        std::string command = "mkdir -p " + config.dir_name;
         system(command.c_str());
 
         // geometric mesh

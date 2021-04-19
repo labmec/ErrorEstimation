@@ -5,19 +5,18 @@
 //  Created by Denise De Siqueira on 25/11/20.
 //
 
-#include "TPZGmshReader.h"
-#include "TPZRefPatternDataBase.h"
-#include "pzlog.h"
-#include "tpzgeoelrefpattern.h"
 #include "ProblemConfig.h"
-#include "pzbndcond.h"
+#include "TPZBFileStream.h"
+#include "TPZGmshReader.h"
+#include "TPZHDivErrorEstimator.h"
 #include "TPZHybridizeHDiv.h"
 #include "TPZMultiphysicsCompMesh.h"
-#include "TPZHybridHDivErrorEstimator.h"
-#include "Tools.h"
-#include "TPZBFileStream.h"
+#include "TPZRefPatternDataBase.h"
 #include "TPZSteklovMaterial.h"
-
+#include "Tools.h"
+#include "pzbndcond.h"
+#include "pzlog.h"
+#include "tpzgeoelrefpattern.h"
 
 TPZMultiphysicsCompMesh * CreateMixedMesh(const ProblemConfig& problem);
 
@@ -60,7 +59,7 @@ void RunSteklovProblem() {
     config.gmesh = Tools::CreateNewGeoMesh(nElem, bcIDs);
     
    
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
     {
          std::string fileName = config.dir_name + "/" + config.problemname + "GeoSquareMesh.vtk";

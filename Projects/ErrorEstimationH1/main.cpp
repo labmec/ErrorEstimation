@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
 
     Case1.problemname = "ESinMark";
     Case1.dir_name= "ESinMark";
-    std::string command = "mkdir " + Case1.dir_name;
+    std::string command = "mkdir -p " + Case1.dir_name;
     system(command.c_str());
     
   //  UniformRefinement(Case1.numinitialrefine,gmesh);
@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
 bool SolvePoissonProblem(struct SimulationCase &sim_case) {
 
     // Creating the directory
-    std::string command = "mkdir " + sim_case.dir_name;
+    std::string command = "mkdir -p " + sim_case.dir_name;
     system(command.c_str());
 
     // Output files

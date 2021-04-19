@@ -36,9 +36,8 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
+#include "TPZHDivErrorEstimator.h"
 #include "Tools.h"
-#include "TPZHDivErrorEstimatorH1.h"
-#include "TPZHybridHDivErrorEstimator.h"
 
 #include "TPZBFileStream.h"
 #include <tuple>
@@ -391,18 +390,12 @@ int main(int argc, char *argv[]) {
     //reconstroi potencial e calcula o erro
     {
         
-       TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.SetProblemConfig(config);
-        HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
+       TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         HDivEstimate.SetAnalyticSolution(config.exact);
-        
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 1;
-        
- 
+
         /*
       
-        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
+        TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         
         HDivEstimate.fProblemConfig = config;
         HDivEstimate.fUpliftPostProcessOrder = config.hdivmais;

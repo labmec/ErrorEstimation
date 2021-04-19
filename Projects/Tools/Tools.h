@@ -32,7 +32,7 @@
 #include "pzskylstrmatrix.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimator.h"
 
 #include <tuple>
 #include <memory>
@@ -42,7 +42,9 @@
 
 namespace Tools {
 
-    // Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
+    void PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT, bool printVTK);
+
+// Create a geometric mesh on a unit square domain with boundary condition ids defined by bcids
     TPZGeoMesh *CreateGeoMesh(int nelem, TPZVec<int> &bcids);
     TPZGeoMesh *CreateNewGeoMesh(int nelem, TPZVec<int> &bcids);
 
@@ -54,14 +56,6 @@ namespace Tools {
 
     TPZGeoMesh *CreateQuadLShapeMesh(TPZVec<int> &bcids);
 
-    TPZGeoMesh *CreateSingleTriangleMesh(TPZVec<int> &bcids);
-
-    TPZGeoMesh *CreateSingleQuadMesh(TPZVec<int> &bcids);
-
-    TPZGeoMesh *CreateQuadMeshRefTriang(TPZVec<int> &bcids);
-
-    TPZGeoMesh *ReadGeometricMesh(struct ProblemConfig &config, bool IsgmeshReader);
-
     TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
 
     TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
@@ -72,9 +66,6 @@ namespace Tools {
 
     void UniformRefinement(int nDiv, int dim, TPZGeoMesh *gmesh);
 
-    TPZGeoMesh *CreateTrapezoidalMesh(int nelx, int nely, REAL Lx, REAL Ly, TPZVec<int> &bcids);
-
-
 /// Divide lower dimensional elements
     void DivideLowerDimensionalElements(TPZGeoMesh *gmesh);
 
@@ -84,12 +75,6 @@ namespace Tools {
 
     // Refine elements given a set of indexes
     void RefineElements(TPZGeoMesh *gmesh, const std::set<int64_t>& elsToRefine);
-
-    std::tuple<TPZCompMesh *, TPZVec<TPZCompMesh *> >
-    CreatePostProcessingMesh(TPZCompMesh *cmesh_HDiv, TPZVec<TPZCompMesh *> &meshvec_HDiv, TPZHybridizeHDiv &hybridize);
-
-
-    void FunctionTest();
 
     void Prefinamento(TPZCompMesh *cmesh, int ndiv, int porder);
 
@@ -111,7 +96,9 @@ namespace Tools {
 
     void DrawCompMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *multiCmesh);
 
-    TPZGeoMesh* CreateGeoMesh(int nelem, TPZVec<int>& bcids,int dim, bool isOriginCentered, int topologyMode);
+    TPZGeoMesh* CreateGeoMesh(int nelem, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode);
+
+    void PrintErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
 }
 
 #endif

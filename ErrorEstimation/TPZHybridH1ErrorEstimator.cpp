@@ -1,12 +1,12 @@
 
 //
-//  TPZHybridHDivErrorEstimator.cpp
+//  TPZHDivErrorEstimator.cpp
 //  ErrorEstimateHDiv
 //
 //  Created by Philippe Devloo on 10/06/18.
 //
 
-//#include "TPZHybridHDivErrorEstimator.h" // DELETE ME
+//#include "TPZHDivErrorEstimator.h" // DELETE ME
 #include "TPZHybridH1ErrorEstimator.h"
 #include "pzcmesh.h"
 #include "pzsubcmesh.h"
