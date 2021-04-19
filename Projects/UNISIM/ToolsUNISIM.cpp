@@ -240,7 +240,7 @@ void SpreadMeshRefinement(TPZGeoMesh *gmesh) {
 
 void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef) {
     // Mat IDs of productors and injectors BCs
-    set<int> matids{-2, -3};
+    std::set<int> matids{-2, -3};
 
     for (auto i = 0; i < nRef; i++) {
         int nelements = gmesh->NElements();
@@ -249,8 +249,8 @@ void ApplyDirectionalRefinement(TPZGeoMesh *gmesh, int nRef) {
             if (!element) continue;
             TPZRefPatternTools::RefineDirectional(element, matids);
         }
-        cout << "Refinement step: " << i << "\nNumber of elements = " << gmesh->NElements() << '\n';
-        stringstream meshfilename;
+        std::cout << "Refinement step: " << i << "\nNumber of elements = " << gmesh->NElements() << '\n';
+        std::stringstream meshfilename;
         meshfilename << "DirectionalRefinementGMesh" << i;
         PrintGeometry(gmesh, meshfilename.str(), false, true);
     }
