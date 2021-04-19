@@ -1821,58 +1821,35 @@ void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, boo
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
 void TPZHDivErrorEstimator::SwitchMaterialObjects() {
-    
-    if(fPostProcesswithHDiv) {
-        for (auto mat : fPostProcMesh.MaterialVec()) {
-            TPZMixedPoisson *mixpoisson =
-            dynamic_cast<TPZMixedPoisson *>(mat.second);
-            if (mixpoisson) {
-                TPZMixedHDivErrorEstimate<TPZMixedPoisson> *newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
-                
-                if (mixpoisson->HasForcingFunction()) {
-                    newmat->SetExactSol(mixpoisson->GetExactSol());
-                    newmat->SetForcingFunction(mixpoisson->ForcingFunction());
-                }
-                
-                for (auto bcmat : fPostProcMesh.MaterialVec()) {
-                    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
-                    if (bc) {
-                        bc->SetMaterial(newmat);
-                    }
-                }
-                fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
-                delete mixpoisson;
-            }
-        }
-    }
-    else {
-        // switch the material of the HDiv approximation to a material for an H1 approximation
-        for(auto mat : fPostProcMesh.MaterialVec())
-        {
-            TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *> (mat.second);
-            if(mixpoisson)
-            {
-                TPZHDivErrorEstimateMaterial *newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
-                newmat->SetNeumannProblem(false);
 
-                if (mixpoisson->HasForcingFunction()) {
-                    newmat->SetExactSol(mixpoisson->GetExactSol());
-                    newmat->SetForcingFunction(mixpoisson->ForcingFunction());
-                }
-                
-                for (auto bcmat : fPostProcMesh.MaterialVec()) {
-                    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
-                    if (bc) {
-                        bc->SetMaterial(newmat);
-                    }
-                }
-                fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
-                delete mixpoisson;
+    for (auto mat : fPostProcMesh.MaterialVec()) {
+        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *>(mat.second);
+        if (mixpoisson) {
+            TPZMaterial *newmat;
+            if (fPostProcesswithHDiv) {
+                newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
+            } else {
+                newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
             }
+
+            if (mixpoisson->HasForcingFunction()) {
+                newmat->SetForcingFunction(mixpoisson->ForcingFunction());
+            }
+            if (mixpoisson->HasExactSol()) {
+                newmat->SetExactSol(mixpoisson->GetExactSol());
+            }
+
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(newmat);
+                }
+            }
+            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            delete mixpoisson;
         }
     }
 }
-
 
 void TPZHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
     {
