@@ -508,7 +508,6 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     bool postProcWithHDiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
-    ErrorEstimator.SetProblemConfig(config);
     ErrorEstimator.PotentialReconstruction();
 
     {

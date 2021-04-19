@@ -169,7 +169,6 @@ else
         {
             bool postProcWithHDiv = false;
             TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
-            HDivEstimate.SetProblemConfig(config);
             HDivEstimate.SetAnalyticSolution(config.exact);
 
             HDivEstimate.PotentialReconstruction();

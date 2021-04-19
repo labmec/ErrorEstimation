@@ -390,15 +390,9 @@ int main(int argc, char *argv[]) {
     //reconstroi potencial e calcula o erro
     {
         
-       TPZHDivErrorEstimatorH1 HDivEstimate(*cmesh_HDiv);
-        HDivEstimate.SetProblemConfig(config);
-        HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
+       TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
         HDivEstimate.SetAnalyticSolution(config.exact);
-        
-        HDivEstimate.fperformUplift = true;
-        HDivEstimate.fUpliftOrder = 1;
-        
- 
+
         /*
       
         TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv);
