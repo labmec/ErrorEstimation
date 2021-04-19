@@ -24,6 +24,7 @@ void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<R
 void InsertMaterials(TPZCompMesh *cmesh);
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm);
 void SolveMHMProblem(TPZMHMixedMeshControl &mhm);
+void EstimateError(TPZMHMixedMeshControl *mhm);
 
 int main() {
 
@@ -37,6 +38,7 @@ int main() {
 
     TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
     std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
+    Tools::PrintGeometry(gmesh, "SPE10GeoMesh", false, true);
 
     std::vector<REAL> x, y, perm;
     for (int i = 0; i < nx; i++) {
@@ -55,6 +57,7 @@ int main() {
     CreateSPE10MHMCompMesh(mhm);
 
     SolveMHMProblem(mhm);
+    EstimateError(&mhm);
 
     return 0;
 }
@@ -64,7 +67,7 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
 
     const TPZManVector<REAL, 3> x0 = {0, 0, 0};
     const TPZManVector<REAL, 3> x1 = {220., 60., 0.};
-    const TPZManVector<int, 3> ndiv = {22, 6, 0};
+    const TPZManVector<int, 3> ndiv = {20, 6, 0};
 
     TPZGenGrid2D gen(ndiv, x0, x1);
 
@@ -72,10 +75,7 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
     auto gmesh = new TPZGeoMesh;
     gen.Read(gmesh);
 
-    gen.SetBC(gmesh, 4, -3);
-    gen.SetBC(gmesh, 5, -2);
-    gen.SetBC(gmesh, 6, -1);
-    gen.SetBC(gmesh, 7, -2);
+    gen.SetBC(gmesh, 5, -1);
 
     std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
 
@@ -119,13 +119,13 @@ void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
 void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat) {
 
     for (int i = 0; i < 2; i++) {
-        auto perm =  interpolator(x[0], x[1]);
-        if (IsZero(perm)) {
-            res_mat(i + 2, i) = 1.e14;
+        auto perm = interpolator(x[0], x[1]);
+        if (perm <= 1) {
+            perm = 1;
+        } else {
+            perm += 1;
         }
-        else {
-            res_mat(i + 2, i) = 1 / perm;
-        }
+        res_mat(i + 2, i) = 1 / perm;
         res_mat(i, i) = perm;
     }
     //std::cout << "[" << x[0] << ", " << x[1] << "]\n";
@@ -138,10 +138,10 @@ void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<R
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm) {
 
     TPZGeoMesh *gmesh = mhm.GMesh().operator->();
-    TPZManVector<int64_t> coarse_indexes;
+    TPZManVector<int64_t, 22 * 6> coarse_indexes;
     ComputeCoarseIndices(gmesh, coarse_indexes);
 
-    int nInternalRef = 2;
+    int nInternalRef = 3;
     Tools::UniformRefinement(nInternalRef, 2, gmesh);
     Tools::DivideLowerDimensionalElements(gmesh);
 
@@ -161,17 +161,17 @@ void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm) {
     mhm.SetHdivmaismaisPOrder(1);
 
     // Refine skeleton elements
-    mhm.DivideSkeletonElements(2);
+    mhm.DivideSkeletonElements(0);
     mhm.DivideBoundarySkeletonElements();
 
     // Creates MHM mesh
     bool substructure = true;
     mhm.BuildComputationalMesh(substructure);
-    {
-        std::string fileName = "CompMesh.txt";
-        std::ofstream file(fileName);
-        mhm.CMesh()->Print(file);
-    }
+    //{
+    //    std::string fileName = "CompMesh.txt";
+    //    std::ofstream file(fileName);
+    //    mhm.CMesh()->Print(file);
+    //}
 }
 
 void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
@@ -216,7 +216,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
     scalnames.Push("Permeability");
     vecnames.Push("Flux");
 
-    int resolution = 3;
+    int resolution = 0;
     std::string plotname = "SPE10-Results.vtk";
     an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname);
     an.PostProcess(resolution, cmesh->Dimension());
@@ -230,19 +230,32 @@ void InsertMaterials(TPZCompMesh *cmesh) {
 
     TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
     constexpr int dirichlet_bc = 0;
-    constexpr int neumann_bc = 1;
 
-    // Zero flux (reservoir boundary)
-    TPZBndCond *zero_flux = mix->CreateBC(mix, -1, neumann_bc, val1, val2);
-    // Unit pressure at left reservoir boundary
-    val2(0, 0) = 1.;
-    TPZBndCond *pressure_left = mix->CreateBC(mix, -2, dirichlet_bc, val1, val2);
-
-    val2(0, 0) = -1.;
-    TPZBndCond *pressure_right = mix->CreateBC(mix, -3, dirichlet_bc, val1, val2);
+    // Pressure at reservoir boundary
+    val2(0, 0) = 1;
+    TPZBndCond *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
 
     cmesh->InsertMaterialObject(mix);
-    cmesh->InsertMaterialObject(zero_flux);
     cmesh->InsertMaterialObject(pressure_left);
-    cmesh->InsertMaterialObject(pressure_right);
+}
+
+void EstimateError(TPZMHMixedMeshControl *mhm) {
+
+    std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
+
+    // Error estimation
+    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+    if (!originalMesh) DebugStop();
+
+    bool postProcWithHDiv = true;
+    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
+    ErrorEstimator.PotentialReconstruction();
+
+    std::string command = "mkdir SPE10";
+    system(command.c_str());
+
+    TPZManVector<REAL, 6> errors;
+    TPZManVector<REAL> elementerrors;
+    std::string outVTK = "SPE10-Errors.vtk";
+    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
 }
