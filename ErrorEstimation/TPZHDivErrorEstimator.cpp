@@ -148,7 +148,7 @@ void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
         int dim = fPostProcMesh.Reference()->Dimension();
 
         an.DefineGraphMesh(dim, scalnames, vecnames, out);
-        an.PostProcess(2, dim);
+        an.PostProcess(0, dim);
     }
     else {
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
@@ -865,6 +865,7 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
         std::ofstream out("PressureAfterL2Projection.txt");
         pressuremesh->Print(out);
     }
+    std::cout << "Finished computing boundary L2 projection\n";
 }
 
 // compute the average of an element iel in the pressure mesh looking at its neighbours
