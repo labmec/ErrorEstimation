@@ -226,16 +226,6 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 submesh->TransferElement(&fPostProcMesh, iel);
                 // log: elementos e matId
             }
-
-            if (celDomain.empty()) {
-                //std::cout << "Nothing happened to element: " << iel << ", gel " << gel->Index()
-                //          << ", matId: " << gel->MaterialId();
-                if (nc) {
-                //    std::cout << " connect index " << cel->ConnectIndex(0) << "\n subdomain "
-                //              << (void *)connectToSubcmesh[cel->ConnectIndex(0)] << std::endl;
-                }
-                // log: elementos e matId
-            }
         }
         std::ofstream file("GmeshSub.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
