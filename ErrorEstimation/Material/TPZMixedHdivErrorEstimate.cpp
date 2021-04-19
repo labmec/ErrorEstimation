@@ -131,27 +131,28 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     TPZFNMatrix<9,REAL> InvPermTensor;
     
     MixedMat::GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
-    
 
-    
-    if(MixedMat::fPermeabilityFunction){
-        PermTensor.Redim(3,3);
-        InvPermTensor.Redim(3,3);
-        TPZFNMatrix<3,STATE> resultMat;
+    int dim = MixedMat::fDim;
+
+    if (MixedMat::fPermeabilityFunction) {
+        PermTensor.Redim(dim, dim);
+        InvPermTensor.Redim(dim, dim);
+        TPZFNMatrix<18, STATE> resultMat(2 * dim, dim, 0.);
         TPZManVector<STATE> res;
-        MixedMat::fPermeabilityFunction->Execute(datavec[1].x,res,resultMat);
-        for(int id=0; id<3; id++){
-            for(int jd=0; jd<3; jd++){
-                PermTensor(id,jd) = resultMat(id,jd);
-                InvPermTensor(id,jd) = resultMat(id+3,jd);
+        MixedMat::fPermeabilityFunction->Execute(datavec[1].x, res, resultMat);
+
+        for (int id = 0; id < dim; id++) {
+            for (int jd = 0; jd < dim; jd++) {
+                PermTensor(id, jd) = resultMat(id, jd);
+                InvPermTensor(id, jd) = resultMat(id + dim, jd);
             }
         }
     }
 
     STATE pressureexact = 0.;
     TPZManVector<STATE,2> pressvec(1,0.);
-    TPZFNMatrix<9,STATE> gradu(3,1,0.), fluxinv(3,1);
-    
+    TPZFNMatrix<9, STATE> gradu(dim, 1, 0.), fluxinv(dim, 1);
+
     if(MixedMat::fExactSol)
     {
 
@@ -162,7 +163,6 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     
     PermTensor.Multiply(gradu, fluxinv);
     pressureexact = pressvec[0];
-    int dim=this->fDim;
     switch (var)
     {
         case 40://FluxFem
