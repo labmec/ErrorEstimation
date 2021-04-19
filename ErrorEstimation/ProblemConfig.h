@@ -33,6 +33,7 @@ struct ProblemConfig
     
     /// number of uniform refinements applied to the mesh
     int ndivisions = -1;
+    int ninternalref = -1;
     int adaptivityStep = -1;
     int dimension = 0;
     bool prefine = false;
