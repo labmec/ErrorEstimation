@@ -2344,6 +2344,8 @@ void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_ce
 
     celstack.Push(node_celside);
 
+    TPZBlock &block =  pressure_mesh->Block();
+    TPZFMatrix<STATE> &sol = pressure_mesh->Solution();
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         if (celside.Reference().Dimension() != 0) continue;
@@ -2359,7 +2361,7 @@ void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_ce
         if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
         TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
         for (int istate = 0; istate < nstate; istate++) {
-            neigh_sol[istate] = pressure_mesh->Block().Get(neigh_seqnum, 0, istate, 0);
+            neigh_sol[istate] = sol.at(block.at(neigh_seqnum, 0, istate, 0));
         }
 
         // Set solution to given connect
@@ -2372,7 +2374,7 @@ void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_ce
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         for (int istate = 0; istate < nstate; istate++) {
-            pressure_mesh->Block()(seqnum, 0, istate, 0) = neigh_sol[istate];
+            sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
         }
 
         // TODO remove this
@@ -2421,6 +2423,8 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
     // higher and will be used later to impose the value of the BC in the
     // connects when needed
     std::map<int64_t, std::pair<REAL, TPZVec<STATE>>> connects;
+    TPZBlock &block =  pressure_mesh->Block();
+    TPZFMatrix<STATE> &solMatrix = pressure_mesh->Solution();
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         TPZGeoElSide gelside = celside.Reference();
@@ -2452,7 +2456,7 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
         TPZManVector<REAL,3> pt(0), x(3);
         TPZManVector<STATE, 3> sol(nstate, 0.);
         for (int istate = 0; istate < nstate; istate++) {
-            sol[istate] = pressure_mesh->Block().Get(seqnum, 0, istate, 0);
+            sol[istate] = solMatrix.at(block.at(seqnum, 0, istate, 0));
         }
 #ifdef LOG4CXX
         if(logger->isDebugEnabled())
@@ -2506,7 +2510,7 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
                 LOGPZ_DEBUG(logger, sout.str())
             }
 #endif
-            pressure_mesh->Block()(seqnum, 0, istate, 0) = averageSol[istate];
+            solMatrix.at(block.at(seqnum, 0, istate, 0))= averageSol[istate];
         }
     }
 }
@@ -3212,6 +3216,8 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
         }
     }
 
+    TPZBlock &block =  pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     for(int iel = 0; iel < nel ; iel++) {
         TPZCompEl *cel = pressuremesh->Element(iel);
         if (!cel) continue;
@@ -3226,7 +3232,7 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
                 TPZCompElSide celside(cel, gelside.Side());
                 TPZConnect &elcon = pressuremesh->ConnectVec()[celside.ConnectIndex()];
                 if (elcon.NShape() != 1 || elcon.NState() != 1) DebugStop();
-                STATE elsol = pressuremesh->Block()(elcon.SequenceNumber(), 0, 0, 0);
+                STATE elsol = sol.at(block.at(elcon.SequenceNumber(), 0, 0, 0));
                 TPZStack<TPZCompElSide> neighSides;
                 gelside.ConnectedCompElementList(neighSides, 1, 0);
 
@@ -3240,7 +3246,7 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
 
                     TPZConnect &c1 = pressuremesh->ConnectVec()[neighCelSide.ConnectIndex()];
                     if (c1.NShape() != 1 || c1.NState() != 1) DebugStop();
-                    STATE c1sol = pressuremesh->Block()(c1.SequenceNumber(), 0, 0, 0);
+                    STATE c1sol = sol.at(block.at(c1.SequenceNumber(), 0, 0, 0));
 
 #ifdef LOG4CXX
                     if (logger->isDebugEnabled()) {
@@ -3634,6 +3640,9 @@ void TPZHybridH1ErrorEstimator::CopySolutionFromSkeleton() {
     pressuremesh->LoadReferences();
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
+
+    TPZBlock &block = pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         if (!cel) continue;
@@ -3667,7 +3676,7 @@ void TPZHybridH1ErrorEstimator::CopySolutionFromSkeleton() {
                     int con_size = con_neigh.NState() * con_neigh.NShape();
                     if (con_size != c_blocksize) DebugStop();
                     for (int ibl = 0; ibl < con_size; ibl++) {
-                        pressuremesh->Block()(c_seqnum, 0, ibl, 0) = pressuremesh->Block()(con_seqnum, 0, ibl, 0);
+                        sol.at(block.at(c_seqnum,0,ibl,0)) = sol.at(block.at(con_seqnum,0,ibl,0));
                     }
                     break;
                 }

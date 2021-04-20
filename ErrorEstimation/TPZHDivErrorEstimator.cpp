@@ -1075,6 +1075,9 @@ void TPZHDivErrorEstimator::TransferEdgeSolution() {
     int64_t nel = pressureHybrid->NElements();
     // load the pressure elements of dimension 1 and 2
     pressureHybrid->Reference()->ResetReference();
+
+    TPZBlock &block =  pressureHybrid->Block();
+    TPZFMatrix<STATE> &sol = pressureHybrid->Solution();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressureHybrid->Element(el);
         if (!cel) continue;
@@ -1136,7 +1139,7 @@ void TPZHDivErrorEstimator::TransferEdgeSolution() {
                 int nshape_neigh = pressureHybrid->Block().Size(neighblock);
                 if (nshape_edge != nshape_neigh) DebugStop();
                 for (int i = 0; i < nshape_neigh; i++) {
-                    pressureHybrid->Block()(neighblock, 0, i, 0) = pressureHybrid->Block()(edge_seqnum, 0, i, 0);
+                    sol.at(block.at(neighblock, 0, i, 0)) = sol.at(block.at(edge_seqnum, 0, i, 0));
                 }
             }
         }
@@ -1203,6 +1206,9 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
 
     pressure_mesh->LoadSolution(pressure_mesh->Solution());
 
+    TPZBlock &block =  pressure_mesh->Block();
+    TPZFMatrix<STATE> &sol = pressure_mesh->Solution();
+
     // Impose solution on nodes adjacent to hanging nodes
     for (int64_t i = 0; i < nodesToImposeSolution.size(); i++) {
         TPZCompElSide node_celside = nodesToImposeSolution[i];
@@ -1231,7 +1237,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
             if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
             TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
             for (int istate = 0; istate < nstate; istate++) {
-                neigh_sol[istate] = pressure_mesh->Block().Get(neigh_seqnum, 0, istate, 0);
+                neigh_sol[istate] = sol.at(block.at(neigh_seqnum, 0, istate, 0));
             }
 
             // Set solution to given connect
@@ -1245,7 +1251,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
             int64_t seqnum = c.SequenceNumber();
             if (c.NState() != nstate || c.NShape() != 1) DebugStop();
             for (int istate = 0; istate < nstate; istate++) {
-                pressure_mesh->Block()(seqnum, 0, istate, 0) = neigh_sol[istate];
+                sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
             }
             break;
         }
@@ -1275,6 +1281,9 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
 
     node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
     celstack.Push(node_celside);
+
+    TPZBlock &block =  pressure_mesh->Block();
+    TPZFMatrix<STATE> &solMatrix = pressure_mesh->Solution();
     
     // This map stores the connects, the weight associated with the element
     // and the solution of that connect. The weight of Dirichlet condition is
@@ -1313,7 +1322,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
         TPZManVector<REAL,3> pt(0), x(3);
         TPZManVector<STATE, 3> sol(nstate, 0.);
         for (int istate = 0; istate < nstate; istate++) {
-            sol[istate] = pressure_mesh->Block().Get(seqnum, 0, istate, 0);
+            sol[istate] = solMatrix.at(block.at(seqnum, 0, istate, 0));
         }
 #ifdef LOG4CXX
         if(logger->isDebugEnabled())
@@ -1367,7 +1376,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
                 LOGPZ_DEBUG(logger, sout.str())
             }
 #endif
-            pressure_mesh->Block()(seqnum, 0, istate, 0) = averageSol[istate];
+            solMatrix.at(block.at(seqnum, 0, istate, 0)) = averageSol[istate];
         }
     }
     
@@ -2097,6 +2106,8 @@ void TPZHDivErrorEstimator::CopySolutionFromSkeleton() {
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
 
+    TPZBlock &block =  pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         if (!cel) continue;
@@ -2126,7 +2137,8 @@ void TPZHDivErrorEstimator::CopySolutionFromSkeleton() {
                     int con_size = con_neigh.NState() * con_neigh.NShape();
                     if (con_size != c_blocksize) DebugStop();
                     for (int ibl = 0; ibl < con_size; ibl++) {
-                        pressuremesh->Block()(c_seqnum, 0, ibl, 0) = pressuremesh->Block()(con_seqnum, 0, ibl, 0);
+
+                        sol.at(block.at(c_seqnum, 0, ibl, 0)) = sol.at(block.at(con_seqnum, 0, ibl, 0));
                     }
                     break;
                 }
