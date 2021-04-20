@@ -836,6 +836,7 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
     
     TPZElementMatrix ekbc, efbc;
+    TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
     for (int iel = 0; iel < nel; iel++) {
         TPZCompEl *cel = elementvec[iel];
         if (!cel) continue;
@@ -857,7 +858,7 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
             int64_t pos = pressuremesh->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+                mesh_sol(pos + idf, 0) = efbc.fMat(count++);
             }
         }
     }
@@ -889,6 +890,8 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
 #endif
     
     //std::cout << "Computing average for compel " << iel << ", gel: " << cel->Reference()->Index() << "\n";
+
+    TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
 
     int target_dim = gel->Dimension();
     if (target_dim == dim - 1 && gel->MaterialId() != fPressureSkeletonMatId) {
@@ -1028,14 +1031,6 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
             REAL detjac;
             integrationGeoElSide.Jacobian(pt_right_skel, jac, axes, detjac, jacinv);
 
-#ifdef LOG4CXX
-            if(logger->isDebugEnabled()) {
-                std::stringstream ss;
-                phi.Print(ss);
-                ss << detjac << '\n';
-                LOGPZ_DEBUG(logger, ss.str())
-            }
-#endif
             for (int ishape = 0; ishape < nshape; ishape++) {
                 L2Rhs(ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
             }
@@ -1047,15 +1042,6 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
         }
     }
     
-#ifdef LOG4CXX
-    if(logger->isDebugEnabled()) {
-        std::stringstream ss;
-        L2Rhs.Print("Rhs =", ss, EMathematicaInput);
-        L2Mat.Print("Stiffness =", ss, EMathematicaInput);
-        LOGPZ_DEBUG(logger, ss.str())
-    }
-#endif
-    
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
     int count = 0;
@@ -1065,7 +1051,7 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
         int64_t pos = pressuremesh->Block().Position(seqnum);
         int ndof = c.NShape() * c.NState();
         for (int idf = 0; idf < ndof; idf++) {
-            pressuremesh->Solution()(pos + idf, 0) = L2Rhs(count++);
+            mesh_sol(pos + idf, 0) = L2Rhs(count++);
         }
     }
 }
