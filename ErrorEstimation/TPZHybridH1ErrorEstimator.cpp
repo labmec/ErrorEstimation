@@ -829,13 +829,15 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
 
         // Stores solution in the computational mesh
         int count = 0;
+        TPZBlock &block = forceProj->Block();
+        TPZFMatrix<STATE> &sol = forceProj->Solution();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = forceProj->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                forceProj->Solution()(pos + idf, 0) = L2Rhs(count++);
+                sol(block.Index(pos + idf, 0)) = L2Rhs(count++);
             }
         }
     }
