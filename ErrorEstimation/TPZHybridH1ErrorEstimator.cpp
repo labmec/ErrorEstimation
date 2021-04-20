@@ -2103,6 +2103,8 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
 
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
+    TPZBlock &block = pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     int count = 0;
     for (int ic = 0; ic < nc; ic++) {
         TPZConnect &c = cel->Connect(ic);
@@ -2110,7 +2112,7 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
         int64_t pos = pressuremesh->Block().Position(seqnum);
         int ndof = c.NShape() * c.NState();
         for (int idf = 0; idf < ndof; idf++) {
-            pressuremesh->Solution()(pos + idf, 0) = L2Rhs(count++);
+            sol(block.Index(pos + idf, 0)) = L2Rhs(count++);
         }
     }
 }
