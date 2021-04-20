@@ -30,7 +30,7 @@ class TPZMFSolutionTransfer
         /**
          * @brief Pair that relates the origin block with the target block index.
          */
-        std::pair<TPZBlock *, int64_t> fblockTarget;// block target
+        std::pair<TPZCompMesh *, int64_t> fblockTarget;// block target
         
         /**
          * @brief Empty Constructor
