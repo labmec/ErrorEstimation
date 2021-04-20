@@ -10,8 +10,8 @@
 
 void TPZMFSolutionTransfer::Match::TransferFromMultiphysics(TPZCompMesh * cmesh){
     
-    TPZBlock<STATE> &blockMF = cmesh->Block();
-    TPZBlock<STATE>* blockAto = fblockTarget.first;
+    TPZBlock &blockMF = cmesh->Block();
+    TPZBlock* blockAto = fblockTarget.first;
     int seqMF = fblockTarget.second;
     int seqAto = fblocknumber;
     int blocksizeAto = blockAto->Size(seqAto);
@@ -43,8 +43,8 @@ void TPZMFSolutionTransfer::Match::TransferFromMultiphysics(TPZCompMesh * cmesh)
 }
 void TPZMFSolutionTransfer::Match::TransferToMultiphysics(TPZCompMesh * cmesh){
     cmesh->InitializeBlock();
-    TPZBlock<STATE> &blockToTransfer = cmesh->Block();
-    TPZBlock<STATE>* blockAto = fblockTarget.first;
+    TPZBlock &blockToTransfer = cmesh->Block();
+    TPZBlock* blockAto = fblockTarget.first;
     int seqtoTrans = fblockTarget.second;
     int seqAto = fblocknumber;
     
@@ -142,8 +142,8 @@ void TPZMFSolutionTransfer::MeshTransferData::BuildTransferData(TPZCompMesh* cme
                         int seqnumberMF = conectTarget.SequenceNumber();
                         Match currentmatch;
                         currentmatch.fblocknumber = seqnumberAto;
-                        TPZBlock<STATE> *blockAto = &celfrom->Mesh()->Block();
-                        std::pair<TPZBlock<STATE> *, int> target = std::make_pair(blockAto,seqnumberMF);
+                        TPZBlock *blockAto = &celfrom->Mesh()->Block();
+                        std::pair<TPZBlock *, int> target = std::make_pair(blockAto,seqnumberMF);
                         currentmatch.fblockTarget = target;
                         fconnecttransfer.push_back(currentmatch);
                     }
@@ -216,8 +216,8 @@ void TPZMFSolutionTransfer::Match::Print(std::ostream &out, TPZCompMesh *cmesh)
     << " MeshB " << fblockTarget.first << " block " << fblocknumber << std::endl;
     int blnumA = fblockTarget.second;
     int blnumB = fblocknumber;
-    TPZBlock<STATE> *blockA = &cmesh->Block();
-    TPZBlock<STATE> *blockB = fblockTarget.first;
+    TPZBlock *blockA = &cmesh->Block();
+    TPZBlock *blockB = fblockTarget.first;
     int64_t nblA = cmesh->Block().NBlocks();
     int64_t nblB = fblockTarget.first->NBlocks();
     out << "BlockA pos " << blockA->Position(fblockTarget.second)

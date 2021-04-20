@@ -104,7 +104,7 @@ private:
     TPZFMatrix<STATE> fSolution;
     
     // block corresponding to the original connect sequence numbers
-    TPZBlock<STATE> fBlock;
+    TPZBlock fBlock;
     
     /// size of the connects in the multiphysics mesh
     TPZVec<int64_t> fConnectSizes;
