@@ -1587,13 +1587,14 @@ void TPZHybridH1ErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *pressur
         //efbc.fMat.Print("Solution",std::cout);
         int count = 0;
         int nc = cel->NConnects();
+        TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = pressuremesh->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+                mesh_sol(pos + idf, 0) = efbc.fMat(count++);
             }
         }
     }
@@ -1674,13 +1675,14 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
             TPZCompEl *celpressure = mphys->Element(1);
             int nc = celpressure->NConnects();
             int count = 0;
+            TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
             for (int ic = 0; ic < nc; ic++) {
                 TPZConnect &c = celpressure->Connect(ic);
                 int64_t seqnum = c.SequenceNumber();
                 int64_t pos = pressuremesh->Block().Position(seqnum);
                 int ndof = c.NShape() * c.NState();
                 for (int idf = 0; idf < ndof; idf++) {
-                    pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+                    mesh_sol(pos + idf, 0) = efbc.fMat(count++);
                     //                    std::cout<<" connect seqnum "<< seqnum<<" sol "<<pressuremesh->Solution()(pos + idf, 0)<<"\n";
                 }
             }
@@ -1832,13 +1834,14 @@ void TPZHybridH1ErrorEstimator::NewComputeBoundaryL2Projection(
         //        efbc.Print(std::cout << "Solution ");
         
         int count = 0;
+        TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = pressuremesh->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                pressuremesh->Solution()(pos + idf, 0) = efbc(count++);
+                mesh_sol(pos + idf, 0) = efbc(count++);
             }
         }
     }
