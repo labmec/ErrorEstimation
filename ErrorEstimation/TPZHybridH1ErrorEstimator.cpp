@@ -210,7 +210,7 @@ void TPZHybridH1ErrorEstimator::GlobalEffectivityIndex(){
         if (cel->Reference()->Dimension() != dim) continue;
         TPZManVector<REAL, 10> elerror(10, 0.);
         elerror.Fill(0.);
-        cel->EvaluateError(fExact->ExactSolution(), elerror, false);
+        cel->EvaluateError(elerror, false);
         int nerr = elerror.size();
         
         for (int i = 0; i < nerr; i++) {
