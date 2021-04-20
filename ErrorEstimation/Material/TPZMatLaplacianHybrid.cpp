@@ -540,7 +540,4 @@ void TPZMatLaplacianHybrid::Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> 
     }
     
     errors[3] = energy;
-    
-    
-    
 }
