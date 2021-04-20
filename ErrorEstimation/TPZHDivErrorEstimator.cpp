@@ -117,7 +117,8 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
         if (!cel) continue;
         TPZGeoEl* gel = fPostProcMesh.Element(i)->Reference();
         if (!gel) continue;
-        elementErrors[gel->Index()] = fPostProcMesh.ElementSolution()(i, 3);
+        TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
+        elementErrors[gel->Index()] = elsol(i, 3);
     }
     
 }
@@ -1388,7 +1389,8 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
 void TPZHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) {
-    int64_t nrows = subcmesh->ElementSolution().Rows();
+    TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
+    int64_t nrows = elsol.Rows();
     int64_t ncols = 5; // subcmesh->ElementSolution().Cols();
 
     if (subcmesh->ElementSolution().Cols() != 7) {
@@ -1399,7 +1401,6 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) 
     }
 
     int64_t nel = subcmesh->NElements();
-    TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
     TPZManVector<REAL, 5> errors(5, 0.);
     for (int64_t el = 0; el < nel; el++) {
         for (int i = 0; i < ncols; i++) {
@@ -1429,16 +1430,16 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) 
 
             REAL oscillatoryterm = 0;
             if (i == 2) {
-                oscillatoryterm = subcmesh->ElementSolution()(el, i + 2);
+                oscillatoryterm = elsol(el, i + 2);
                 oscillatoryterm *= (hk / M_PI);
             }
 
             if (abs(ErrorEstimate) < tol) {
-                subcmesh->ElementSolution()(el, ncols + i / 2) = 1.;
+                elsol(el, ncols + i / 2) = 1.;
 
             } else {
                 REAL EfIndex = (ErrorEstimate + oscillatoryterm) / ErrorExact;
-                subcmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
+                elsol(el, ncols + i / 2) = EfIndex;
             }
         }
     }
@@ -1457,8 +1458,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
     TPZCompMesh *cmesh = &fPostProcMesh;
     cmesh->Reference()->ResetReference();
     cmesh->LoadReferences();
-    int64_t nrows = cmesh->ElementSolution().Rows();
-    int64_t ncols = cmesh->ElementSolution().Cols();
+    TPZFMatrix<STATE> &elsol = cmesh->ElementSolution();
+    int64_t nrows = elsol.Rows();
+    int64_t ncols = elsol.Cols();
 
     // std::ostream &out;
     //    cmesh->ElementSolution().Print("ElSolution",std::cout);
@@ -1475,7 +1477,7 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
     BoundExact.Zero();
 
     int dim = cmesh->Dimension();
-    cmesh->ElementSolution().Resize(nrows, ncols + 2);
+    elsol.Resize(nrows, ncols + 2);
 
     std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
 
@@ -1526,10 +1528,10 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
                     DebugStop();
                 }
 
-                REAL NeighbourErrorEstimate = cmesh->ElementSolution()(neighindex, i + 1);
-                REAL NeighbourErrorExact = cmesh->ElementSolution()(neighindex, i);
-                REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
-                REAL ErrorExact = cmesh->ElementSolution()(el, i);
+                REAL NeighbourErrorEstimate = elsol(neighindex, i + 1);
+                REAL NeighbourErrorExact = elsol(neighindex, i);
+                REAL ErrorEstimate = elsol(el, i + 1);
+                REAL ErrorExact = elsol(el, i);
 
                 InnerEstimated(el, 0) = ErrorEstimate;
                 InnerExact(el, 0) = ErrorExact;
@@ -1552,10 +1554,10 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
                 REAL sumErrorExact = sqrt(NeighbourErrorExact * NeighbourErrorExact + ErrorExact * ErrorExact);
                 REAL sumErrorEstimate =
                     sqrt(NeighbourErrorEstimate * NeighbourErrorEstimate + ErrorEstimate * ErrorEstimate);
-                cmesh->ElementSolution()(neighindex, i + 1) = 0.;
-                cmesh->ElementSolution()(neighindex, i) = 0.;
-                cmesh->ElementSolution()(el, i) = sumErrorExact;
-                cmesh->ElementSolution()(el, i + 1) = sumErrorEstimate;
+                elsol(neighindex, i + 1) = 0.;
+                elsol(neighindex, i) = 0.;
+                elsol(el, i) = sumErrorExact;
+                elsol(el, i + 1) = sumErrorEstimate;
             }
         }
     }
@@ -1576,8 +1578,8 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             //  std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
 
             REAL tol = 1.e-10;
-            REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
-            REAL ErrorExact = cmesh->ElementSolution()(el, i);
+            REAL ErrorEstimate = elsol(el, i + 1);
+            REAL ErrorExact = elsol(el, i);
 
 #ifdef LOG4CXX
             if (logger->isDebugEnabled()) {
@@ -1594,17 +1596,17 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
 
             REAL oscilatorytherm = 0;
             if (i == 2) {
-                oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
+                oscilatorytherm = elsol(el, i + 2);
                 oscilatorytherm *= (hk / M_PI);
             }
 
             if (abs(ErrorEstimate) < tol) {
-                cmesh->ElementSolution()(el, ncols + i / 2) = 1.;
+                elsol(el, ncols + i / 2) = 1.;
                 dataIeff(el, 0) = 1.;
             } else {
                 REAL EfIndex = (ErrorEstimate + oscilatorytherm) / ErrorExact;
                 dataIeff(el, 0) = EfIndex;
-                cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
+                elsol(el, ncols + i / 2) = EfIndex;
             }
         }
     }

@@ -684,7 +684,8 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     // Column of the flux error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;
 
-    int64_t nelem = postProcessMesh->ElementSolution().Rows();
+    TPZFMatrix<STATE> &elsol = postProcessMesh->ElementSolution();
+    int64_t nelem = elsol.Rows();
 
     //postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
 
@@ -694,7 +695,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
         if (!cel) continue;
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
-        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        REAL elementError = elsol(iel, fluxErrorEstimateCol);
 
 
         if (elementError > maxError) {
@@ -712,7 +713,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         if (!cel) continue;
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
 
-        REAL elementError = postProcessMesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        REAL elementError = elsol(iel, fluxErrorEstimateCol);
         //prefinement
         if (elementError > threshold) {
 
