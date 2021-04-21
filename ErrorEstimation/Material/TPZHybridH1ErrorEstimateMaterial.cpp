@@ -706,8 +706,9 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "PressureErrorExact") return 100;
     if(name == "PressureErrorEstimate") return 101;
     if(name == "EnergyErrorExact") return 102;
-    if(name == "EnergyErrorEstimate") return 103;
-    if(name == "ResidualError") return 104;
+    if(name == "NCIndex") return 103;
+    if(name == "NRIndex") return 104;
+    if(name == "NFIndex") return 105;
     if(name == "PressureEffectivityIndex") return 107;
     if(name == "EnergyEffectivityIndex") return 108;
     if(name == "POrder") return 46;

@@ -269,7 +269,9 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
         scalnames.Push("PressureFem");
         scalnames.Push("PressureReconstructed");
         scalnames.Push("PressureErrorEstimate");
-        scalnames.Push("EnergyErrorEstimate");
+        scalnames.Push("NCIndex");
+        scalnames.Push("NRIndex");
+        scalnames.Push("NFIndex");
         vecnames.Push("FluxFem");
         vecnames.Push("FluxSigmaReconstructed");
         vecnames.Push("FluxReconstructed");
