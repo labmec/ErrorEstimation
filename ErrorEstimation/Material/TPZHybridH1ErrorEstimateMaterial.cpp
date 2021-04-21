@@ -521,7 +521,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
 
 
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"flux fem "<<fluxfem<<std::endl;
     std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -538,7 +538,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
         }
     }
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"potential fem "<<pressurefem<<std::endl;
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -662,7 +662,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
 
 
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"flux fem "<<fluxfem<<std::endl;
     std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -679,7 +679,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
         }
     }
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"potential fem "<<pressurefem<<std::endl;
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;

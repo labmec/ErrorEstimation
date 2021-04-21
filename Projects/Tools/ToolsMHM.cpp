@@ -105,7 +105,7 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     cmesh->SetName("LaberintoTest");
     cmesh->AutoBuild();
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     std::ofstream file("cmesh_flux.txt");
     cmesh->Print(file);
 #endif
@@ -416,7 +416,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
 #endif
 
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     if(0)
     {
         std::ofstream file("MeshToSolveProblem.txt");

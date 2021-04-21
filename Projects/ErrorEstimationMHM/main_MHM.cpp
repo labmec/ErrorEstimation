@@ -622,7 +622,7 @@ void RunAdaptivityProblem(){
                 EstimateError(config, mhm);
                 
  //               MHMAdaptivity(mhm,  config.gmesh, config);
-//#ifdef PZDEBUG
+//#ifdef ERRORESTIMATION_DEBUG
 //                {
 //                    std::ofstream out("GmeshAfterAdapty.vtk");
 //                    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);

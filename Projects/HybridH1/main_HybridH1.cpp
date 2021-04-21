@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
     int refinement_depth = 3;
     Tools::RandomRefinement(config.gmesh, 5, refinement_depth);
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
         InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
         createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out3("pressure.txt");
         meshvec[0]->Print(out3);
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
 #endif
         cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::map<int,int> matelem;
             int64_t nel = cmesh_H1Hybrid->NElements();
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
 
         createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
         createspace.AddInterfaceElements(cmesh_H1Hybrid);
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::map<int,int> matelem;
             int64_t nel = cmesh_H1Hybrid->NElements();
@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
         cmesh_H1Hybrid->ComputeNodElCon();
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream out("mphysicsmeshBeforeCondense.txt");
             cmesh_H1Hybrid->Print(out);
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
         cmesh_H1Hybrid->InitializeBlock();
         cmesh_H1Hybrid->ComputeNodElCon();
         
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream out("mphysicsmesh.txt");
             cmesh_H1Hybrid->Print(out);
@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
 //
 //    }
         
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             
             std::ofstream out2("H1HybridMesh.txt");

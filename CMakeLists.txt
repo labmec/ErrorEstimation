@@ -12,6 +12,11 @@ include(cmake/StandardProjectSettings.cmake)
 # Enables NeoPZ library
 find_package(NeoPZ REQUIRED)
 
+#TODO: Define this using modern CMake standards. @Gustavo, do you know how to do this?
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DERRORESTIMATION_DEBUG)
+endif()
+
 # This option enables a lot of warnings and treat them as errors, to ensure
 # good programming practices are used. Since its behaviour is extreme, it
 # should be turned off by default.

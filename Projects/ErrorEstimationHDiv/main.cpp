@@ -80,7 +80,7 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 
     TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateHDivMesh(config); // Hdiv x L2
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         ofstream out("MixedMesh.txt");
         cmesh_HDiv->Print(out);

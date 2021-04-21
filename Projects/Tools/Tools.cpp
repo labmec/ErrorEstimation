@@ -508,7 +508,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
 }
 
 void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config) {
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("gmeshSolve.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);

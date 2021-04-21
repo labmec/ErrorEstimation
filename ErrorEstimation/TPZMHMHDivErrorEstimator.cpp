@@ -212,7 +212,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 }
             }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
             if (celDomain.size() > 1) DebugStop();
 #endif
 
@@ -738,7 +738,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
     gmesh->ResetReference();
     cmesh->LoadReferences();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
@@ -787,7 +787,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
         }
     }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);

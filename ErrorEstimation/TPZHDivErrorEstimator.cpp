@@ -261,7 +261,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
             neighCel->Reference()->ResetReference();
         }
         
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream outTXT("PostProcPressureMesh.txt");
             std::ofstream outVTK("PostProcPressureMesh.vtk");
@@ -280,7 +280,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
 /// hybridized)
 void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("OriginalFlux.txt");
         fOriginal->MeshVector()[0]->Print(out);
@@ -336,7 +336,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
     if (dim == 3) {
         CreateEdgeSkeletonMesh(meshvec[1]);
     }
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     {
         if(fPostProcesswithHDiv)
         {
@@ -379,7 +379,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
 
     ComputePressureWeights();
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     {
         std::ofstream out("multiphysicsgrouped.txt");
         fPostProcMesh.Print(out);
@@ -406,7 +406,7 @@ void TPZHDivErrorEstimator::ComputeElementStiffnesses() {
         if (subcmesh) {
             subcmesh->Assemble();
         }
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         if(subcmesh && condense)
         {
             DebugStop();
@@ -551,7 +551,7 @@ void TPZHDivErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh) {
                 gelpressures[createdelement->Index()] = polynomialorder;
             } else {
                 int64_t gelindex = hasneigh.Element()->Index();
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
                 if (gelpressures.find(gelindex) == gelpressures.end()) {
                     DebugStop();
                 }
@@ -578,7 +578,7 @@ void TPZHDivErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh) {
         int64_t celindex = -1;
         pressuremesh->SetDefaultOrder(polynomialorder);
         cel = pressuremesh->ApproxSpace().CreateCompEl(gel, *pressuremesh, celindex);
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
             if (!intel) DebugStop();
@@ -794,7 +794,7 @@ void TPZHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
         bool largeSideExists = false;
         if (cel->Connect(0).HasDependency()) largeSideExists = true;
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         int nsides = gel->NSides();
         TPZGeoElSide side(gel, nsides - 1);
         TPZGeoElSideAncestors ancestors(side);
@@ -883,7 +883,7 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
     int nc = cel->NConnects();
     int order = cel->Connect(nc - 1).Order();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     for (int ic = 0; ic < nc; ic++) {
         if (cel->Connect(ic).HasDependency()) DebugStop();
     }
@@ -922,7 +922,7 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
         }
     }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     for (int ineigh = 0; ineigh < volumeNeighSides.size(); ineigh++) {
         if (volumeNeighSides[ineigh].Element()->Dimension() != dim) DebugStop();
     }
@@ -1152,7 +1152,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
     TPZGeoMesh *gmesh = pressure_mesh->Reference();
     gmesh->ResetReference();
     int dim = gmesh->Dimension();
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     TPZMaterial *mat = pressure_mesh->FindMaterial(fPressureSkeletonMatId);
     if (!mat) DebugStop();
 #endif
@@ -1640,7 +1640,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
         DebugStop();
     }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     // Create directories to store debugging files
     std::string command;
     command = "mkdir -p ReconstructionSteps";
@@ -1651,7 +1651,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
 
     CreatePostProcessingMesh();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         REAL presnorm = Norm(fPostProcMesh.MeshVector()[1]->Solution());
         if(std::isnan(presnorm)) DebugStop();
@@ -1666,7 +1666,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
         //BoundaryPressureProjection(pressuremesh, target_dim);
     }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         PlotPressureSkeleton("ReconstructionSteps/SkelBoundaryProjection");
     }
@@ -1680,7 +1680,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
         ComputeAveragePressures(1);
     }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         PlotPressureSkeleton("ReconstructionSteps/SkelInterfaceAverage");
     }
@@ -1688,7 +1688,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
 
     ComputeNodalAverages();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         PlotPressureSkeleton("ReconstructionSteps/SkelNodalAverage");
     }
@@ -1712,7 +1712,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
     std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
     fPostProcMesh.Print(out);
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMeshes", 2, &fPostProcMesh, false);
         PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMeshes", 2, fPostProcMesh.MeshVector()[1]);
@@ -1749,7 +1749,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
     }
 
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     VerifySolutionConsistency(PressureMesh());
 #endif
 
@@ -2060,7 +2060,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         }
     }
     
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     {
         std::ofstream txtPostProcMesh("PostProcMeshAfterIncrementingConnects.txt");
         fPostProcMesh.Print(txtPostProcMesh);
@@ -2092,7 +2092,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
     
     fPostProcMesh.CleanUpUnconnectedNodes();
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     std::ofstream outTXT("PostProcessMeshAfterPreparingElements.txt");
     fPostProcMesh.Print(outTXT);
 #endif
@@ -2249,7 +2249,7 @@ void TPZHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
     gmesh->ResetReference();
     cmesh->LoadReferences();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
@@ -2293,7 +2293,7 @@ void TPZHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
         }
     }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
@@ -2328,7 +2328,7 @@ void TPZHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) {
     gmesh->ResetReference();
     pressure_mesh->LoadReferences();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("MeshBeforeRestrainSkeleton.txt");
         pressure_mesh->Print(out);
@@ -2386,7 +2386,7 @@ void TPZHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) {
     
     pressure_mesh->CleanUpUnconnectedNodes();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("MeshAfterRestrainSkeleton.txt");
         pressure_mesh->Print(out);

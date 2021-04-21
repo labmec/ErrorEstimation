@@ -103,7 +103,7 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf){
     int p_order = Conf.GetPressureOrder();
     
     {
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         std::ofstream file("maze.txt");
         gmesh->Print(file);
         
@@ -209,7 +209,7 @@ TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf){
         newnod.SetLagrangeMultiplier(1);
     }
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     std::ofstream out("cmeshPress.txt");
     cmesh->Print(out);
 #endif
@@ -398,7 +398,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     TPZBuildMultiphysicsMesh::AddConnects(meshvec,mphysics);
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, mphysics);
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     std::ofstream file("cmesh_mphysics.txt");
     mphysics->Print(file);
 #endif
@@ -470,7 +470,7 @@ int MHMTest(ConfigCasesMaze &Conf){
 
         meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         if (1) {
             std::ofstream file("GMeshControlHDiv.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
