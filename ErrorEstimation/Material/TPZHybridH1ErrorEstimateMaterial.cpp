@@ -729,7 +729,6 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var)
         case 44:
         case 45:
         case 46:
-        case 47:
         case 100:
         case 101:
         case 102:
