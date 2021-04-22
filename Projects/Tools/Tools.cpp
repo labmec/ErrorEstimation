@@ -1037,15 +1037,32 @@ void Tools::DrawCompMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMes
     else multiCmesh->Print(out);
 }
 
+void Tools::PrintErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec) {
 
-    //
+    std::stringstream ss;
+    ss << "\nEstimator errors for Problem " << config.problemname;
+    ss << "\n-------------------------------------------------- \n";
+    ss << "Ndiv = " << config.ndivisions << ", NIntRef = " << config.ninternalref <<
+       ", Order k = " << config.porder << ", Order n = " << config.hdivmais;
+    if (config.adaptivityStep != -1) {
+        ss << ", AdaptivityStep = " << config.adaptivityStep;
+    }
+    ss << '\n';
+    ss << "Global estimator = " << error_vec[3] << "\n";
+    ss << "|ufem-urec| = " << error_vec[1] << "\n";
+    ss << "Residual Error L2 = " << error_vec[4] << "\n";
+    if (config.exact) {
+        ss << "Global exact error = " << error_vec[2] << "\n";
+        ss << "|uex-ufem| = " << error_vec[0] << "\n";
+        REAL global_index = 1;
+        if (!IsZero(error_vec[4] + error_vec[3]) && !IsZero(error_vec[2])) {
+            global_index = sqrt(error_vec[4] + error_vec[3]) / sqrt(error_vec[2]);
+        }
+        ss << "Global Index = " << global_index << "\n\n";
+    } else {
+        ss << "[Unknown exact solution and errors]\n";
+    }
 
-
-
-//        nkaux[iel] = residuo2;
-//        out << "\nErrors associated with flux on element Ek\n";
-//        out << "L2 Norm flux = "    << nkaux[iel] << endl;
-
-
-
-
+    out << ss.str();
+    std::cout << ss.str();
+}
