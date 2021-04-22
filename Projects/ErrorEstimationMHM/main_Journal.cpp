@@ -44,8 +44,8 @@ int main() {
     for (const auto coarse_div : nCoarseDiv) {
         for (const auto internal_ref : nInternalRef) {
             RunSmoothProblem(coarse_div, internal_ref);
-            RunInnerSingularityProblem(coarse_div, internal_ref);
-            RunHighGradientProblem(coarse_div, internal_ref);
+            //RunInnerSingularityProblem(coarse_div, internal_ref);
+            //RunHighGradientProblem(coarse_div, internal_ref);
             //RunPeriodicPermProblem(coarse_div, internal_ref);
         }
     }
@@ -445,6 +445,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     std::cout << "Finished\n";
     an.LoadSolution(); // compute internal dofs
 
+    // TODO: Phil, this is the part that needs a fix!
     TPZMFSolutionTransfer transfer;
     transfer.BuildTransferData(cmesh.operator->());
     transfer.TransferFromMultiphysics();
