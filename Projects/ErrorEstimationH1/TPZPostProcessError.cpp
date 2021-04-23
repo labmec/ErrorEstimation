@@ -509,8 +509,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 
         an.Solve();
         
-        TPZStepSolver<STATE> &step = dynamic_cast<TPZStepSolver<STATE> &>(an.Solver());
-        std::list<int64_t> singular = step.Singular();
+        TPZStepSolver<STATE> *step = dynamic_cast<TPZStepSolver<STATE>*>(an.Solver());
+        std::list<int64_t> singular = step->Singular();
         
         if (singular.size())
         {
