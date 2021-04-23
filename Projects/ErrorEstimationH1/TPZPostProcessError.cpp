@@ -267,8 +267,9 @@ void TPZPostProcessError::ComputeHDivSolution()
     TPZCompMesh *meshmixed = fMeshVector[1];
     
     int64_t nval = fMeshVector[4]->Solution().Rows();
+    TPZFMatrix<STATE> &sol = fMeshVector[4]->Solution();
     for (int64_t i=0; i<nval; i++) {
-        fMeshVector[4]->Solution()(i,0) = 1.;
+        sol(i,0) = 1.;
     }
     
     int ModelDimension = meshmixed->Dimension();
@@ -371,11 +372,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             }
         }
         int64_t extseqcount = numintconnects;
+        TPZFMatrix<STATE> &sol = meshweight->Solution();
         for (int64_t patch=0; patch<npatch; patch++) {
             {
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
                 int64_t seqnum = meshweight->ConnectVec()[partitionindex].SequenceNumber();
-                meshweight->Block()(seqnum,0,0,0) = 1.;
+                std::pair<int64_t, int64_t> ind = meshweight->Block().at(seqnum, 0, 0, 0);
+                sol.at(ind) = 1;
             }
             {
                 int64_t nel = fVecVecPatches[color][patch].fElIndices.size();
@@ -491,16 +494,16 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         direct = 0;
         
         an.Assemble();
-        
-        TPZAutoPointer<TPZMatrix<STATE> > globmat = an.Solver().Matrix();
+
+        TPZMatrix<STATE> &globmat = an.Mesh()->Solution();
         for (int64_t p=0; p<npatch; p++) {
             TPZPatch &patch = fVecVecPatches[color][p];
             if (!PatchHasBoundary(patch))
             {
                 int64_t firstlagrangeequation = patch.FirstLagrangeEquation(meshmixed);
-                STATE diag = globmat->GetVal(firstlagrangeequation, firstlagrangeequation);
+                STATE diag = globmat.GetVal(firstlagrangeequation, firstlagrangeequation);
                 diag += 1.;
-                globmat->Put(firstlagrangeequation, firstlagrangeequation, diag);
+                globmat.Put(firstlagrangeequation, firstlagrangeequation, diag);
             }
         }
 
@@ -695,6 +698,7 @@ int64_t TPZPatch::FirstLagrangeEquation(TPZCompMesh *cmesh) const
 // Sum the solution stored in fSolution of the second mesh to the fSolution vector
 void TPZPostProcessError::TransferAndSumSolution(TPZCompMesh *cmesh)
 {
+    TPZFMatrix<STATE> &sol = cmesh->Solution();
     int64_t nconnect = cmesh->NConnects();
     for (int64_t ic=0; ic<nconnect; ic++) {
         TPZConnect &c = cmesh->ConnectVec()[ic];
@@ -714,7 +718,7 @@ void TPZPostProcessError::TransferAndSumSolution(TPZCompMesh *cmesh)
         
         for (int eq=0; eq<neq; eq++) {
             // tototototo
-            fSolution(targetpos+eq,0) += cmesh->Solution()(pos+eq,0);
+            fSolution(targetpos+eq,0) += sol(pos+eq,0);
         }
     }
     cmesh->Solution().Zero();
