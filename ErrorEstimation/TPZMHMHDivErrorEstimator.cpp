@@ -834,6 +834,8 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
     }
 
 
+    TPZBlock &block =  pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     nel = pressuremesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl* cel = pressuremesh->Element(el);
@@ -869,7 +871,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
                 int con_size = con_neigh.NState() * con_neigh.NShape();
                 if (con_size != c_blocksize) DebugStop();
                 for (int ibl = 0; ibl < con_size; ibl++) {
-                    pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0) = pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0);
+                    sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) = sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0));
                 }
             }
         }

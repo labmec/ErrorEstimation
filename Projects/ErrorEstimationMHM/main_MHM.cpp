@@ -651,8 +651,8 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, Proble
     
    // TPZCompMesh &cmesh = mhm->CMesh();
   
-
-    int64_t nelem = cmesh->ElementSolution().Rows();
+    TPZFMatrix<STATE> &elsol = cmesh->ElementSolution();
+    int64_t nelem = elsol.Rows();
 
     //postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
 
@@ -662,7 +662,7 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, Proble
         TPZCompEl* cel = cmesh->ElementVec()[iel];
         if (!cel) continue;
         if (cel->Dimension() != cmesh->Dimension()) continue;
-        REAL elementError = cmesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        REAL elementError = elsol(iel, fluxErrorEstimateCol);
 
 
         if (elementError > maxError) {
@@ -680,7 +680,7 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, Proble
         if (!cel) continue;
         if (cel->Dimension() != cmesh->Dimension()) continue;
 
-        REAL elementError = cmesh->ElementSolution()(iel, fluxErrorEstimateCol);
+        REAL elementError = elsol(iel, fluxErrorEstimateCol);
         //prefinement
         if (elementError > threshold) {
 

@@ -168,7 +168,8 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
         if (!cel) continue;
         TPZGeoEl* gel = fPostProcMesh.Element(i)->Reference();
         if (!gel) continue;
-        elementerrors[gel->Index()] = fPostProcMesh.ElementSolution()(i, 3);
+        TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
+        elementerrors[gel->Index()] = elsol(i, 3);
     }
     
 }
@@ -209,7 +210,7 @@ void TPZHybridH1ErrorEstimator::GlobalEffectivityIndex(){
         if (cel->Reference()->Dimension() != dim) continue;
         TPZManVector<REAL, 10> elerror(10, 0.);
         elerror.Fill(0.);
-        cel->EvaluateError(fExact->ExactSolution(), elerror, false);
+        cel->EvaluateError(elerror, false);
         int nerr = elerror.size();
         
         for (int i = 0; i < nerr; i++) {
@@ -828,13 +829,14 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
 
         // Stores solution in the computational mesh
         int count = 0;
+        TPZFMatrix<STATE> &sol = forceProj->Solution();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = forceProj->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                forceProj->Solution()(pos + idf, 0) = L2Rhs(count++);
+                sol(pos + idf, 0) = L2Rhs(count++);
             }
         }
     }
@@ -1586,13 +1588,14 @@ void TPZHybridH1ErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *pressur
         //efbc.fMat.Print("Solution",std::cout);
         int count = 0;
         int nc = cel->NConnects();
+        TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = pressuremesh->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+                mesh_sol(pos + idf, 0) = efbc.fMat(count++);
             }
         }
     }
@@ -1673,13 +1676,14 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
             TPZCompEl *celpressure = mphys->Element(1);
             int nc = celpressure->NConnects();
             int count = 0;
+            TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
             for (int ic = 0; ic < nc; ic++) {
                 TPZConnect &c = celpressure->Connect(ic);
                 int64_t seqnum = c.SequenceNumber();
                 int64_t pos = pressuremesh->Block().Position(seqnum);
                 int ndof = c.NShape() * c.NState();
                 for (int idf = 0; idf < ndof; idf++) {
-                    pressuremesh->Solution()(pos + idf, 0) = efbc.fMat(count++);
+                    mesh_sol(pos + idf, 0) = efbc.fMat(count++);
                     //                    std::cout<<" connect seqnum "<< seqnum<<" sol "<<pressuremesh->Solution()(pos + idf, 0)<<"\n";
                 }
             }
@@ -1831,13 +1835,14 @@ void TPZHybridH1ErrorEstimator::NewComputeBoundaryL2Projection(
         //        efbc.Print(std::cout << "Solution ");
         
         int count = 0;
+        TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = pressuremesh->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                pressuremesh->Solution()(pos + idf, 0) = efbc(count++);
+                mesh_sol(pos + idf, 0) = efbc(count++);
             }
         }
     }
@@ -2097,6 +2102,8 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
 
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
+
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     int count = 0;
     for (int ic = 0; ic < nc; ic++) {
         TPZConnect &c = cel->Connect(ic);
@@ -2104,7 +2111,7 @@ void TPZHybridH1ErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_
         int64_t pos = pressuremesh->Block().Position(seqnum);
         int ndof = c.NShape() * c.NState();
         for (int idf = 0; idf < ndof; idf++) {
-            pressuremesh->Solution()(pos + idf, 0) = L2Rhs(count++);
+            sol(pos + idf, 0) = L2Rhs(count++);
         }
     }
 }
@@ -2336,6 +2343,8 @@ void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_ce
 
     celstack.Push(node_celside);
 
+    TPZBlock &block =  pressure_mesh->Block();
+    TPZFMatrix<STATE> &sol = pressure_mesh->Solution();
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         if (celside.Reference().Dimension() != 0) continue;
@@ -2351,7 +2360,7 @@ void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_ce
         if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
         TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
         for (int istate = 0; istate < nstate; istate++) {
-            neigh_sol[istate] = pressure_mesh->Block().Get(neigh_seqnum, 0, istate, 0);
+            neigh_sol[istate] = sol.at(block.at(neigh_seqnum, 0, istate, 0));
         }
 
         // Set solution to given connect
@@ -2364,7 +2373,7 @@ void TPZHybridH1ErrorEstimator::ImposeHangingNodeSolution(TPZCompElSide &node_ce
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         for (int istate = 0; istate < nstate; istate++) {
-            pressure_mesh->Block()(seqnum, 0, istate, 0) = neigh_sol[istate];
+            sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
         }
 
         // TODO remove this
@@ -2413,6 +2422,8 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
     // higher and will be used later to impose the value of the BC in the
     // connects when needed
     std::map<int64_t, std::pair<REAL, TPZVec<STATE>>> connects;
+    TPZBlock &block =  pressure_mesh->Block();
+    TPZFMatrix<STATE> &solMatrix = pressure_mesh->Solution();
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         TPZGeoElSide gelside = celside.Reference();
@@ -2444,7 +2455,7 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
         TPZManVector<REAL,3> pt(0), x(3);
         TPZManVector<STATE, 3> sol(nstate, 0.);
         for (int istate = 0; istate < nstate; istate++) {
-            sol[istate] = pressure_mesh->Block().Get(seqnum, 0, istate, 0);
+            sol[istate] = solMatrix.at(block.at(seqnum, 0, istate, 0));
         }
 #ifdef LOG4CXX
         if(logger->isDebugEnabled())
@@ -2498,7 +2509,7 @@ void TPZHybridH1ErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
                 LOGPZ_DEBUG(logger, sout.str())
             }
 #endif
-            pressure_mesh->Block()(seqnum, 0, istate, 0) = averageSol[istate];
+            solMatrix.at(block.at(seqnum, 0, istate, 0))= averageSol[istate];
         }
     }
 }
@@ -2515,7 +2526,8 @@ void TPZHybridH1ErrorEstimator::CloneMeshVec() {
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
 void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) {
-    int64_t nrows = subcmesh->ElementSolution().Rows();
+    TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
+    int64_t nrows = elsol.Rows();
     int64_t ncols = 5; // subcmesh->ElementSolution().Cols();
 
     if (subcmesh->ElementSolution().Cols() != 7) {
@@ -2526,7 +2538,6 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
     }
 
     int64_t nel = subcmesh->NElements();
-    TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
     TPZManVector<REAL, 5> errors(5, 0.);
     for (int64_t el = 0; el < nel; el++) {
         for (int i = 0; i < ncols; i++) {
@@ -2556,16 +2567,16 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
 
             REAL oscillatorytherm = 0;
             if (i == 2) {
-                oscillatorytherm = subcmesh->ElementSolution()(el, i + 2);
+                oscillatorytherm = elsol(el, i + 2);
                 oscillatorytherm *= (hk / M_PI);
             }
 
             if (abs(ErrorEstimate) < tol) {
-                subcmesh->ElementSolution()(el, ncols + i / 2) = 1.;
+                elsol(el, ncols + i / 2) = 1.;
 
             } else {
                 REAL EfIndex = (ErrorEstimate + oscillatorytherm) / ErrorExact;
-                subcmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
+                elsol(el, ncols + i / 2) = EfIndex;
             }
         }
     }
@@ -2585,8 +2596,9 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
     TPZCompMesh *cmesh = &fPostProcMesh;
     cmesh->Reference()->ResetReference();
     cmesh->LoadReferences();
-    int64_t nrows = cmesh->ElementSolution().Rows();
-    int64_t ncols = cmesh->ElementSolution().Cols();
+    TPZFMatrix<STATE> &elsol = cmesh->ElementSolution();
+    int64_t nrows = elsol.Rows();
+    int64_t ncols = elsol.Cols();
     
     //std::ostream &out;
     //    cmesh->ElementSolution().Print("ElSolution",std::cout);
@@ -2596,7 +2608,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
     
     //    REAL oscilatorytherm = 0;
     int dim = cmesh->Dimension();
-    cmesh->ElementSolution().Resize(nrows, ncols+2);
+    elsol.Resize(nrows, ncols+2);
     REAL oscilatorytherm = 0;
     REAL fluxestimator = 0;
     for (int64_t el = 0; el < nrows; el++) {
@@ -2650,16 +2662,16 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
                     DebugStop();
                 }
                 
-                REAL NeighbourErrorEstimate = cmesh->ElementSolution()(neighindex, i + 1);
-                REAL NeighbourErrorExact = cmesh->ElementSolution()(neighindex, i);
-                REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
-                REAL ErrorExact = cmesh->ElementSolution()(el, i);
+                REAL NeighbourErrorEstimate = elsol(neighindex, i + 1);
+                REAL NeighbourErrorExact = elsol(neighindex, i);
+                REAL ErrorEstimate = elsol(el, i + 1);
+                REAL ErrorExact = elsol(el, i);
                 REAL sumErrorExact = sqrt(NeighbourErrorExact*NeighbourErrorExact+ErrorExact*ErrorExact);
                 REAL sumErrorEstimate = sqrt(NeighbourErrorEstimate*NeighbourErrorEstimate+ErrorEstimate*ErrorEstimate);
-                cmesh->ElementSolution()(neighindex,i+1) = 0.;
-                cmesh->ElementSolution()(neighindex,i) = 0.;
-                cmesh->ElementSolution()(el,i) = sumErrorExact;
-                cmesh->ElementSolution()(el,i+1) = sumErrorEstimate;
+                elsol(neighindex,i+1) = 0.;
+                elsol(neighindex,i) = 0.;
+                elsol(el,i) = sumErrorExact;
+                elsol(el,i+1) = sumErrorEstimate;
             }
         }
     }
@@ -2678,8 +2690,8 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
         REAL hk = gel->CharacteristicSize();
 
         REAL elementResidual,elementProjResidual;
-        elementResidual = (hk/M_PI)*cmesh->ElementSolution()(el, 4);
-        elementProjResidual = (hk/M_PI)*cmesh->ElementSolution()(el, 6);
+        elementResidual = (hk/M_PI)*elsol(el, 4);
+        elementProjResidual = (hk/M_PI)*elsol(el, 6);
         globalResidual += elementResidual*elementResidual;
         globalProjResidual += elementProjResidual*elementProjResidual;
 
@@ -2690,8 +2702,8 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
             REAL tol = 1.e-10;
             oscilatorytherm = 0.;
             fluxestimator = 0.;
-            REAL ErrorEstimate = cmesh->ElementSolution()(el, i + 1);
-            REAL ErrorExact = cmesh->ElementSolution()(el, i);
+            REAL ErrorEstimate = elsol(el, i + 1);
+            REAL ErrorExact = elsol(el, i);
            // cmesh->ElementSolution().Print(std::cout);
 
             TPZGeoEl *gel = cel->Reference();
@@ -2699,14 +2711,14 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
             REAL hk = gel->CharacteristicSize();
             
             if(i==2){
-                oscilatorytherm = cmesh->ElementSolution()(el, i + 2);
+                oscilatorytherm = elsol(el, i + 2);
                 oscilatorytherm *= (hk/M_PI);
-                fluxestimator = cmesh->ElementSolution()(el, i + 3);
+                fluxestimator = elsol(el, i + 3);
             }
             
             
             if (abs(ErrorEstimate) < tol) {
-                cmesh->ElementSolution()(el, ncols + i / 2) = 1.;
+                elsol(el, ncols + i / 2) = 1.;
                 dataIeff(el,0)=1.;
                 
             }
@@ -2714,7 +2726,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
                 REAL EfIndex = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator))/ErrorExact;
                 dataIeff(el,0)= EfIndex;
                 
-                cmesh->ElementSolution()(el, ncols + i / 2) = EfIndex;
+                elsol(el, ncols + i / 2) = EfIndex;
             }
         }
     }
@@ -3203,6 +3215,8 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
         }
     }
 
+    TPZBlock &block =  pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     for(int iel = 0; iel < nel ; iel++) {
         TPZCompEl *cel = pressuremesh->Element(iel);
         if (!cel) continue;
@@ -3217,7 +3231,7 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
                 TPZCompElSide celside(cel, gelside.Side());
                 TPZConnect &elcon = pressuremesh->ConnectVec()[celside.ConnectIndex()];
                 if (elcon.NShape() != 1 || elcon.NState() != 1) DebugStop();
-                STATE elsol = pressuremesh->Block()(elcon.SequenceNumber(), 0, 0, 0);
+                STATE elsol = sol.at(block.at(elcon.SequenceNumber(), 0, 0, 0));
                 TPZStack<TPZCompElSide> neighSides;
                 gelside.ConnectedCompElementList(neighSides, 1, 0);
 
@@ -3231,7 +3245,7 @@ void TPZHybridH1ErrorEstimator::VerifySkeletonContinuity(TPZCompMesh* pressureme
 
                     TPZConnect &c1 = pressuremesh->ConnectVec()[neighCelSide.ConnectIndex()];
                     if (c1.NShape() != 1 || c1.NState() != 1) DebugStop();
-                    STATE c1sol = pressuremesh->Block()(c1.SequenceNumber(), 0, 0, 0);
+                    STATE c1sol = sol.at(block.at(c1.SequenceNumber(), 0, 0, 0));
 
 #ifdef LOG4CXX
                     if (logger->isDebugEnabled()) {
@@ -3625,6 +3639,9 @@ void TPZHybridH1ErrorEstimator::CopySolutionFromSkeleton() {
     pressuremesh->LoadReferences();
     int dim = pressuremesh->Dimension();
     int64_t nel = pressuremesh->NElements();
+
+    TPZBlock &block = pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         if (!cel) continue;
@@ -3658,7 +3675,7 @@ void TPZHybridH1ErrorEstimator::CopySolutionFromSkeleton() {
                     int con_size = con_neigh.NState() * con_neigh.NShape();
                     if (con_size != c_blocksize) DebugStop();
                     for (int ibl = 0; ibl < con_size; ibl++) {
-                        pressuremesh->Block()(c_seqnum, 0, ibl, 0) = pressuremesh->Block()(con_seqnum, 0, ibl, 0);
+                        sol.at(block.at(c_seqnum,0,ibl,0)) = sol.at(block.at(con_seqnum,0,ibl,0));
                     }
                     break;
                 }
