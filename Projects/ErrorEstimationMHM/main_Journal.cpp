@@ -10,6 +10,34 @@
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
 
+struct ErrorResult {
+    ErrorResult(const std::string &s, const int nIntRef, const int nCoarseDiv, const int kOrder, const int nOrder,
+                const REAL estimatedError, const REAL exactError, const REAL ieff) {
+        problem_name = s;
+        n_internal_ref = nIntRef;
+        n_coarse_div = nCoarseDiv;
+        k_order = kOrder;
+        n_order = nOrder;
+        estimated_error = estimatedError;
+        exact_error = exactError;
+        effectivity_index = ieff;
+    }
+    std::string problem_name = "NULL";
+    int n_internal_ref = -1;
+    int n_coarse_div = -1;
+    int k_order = -1;
+    int n_order = -1;
+    REAL estimated_error = -1.;
+    REAL exact_error = -1.;
+    REAL effectivity_index = -1.;
+};
+
+std::vector<ErrorResult> result_vec;
+
+const int porder = 1;
+const int hdivmais = 3;
+std::string dir_name = "Journal_k" + std::to_string(porder) + "n" + std::to_string(hdivmais);
+
 void RunSmoothProblem(int nCoarseDiv, int nInternalRef);
 void RunNonConvexProblem();
 void RunHighGradientProblem(int nCoarseDiv, int nInternalRef);
@@ -35,22 +63,26 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm);
 void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
 void PeriodicProblemForcingFunction(const TPZVec <REAL> &pt, TPZVec <STATE> &result);
 
+void PrintLatexGraphs();
+
 int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
 
     const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nInternalRef = {0, 1, 2, 3};
-    for (const auto coarse_div : nCoarseDiv) {
-        for (const auto internal_ref : nInternalRef) {
-            RunSmoothProblem(coarse_div, internal_ref);
-            //RunInnerSingularityProblem(coarse_div, internal_ref);
+    const std::set<int> nInternalRef = {1, 2};
+    for (const auto internal_ref : nInternalRef) {
+        for (const auto coarse_div : nCoarseDiv) {
+            //RunSmoothProblem(coarse_div, internal_ref);
+            RunInnerSingularityProblem(coarse_div, internal_ref);
             //RunHighGradientProblem(coarse_div, internal_ref);
             //RunPeriodicPermProblem(coarse_div, internal_ref);
         }
     }
-    RunNonConvexProblem();
 
+    PrintLatexGraphs();
+    //RunNonConvexProblem();
+    std::cout << "Bye!\n";
     return 0;
 }
 
@@ -60,9 +92,9 @@ void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     config.problemname = "Smooth";
-    config.dir_name = "Journal";
-    config.porder = 1;
-    config.hdivmais = 2;
+    config.dir_name = dir_name;
+    config.porder = porder;
+    config.hdivmais = hdivmais;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -96,9 +128,9 @@ void RunHighGradientProblem(const int nCoarseDiv, const int nInternalRef) {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
     config.problemname = "HighGradient";
-    config.dir_name = "Journal";
-    config.porder = 1;
-    config.hdivmais = 2;
+    config.dir_name = dir_name;
+    config.porder = porder;
+    config.hdivmais = hdivmais;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -132,9 +164,9 @@ void RunNonConvexProblem() {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     config.problemname = "NonConvex";
-    config.dir_name = "Journal";
-    config.porder = 1;
-    config.hdivmais = 3;
+    config.dir_name = dir_name;
+    config.porder = porder;
+    config.hdivmais = hdivmais;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -169,9 +201,9 @@ void RunInnerSingularityProblem(const int nCoarseDiv, const int nInternalRef) {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
     config.problemname = "InnerSingularity";
-    config.dir_name = "Journal";
-    config.porder = 1;
-    config.hdivmais = 2;
+    config.dir_name = dir_name;
+    config.porder = porder;
+    config.hdivmais = hdivmais;
     config.materialids = {1, 2};
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -229,6 +261,7 @@ void RunInnerSingularityProblem(const int nCoarseDiv, const int nInternalRef) {
 
     SolveMHMProblem(mhm, config);
     EstimateError(config, mhm);
+
 }
 
 void RunPeriodicPermProblem(const int nCoarseDiv, const int nInternalRef) {
@@ -238,9 +271,9 @@ void RunPeriodicPermProblem(const int nCoarseDiv, const int nInternalRef) {
     //config.exact = new TLaplaceExample1;
     //config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
     config.problemname = "PeriodicPerm";
-    config.dir_name = "Journal";
-    config.porder = 1;
-    config.hdivmais = 2;
+    config.dir_name = dir_name;
+    config.porder = porder;
+    config.hdivmais = hdivmais;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -445,7 +478,6 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     std::cout << "Finished\n";
     an.LoadSolution(); // compute internal dofs
 
-    // TODO: Phil, this is the part that needs a fix!
     TPZMFSolutionTransfer transfer;
     transfer.BuildTransferData(cmesh.operator->());
     transfer.TransferFromMultiphysics();
@@ -504,6 +536,16 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
         std::ofstream file(fileName, std::ios::app);
         Tools::PrintErrors(file, config, errors);
     }
+
+    result_vec.emplace_back(config.problemname,
+                            config.ninternalref,
+                            config.ndivisions,
+                            config.porder,
+                            config.hdivmais,
+                            errors[3],
+                            errors[2],
+                            sqrt(errors[4] + errors[3]) / sqrt(errors[2])
+                            );
 }
 
 void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config) {
@@ -664,3 +706,112 @@ void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, 
 }
 
 void PeriodicProblemForcingFunction(const TPZVec<REAL> &pt, TPZVec<STATE> &result) { result[0] = -1; }
+
+void PrintLatexGraphs() {
+
+    std::stringstream latex_text;
+    if (result_vec.empty()) DebugStop();
+
+    auto it = result_vec.begin();
+    std::string previous_problem = it->problem_name;
+    while (it != result_vec.end()) {
+        while(it->problem_name == previous_problem) {
+            if (!it.operator->()) DebugStop();
+
+            latex_text << "\\section{" << it->problem_name << "}\n";
+
+            int previous_k = it->k_order;
+            while (it->k_order == previous_k) {
+                int previous_n = it->n_order;
+                while (it->n_order == previous_n) {
+                    latex_text << "    \\subsection{k = " << it->k_order << ", n = " << it->n_order << "}\n";
+                    std::stringstream error_graph;
+                    std::stringstream ieff_graph;
+                    std::stringstream estimated_error_pts;
+                    std::stringstream exact_error_pts;
+                    std::stringstream estimated_error_legend;
+                    std::stringstream exact_error_legend;
+
+                    error_graph << "    \\begin{figure}[ht!]\n"
+                                   "    \\centering\n"
+                                   "    \\begin{tikzpicture}\n"
+                                   "    \\begin{loglogaxis}[\n"
+                                   "    width=0.6\\textwidth,\n"
+                                   "    height=0.45\\textwidth,\n"
+                                   "    xlabel={$h_{in}/h_{sk}$},\n"
+                                   "    xtick scale label code/.code={},\n"
+                                   "    legend pos=outer north east,\n"
+                                   "    grid style=dashed,\n"
+                                   "    cycle list name=mycycle,\n"
+                                   "    ]\n";
+
+                    ieff_graph << "    \\begin{figure}[ht!]\n"
+                                  "    \\centering\n"
+                                  "    \\begin{tikzpicture}\n"
+                                  "    \\begin{loglogaxis}[\n"
+                                  "    width=0.6\\textwidth,\n"
+                                  "    height=0.4\\textwidth,\n"
+                                  "    xlabel={$h_{in}/h_{sk}$},\n"
+                                  "    %ymin=1.0, ymax=1.1,\n"
+                                  "    xtick scale label code/.code={},\n"
+                                  "    legend pos=#2,\n"
+                                  "    grid style=dashed,\n"
+                                  "    cycle list name=mycycle,\n"
+                                  "    y tick label style={\n"
+                                  "    /pgf/number format/.cd,\n"
+                                  "    fixed,\n"
+                                  "    fixed zerofill,\n"
+                                  "    precision=2,\n"
+                                  "    /tikz/.cd\n"
+                                  "    },\n"
+                                  "    ]\n";
+                    int current_int_ref = it->n_internal_ref;
+                    bool is_first = true;
+                    while (it->n_internal_ref == current_int_ref) {
+                        if (is_first) {
+                            estimated_error_pts << "    \\addplot\n    \\coordinates{\n";
+                            exact_error_pts <<     "    \\addplot\n    \\coordinates{\n";
+                            ieff_graph <<          "    \\addplot\n    \\coordinates{\n";
+                            is_first = false;
+                        }
+                        estimated_error_legend << "    $h_{in} = h_{sk}/" << std::to_string(2 ^ it->n_internal_ref)
+                                               << "$ (estimated),\n";
+                        exact_error_legend << "    $h_{in} = h_{sk}/" << std::to_string(2 ^ it->n_internal_ref)
+                                           << "$ (exact),\n";
+
+                        estimated_error_pts << "    (1/" << it->n_coarse_div << ", " << it->estimated_error << ")\n";
+                        exact_error_pts << "    (1/" << it->n_coarse_div << ", " << it->exact_error << ")\n";
+
+                        ieff_graph << "    (1/" << it->n_coarse_div << ", " << it->effectivity_index << ")\n";
+
+                        if (it != result_vec.end()) {
+                            it++;
+                        }
+                    }
+                    estimated_error_pts << "    };\n";
+                    exact_error_pts << "    };\n";
+                    ieff_graph << "    };\n";
+
+                    error_graph << estimated_error_pts.str();
+                    error_graph << exact_error_pts.str();
+                    error_graph << "    \\legend{\n" << estimated_error_legend.str() << exact_error_legend.str()
+                                << "    }\n"
+                                   "    \\end{loglogaxis}\n"
+                                   "    \\end{tikzpicture}\n"
+                                   "    \\caption{#3}\n"
+                                   "    \\end{figure}\n\n";
+
+                    ieff_graph << "    \\end{loglogaxis}\n"
+                                  "    \\end{tikzpicture}\n"
+                                  "    \\caption{#3}\n"
+                                  "    \\end{figure}\n"
+                                  "}\n";
+
+                    latex_text << error_graph.str();
+                    latex_text << ieff_graph.str();
+                }
+            }
+        }
+        std::cout << latex_text.str();
+    }
+}
