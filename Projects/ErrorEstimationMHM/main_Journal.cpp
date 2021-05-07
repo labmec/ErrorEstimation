@@ -38,10 +38,10 @@ const int porder = 1;
 const int hdivmais = 3;
 std::string dir_name = "Journal_k" + std::to_string(porder) + "n" + std::to_string(hdivmais);
 
-void RunSmoothProblem(int nCoarseDiv, int nInternalRef);
+void RunSmoothProblem(int nCoarseDiv, int nInternalRef, int k, int n);
 void RunNonConvexProblem();
 void RunHighGradientProblem(int nCoarseDiv, int nInternalRef);
-void RunInnerSingularityProblem(int nCoarseDiv, int nInternalRef);
+void RunInnerSingularityProblem(int nCoarseDiv, int nInternalRef, int k, int n);
 void RunPeriodicPermProblem(int nCoarseDiv, int nInternalRef);
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
@@ -63,38 +63,53 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm);
 void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
 void PeriodicProblemForcingFunction(const TPZVec <REAL> &pt, TPZVec <STATE> &result);
 
-void PrintLatexGraphs();
+void PrintLatexGraphs(std::ostream & out);
 
 int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nInternalRef = {1, 2};
-    for (const auto internal_ref : nInternalRef) {
-        for (const auto coarse_div : nCoarseDiv) {
-            //RunSmoothProblem(coarse_div, internal_ref);
-            RunInnerSingularityProblem(coarse_div, internal_ref);
-            //RunHighGradientProblem(coarse_div, internal_ref);
-            //RunPeriodicPermProblem(coarse_div, internal_ref);
+    const std::set<int> nCoarseDiv = {3, 4, 5, 6, 7};
+    const std::set<int> nInternalRef = {1, 2, 3};
+    const std::set<int> kOrder = {1, 2};
+    const std::set<int> nOrder = {1, 2};
+
+    for (const auto k : kOrder) {
+        for (const auto n : nOrder) {
+            for (const auto internal_ref : nInternalRef) {
+                for (const auto coarse_div : nCoarseDiv) {
+                    RunSmoothProblem(coarse_div, internal_ref, k, n);
+                }
+            }
         }
     }
 
-    PrintLatexGraphs();
+    for (const auto k : kOrder) {
+        for (const auto n : nOrder) {
+            for (const auto internal_ref : nInternalRef) {
+                for (const auto coarse_div : nCoarseDiv) {
+                    RunInnerSingularityProblem(coarse_div, internal_ref, k, n);
+                }
+            }
+        }
+    }
+
+    std::ofstream out_latex("LatextGraphs.txt", std::ios::trunc);
+    PrintLatexGraphs(out_latex);
     //RunNonConvexProblem();
     std::cout << "Bye!\n";
     return 0;
 }
 
-void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
+void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef, const int k, const int n) {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
     config.problemname = "Smooth";
     config.dir_name = dir_name;
-    config.porder = porder;
-    config.hdivmais = hdivmais;
+    config.porder = k;
+    config.hdivmais = n;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -195,15 +210,15 @@ void RunNonConvexProblem() {
     EstimateError(config, mhm);
 }
 
-void RunInnerSingularityProblem(const int nCoarseDiv, const int nInternalRef) {
+void RunInnerSingularityProblem(const int nCoarseDiv, const int nInternalRef, int k, int n) {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
     config.problemname = "InnerSingularity";
     config.dir_name = dir_name;
-    config.porder = porder;
-    config.hdivmais = hdivmais;
+    config.porder = k;
+    config.hdivmais = n;
     config.materialids = {1, 2};
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -707,111 +722,123 @@ void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, 
 
 void PeriodicProblemForcingFunction(const TPZVec<REAL> &pt, TPZVec<STATE> &result) { result[0] = -1; }
 
-void PrintLatexGraphs() {
+void PrintLatexGraphs(std::ostream & out) {
 
     std::stringstream latex_text;
     if (result_vec.empty()) DebugStop();
 
     auto it = result_vec.begin();
-    std::string previous_problem = it->problem_name;
     while (it != result_vec.end()) {
-        while(it->problem_name == previous_problem) {
-            if (!it.operator->()) DebugStop();
-
+        std::string previous_problem = it->problem_name;
+        while (it->problem_name == previous_problem) {
             latex_text << "\\section{" << it->problem_name << "}\n";
 
             int previous_k = it->k_order;
             while (it->k_order == previous_k) {
                 int previous_n = it->n_order;
                 while (it->n_order == previous_n) {
-                    latex_text << "    \\subsection{k = " << it->k_order << ", n = " << it->n_order << "}\n";
-                    std::stringstream error_graph;
-                    std::stringstream ieff_graph;
-                    std::stringstream estimated_error_pts;
-                    std::stringstream exact_error_pts;
-                    std::stringstream estimated_error_legend;
-                    std::stringstream exact_error_legend;
+                    latex_text << "  \\subsection{$k = " << it->k_order << ", n = " << it->n_order << "$}\n";
+
+                    std::stringstream error_graph, ieff_graph, estimated_error_pts, exact_error_pts,
+                        estimated_error_legend, exact_error_legend, ieff_error_legend;
 
                     error_graph << "    \\begin{figure}[ht!]\n"
-                                   "    \\centering\n"
-                                   "    \\begin{tikzpicture}\n"
-                                   "    \\begin{loglogaxis}[\n"
-                                   "    width=0.6\\textwidth,\n"
-                                   "    height=0.45\\textwidth,\n"
-                                   "    xlabel={$h_{in}/h_{sk}$},\n"
-                                   "    xtick scale label code/.code={},\n"
-                                   "    legend pos=outer north east,\n"
-                                   "    grid style=dashed,\n"
-                                   "    cycle list name=mycycle,\n"
-                                   "    ]\n";
+                                   "      \\centering\n"
+                                   "      \\begin{tikzpicture}\n"
+                                   "      \\begin{loglogaxis}[\n"
+                                   "        width=0.6\\textwidth,\n"
+                                   "        height=0.45\\textwidth,\n"
+                                   "        xlabel={h_{sk}$},\n"
+                                   "        xtick scale label code/.code={},\n"
+                                   "        legend pos=outer north east,\n"
+                                   "        grid style=dashed,\n"
+                                   "        cycle list name=mycycle,\n"
+                                   "      ]\n";
 
                     ieff_graph << "    \\begin{figure}[ht!]\n"
-                                  "    \\centering\n"
-                                  "    \\begin{tikzpicture}\n"
-                                  "    \\begin{loglogaxis}[\n"
-                                  "    width=0.6\\textwidth,\n"
-                                  "    height=0.4\\textwidth,\n"
-                                  "    xlabel={$h_{in}/h_{sk}$},\n"
-                                  "    %ymin=1.0, ymax=1.1,\n"
-                                  "    xtick scale label code/.code={},\n"
-                                  "    legend pos=#2,\n"
-                                  "    grid style=dashed,\n"
-                                  "    cycle list name=mycycle,\n"
-                                  "    y tick label style={\n"
-                                  "    /pgf/number format/.cd,\n"
-                                  "    fixed,\n"
-                                  "    fixed zerofill,\n"
-                                  "    precision=2,\n"
-                                  "    /tikz/.cd\n"
-                                  "    },\n"
-                                  "    ]\n";
+                                  "      \\centering\n"
+                                  "      \\begin{tikzpicture}\n"
+                                  "      \\begin{loglogaxis}[\n"
+                                  "        width=0.6\\textwidth,\n"
+                                  "        height=0.4\\textwidth,\n"
+                                  "        xlabel={$h_{sk}$},\n"
+                                  "        %ymin=1.0, ymax=1.1,\n"
+                                  "        xtick scale label code/.code={},\n"
+                                  "        legend pos=outer north east,\n"
+                                  "        grid style=dashed,\n"
+                                  "        cycle list name=mycycle,\n"
+                                  "        y tick label style={\n"
+                                  "        /pgf/number format/.cd,\n"
+                                  "        fixed,\n"
+                                  "        fixed zerofill,\n"
+                                  "        precision=2,\n"
+                                  "        /tikz/.cd\n"
+                                  "      },\n"
+                                  "      ]\n";
                     int current_int_ref = it->n_internal_ref;
                     bool is_first = true;
                     while (it->n_internal_ref == current_int_ref) {
                         if (is_first) {
-                            estimated_error_pts << "    \\addplot\n    \\coordinates{\n";
-                            exact_error_pts <<     "    \\addplot\n    \\coordinates{\n";
-                            ieff_graph <<          "    \\addplot\n    \\coordinates{\n";
+                            estimated_error_pts << "      \\addplot\n      \\coordinates{\n";
+                            exact_error_pts << "      \\addplot\n      \\coordinates{\n";
+                            ieff_graph << "      \\addplot\n      \\coordinates{\n";
                             is_first = false;
+                            estimated_error_legend << "      $h_{in} = h_{sk}/"
+                                                   << std::to_string((int)pow(2, it->n_internal_ref))
+                                                   << "$ (estimated),\n";
+                            exact_error_legend << "      $h_{in} = h_{sk}/"
+                                               << std::to_string((int)pow(2, it->n_internal_ref)) << "$ (exact),\n";
+                            ieff_error_legend << "      $h_{in} = h_{sk}/"
+                                              << std::to_string((int)pow(2, it->n_internal_ref)) << "$,\n";
                         }
-                        estimated_error_legend << "    $h_{in} = h_{sk}/" << std::to_string(2 ^ it->n_internal_ref)
-                                               << "$ (estimated),\n";
-                        exact_error_legend << "    $h_{in} = h_{sk}/" << std::to_string(2 ^ it->n_internal_ref)
-                                           << "$ (exact),\n";
 
-                        estimated_error_pts << "    (1/" << it->n_coarse_div << ", " << it->estimated_error << ")\n";
-                        exact_error_pts << "    (1/" << it->n_coarse_div << ", " << it->exact_error << ")\n";
+                        estimated_error_pts << "        (1/" << it->n_coarse_div << ", " << it->estimated_error
+                                            << ")\n";
+                        exact_error_pts << "        (1/" << it->n_coarse_div << ", " << it->exact_error << ")\n";
+                        ieff_graph << "        (1/" << it->n_coarse_div << ", " << it->effectivity_index << ")\n";
 
-                        ieff_graph << "    (1/" << it->n_coarse_div << ", " << it->effectivity_index << ")\n";
-
+                        previous_n = it->n_order;
+                        previous_k = it->k_order;
+                        current_int_ref = it->n_internal_ref;
+                        previous_problem = it->problem_name;
                         if (it != result_vec.end()) {
                             it++;
+                            if (it->n_order == previous_n && it->k_order == previous_k &&
+                                it->n_internal_ref != current_int_ref) {
+                                is_first = true;
+                                current_int_ref = it->n_internal_ref;
+                            }
                         }
                     }
-                    estimated_error_pts << "    };\n";
-                    exact_error_pts << "    };\n";
-                    ieff_graph << "    };\n";
+                    estimated_error_pts << "      };\n";
+                    exact_error_pts << "      };\n";
+                    ieff_graph << "      };\n";
 
                     error_graph << estimated_error_pts.str();
                     error_graph << exact_error_pts.str();
-                    error_graph << "    \\legend{\n" << estimated_error_legend.str() << exact_error_legend.str()
-                                << "    }\n"
-                                   "    \\end{loglogaxis}\n"
-                                   "    \\end{tikzpicture}\n"
-                                   "    \\caption{#3}\n"
-                                   "    \\end{figure}\n\n";
+                    error_graph << "      \\legend{\n"
+                                << estimated_error_legend.str() << exact_error_legend.str()
+                                << "      }\n"
+                                   "      \\end{loglogaxis}\n"
+                                   "      \\end{tikzpicture}\n"
+                                   "      \\caption{"
+                                << "Estimated and exact errors, $k = " << previous_k << "$, $n = " << previous_n
+                                << "$}\n    \\end{figure}\n\n";
 
-                    ieff_graph << "    \\end{loglogaxis}\n"
-                                  "    \\end{tikzpicture}\n"
-                                  "    \\caption{#3}\n"
-                                  "    \\end{figure}\n"
-                                  "}\n";
+                    ieff_graph << "      \\legend{\n"
+                               << ieff_error_legend.str()
+                               << "      }\n"
+                                  "      \\end{loglogaxis}\n"
+                                  "      \\end{tikzpicture}\n"
+                                  "      \\caption{"
+                                  "Effectivity index, $k = " << previous_k << "$, $n = " << previous_n
+                               << "$}\n    \\end{figure}\n\n";
 
-                    latex_text << error_graph.str();
-                    latex_text << ieff_graph.str();
+                    latex_text << "    % Error graph\n" << error_graph.str();
+                    latex_text << "    % Ieff graph\n" << ieff_graph.str();
                 }
             }
         }
-        std::cout << latex_text.str();
+        out << latex_text.str();
     }
 }
