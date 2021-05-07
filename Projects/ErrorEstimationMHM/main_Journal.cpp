@@ -748,7 +748,7 @@ void PrintLatexGraphs(std::ostream & out) {
                                    "      \\begin{loglogaxis}[\n"
                                    "        width=0.6\\textwidth,\n"
                                    "        height=0.45\\textwidth,\n"
-                                   "        xlabel={h_{sk}$},\n"
+                                   "        xlabel={$h_{sk}$},\n"
                                    "        xtick scale label code/.code={},\n"
                                    "        legend pos=outer north east,\n"
                                    "        grid style=dashed,\n"
@@ -758,7 +758,7 @@ void PrintLatexGraphs(std::ostream & out) {
                     ieff_graph << "    \\begin{figure}[ht!]\n"
                                   "      \\centering\n"
                                   "      \\begin{tikzpicture}\n"
-                                  "      \\begin{loglogaxis}[\n"
+                                  "      \\begin{semilogxaxis}[\n"
                                   "        width=0.6\\textwidth,\n"
                                   "        height=0.4\\textwidth,\n"
                                   "        xlabel={$h_{sk}$},\n"
@@ -779,9 +779,9 @@ void PrintLatexGraphs(std::ostream & out) {
                     bool is_first = true;
                     while (it->n_internal_ref == current_int_ref) {
                         if (is_first) {
-                            estimated_error_pts << "      \\addplot\n      \\coordinates{\n";
-                            exact_error_pts << "      \\addplot\n      \\coordinates{\n";
-                            ieff_graph << "      \\addplot\n      \\coordinates{\n";
+                            estimated_error_pts << "      \\addplot\n      coordinates{\n";
+                            exact_error_pts << "      \\addplot\n      coordinates{\n";
+                            ieff_graph << "      \\addplot\n      coordinates{\n";
                             is_first = false;
                             estimated_error_legend << "      $h_{in} = h_{sk}/"
                                                    << std::to_string((int)pow(2, it->n_internal_ref))
@@ -807,6 +807,9 @@ void PrintLatexGraphs(std::ostream & out) {
                                 it->n_internal_ref != current_int_ref) {
                                 is_first = true;
                                 current_int_ref = it->n_internal_ref;
+                                estimated_error_pts << "      };\n";
+                                exact_error_pts << "      };\n";
+                                ieff_graph << "      };\n";
                             }
                         }
                     }
@@ -828,7 +831,7 @@ void PrintLatexGraphs(std::ostream & out) {
                     ieff_graph << "      \\legend{\n"
                                << ieff_error_legend.str()
                                << "      }\n"
-                                  "      \\end{loglogaxis}\n"
+                                  "      \\end{semilogxaxis}\n"
                                   "      \\end{tikzpicture}\n"
                                   "      \\caption{"
                                   "Effectivity index, $k = " << previous_k << "$, $n = " << previous_n
@@ -836,6 +839,7 @@ void PrintLatexGraphs(std::ostream & out) {
 
                     latex_text << "    % Error graph\n" << error_graph.str();
                     latex_text << "    % Ieff graph\n" << ieff_graph.str();
+                    latex_text << "\\clearpage\n";
                 }
             }
         }
