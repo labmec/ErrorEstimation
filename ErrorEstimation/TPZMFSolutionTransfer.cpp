@@ -19,9 +19,9 @@ void TPZMFSolutionTransfer::Match::TransferFromMultiphysics(TPZCompMesh * cmesh)
     if(blocksizeMF != blocksizeAto){
         DebugStop();
     }
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     int64_t nblockMF = blockMF.NBlocks();
-    int64_t nblockAto = blockAto->NBlocks();
+    int64_t nblockAto = blockAtomic.NBlocks();
     if(seqMF < nblockMF-1)
     {
         int64_t PosMF = blockMF.Position(seqMF);
@@ -30,8 +30,8 @@ void TPZMFSolutionTransfer::Match::TransferFromMultiphysics(TPZCompMesh * cmesh)
     }
     if(seqAto < nblockAto-1)
     {
-        int64_t PosAto = blockAto->Position(seqAto);
-        int64_t nextPosAto = blockAto->Position(seqAto+1);
+        int64_t PosAto = blockAtomic.Position(seqAto);
+        int64_t nextPosAto = blockAtomic.Position(seqAto+1);
         if(nextPosAto-PosAto != blocksizeAto) DebugStop();
     }
 #endif

@@ -502,7 +502,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     delete direct;
     direct = 0;
     an.Assemble();
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     const string matrixNamevtk("matrixRigidezMixedProblem.vtk");
     TPZMatrix<REAL> * matrizRigidez = an.Solver().Matrix().operator->();
     //VisualMatrixVTK((TPZFMatrix<REAL>&)(*matrizRigidez),matrixNamevtk);

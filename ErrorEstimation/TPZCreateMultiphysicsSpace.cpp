@@ -270,7 +270,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
         }
         pressure->ExpandSolution();
     }
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         int err = 0;
         std::map<int64_t,int64_t> gelindexes;
@@ -524,7 +524,7 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
                         fluxcandidate = gelsideflux.HasLowerLevelNeighbour(fH1Hybrid.fFluxMatId);
                         DebugStop();
                     }
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
                     if(fluxcandidate == gelsideflux)
                     {
                         DebugStop();
@@ -762,7 +762,7 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
             // first fMatWrapId
             TPZGeoElSide neighbour = gelside.Neighbour();
             int neighmat = neighbour.Element()->MaterialId();
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
             {
                 if(neighmat == fH1Hybrid.fMatWrapId)
                 {
@@ -929,7 +929,7 @@ void TPZCreateMultiphysicsSpace::AssociateElements(TPZCompMesh *cmesh, TPZVec<in
         TPZStack<int64_t> connectlist;
         cel->BuildConnectList(connectlist);
         for (auto cindex : connectlist) {
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
             if (groupindex[cindex] != -1) {
                 DebugStop();
             }

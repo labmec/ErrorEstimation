@@ -353,7 +353,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
     pressuremesh->SetName("Adapted CompMesh");
 
     // Printing geometric and computational mesh
-//#ifdef PZDEBUG
+//#ifdef ERRORESTIMATION_DEBUG
 //    {
 //        std::ofstream out("../PressureGeoMesh.txt");
 //        pressuremesh->Reference()->Print(out);
@@ -721,7 +721,7 @@ TPZGeoMesh *CreateGeoCircleMesh() {
     int initialRefinement = 1;
     UniformRefinement(initialRefinement, gmesh);
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("OriginalGeometricMesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);

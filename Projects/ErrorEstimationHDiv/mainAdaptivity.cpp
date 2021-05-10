@@ -116,7 +116,7 @@ else
         
    //     UniformRefinement(iSteps, gmeshOriginal);
         
-        #ifdef PZDEBUG
+        #ifdef ERRORESTIMATION_DEBUG
                 {
                     std::ofstream out("gmeshToSolve.vtk");
                     TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
@@ -133,7 +133,7 @@ else
               
               cmesh_HDiv = Tools::CreateHDivMesh(config);//Hdiv x L2
               cmesh_HDiv->InitializeBlock();
-               #ifdef PZDEBUG2
+               #ifdef ERRORESTIMATION_DEBUG2
               {
                   std::ofstream out("MultiPhysicsMesh.txt");
                   cmesh_HDiv->Print(out);
@@ -177,7 +177,7 @@ else
             std::string vtkPath = "adaptivity_error_results.vtk";
             HDivEstimate.ComputeErrors(errorvec, elementerrors, vtkPath);
             Tools::hAdaptivity(HDivEstimate.PostProcMesh(), gmeshOriginal, config);
-            #ifdef PZDEBUG
+            #ifdef ERRORESTIMATION_DEBUG
                     {
                         std::ofstream out("gmeshAdapty.vtk");
                         TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);

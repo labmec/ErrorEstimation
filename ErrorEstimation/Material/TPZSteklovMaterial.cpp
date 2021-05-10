@@ -76,7 +76,7 @@ void TPZSteklovMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weigh
             nactive++;
         }
     }
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         if(phrp+phrq != ek.Rows())
         {

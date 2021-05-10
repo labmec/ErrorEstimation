@@ -521,7 +521,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
 
 
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"flux fem "<<fluxfem<<std::endl;
     std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -538,7 +538,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
         }
     }
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"potential fem "<<pressurefem<<std::endl;
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -662,7 +662,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
 
 
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"flux fem "<<fluxfem<<std::endl;
     std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -679,7 +679,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
         }
     }
 
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"potential fem "<<pressurefem<<std::endl;
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
@@ -706,8 +706,9 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "PressureErrorExact") return 100;
     if(name == "PressureErrorEstimate") return 101;
     if(name == "EnergyErrorExact") return 102;
-    if(name == "EnergyErrorEstimate") return 103;
-    if(name == "ResidualError") return 104;
+    if(name == "NCIndex") return 103;
+    if(name == "NRIndex") return 104;
+    if(name == "NFIndex") return 105;
     if(name == "PressureEffectivityIndex") return 107;
     if(name == "EnergyEffectivityIndex") return 108;
     if(name == "POrder") return 46;
@@ -729,7 +730,6 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var)
         case 44:
         case 45:
         case 46:
-        case 47:
         case 100:
         case 101:
         case 102:
