@@ -207,7 +207,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
         TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix; //(2xnphiuk)
         TPZFNMatrix<9, REAL> dphiuk(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes); //(3xnphiuk)
-        TPZFMatrix<STATE> &dsolaxes = datavec[H1functionposition].dsol[0];
+        TPZFMatrix<STATE> &dsolaxes = datavec[3].dsol[0];
         TPZFNMatrix<9, REAL> dsol(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
 
@@ -229,7 +229,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
 
 
         //potetial fem
-        /*solukfem(0, 0) = datavec[3].sol[0][0];
+        solukfem(0, 0) = datavec[3].sol[0][0];
         for (int ip = 0; ip < dim; ip++) {
            gradSol(ip, 0) = dsol.Get(ip, 0);
         }
@@ -237,7 +237,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
             for (int jd = 0; jd < dim; jd++) {
                 kGradSol(id, 0) += PermTensor(id, jd) * gradSol(jd, 0);
             }
-        }*/
+        }
 
         TPZFMatrix<STATE> kgraduk(dim, nphiuk, 0.);
 
@@ -250,10 +250,10 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
                     kgraduk(id, irow) += PermTensor(id, jd) * dphiuk(jd, irow);
                 }
                 /// ... = (grad u_h, grad v_h)
-                //ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
+                ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
             }
             ///... = (f , v_h)
-            ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
+            //ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
 
             //matrix Sk= int_{K} K graduk.gradv
             for (int jcol = 0; jcol < nphiuk; jcol++) {
