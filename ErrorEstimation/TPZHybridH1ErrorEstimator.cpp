@@ -142,16 +142,15 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << errorVec[2] << "\n";
     myfile << "n_{NC}: ||K^{0.5}.grad(u_h-s_h)|| = " << errorVec[3] << "\n";
     myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << errorVec[5] << "\n";
-    myfile << "||f-Proj(f)|| = " << errorVec[6] << "\n";
-    myfile << "||f-Div(T_h)|| = " << errorVec[4] << "\n";
     //myfile <<"Residual ErrorL2= "<< errorVec[4] << "\n";
     //myfile <<"Global Index = "<< sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
-    
+
     myfile.close();
+
+    double globalIndex;
+    ComputeEffectivityIndices(globalIndex);
     
-    ComputeEffectivityIndices();
-    
-    //    GlobalEffectivityIndex();
+    //GlobalEffectivityIndex();
     
     PostProcessing(an);
     
@@ -2583,7 +2582,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
 
 /// TODO: Suport flux' effectivity indices
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
-void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
+void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     /**The  ElementSolution() is a matrix with 4 cols,
      col 0: pressure exact error
      col 1: pressure estimate error
@@ -2675,6 +2674,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
         }
     }
     REAL globalResidual =0., globalProjResidual =0.;;
+    REAL n1 = 0.,n2n3 = 0.,ex = 0.;
     for (int64_t el = 0; el < nrows; el++) {
         
         TPZCompEl *cel = cmesh->Element(el);
@@ -2682,6 +2682,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
         TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
         if(subcmesh)
         {
+            std::cout << "Computing submesh effectivity indices\n";
             ComputeEffectivityIndices(subcmesh);
         }
         TPZGeoEl *gel = cel->Reference();
@@ -2713,6 +2714,10 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
                 oscilatorytherm = elsol(el, i + 2);
                 oscilatorytherm *= (hk/M_PI);
                 fluxestimator = elsol(el, i + 3);
+
+                ex += elsol(el, 2)*elsol(el, 2);
+                n1 += elsol(el, 3)*elsol(el, 3);
+                n2n3 += (elsol(el, 4) + elsol(el, 5))*(elsol(el, 4) + elsol(el, 5));
             }
             
             
@@ -2732,10 +2737,20 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices() {
 
     globalResidual = sqrt(globalResidual);
     globalProjResidual = sqrt(globalProjResidual);
+    globalIndex = sqrt((n1+n2n3)/ex);
     std::cout << "\n\n";
     std::cout << "Residual = " << globalResidual << "\n";
     std::cout << "ProjResidual = " << globalProjResidual << "\n";
     std::cout << "\n\n";
+
+    {
+        std::ofstream myfile;
+        myfile.open("ErrorsReconstruction.txt", std::ios::app);
+        myfile << "||f-Proj(f)|| = " << globalProjResidual << "\n";
+        myfile << "||f-Div(T_h)|| = " << globalResidual << "\n";
+        myfile << "I_{EF} = " << globalIndex << "\n";
+        myfile.close();
+    }
 
     
     //  cmesh->ElementSolution().Print("ElSolution",std::cout);

@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
 #endif
     PreConfig pConfig;
     pConfig.k = 1;
-    pConfig.n = 3;
+    pConfig.n = 2;
     pConfig.problem = "ESinSin";               //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace"}
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}

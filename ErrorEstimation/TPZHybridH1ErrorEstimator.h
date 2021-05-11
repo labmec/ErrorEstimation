@@ -262,7 +262,7 @@ protected:
     void CloneMeshVec();
     
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
-    void ComputeEffectivityIndices();
+    void ComputeEffectivityIndices(double &globalIndex);
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
