@@ -548,7 +548,8 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[2] = innerexact;//error flux exact
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
     errors[4] = residual; //||f - Proj_divsigma||
-    errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    //errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    errors[5] = npz;
     errors[6] = altResidual*altResidual;
 }
 
@@ -689,7 +690,8 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[2] = innerexact;//error flux exact
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
     errors[4] = residual; // ||f - div (sigma_h)||
-    errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    //errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    errors[5] = npz;
     errors[6] = altResidual*altResidual; //||f - Proj_divsigma||
 }
 
