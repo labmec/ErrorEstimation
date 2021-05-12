@@ -69,8 +69,8 @@ int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    const std::set<int> nCoarseDiv = {3, 4, 5, 6, 7};
-    const std::set<int> nInternalRef = {1, 2, 3};
+    const std::set<int> nCoarseDiv = {3, 4, 5};//, 6, 7};
+    const std::set<int> nInternalRef = {1, 2};//, 3};
     const std::set<int> kOrder = {1, 2};
     const std::set<int> nOrder = {1, 2};
 
@@ -94,7 +94,7 @@ int main() {
         }
     }
 
-    std::ofstream out_latex("LatextGraphs.txt", std::ios::trunc);
+    std::ofstream out_latex("LatexGraphs.txt", std::ios::trunc);
     PrintLatexGraphs(out_latex);
     //RunNonConvexProblem();
     std::cout << "Bye!\n";
@@ -729,9 +729,9 @@ void PrintLatexGraphs(std::ostream & out) {
 
     auto it = result_vec.begin();
     while (it != result_vec.end()) {
-        std::string previous_problem = it->problem_name;
-        while (it->problem_name == previous_problem) {
-            latex_text << "\\section{" << it->problem_name << "}\n";
+        std::string current_problem = it->problem_name;
+        latex_text << "\\section{" << it->problem_name << "}\n";
+        while (it->problem_name == current_problem) {
 
             int previous_k = it->k_order;
             while (it->k_order == previous_k) {
@@ -800,7 +800,7 @@ void PrintLatexGraphs(std::ostream & out) {
                         previous_n = it->n_order;
                         previous_k = it->k_order;
                         current_int_ref = it->n_internal_ref;
-                        previous_problem = it->problem_name;
+                        current_problem = it->problem_name;
                         if (it != result_vec.end()) {
                             it++;
                             if (it->n_order == previous_n && it->k_order == previous_k &&
@@ -843,6 +843,7 @@ void PrintLatexGraphs(std::ostream & out) {
                 }
             }
         }
-        out << latex_text.str();
     }
+    out << latex_text.str();
+    std::cout << latex_text.str();
 }
