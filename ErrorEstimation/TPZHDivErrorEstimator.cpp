@@ -112,12 +112,13 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
     for (REAL & elementerror : elementErrors) {
         elementerror = 0;
     }
+
+    TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
     for (int64_t i = 0; i < nelem; i++) {
         TPZCompEl *cel = fPostProcMesh.Element(i);
         if (!cel) continue;
         TPZGeoEl* gel = fPostProcMesh.Element(i)->Reference();
         if (!gel) continue;
-        TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
         elementErrors[gel->Index()] = elsol(i, 3);
     }
     
