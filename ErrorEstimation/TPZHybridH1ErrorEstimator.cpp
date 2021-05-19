@@ -305,7 +305,8 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     system(command.c_str());
     {
         std::ofstream outCon(dirPath + "OriginalFluxConnects.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
+        if(cmeshHdiv->Dimension() == 2)
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
         std::ofstream outOriginalP(dirPath + "OriginalFlux.txt");
         cmeshHdiv->Print(outOriginalP);
         std::ofstream outGOriginalVTK(dirPath + "gFlux.vtk");
@@ -2675,6 +2676,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     }
     REAL globalResidual =0., globalProjResidual =0.;;
     REAL n1 = 0.,n2n3 = 0.,ex = 0.;
+    REAL n2Prop = 0., n2Voh = 0.;
     for (int64_t el = 0; el < nrows; el++) {
         
         TPZCompEl *cel = cmesh->Element(el);
@@ -2718,6 +2720,9 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
                 ex += elsol(el, 2)*elsol(el, 2);
                 n1 += elsol(el, 3)*elsol(el, 3);
                 n2n3 += (elsol(el, 4) + elsol(el, 5))*(elsol(el, 4) + elsol(el, 5));
+
+                n2Voh += elsol(el, 5)*elsol(el, 5);
+                n2Prop += elsol(el, 6)*elsol(el, 6);
             }
             
             
@@ -2750,6 +2755,10 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
         myfile << "||f-Div(T_h)|| = " << globalResidual << "\n";
         myfile << "I_{EF} = " << globalIndex << "\n";
         myfile.close();
+        std::cout <<"nProp^2: " << n2Prop << "\n";;
+        std::cout <<"nVoh^2: " << n2Voh << "\n";;
+        std::cout <<"n1^2: " << n1 << "\n";
+        std::cout <<"nProp^2 - (n1^2+nVoh^2): " << n2Prop - n2Voh - n1 << "\n";;
     }
 
     
