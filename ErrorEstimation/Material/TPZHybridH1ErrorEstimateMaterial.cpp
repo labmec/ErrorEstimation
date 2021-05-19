@@ -436,6 +436,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
       error[5] - oscilatory data error
 
      **/
+     DebugStop();
 
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);

@@ -30,7 +30,6 @@ int main(int argc, char *argv[]) {
 
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
-//#define ERRORESTIMATION_DEBUG
 
     for (int ndiv = pConfig.refLevel; ndiv < pConfig.refLevel+1; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
