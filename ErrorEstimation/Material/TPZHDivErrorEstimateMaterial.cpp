@@ -221,9 +221,9 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<ST
 
         case (0): {
             for (int iq = 0; iq < nphi_i; iq++) {
-                ef(iq, 0) += gBigNumber * u_D * phi_i(iq, 0) * weight;
+                ef(iq, 0) += TPZMaterial::fBigNumber * u_D * phi_i(iq, 0) * weight;
                 for (int jq = 0; jq < nphi_i; jq++) {
-                    ek(iq, jq) += gBigNumber * weight * phi_i(iq, 0) * phi_i(jq, 0);
+                    ek(iq, jq) += TPZMaterial::fBigNumber * weight * phi_i(iq, 0) * phi_i(jq, 0);
                 }
             }
             break;
