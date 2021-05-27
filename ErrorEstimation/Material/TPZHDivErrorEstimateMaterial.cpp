@@ -181,10 +181,10 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<ST
     REAL g = 0.;
     REAL normflux = 0.;
 
-    if (bc.HasForcingFunction()) {
+    if (bc.HasForcingFunctionBC()) {
         TPZManVector<STATE> res(3);
         TPZFNMatrix<9, STATE> gradu(dim, 1);
-        bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
+        bc.ForcingFunctionBC()(datavec[H1functionposition].x, res, gradu);
         u_D = res[0];
 
         TPZFNMatrix<9, REAL> PermTensor, InvPermTensor;
@@ -306,9 +306,9 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
     TPZFNMatrix<9, STATE> du_exact(3, 3);
     if (this->fExactSol) {
 
-        this->fExactSol->Execute(data[H1functionposition].x, u_exact, du_exact);
+        this->fExactSol(data[H1functionposition].x, u_exact, du_exact);
 
-        this->fForcingFunction->Execute(data[H1functionposition].x, divsigma);
+        this->fForcingFunction(data[H1functionposition].x, divsigma);
     }
 
     REAL residual = 0.;
@@ -473,7 +473,7 @@ TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &da
     TPZFNMatrix<9, STATE> gradu(3, 1, 0.), fluxinv(3, 1);
 
     if (fExactSol) {
-        this->fExactSol->Execute(datavec[H1functionposition].x, pressexact, gradu);
+        this->fExactSol(datavec[H1functionposition].x, pressexact, gradu);
     }
 
     PermTensor.Multiply(gradu, fluxinv);
