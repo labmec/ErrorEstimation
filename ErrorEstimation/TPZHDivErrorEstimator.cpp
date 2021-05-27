@@ -68,7 +68,7 @@ TPZHDivErrorEstimator::~TPZHDivErrorEstimator() {
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
 void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& elementErrors, std::string& vtkPath) {
-    TPZAnalysis an(&fPostProcMesh, false);
+    TPZLinearAnalysis an(&fPostProcMesh, false);
     
     if (fExact) {
         an.SetExact(fExact->ExactSolution());
@@ -199,16 +199,16 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
         std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
         for (auto bcID : bcMatIDs) {
             TPZMaterial *mat = mult->FindMaterial(bcID);
-            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
             if (!bc) DebugStop();
 
             int volumetricMatId = bc->Material()->Id();
-            TPZMaterial *pressuremat = pressureMesh->FindMaterial(volumetricMatId);
+            TPZMatBase<STATE> *pressuremat = dynamic_cast<TPZMatBase<STATE>*>(pressureMesh->FindMaterial(volumetricMatId));
             if (!pressuremat) DebugStop();
 
-            TPZMaterial *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
-            if (bc->HasForcingFunction()) {
-                newbc->SetForcingFunction(bc->ForcingFunction());
+            TPZBndCondT<STATE> *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            if (bc->HasForcingFunctionBC()) {
+                newbc->SetForcingFunctionBC(bc->ForcingFunctionBC());
             }
             pressureMesh->InsertMaterialObject(newbc);
         }
