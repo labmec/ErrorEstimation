@@ -31,7 +31,7 @@ TPZHDivErrorEstimateMaterial &TPZHDivErrorEstimateMaterial::operator=(const TPZH
     return *this;
 }
 
-int TPZHDivErrorEstimateMaterial::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec) {
+int TPZHDivErrorEstimateMaterial::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialDataT<STATE>> &datavec) {
 
     int nvec = datavec.NElements();
     int firstNoNullposition = -1;
@@ -474,7 +474,6 @@ TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &da
 
     if (fExactSol) {
         this->fExactSol->Execute(datavec[H1functionposition].x, pressexact, gradu);
-
     }
 
     PermTensor.Multiply(gradu, fluxinv);
