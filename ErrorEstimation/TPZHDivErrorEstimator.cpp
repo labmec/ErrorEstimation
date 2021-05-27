@@ -6,6 +6,8 @@
 //  Created by Philippe Devloo on 10/06/18.
 //
 
+#include <Material/TPZHDivErrorEstimateMaterial.h>
+#include "TPZElementMatrixT.h"
 #include "TPZHDivErrorEstimator.h"
 #include "TPZGeoElSideAncestors.h"
 #include "TPZGeoElSidePartition.h"
@@ -523,7 +525,7 @@ void TPZHDivErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh) {
     if (pressuremesh->MaterialVec().find(fPressureSkeletonMatId) != pressuremesh->MaterialVec().end()) {
         DebugStop();
     }
-    TPZNullMaterial *nullmat = new TPZNullMaterial(fPressureSkeletonMatId);
+    TPZNullMaterial<STATE> *nullmat = new TPZNullMaterial<STATE>(fPressureSkeletonMatId);
     pressuremesh->InsertMaterialObject(nullmat);
     int dim = fPostProcMesh.Dimension();
     int64_t nel = pressuremesh->NElements();
@@ -836,7 +838,7 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
     
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
     
-    TPZElementMatrix ekbc, efbc;
+    TPZElementMatrixT<STATE> ekbc, efbc;
     TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
     for (int iel = 0; iel < nel; iel++) {
         TPZCompEl *cel = elementvec[iel];
@@ -1775,7 +1777,7 @@ void TPZHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bo
         scalnames.Push("State");
     }
 
-    TPZAnalysis an(pressure, false);
+    TPZLinearAnalysis an(pressure, false);
 
     {
         int dim = pressure->Reference()->Dimension() - 1;
@@ -1802,7 +1804,7 @@ void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, boo
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("State");
 
-    TPZAnalysis an(flux_mesh, false);
+    TPZLinearAnalysis an(flux_mesh, false);
 
     {
         int dim = flux_mesh->Reference()->Dimension() - 1;
@@ -1821,11 +1823,11 @@ void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, boo
 void TPZHDivErrorEstimator::SwitchMaterialObjects() {
 
     for (auto mat : fPostProcMesh.MaterialVec()) {
-        TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *>(mat.second);
+        TPZMixedDarcyFlow *mixpoisson = dynamic_cast<TPZMixedDarcyFlow *>(mat.second);
         if (mixpoisson) {
-            TPZMaterial *newmat;
+            TPZMixedDarcyFlow *newmat;
             if (fPostProcesswithHDiv) {
-                newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
+                newmat = new TPZMixedHDivErrorEstimate<TPZMixedDarcyFlow>(*mixpoisson);
             } else {
                 newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
             }
@@ -1834,7 +1836,7 @@ void TPZHDivErrorEstimator::SwitchMaterialObjects() {
                 newmat->SetForcingFunction(mixpoisson->ForcingFunction());
             }
             if (mixpoisson->HasExactSol()) {
-                newmat->SetExactSol(mixpoisson->GetExactSol());
+                newmat->SetExactSol(mixpoisson->ExactSol(), mixpoisson->PolynomialOrderExact());
             }
 
             for (auto bcmat : fPostProcMesh.MaterialVec()) {
@@ -2199,7 +2201,7 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
                     DebugStop();
             }
         } else {
-            TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *>(mat);
+            auto *mixpoisson = dynamic_cast<TPZMixedDarcyFlow*>(mat);
             if (!mixpoisson) DebugStop();
 
             REAL perm;
