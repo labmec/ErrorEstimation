@@ -200,7 +200,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<ST
 
     } else {
         // u_D is usually stored in val2(0, 0)
-        u_D = bc.Val2()(0, 0);
+        u_D = bc.Val2()[0];
     }
 
     switch (bc.Type()) {
