@@ -29,14 +29,17 @@ public:
     
     TPZHDivErrorEstimateMaterial &operator=(const TPZHDivErrorEstimateMaterial &copy);
 
-    virtual void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+    virtual void Contribute(TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
                             TPZFMatrix<STATE> &ef) override;
 
-    virtual void ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+    virtual void ContributeBC(TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
                               TPZFMatrix<STATE> &ef, TPZBndCond &bc) override;
 
-    virtual void FillDataRequirements(TPZVec<TPZMaterialData> &datavec) override;
-    virtual void FillBoundaryConditionDataRequirement(int type, TPZVec<TPZMaterialData> &datavec) override;
+    // TODO add doc
+    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
+
+    // TODO add doc
+    void FillBoundaryConditionDataRequirements(int type, TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
 
     bool fNeumannLocalProblem = false;
 
