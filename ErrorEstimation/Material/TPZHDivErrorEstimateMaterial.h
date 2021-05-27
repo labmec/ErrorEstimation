@@ -13,6 +13,7 @@
 
 #include <cstdio>
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "TPZMaterialDataT.h"
 
 class TPZHDivErrorEstimateMaterial : public TPZMixedDarcyFlow {
 
@@ -29,11 +30,11 @@ public:
     
     TPZHDivErrorEstimateMaterial &operator=(const TPZHDivErrorEstimateMaterial &copy);
 
-    virtual void Contribute(TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+    void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
                             TPZFMatrix<STATE> &ef) override;
 
-    virtual void ContributeBC(TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
-                              TPZFMatrix<STATE> &ef, TPZBndCond &bc) override;
+    void ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+                      TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) override;
 
     // TODO add doc
     void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
@@ -54,14 +55,15 @@ public:
     // error[1] - error computed with reconstructed pressure
     // error[2] - energy error computed with exact solution
     // error[3] - energy error computed with reconstructed solution
-    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors) override;
+    void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
 
-    void ErrorsBC(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact,
-                  TPZVec<REAL> &errors, TPZBndCond &bc) override;
+    void ErrorsBC(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact,
+                  TPZVec<REAL> &errors, TPZBndCond &bc);
 
-    virtual int VariableIndex(const std::string &name) override;
-    virtual int NSolutionVariables(int var) override;
-    virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+    [[nodiscard]] int VariableIndex(const std::string &name) const override;
+    [[nodiscard]] int NSolutionVariables(int var) const override;
+
+    void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
 
     // Returns the first non-null approximation space index, which will be the
     // H1 reconstruction space

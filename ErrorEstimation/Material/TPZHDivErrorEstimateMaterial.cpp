@@ -156,8 +156,8 @@ void TPZHDivErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STAT
 
 }
 
-void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
-                                                TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
+void TPZHDivErrorEstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight,
+                                                TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) {
 
     /*
      Add Robin boundary condition for local problem
@@ -236,7 +236,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec
     }
 }
 
-void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData> &datavec) {
+void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialDataT<STATE>> &datavec) const {
 
     //fem solution for flux and potential
     datavec[2].SetAllRequirements(false);
@@ -249,16 +249,15 @@ void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialData> 
 
 }
 
-void TPZHDivErrorEstimateMaterial::FillBoundaryConditionDataRequirement(int type, TPZVec<TPZMaterialData> &datavec) {
-
+void
+TPZHDivErrorEstimateMaterial::FillBoundaryConditionDataRequirements(int type,
+                                                                    TPZVec<TPZMaterialDataT<STATE>> &datavec) const {
     datavec[2].SetAllRequirements(false);
     datavec[2].fNeedsSol = true;
     datavec[2].fNeedsNormal = true;
-
-
 }
 
-void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors) {
+void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) {
     /**
      datavec[0] H1 mesh, uh_reconstructed
      datavec[1] L2 mesh,
@@ -396,7 +395,7 @@ void TPZHDivErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZVec<
 #endif
 }
 
-int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name) {
+int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name) const {
     if (name == "FluxFem") return 40;
     if (name == "FluxReconstructed") return 41;
     if (name == "FluxExact") return 42;
@@ -416,7 +415,7 @@ int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name) {
 }
 
 
-int TPZHDivErrorEstimateMaterial::NSolutionVariables(int var) {
+int TPZHDivErrorEstimateMaterial::NSolutionVariables(int var) const {
     switch (var) {
         case 40:
         case 41:
@@ -451,7 +450,8 @@ int TPZHDivErrorEstimateMaterial::NSolutionVariables(int var) {
  * @param Solout [out] is the solution vector
  */
 
-void TPZHDivErrorEstimateMaterial::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) {
+void
+TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) {
 
     /**
      datavec[0] H1 mesh, uh_reconstructed for Mark reconstruction and Empty for H1 reconstruction
