@@ -11,10 +11,10 @@
 #ifndef TPZHDivErrorEstimateMaterial_hpp
 #define TPZHDivErrorEstimateMaterial_hpp
 
-#include <stdio.h>
-#include "mixedpoisson.h"
+#include <cstdio>
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 
-class TPZHDivErrorEstimateMaterial : public TPZMixedPoisson {
+class TPZHDivErrorEstimateMaterial : public TPZMixedDarcyFlow {
 
 public:
     TPZHDivErrorEstimateMaterial(int matid, int dim);
@@ -23,7 +23,7 @@ public:
     
     TPZHDivErrorEstimateMaterial(const TPZHDivErrorEstimateMaterial &copy);
     
-    TPZHDivErrorEstimateMaterial(const TPZMixedPoisson &copy);
+    TPZHDivErrorEstimateMaterial(const TPZMixedDarcyFlow &copy);
     
     ~TPZHDivErrorEstimateMaterial() override;
     
