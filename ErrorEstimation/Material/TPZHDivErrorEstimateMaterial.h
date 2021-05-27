@@ -25,7 +25,7 @@ public:
     
     TPZHDivErrorEstimateMaterial(const TPZMixedPoisson &copy);
     
-    virtual ~TPZHDivErrorEstimateMaterial();
+    ~TPZHDivErrorEstimateMaterial() override;
     
     TPZHDivErrorEstimateMaterial &operator=(const TPZHDivErrorEstimateMaterial &copy);
 
@@ -47,7 +47,7 @@ public:
         fNeumannLocalProblem = neumannProblem;
     }
 
-    virtual int NEvalErrors() override { return 5; } // erro de oscilacao de dados tbem
+    int NEvalErrors() override { return 5; }
 
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure
