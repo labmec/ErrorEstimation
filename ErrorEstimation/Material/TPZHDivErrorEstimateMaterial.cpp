@@ -31,7 +31,7 @@ TPZHDivErrorEstimateMaterial &TPZHDivErrorEstimateMaterial::operator=(const TPZH
     return *this;
 }
 
-int TPZHDivErrorEstimateMaterial::FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialDataT<STATE>> &datavec) {
+int TPZHDivErrorEstimateMaterial::FirstNonNullApproxSpaceIndex(const TPZVec<TPZMaterialDataT<STATE>> &datavec) {
 
     int nvec = datavec.NElements();
     int firstNoNullposition = -1;

@@ -67,7 +67,7 @@ public:
 
     // Returns the first non-null approximation space index, which will be the
     // H1 reconstruction space
-    int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialDataT<STATE>> &datavec);
+    static int FirstNonNullApproxSpaceIndex(const TPZVec<TPZMaterialDataT<STATE>> &datavec);
 };
 
 #endif /* TPZHDivErrorEstimateMaterial_hpp */
