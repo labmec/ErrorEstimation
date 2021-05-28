@@ -8,7 +8,8 @@
 #ifndef TPZMixedErrorEstimate_hpp
 #define TPZMixedErrorEstimate_hpp
 
-#include <stdio.h>
+#include <cstdio>
+#include <DarcyFlow/TPZMixedDarcyFlow.h>
 #include "pzreal.h"
 
 template<class TVar>
