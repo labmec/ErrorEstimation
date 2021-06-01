@@ -106,28 +106,22 @@ TPZMixedHDivErrorEstimate::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datav
      datavec[3]= Pressure FEM
     
      **/
-    
+
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;
-    
-    MixedMat::GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
 
-    int dim = MixedMat::fDim;
+    TPZMixedDarcyFlow::GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
 
-    if (MixedMat::fPermeabilityFunction) {
+    int dim = TPZMixedDarcyFlow::fDim;
+
+    if (TPZMixedDarcyFlow::fPermeabilityFunction) {
         PermTensor.Redim(dim, dim);
         InvPermTensor.Redim(dim, dim);
-        TPZFNMatrix<18, STATE> resultMat(2 * dim, dim, 0.);
-        TPZManVector<STATE> res;
-        MixedMat::fPermeabilityFunction->Execute(datavec[1].x, res, resultMat);
-
-        for (int id = 0; id < dim; id++) {
-            for (int jd = 0; jd < dim; jd++) {
-                PermTensor(id, jd) = resultMat(id, jd);
-                InvPermTensor(id, jd) = resultMat(id + dim, jd);
-            }
-        }
+        TPZFNMatrix<1, STATE> K(1, 1, 0);
+        TPZFNMatrix<1, STATE> InvK(1, 1, 0);
+        TPZMixedDarcyFlow::fPermeabilityFunction(datavec[1].x, K, InvK);
     }
+
 
     STATE pressureexact = 0.;
     TPZManVector<STATE,2> pressvec(1,0.);
@@ -217,20 +211,19 @@ void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &da
     
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;
-    
-    MixedMat::GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
-    
-    
-    if(MixedMat::fPermeabilityFunction){
+
+    TPZMixedDarcyFlow::GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
+
+    if(this->fPermeabilityFunction){
         PermTensor.Redim(dim, dim);
         InvPermTensor.Redim(dim, dim);
-        TPZFNMatrix<18, STATE> resultMat(2 * dim, dim, 0.);
-        TPZManVector<STATE> res;
-        MixedMat::fPermeabilityFunction->Execute(data[1].x,res,resultMat);
+        TPZFNMatrix<1, STATE> K(1, 1, 0);
+        TPZFNMatrix<1, STATE> InvK(1, 1, 0);
+        this->fPermeabilityFunction(data[1].x, K, InvK);
         for(int id=0; id<dim; id++){
             for(int jd=0; jd<dim; jd++){
-                PermTensor(id,jd) = resultMat(id,jd);
-                InvPermTensor(id,jd) = resultMat(id+dim,jd);
+                PermTensor(id,jd) = K(0,0);
+                InvPermTensor(id,jd) = InvK(0, 0);
             }
         }
     }
@@ -245,8 +238,8 @@ void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &da
         }
         PermTensor.Multiply(gradpressure,fluxexactneg);
     }
-    
-    
+
+
     REAL innerexact = 0.;
     REAL innerestimate = 0.;
     for (int i=0; i<dim; i++) {
