@@ -494,11 +494,11 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
     bool shouldrenumber = true;
-    TPZAnalysis an(cmesh, shouldrenumber);
+    TPZLinearAnalysis an(cmesh, shouldrenumber);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(8);
+    TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
+    strmat.SetNumThreads(4);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
     strmat.SetNumThreads(0);

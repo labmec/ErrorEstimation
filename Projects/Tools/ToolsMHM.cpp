@@ -403,9 +403,9 @@ void SolveProblem(const TPZAutoPointer<TPZCompMesh>& cmesh, const TPZVec<TPZAuto
                   TPZAnalyticSolution *analytic, const std::string &prefix, TRunConfig config) {
     //calculo solution
     bool shouldrenumber = true;
-    TPZAnalysis an(cmesh,shouldrenumber);
+    TPZLinearAnalysis an(cmesh,shouldrenumber);
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
+    TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(0/*config.n_threads*/);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());

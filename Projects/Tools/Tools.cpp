@@ -408,10 +408,10 @@ void Tools::Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, const ProblemConfig &problem,
                    bool PostProcessingFEM) {
 
-    TPZAnalysis an(Hybridmesh);
+    TPZLinearAnalysis an(Hybridmesh);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(Hybridmesh);
+    TPZSSpStructMatrix<STATE> strmat(Hybridmesh);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -521,10 +521,10 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
 #endif
 
 
-    TPZAnalysis an(cmesh_HDiv, false);
+    TPZLinearAnalysis an(cmesh_HDiv, false);
 
 
-    TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
+    TPZSSpStructMatrix<STATE> strmat(cmesh_HDiv);
     strmat.SetNumThreads(0);
     an.SetStructuralMatrix(strmat);
 
