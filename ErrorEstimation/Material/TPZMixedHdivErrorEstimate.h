@@ -13,20 +13,10 @@
 #include <TPZMaterialDataT.h>
 #include "pzreal.h"
 
-template<class TVar>
-class TPZFMatrix;
 
-class TPZMaterial;
-class TPZMaterialData;
+class TPZMixedHDivErrorEstimate : public virtual TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,
+        TPZMatErrorCombinedSpaces<STATE>, TPZDarcyFlowInterface>, public TPZMixedDarcyFlow {
 
-template<class TVar>
-class TPZVec;
-
-template<class MixedMat>
-class TPZMixedHDivErrorEstimate : public MixedMat
-{
-    
-    
 public:
     
     TPZMixedHDivErrorEstimate();
@@ -35,7 +25,7 @@ public:
     
     virtual ~TPZMixedHDivErrorEstimate();
     
-    TPZMixedHDivErrorEstimate(const MixedMat &cp);
+    TPZMixedHDivErrorEstimate(const TPZMixedDarcyFlow &cp);
     
     TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp);
     

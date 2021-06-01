@@ -15,7 +15,8 @@
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "TPZMaterialDataT.h"
 
-class TPZHDivErrorEstimateMaterial : public TPZMixedDarcyFlow {
+class TPZHDivErrorEstimateMaterial: public virtual TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,
+        TPZMatErrorCombinedSpaces<STATE>, TPZDarcyFlowInterface>, public TPZMixedDarcyFlow {
 
 public:
     TPZHDivErrorEstimateMaterial(int matid, int dim);
