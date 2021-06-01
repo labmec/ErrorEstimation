@@ -82,8 +82,11 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
         } else {
             bctype = 1;
         }
-        TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
+            problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_lambda);
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->SetDefaultOrder(problem.porder);
@@ -93,11 +96,9 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
     if (problem.prefine) {
         Prefinamento(cmesh, problem.ndivisions, problem.porder);
     }
-    
-    
+
     cmesh->InitializeBlock();
     return cmesh;
-    
 }
 
 TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
@@ -126,10 +127,18 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
     }
 
     for (auto matid : problem.materialids) {
-        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
-        mix->SetExactSol(problem.exact.operator*().Exact());
-        mix->SetPermeabilityTensor(K, invK);
+        auto *mix = new TPZMixedDarcyFlow(matid, cmesh->Dimension());
+
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+            problem.exact.operator*().ForcingFunction()->Execute(loc, result);
+        };
+        auto exact_sol_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+            problem.exact.operator*().Exact()->Execute(loc, result, deriv);
+        };
+
+        mix->SetForcingFunction(ff_lambda, 5);
+        mix->SetExactSol(exact_sol_lambda, 5);
+        mix->SetPermeabilityFunction(K(0,0));
 
         if (!mat) mat = mix;
 
@@ -158,8 +167,11 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
                 break;
             }
         }
-        TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
+            problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_lambda);
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -648,9 +660,18 @@ TPZCompMesh* Tools::CMeshH1(const ProblemConfig& problem) {
     TPZDarcyFlow* mat = nullptr;
 
     for (auto matid : problem.materialids) {
-        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetExactSol(problem.exact.operator*().Exact());
-        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
+        auto *mix = new TPZDarcyFlow(matid, cmesh->Dimension());
+
+
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+            problem.exact.operator*().ForcingFunction()->Execute(loc, result);
+        };
+        auto exact_sol_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+            problem.exact.operator*().Exact()->Execute(loc, result, deriv);
+        };
+
+        mix->SetForcingFunction(ff_lambda, 5);
+        mix->SetExactSol(exact_sol_lambda, 5);
 
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
@@ -660,9 +681,11 @@ TPZCompMesh* Tools::CMeshH1(const ProblemConfig& problem) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.);
         TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
-        val2.Zero();
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+        auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
+            problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_lambda);
 
         cmesh->InsertMaterialObject(bc);
     }

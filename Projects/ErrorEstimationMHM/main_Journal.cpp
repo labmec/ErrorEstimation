@@ -594,13 +594,16 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
 
     auto *mat = new TPZMixedDarcyFlow(1, dim);
 
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    invK.Identity();
+    auto ff_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+        config.exact.operator*().ForcingFunction()->Execute(loc, result);
+    };
+    auto exact_sol_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+        config.exact.operator*().Exact()->Execute(loc, result, deriv);
+    };
 
-    mat->SetExactSol(config.exact.operator*().Exact());
-    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat->SetPermeabilityTensor(K, invK);
+    mat->SetForcingFunction(ff_lambda, 5);
+    mat->SetExactSol(exact_sol_lambda, 5);
+    mat->SetPermeabilityFunction(1);
 
     cmesh.InsertMaterialObject(mat);
 
@@ -608,8 +611,14 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         TPZFNMatrix<1, REAL> val1(1, 1, 0.);
         TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+
+        auto ff_bc_lambda = [config](const TPZVec<REAL> &loc,
+                                     TPZVec<STATE> &rhsVal,
+                                     TPZFMatrix<STATE> &matVal) {
+            config.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_bc_lambda);
         cmesh.InsertMaterialObject(bc);
     }
 }
@@ -635,29 +644,23 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
 
     auto *mat = new TPZMixedDarcyFlow(1, dim);
 
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    K *= 5.;
-    invK.Identity();
-    invK *= 1./5.;
+    auto ff_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+        config.exact.operator*().ForcingFunction()->Execute(loc, result);
+    };
+    auto exact_sol_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+        config.exact.operator*().Exact()->Execute(loc, result, deriv);
+    };
 
-    mat->SetExactSol(config.exact.operator*().Exact());
-    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat->SetPermeabilityTensor(K, invK);
+    mat->SetForcingFunction(ff_lambda, 5);
+    mat->SetExactSol(exact_sol_lambda, 5);
+    mat->SetPermeabilityFunction(5);
 
     cmesh.InsertMaterialObject(mat);
 
-    auto *mat2 = new TPZMixedPoisson(2, dim);
-
-    TPZFMatrix<REAL> K2(3, 3, 0), invK2(3, 3, 0);
-    K2.Identity();
-    K2 *= 1.;
-    invK2.Identity();
-    invK2 *= 1./1.;
-
-    mat2->SetExactSol(config.exact.operator*().Exact());
-    mat2->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat2->SetPermeabilityTensor(K2, invK2);
+    auto *mat2 = new TPZMixedDarcyFlow(2, dim);
+    mat2->SetForcingFunction(ff_lambda, 5);
+    mat2->SetExactSol(exact_sol_lambda, 5);
+    mat2->SetPermeabilityFunction(1);
 
     cmesh.InsertMaterialObject(mat2);
 
@@ -665,8 +668,14 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
         TPZFNMatrix<1, REAL> val1(1, 1, 0.);
         TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+
+        auto ff_bc_lambda = [config](const TPZVec<REAL> &loc,
+                                     TPZVec<STATE> &rhsVal,
+                                     TPZFMatrix<STATE> &matVal) {
+            config.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_bc_lambda);
         cmesh.InsertMaterialObject(bc);
     }
 

@@ -480,7 +480,12 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
             TPZMaterial *pressure_mat = original_pressure->FindMaterial(bcID);
             TPZMaterial *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (fExact) {
-                bc_mat->SetForcingFunction(fExact->Exact());
+                auto ff_bc = [this](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal,
+                                    TPZFMatrix<STATE> &matVal) {
+                    this->fExact->Exact()->Execute(loc, rhsVal, matVal);
+                };
+
+                bc_mat->SetForcingFunctionBC(ff_bc);
             }
             reconstruction_pressure->InsertMaterialObject(bc_mat);
         }
