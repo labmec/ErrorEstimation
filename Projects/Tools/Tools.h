@@ -14,10 +14,6 @@
 #include "TPZVTKGeoMesh.h"
 #include "ProblemConfig.h"
 
-#include "mixedpoisson.h"
-#include "TPZVecL2.h"
-#include "pzbndcond.h"
-
 #include "pzintel.h"
 
 #include "pzbuildmultiphysicsmesh.h"
@@ -25,7 +21,6 @@
 #include "TPZMultiphysicsInterfaceEl.h"
 #include "TPZHybridizeHDiv.h"
 
-#include "pzanalysis.h"
 #include "pzstepsolver.h"
 #include "TPZSSpStructMatrix.h"
 #include "TPZParFrontStructMatrix.h"
