@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <DarcyFlow/TPZMixedDarcyFlow.h>
+#include <TPZMaterialDataT.h>
 #include "pzreal.h"
 
 template<class TVar>

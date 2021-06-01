@@ -13,7 +13,11 @@
 #include <tuple>
 #include <memory>
 #include <Pre/TPZGenGrid3D.h>
+#include <DarcyFlow/TPZMixedDarcyFlow.h>
+#include <DarcyFlow/TPZDarcyFlow.h>
+#include <TPZNullMaterial.h>
 #include "DataStructure.h"
+
 
 #include "pzelementgroup.h"
 

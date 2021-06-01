@@ -8,6 +8,7 @@
 //#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 
 struct ErrorResult {
     ErrorResult(const std::string &s, const int nIntRef, const int nCoarseDiv, const int kOrder, const int nOrder,

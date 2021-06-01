@@ -6,7 +6,6 @@
 //
 
 #include "TPZMixedHdivErrorEstimate.h"
-#include "mixedpoisson.h"
 #include "pzaxestools.h"
 
 
