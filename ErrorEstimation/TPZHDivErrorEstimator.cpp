@@ -1822,17 +1822,17 @@ void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, boo
 void TPZHDivErrorEstimator::SwitchMaterialObjects() {
 
     for (auto mat : fPostProcMesh.MaterialVec()) {
-        TPZMixedDarcyFlow *mixpoisson = dynamic_cast<TPZMixedDarcyFlow *>(mat.second);
+        auto *mixpoisson = dynamic_cast<TPZMixedDarcyFlow *>(mat.second);
         if (mixpoisson) {
             TPZMixedDarcyFlow *newmat;
             if (fPostProcesswithHDiv) {
-                newmat = new TPZMixedHDivErrorEstimate<TPZMixedDarcyFlow>(*mixpoisson);
+                newmat = new TPZMixedHDivErrorEstimate(*mixpoisson);
             } else {
                 newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
             }
 
             if (mixpoisson->HasForcingFunction()) {
-                newmat->SetForcingFunction(mixpoisson->ForcingFunction());
+                newmat->SetForcingFunction(mixpoisson->ForcingFunction(), mixpoisson->ForcingFunctionPOrder());
             }
             if (mixpoisson->HasExactSol()) {
                 newmat->SetExactSol(mixpoisson->ExactSol(), mixpoisson->PolynomialOrderExact());
@@ -2181,7 +2181,7 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
         }
         if (!mat) DebugStop();
 
-        TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
+        auto *bcmat = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if (bcmat) {
             switch(bcmat->Type()) {
                 case 0: // Dirichlet BC
@@ -2307,7 +2307,7 @@ void TPZHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
 #endif
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    auto *skeletonMat = new TPZNullMaterial<STATE>(fPressureSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
 
