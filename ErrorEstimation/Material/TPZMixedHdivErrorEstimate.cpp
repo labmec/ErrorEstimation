@@ -46,21 +46,14 @@ TPZMixedHDivErrorEstimate<MixedMat> &TPZMixedHDivErrorEstimate<MixedMat>::operat
     return *this;
 }
 
-template<class MixedMat>
-void TPZMixedHDivErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMaterialData > &datavec)
-{
-    MixedMat::FillDataRequirements(datavec);
-    {
-        int i = 1;
-        datavec[i].SetAllRequirements(false);
-        //datavec[0].fNeedsSol = true;
-        datavec[i].fNeedsSol = true;
-    }
-    
+void TPZMixedHDivErrorEstimate::FillDataRequirements(TPZVec<TPZMaterialDataT<STATE>> &datavec) const {
+    TPZMixedDarcyFlow::FillDataRequirements(datavec);
+    int i = 1;
+    datavec[i].SetAllRequirements(false);
+    datavec[i].fNeedsSol = true;
 }
 
-template<class MixedMat>
-int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name)
+int TPZMixedHDivErrorEstimate::VariableIndex(const std::string &name) const
 {
     if(name == "FluxFem") return 40;
     if(name == "FluxReconstructed") return 41;
@@ -80,9 +73,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name)
     return -1;
 }
 
-template<class MixedMat>
-int TPZMixedHDivErrorEstimate<MixedMat>::NSolutionVariables(int var)
-{
+int TPZMixedHDivErrorEstimate::NSolutionVariables(int var) const {
     switch (var) {
         case 40:
         case 41:

@@ -23,7 +23,7 @@ public:
 
     TPZMixedHDivErrorEstimate(int matid, int dim);
     
-    virtual ~TPZMixedHDivErrorEstimate();
+    ~TPZMixedHDivErrorEstimate() override;
     
     TPZMixedHDivErrorEstimate(const TPZMixedDarcyFlow &cp);
     
@@ -31,7 +31,7 @@ public:
     
     TPZMixedHDivErrorEstimate &operator=(const TPZMixedHDivErrorEstimate &copy);
     
-    virtual TPZMaterial * NewMaterial() override {
+    [[nodiscard]] TPZMaterial * NewMaterial() const override {
         return new TPZMixedHDivErrorEstimate(*this);
     }
     
@@ -46,9 +46,7 @@ public:
         
     }
     
-    virtual int VariableIndex(const std::string &name) override;
-    
-    virtual int NSolutionVariables(int var) override;
+    [[nodiscard]] int NSolutionVariables(int var) const override;
     
     /**
      * @brief It return a solution to multiphysics simulation.
