@@ -2209,8 +2209,10 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
             gel->CenterPoint(gel->NSides() - 1, xi);
             TPZVec<REAL> x(3, 0.);
             gel->X(xi, x);
-            mixpoisson->GetMaxPermeability(perm, x);
 
+            TPZFNMatrix<1, STATE> K(1, 1, 0.), InvK(1, 1, 0.);
+            mixpoisson->GetPermeabilities(x, K, InvK);
+            perm = K(0, 0);
             if (IsZero(perm)) DebugStop();
             this->fPressureweights[el] = perm;
             fMatid_weights[matid] = perm;
