@@ -256,9 +256,3 @@ void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &da
         if(std::isnan(errors[i])) DebugStop();
     }
 }
-
-
-
-
-
-template class TPZMixedHDivErrorEstimate<TPZMixedPoisson>;
