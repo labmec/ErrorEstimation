@@ -57,8 +57,8 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     
     //Definition of the approximation space:
     
-    TPZVecL2 *mat_0 = new TPZVecL2(impervious_mat);
-    TPZVecL2 *mat_1 = new TPZVecL2(permeable_mat);
+    auto *mat_0 = new TPZNullMaterial<STATE>(impervious_mat);
+    auto *mat_1 = new TPZNullMaterial<STATE>(permeable_mat);
     
     //  inserting volumetric materials objects
     cmesh->InsertMaterialObject(mat_0);
@@ -75,29 +75,28 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     // Insert boundary conditions
     //Neumann boundary conditions (flux = 0)
     int right_bc_id = -2;
-    TPZMaterial * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
+    auto * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
     cmesh->InsertMaterialObject(right_bc);
     
     int left_bc_id = -4;
-    TPZMaterial * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
+    auto * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
     cmesh->InsertMaterialObject(left_bc);
     
     int bottom_bc_1id = -1;
-    TPZMaterial * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
+    auto * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
     cmesh->InsertMaterialObject(bottom_bc_1);
     
     int top_bc_1id = -3;
-    TPZMaterial * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
+    auto * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
     cmesh->InsertMaterialObject(top_bc_1);
-    
-    
+
     //Dirichlet Conditions (p=1 in, p=0 out)
     int bottom_bc_id = -5;
-    TPZMaterial * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
+    auto * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
     cmesh->InsertMaterialObject(bottom_bc);
     
     int top_bc_id = -6;
-    TPZMaterial * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
+    auto * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
     cmesh->InsertMaterialObject(top_bc);
     
     cmesh->SetName("LaberintoTest");
