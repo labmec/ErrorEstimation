@@ -69,7 +69,8 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     
     int type_D = 0;
     int type_N = 1;
-    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFMatrix<STATE> val1(1, 1, 0.);
+    TPZManVector<STATE, 1> val2(1, 0.);
     
     // Insert boundary conditions
     //Neumann boundary conditions (flux = 0)

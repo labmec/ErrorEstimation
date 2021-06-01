@@ -605,7 +605,8 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     cmesh.InsertMaterialObject(mat);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
@@ -661,7 +662,8 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
     cmesh.InsertMaterialObject(mat2);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
         TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
@@ -704,7 +706,8 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
     mix->SetPermeabilityFunction(perm_function);
     mix->SetForcingFunction(PeriodicProblemForcingFunction, 1);
 
-    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+    TPZManVector<REAL, 1> val2(1, 0.);
     constexpr int dirichlet_bc = 0;
     TPZBndCond *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
 
