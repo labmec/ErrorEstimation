@@ -2226,7 +2226,7 @@ void TPZHDivErrorEstimator::PlotState(const std::string& filename, int targetDim
     cmesh->Print(outTXT);
     
     {
-        TPZAnalysis an(cmesh, false);
+        TPZLinearAnalysis an(cmesh, false);
         TPZStack<std::string> scalnames, vecnames;
         if (atomic) {
             scalnames.Push("State");
