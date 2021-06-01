@@ -36,15 +36,14 @@ public:
     }
     
     
-    void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
+    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE>> &datavec) const override;
     
     /// make a contribution to the error computation
-    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors) override;
+    void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
+
+    int NEvalErrors() override { return 5; }
     
-    virtual int NEvalErrors() override {
-        return 5;
-        
-    }
+    [[nodiscard]] int VariableIndex(const std::string &name) const override;
     
     [[nodiscard]] int NSolutionVariables(int var) const override;
     
@@ -54,7 +53,7 @@ public:
      * @param var [in] number of solution variables. See  NSolutionVariables() method
      * @param Solout [out] is the solution vector
      */
-    virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+    void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
 
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = true;

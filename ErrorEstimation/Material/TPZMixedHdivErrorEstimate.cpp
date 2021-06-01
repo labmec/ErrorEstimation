@@ -97,9 +97,8 @@ int TPZMixedHDivErrorEstimate::NSolutionVariables(int var) const {
  * @param var [in] number of solution variables. See  NSolutionVariables() method
  * @param Solout [out] is the solution vector
  */
-template<class MixedMat>
-void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
-{
+void
+TPZMixedHDivErrorEstimate::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) {
     /**
      datavec[0]= Hdiv Resconstructed
      datavec[1]= Pressure Resconstructed
@@ -174,10 +173,8 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
 
 
 /// make a contribution to the error computation
-template<class MixedMat>
-void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors)
-{
-    
+void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) {
+
     /**
      datavec[0]= Hdiv Reconstructed
      datavec[1]= Pressure Reconstructed
