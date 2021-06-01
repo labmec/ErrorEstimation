@@ -1,8 +1,9 @@
 
 #include "TPZMHMHDivErrorEstimator.h"
 #include "TPZNullMaterial.h"
+#include "TPZLagrangeMultiplierCS.h"
 #include "TPZVTKGeoMesh.h"
-#include "pzbndcond.h"
+#include "TPZBndCond.h"
 #include "pzintel.h"
 #include "pzsubcmesh.h"
 #include <Material/TPZLagrangeMultiplier.h>
@@ -10,6 +11,7 @@
 #include <Mesh/TPZGeoElSideAncestors.h>
 #include <Mesh/pzmultiphysicscompel.h>
 #include <Mesh/TPZMultiphysicsInterfaceEl.h>
+
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));

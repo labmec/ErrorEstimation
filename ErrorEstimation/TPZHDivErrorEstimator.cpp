@@ -7,12 +7,12 @@
 //
 
 #include <Material/TPZHDivErrorEstimateMaterial.h>
+#include <Material/TPZMixedHdivErrorEstimate.h>
 #include "TPZElementMatrixT.h"
 #include "TPZHDivErrorEstimator.h"
 #include "TPZGeoElSideAncestors.h"
 #include "TPZGeoElSidePartition.h"
 #include "TPZInterfaceEl.h"
-#include "TPZMixedHdivErrorEstimate.h"
 #include "TPZNullMaterial.h"
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "TPZAnalysis.h"
@@ -29,7 +29,6 @@
 #include "pzstepsolver.h"
 #include "TPZVTKGeoMesh.h"
 #include "pzmultiphysicscompel.h"
-#include "TPZHDivErrorEstimateMaterial.h"
 #include "TPZCompMeshTools.h"
 
 #ifdef LOG4CXX
