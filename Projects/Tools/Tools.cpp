@@ -38,9 +38,9 @@ void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool 
 
 TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial* mat = 0;
+    TPZMaterial* mat = nullptr;
     for (auto matid : problem.materialids) {
-        TPZMixedPoisson* mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+        auto * mix = new TPZMixedDarcyFlow(matid, cmesh->Dimension());
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
@@ -59,17 +59,16 @@ TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
         Prefinamento(cmesh, problem.ndivisions, problem.porder);
     }
     
-    
     return cmesh;
 }
 
 TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
     int dim = problem.gmesh->Dimension();
-    TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial* mat = NULL;
+    auto* cmesh = new TPZCompMesh(problem.gmesh);
+    TPZNullMaterial<STATE>* mat = nullptr;
     problem.gmesh->ResetReference();
     for (auto matid : problem.materialids) {
-        TPZVecL2* mix = new TPZVecL2(matid);
+        auto * mix = new TPZNullMaterial<STATE>(matid);
         mix->SetDimension(dim);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
@@ -103,15 +102,14 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
 
 TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
 
-    TPZMultiphysicsCompMesh* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
-    TPZMaterial* mat = NULL;
+    auto* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
+    TPZMixedDarcyFlow *mat = nullptr;
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
     
     STATE Km = problem.Km;
 
-    
     if (problem.TensorNonConst && problem.gmesh->Dimension() == 3) {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
@@ -127,9 +125,6 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
         
     }
 
-//    K.Print(std::cout);
-//    invK.Print(std::cout);
-    
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
         mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
@@ -148,23 +143,19 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
         int bctype;
     
         switch (matid) {
-            case -1 :{
-            bctype = 0;
+            case -1 : {
+                bctype = 0;
                 break;
             }
-                
-                
-            case -2:{
-            bctype = 1;
-    
-            break;
-            }
-            case -3:{
-            bctype = 4;// different from mixed (bctype 2) already implemented on TPZMixedPoisson3d
-            val1(0,0) = Km ;
+            case -2: {
+                bctype = 1;
 
-                
-            break;
+                break;
+            }
+            case -3: {
+                bctype = 4;// different from mixed (bctype 2) already implemented on TPZMixedPoisson3d
+                val1(0, 0) = Km;
+                break;
             }
         }
         TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
@@ -653,9 +644,8 @@ void Tools::DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
 
 TPZCompMesh* Tools::CMeshH1(const ProblemConfig& problem) {
 
-    TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial* mat = 0;
-
+    auto* cmesh = new TPZCompMesh(problem.gmesh);
+    TPZDarcyFlow* mat = nullptr;
 
     for (auto matid : problem.materialids) {
         TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());

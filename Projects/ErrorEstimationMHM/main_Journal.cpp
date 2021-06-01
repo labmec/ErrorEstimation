@@ -592,7 +592,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     int dim = control.GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    auto *mat = new TPZMixedPoisson(1, dim);
+    auto *mat = new TPZMixedDarcyFlow(1, dim);
 
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
@@ -633,7 +633,7 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
     int dim = mhm->GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    auto *mat = new TPZMixedPoisson(1, dim);
+    auto *mat = new TPZMixedDarcyFlow(1, dim);
 
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
@@ -701,7 +701,7 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
 
     // Insert the material objects in the multiphysics mesh
     TPZCompMesh *cmesh = mhm.CMesh().operator->();
-    auto *mix = new TPZMixedPoisson(1, cmesh->Dimension());
+    auto *mix = new TPZMixedDarcyFlow(1, cmesh->Dimension());
     TPZAutoPointer<TPZFunction<STATE>> perm_function = new TPZDummyFunction<STATE>(&PeriodicPermeabilityFunction, 3);
     mix->SetPermeabilityFunction(perm_function);
     mix->SetForcingFunction(PeriodicProblemForcingFunction, 1);
