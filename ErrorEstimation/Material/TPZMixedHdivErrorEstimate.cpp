@@ -132,7 +132,7 @@ TPZMixedHDivErrorEstimate::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datav
         gradu.Resize(3, 1);
         //gradu(2,0) = 0.;
     }
-    
+
     PermTensor.Multiply(gradu, fluxinv);
     pressureexact = pressvec[0];
     switch (var)
@@ -173,7 +173,7 @@ void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &da
      datavec[2]= Hdiv FEM
      datavec[3]= Pressure FEM
      **/
-    
+
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
 
@@ -181,32 +181,28 @@ void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &da
 
     TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
 
-    
+
     fluxreconstructed = data[0].sol[0];
     fluxfem = data[2].sol[0];
     STATE divsigmafem=data[2].divsol[0][0];
-    
-    
+
+
     TPZVec<STATE> divsigma(1,0.);
 
     TPZManVector<STATE, 1> u_exact(1);
     TPZFNMatrix<9, STATE> du_exact(3, 3);
     if(this->fExactSol){
-        this->fExactSol->Execute(data[0].x,u_exact,du_exact);
-        this->fForcingFunction->Execute(data[0].x,divsigma);
+        this->fExactSol(data[0].x,u_exact,du_exact);
+        this->fForcingFunction(data[0].x,divsigma);
     }
-    
 
-    
     REAL residual = 0.;
-//    std::cout<<" divsigma "<<divsigma[0] << " divsigmafem "<<divsigmafem<<"\n";
-    
+
     residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
-    
-    
+
     pressurereconstructed[0] = data[1].sol[0][0];
     pressurefem[0] = data[3].sol[0][0];
-    
+
     TPZFNMatrix<9,REAL> PermTensor;
     TPZFNMatrix<9,REAL> InvPermTensor;
 
@@ -225,7 +221,7 @@ void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &da
             }
         }
     }
-    
+
     TPZFNMatrix<3,REAL> fluxexactneg;
 
     //sigma=-K grad(u)
