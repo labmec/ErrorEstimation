@@ -17,18 +17,15 @@
 #include "pzgeoelside.h"
 #include "tpzgeoelrefpattern.h"
 #include "tpzautopointer.h"
-#include "pzbndcond.h"
-#include "pzanalysis.h"
+#include "TPZBndCond.h"
+#include "TPZNullMaterial.h"
 
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
-#include "pzstrmatrix.h"
+#include "TPZStructMatrix.h"
 
 #include "tpzarc3d.h"
 #include "tpzgeoblend.h"
-
-#include "mixedpoisson.h"
-#include "TPZVecL2.h"
 
 #include "pzbuildmultiphysicsmesh.h"
 #include "TPZCompMeshTools.h"
