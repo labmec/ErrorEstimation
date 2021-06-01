@@ -72,7 +72,6 @@ int TPZMixedHDivErrorEstimate::NSolutionVariables(int var) const {
         case 41:
         case 42:
             return 3;
-            break;
         case 43:
         case 44:
         case 45:
@@ -85,7 +84,6 @@ int TPZMixedHDivErrorEstimate::NSolutionVariables(int var) const {
         case 105:
         case 106:
             return 1;
-            break;
         default:
             DebugStop();
             break;
