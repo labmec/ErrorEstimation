@@ -402,7 +402,7 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
     return gmesh;
 }
 
-void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh>> &compmeshes,
+void SolveProblem(const TPZAutoPointer<TPZCompMesh>& cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh>> &compmeshes,
                   TPZAnalyticSolution *analytic, const std::string &prefix, TRunConfig config) {
     //calculo solution
     bool shouldrenumber = true;

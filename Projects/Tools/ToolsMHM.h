@@ -156,4 +156,4 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices);
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes);
 
 /// Solve the problem composed of a multiphysics mesh composed of compmeshes - applies to MHM and MHM-H(div)
-void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh> >& compmeshes, TPZAnalyticSolution *analytic, const std::string& prefix, TRunConfig config);
+void SolveProblem(const TPZAutoPointer<TPZCompMesh>& cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh> >& compmeshes, TPZAnalyticSolution *analytic, const std::string& prefix, TRunConfig config);
