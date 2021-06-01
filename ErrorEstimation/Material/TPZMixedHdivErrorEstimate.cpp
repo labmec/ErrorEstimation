@@ -127,10 +127,8 @@ TPZMixedHDivErrorEstimate::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datav
     TPZManVector<STATE,2> pressvec(1,0.);
     TPZFNMatrix<9, STATE> gradu(dim, 1, 0.), fluxinv(dim, 1);
 
-    if(MixedMat::fExactSol)
-    {
-
-        MixedMat::fExactSol->Execute(datavec[0].x, pressvec,gradu);
+    if(TPZMixedDarcyFlow::fExactSol) {
+        TPZMixedDarcyFlow::fExactSol(datavec[0].x, pressvec,gradu);
         gradu.Resize(3, 1);
         //gradu(2,0) = 0.;
     }
@@ -179,7 +177,7 @@ void TPZMixedHDivErrorEstimate::Errors(const TPZVec<TPZMaterialDataT<STATE>> &da
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
 
-    const int dim = MixedMat::fDim;
+    const int dim = this->fDim;
 
     TPZManVector<STATE,3> fluxfem(3), fluxreconstructed(3), pressurefem(1), pressurereconstructed(1);
 
