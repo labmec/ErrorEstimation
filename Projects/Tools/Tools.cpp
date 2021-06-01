@@ -645,7 +645,7 @@ void Tools::DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
 }
 
 
-TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
+TPZCompMesh* Tools::CMeshH1(const ProblemConfig& problem) {
 
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
     TPZMaterial* mat = 0;

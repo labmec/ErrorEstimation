@@ -79,7 +79,7 @@ namespace Tools {
 
     void SolveMixedProblem(TPZCompMesh *cmesh_HDiv, const ProblemConfig &config);
 
-    TPZCompMesh *CMeshH1(ProblemConfig problem);
+    TPZCompMesh *CMeshH1(const ProblemConfig& problem);
 
     void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, ProblemConfig &config);
 
