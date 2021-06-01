@@ -8,41 +8,34 @@
 #include "TPZMixedHdivErrorEstimate.h"
 #include "pzaxestools.h"
 
-
-template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate() : MixedMat()
+TPZMixedHDivErrorEstimate::TPZMixedHDivErrorEstimate() : TPZMixedDarcyFlow()
 {
     
 }
 
-template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(int matid, int dim) : MixedMat(matid,dim)
+TPZMixedHDivErrorEstimate::TPZMixedHDivErrorEstimate(int matid, int dim) : TPZMixedDarcyFlow(matid,dim)
 {
     
 }
 
-template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(const MixedMat &copy) : MixedMat(copy)
+TPZMixedHDivErrorEstimate::TPZMixedHDivErrorEstimate(const TPZMixedDarcyFlow &copy) : TPZMixedDarcyFlow(copy)
 {
     
 }
 
-template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat>::~TPZMixedHDivErrorEstimate()
+TPZMixedHDivErrorEstimate::~TPZMixedHDivErrorEstimate()
 {
     
 }
 
-template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp) : MixedMat(cp)
+TPZMixedHDivErrorEstimate::TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp) : TPZMixedDarcyFlow(cp)
 {
     
 }
 
-template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat> &TPZMixedHDivErrorEstimate<MixedMat>::operator=(const TPZMixedHDivErrorEstimate &copy)
+TPZMixedHDivErrorEstimate &TPZMixedHDivErrorEstimate::operator=(const TPZMixedHDivErrorEstimate &copy)
 {
-    MixedMat::operator=(copy);
+    TPZMixedDarcyFlow::operator=(copy);
     return *this;
 }
 
