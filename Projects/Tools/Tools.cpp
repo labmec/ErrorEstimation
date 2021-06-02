@@ -38,9 +38,10 @@ void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool 
 
 TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial* mat = nullptr;
+    TPZNullMaterial<STATE>* mat = nullptr;
     for (auto matid : problem.materialids) {
-        auto * mix = new TPZMixedDarcyFlow(matid, cmesh->Dimension());
+        auto * mix = new TPZNullMaterial<STATE>(matid);
+        mix->SetDimension(cmesh->Dimension());
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
