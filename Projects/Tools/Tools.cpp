@@ -16,6 +16,7 @@
 #include <DarcyFlow/TPZMixedDarcyFlow.h>
 #include <DarcyFlow/TPZDarcyFlow.h>
 #include <TPZNullMaterial.h>
+#include <TPZNullMaterialCS.h>
 #include "DataStructure.h"
 
 
@@ -83,7 +84,7 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
         } else {
             bctype = 1;
         }
-        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto * bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
             problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
         };
@@ -167,8 +168,11 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
                 val1(0, 0) = Km;
                 break;
             }
+            default: {
+                bctype = -1;
+            }
         }
-        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto * bc = mat->CreateBC(mat, matid, bctype, val1, val2);
         auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
             problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
         };
@@ -424,7 +428,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
     //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
     //    strmat.SetNumThreads(2);
     //    strmat.SetDecomposeType(ELDLt);
-    TPZSkylineStructMatrix strmat(Hybridmesh);
+    TPZSkylineStructMatrix<STATE> strmat(Hybridmesh);
     strmat.SetNumThreads(0);
 #endif
 
