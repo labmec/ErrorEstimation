@@ -433,10 +433,10 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
     bool shouldrenumber = true;
-    TPZAnalysis an(cmesh, shouldrenumber);
+    TPZLinearAnalysis an(cmesh, shouldrenumber);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
+    TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(0 /*config.n_threads*/);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
@@ -528,23 +528,28 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     int dim = control.GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+    auto *mat = new TPZMixedDarcyFlow(1, dim);
 
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    invK.Identity();
+    auto exact_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+        config.exact.operator*().Exact()->Execute(loc, result, deriv);
+    };
 
-    mat->SetExactSol(config.exact.operator*().Exact());
-    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat->SetPermeabilityTensor(K, invK);
+    auto ff_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+        config.exact.operator*().ForcingFunction()->Execute(loc, result);
+    };
+
+    mat->SetPermeabilityFunction(1);
+    mat->SetExactSol(exact_lambda, 8);
+    mat->SetForcingFunction(ff_lambda, 8);
 
     cmesh.InsertMaterialObject(mat);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(exact_lambda);
         cmesh.InsertMaterialObject(bc);
     }
 }
