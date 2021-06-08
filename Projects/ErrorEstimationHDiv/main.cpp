@@ -7,13 +7,12 @@
 
 #include "ProblemConfig.h"
 #include "TPZBFileStream.h"
-#include "TPZGmshReader.h"
 #include "TPZHDivErrorEstimator.h"
 #include "TPZHybridizeHDiv.h"
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZRefPatternDataBase.h"
 #include "Tools.h"
-#include "pzbndcond.h"
+#include "TPZBndCond.h"
 #include "pzlog.h"
 #include "tpzgeoelrefpattern.h"
 #include <tuple>
@@ -55,7 +54,7 @@ void RunSingularProblemHDiv() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nRef = 2;
+    int nRef = 3;
 
     config.ndivisions = 0;
     config.gmesh = CreateLShapeGeoMesh(nRef);
@@ -66,7 +65,7 @@ void RunSingularProblemHDiv() {
     TPZHybridizeHDiv hybridizer;
     TPZMultiphysicsCompMesh *hybridMesh = CreateHybridCompMesh(config, hybridizer);
 
-    Tools::SolveHybridProblem(hybridMesh, hybridizer.fInterfaceMatid, config, false);
+    Tools::SolveHybridProblem(hybridMesh, hybridizer.fInterfaceMatid, config, true);
 
     // Reconstruct potential and estimate error
     EstimateError(config, hybridMesh, hybridizer);
@@ -78,7 +77,7 @@ void RunSingularProblemHDiv() {
 
 TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHybridizeHDiv &hybridizer) {
 
-    TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateHDivMesh(config); // Hdiv x L2
+    TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateMixedMesh(config); // Hdiv x L2
 
 #ifdef PZDEBUG
     {

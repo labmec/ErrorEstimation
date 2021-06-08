@@ -102,7 +102,7 @@ else
         
     TPZManVector<TPZCompMesh*, 2> meshvec_HDiv(2, 0);
         
-    TPZMultiphysicsCompMesh* cmesh_HDiv = Tools::CreateHDivMesh(config); //Hdiv x L2
+    TPZMultiphysicsCompMesh* cmesh_HDiv = Tools::CreateMixedMesh(config); //Hdiv x L2
     cmesh_HDiv->InitializeBlock();
     Tools::SolveMixedProblem(cmesh_HDiv, config);
     
@@ -131,7 +131,7 @@ else
               TPZMultiphysicsCompMesh* cmesh_HDiv = nullptr;
               
               
-              cmesh_HDiv = Tools::CreateHDivMesh(config);//Hdiv x L2
+              cmesh_HDiv = Tools::CreateMixedMesh(config);//Hdiv x L2
               cmesh_HDiv->InitializeBlock();
                #ifdef PZDEBUG2
               {

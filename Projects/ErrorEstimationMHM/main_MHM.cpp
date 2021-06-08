@@ -9,6 +9,7 @@
 //#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 
 void RunSmoothProblem();
 void RunHighGradientProblem();

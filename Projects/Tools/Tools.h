@@ -55,7 +55,7 @@ namespace Tools {
 
     TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
 
-    TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem);
+    TPZMultiphysicsCompMesh *CreateMixedMesh(const ProblemConfig &problem);
 
     void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 

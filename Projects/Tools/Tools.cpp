@@ -103,7 +103,7 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
     return cmesh;
 }
 
-TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
+TPZMultiphysicsCompMesh* Tools::CreateMixedMesh(const ProblemConfig& problem) {
 
     auto* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
     TPZMixedDarcyFlow *mat = nullptr;
@@ -468,7 +468,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
         sout << problem.dir_name << "/" << "OriginalHybrid_Order_" << problem.porder << "Nref_" << problem.ndivisions
              << "NAdapStep_" << problem.adaptivityStep << ".vtk";
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-        int resolution = 0;
+        int resolution = 2;
         an.PostProcess(resolution, Hybridmesh->Dimension());
 
         if (problem.exact.operator*().Exact()) {
