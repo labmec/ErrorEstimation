@@ -1,15 +1,15 @@
 # Project to apply error estimation for H(div) simulations
-add_executable(HeteroPermeability main_HeteroPermeability.cpp)
-target_link_libraries(HeteroPermeability Tools ErrorEstimationLib)
+#add_executable(HeteroPermeability main_HeteroPermeability.cpp)
+#target_link_libraries(HeteroPermeability Tools ErrorEstimationLib)
 
 add_executable(HybridHDiv main.cpp)
 target_link_libraries(HybridHDiv Tools ErrorEstimationLib)
 
-add_executable(AdaptivityTest mainAdaptivity.cpp)
-target_link_libraries(AdaptivityTest Tools ErrorEstimationLib)
+#add_executable(AdaptivityTest mainAdaptivity.cpp)
+#target_link_libraries(AdaptivityTest Tools ErrorEstimationLib)
 
-add_executable(SteklovProblem mainSteklov.cpp)
-target_link_libraries(SteklovProblem Tools ErrorEstimationLib)
+#add_executable(SteklovProblem mainSteklov.cpp)
+#target_link_libraries(SteklovProblem Tools ErrorEstimationLib)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
