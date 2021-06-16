@@ -155,7 +155,7 @@ protected:
     virtual void CopySolutionFromSkeleton();
 
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-    virtual void SwitchMaterialObjects();
+    virtual void InsertPostProcMaterials();
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices();

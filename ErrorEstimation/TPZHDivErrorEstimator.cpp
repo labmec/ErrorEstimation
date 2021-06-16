@@ -295,17 +295,8 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension();
-    fOriginal->CopyMaterials(fPostProcMesh);
-    
-    {
-        fPostProcMesh.DeleteMaterial(fHybridizer.fHDivWrapMatid);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.first);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fInterfaceMatid.second);
-        fPostProcMesh.DeleteMaterial(fHybridizer.fLagrangeInterface);
-    }
-    
     // switch the material from mixed to TPZMixedHdivErrorEstimate...
-    SwitchMaterialObjects();
+    InsertPostProcMaterials();
     
     TPZManVector<TPZCompMesh *> meshvec(4, 0);
     meshvec[0] = 0;
@@ -1818,33 +1809,35 @@ void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, boo
 }
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-void TPZHDivErrorEstimator::SwitchMaterialObjects() {
+void TPZHDivErrorEstimator::InsertPostProcMaterials() {
 
-    for (auto mat : fPostProcMesh.MaterialVec()) {
-        auto *mixpoisson = dynamic_cast<TPZMixedDarcyFlow *>(mat.second);
-        if (mixpoisson) {
-            TPZMixedDarcyFlow *newmat;
+    for (auto it : fOriginal->MaterialVec()) {
+        auto *orig_mat = dynamic_cast<TPZMixedDarcyFlow *>(it.second);
+        if (orig_mat) {
+            TPZMixedDarcyFlow *new_mat;
             if (fPostProcesswithHDiv) {
-                newmat = new TPZMixedHDivErrorEstimate(*mixpoisson);
+                new_mat = new TPZMixedHDivErrorEstimate(*orig_mat);
             } else {
-                newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
+                new_mat = new TPZHDivErrorEstimateMaterial(*orig_mat);
             }
+            if (orig_mat->HasForcingFunction()) {
+                new_mat->SetForcingFunction(orig_mat->ForcingFunction(), orig_mat->ForcingFunctionPOrder());
+            }
+            if (orig_mat->HasExactSol()) {
+                new_mat->SetExactSol(orig_mat->ExactSol(), orig_mat->PolynomialOrderExact());
+            }
+            fPostProcMesh.InsertMaterialObject(new_mat);
+        }
+    }
 
-            if (mixpoisson->HasForcingFunction()) {
-                newmat->SetForcingFunction(mixpoisson->ForcingFunction(), mixpoisson->ForcingFunctionPOrder());
-            }
-            if (mixpoisson->HasExactSol()) {
-                newmat->SetExactSol(mixpoisson->ExactSol(), mixpoisson->PolynomialOrderExact());
-            }
-
-            for (auto bcmat : fPostProcMesh.MaterialVec()) {
-                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
-                if (bc) {
-                    bc->SetMaterial(newmat);
-                }
-            }
-            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
-            delete mixpoisson;
+    for (auto it : fOriginal->MaterialVec()) {
+        auto *orig_bc = dynamic_cast<TPZBndCond *>(it.second);
+        if (orig_bc) {
+            it.second->Clone(fPostProcMesh.MaterialVec());
+            auto *new_mat = fPostProcMesh.FindMaterial(orig_bc->Material()->Id());
+            auto *new_bc = dynamic_cast<TPZBndCond *>(fPostProcMesh.FindMaterial(orig_bc->Id()));
+            if (!new_bc) DebugStop();
+            new_bc->SetMaterial(new_mat);
         }
     }
 }

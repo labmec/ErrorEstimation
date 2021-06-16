@@ -25,7 +25,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
 
     fOriginal->CopyMaterials(fPostProcMesh);
     // Switch the material from mixed to TPZMHMHDivErrorEstimationMaterial
-    SwitchMaterialObjects();
+    InsertPostProcMaterials();
 
     TPZManVector<TPZCompMesh *> meshvec(4);
     TPZManVector<int,4> active(4,0);
