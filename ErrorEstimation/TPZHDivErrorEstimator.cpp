@@ -199,7 +199,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
         std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
         for (auto bcID : bcMatIDs) {
             TPZMaterial *mat = mult->FindMaterial(bcID);
-            TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+            auto *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
             if (!bc) DebugStop();
 
             int volumetricMatId = bc->Material()->Id();
@@ -398,12 +398,12 @@ void TPZHDivErrorEstimator::ComputeElementStiffnesses() {
 
     for (auto cel:fPostProcMesh.ElementVec()) {
         if (!cel) continue;
-        TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
+        auto *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
         if (condense) {
             // for Mark proposal ek correspond to local dirichlet problem
             condense->Assemble();
         }
-        TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
+        auto *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
         if (subcmesh) {
             subcmesh->Assemble();
         }
@@ -879,7 +879,7 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
     if (!cel) DebugStop();
     TPZGeoEl *gel = cel->Reference();
     if (!gel) DebugStop();
-    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+    auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
     if (!intel) DebugStop();
     int nc = cel->NConnects();
     int order = cel->Connect(nc - 1).Order();
@@ -1627,7 +1627,7 @@ bool TPZHDivErrorEstimator::IsDirichletCondition(TPZGeoElSide gelside) {
     TPZGeoEl *gel = gelside.Element();
     int matid = gel->MaterialId();
     TPZMaterial *mat = fPostProcMesh.FindMaterial(matid);
-    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+    auto *bc = dynamic_cast<TPZBndCond *>(mat);
     if (!bc) return false;
     int typ = bc->Type();
     //  std::cout<<"type "<< typ<<"\n";
@@ -2046,7 +2046,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         
         if (elementsToGroup.size()) {
             int64_t index;
-            TPZElementGroup *elGroup = new TPZElementGroup(fPostProcMesh, index);
+            auto *elGroup = new TPZElementGroup(fPostProcMesh, index);
             for (const auto &it : elementsToGroup) {
                 elGroup->AddElement(fPostProcMesh.Element(it));
             }
