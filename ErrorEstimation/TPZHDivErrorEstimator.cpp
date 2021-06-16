@@ -24,7 +24,6 @@
 #include "pzelementgroup.h"
 #include "pzelmat.h"
 #include "pzintel.h"
-//#include "pzmat1dlin.h"
 #include "pzsubcmesh.h"
 #include "pzstepsolver.h"
 #include "TPZVTKGeoMesh.h"
