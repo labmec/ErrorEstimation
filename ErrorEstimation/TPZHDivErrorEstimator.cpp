@@ -1614,7 +1614,7 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
 
 /// returns true if the material associated with the element is a boundary condition
 /// and if the boundary condition is dirichlet type
-bool TPZHDivErrorEstimator::IsDirichletCondition(TPZGeoElSide gelside) {
+bool TPZHDivErrorEstimator::IsDirichletCondition(const TPZGeoElSide& gelside) {
     TPZGeoEl *gel = gelside.Element();
     int matid = gel->MaterialId();
     TPZMaterial *mat = fPostProcMesh.FindMaterial(matid);

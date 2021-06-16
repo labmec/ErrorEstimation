@@ -165,7 +165,7 @@ protected:
 
     /// returns true if the material associated with the element is a boundary condition
     /// and if the boundary condition is dirichlet type
-    bool IsDirichletCondition(TPZGeoElSide gelside);
+    bool IsDirichletCondition(const TPZGeoElSide& gelside);
 
     void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
 
