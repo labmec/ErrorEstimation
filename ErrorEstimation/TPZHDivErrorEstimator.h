@@ -80,7 +80,7 @@ public:
     // Plots State solution of elements of target dimension
     static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
 
-    int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
+    [[nodiscard]] int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
 
     TPZMultiphysicsCompMesh *PostProcMesh() { return &fPostProcMesh; }
     TPZGeoMesh *GMesh() { return fOriginal->Reference(); }
