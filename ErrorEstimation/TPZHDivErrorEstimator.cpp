@@ -1760,11 +1760,10 @@ void TPZHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bo
 
     if (!reconstructed) {
         pressure = fOriginal->MeshVector()[1];
-        scalnames.Push("State");
     } else {
         pressure = PressureMesh();
-        scalnames.Push("State");
     }
+    scalnames.Push("State");
 
     TPZLinearAnalysis an(pressure, false);
 
