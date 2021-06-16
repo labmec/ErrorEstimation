@@ -76,7 +76,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
         for (int i = 0; i < fluxMesh->NElements(); i++) {
             TPZCompEl *cel = fluxMesh->Element(i);
             if (!cel) continue;
-            TPZInterpolatedElement * intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+            auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
             if (!intel) continue;
 
             TPZGeoEl * gel = cel->Reference();
@@ -126,7 +126,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         TPZCompEl *cel = gel->Reference();
         if(!cel) continue;
         TPZCompMesh *mesh = cel->Mesh();
-        TPZSubCompMesh *submesh = dynamic_cast<TPZSubCompMesh *>(mesh);
+        auto *submesh = dynamic_cast<TPZSubCompMesh *>(mesh);
         if (submesh) {
             orig_submesh_per_gel[iel] = submesh;
         }
@@ -153,7 +153,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         auto iter = submeshmap.find(submesh_orig);
         if (iter == submeshmap.end()) {
             int64_t index;
-            TPZSubCompMesh *new_submesh = new TPZSubCompMesh(fPostProcMesh,index);
+            auto *new_submesh = new TPZSubCompMesh(fPostProcMesh,index);
             submeshmap[submesh_orig] = new_submesh;
             new_submesh_per_cel[el] = new_submesh;
         } else {
@@ -306,7 +306,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         int64_t nel = fPostProcMesh.NElements();
         for (int64_t el = 0; el < nel; el++) {
             TPZCompEl *cel = fPostProcMesh.Element(el);
-            TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+            auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
             if (sub) {
 
                 if (fPostProcesswithHDiv) {
@@ -338,7 +338,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = fluxmesh->Element(el);
         if(!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         TPZGeoEl *gel = cel->Reference();
         bool isbcmat = fMHM->fMaterialBCIds.find(gel->MaterialId()) != fMHM->fMaterialBCIds.end();
         // if the element is of lower dimension and is not a boundary
@@ -394,7 +394,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateDiscontinuousPressureMesh()
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = pressmesh->Element(el);
         if(!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if(!intel) DebugStop();
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
@@ -450,7 +450,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
                 if (neighbour.Element()->Dimension() != dim) {
                     TPZMaterial *neighMat = fPostProcMesh.FindMaterial(neighbour.Element()->MaterialId());
                     if (neighMat) {
-                        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(neighMat);
+                        auto *bc = dynamic_cast<TPZBndCond *>(neighMat);
                         if (bc) {
                             int64_t bcId = neighbour.Element()->Index();
                             MHMOfEachGeoEl[bcId] = {geoToMHM[el], bcId, nullptr};
@@ -465,7 +465,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
     std::sort(&MHMOfEachGeoEl[0], &MHMOfEachGeoEl[nel - 1] + 1);
 
     // Create pressure mesh
-    TPZCompMesh *reconstruction_pressure = new TPZCompMesh(gmesh);
+    auto *reconstruction_pressure = new TPZCompMesh(gmesh);
 
     // Copies volume materials
     original_pressure->CopyMaterials(*reconstruction_pressure);
@@ -523,7 +523,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
 
         int64_t index;
         TPZCompEl *new_cel = reconstruction_pressure->CreateCompEl(gel, index);
-        TPZInterpolatedElement *new_intel = dynamic_cast<TPZInterpolatedElement *>(new_cel);
+        auto *new_intel = dynamic_cast<TPZInterpolatedElement *>(new_cel);
 
         TPZCompEl * orig_cel = std::get<2>(MHMOfEachGeoEl[i]);
         if (orig_cel) {
@@ -605,7 +605,7 @@ void TPZMHMHDivErrorEstimator::TransferEmbeddedElements()
     // connect_submesh : pointer to the submesh if there is only one subdomain that owns the connect
     for (int64_t el=0; el<nel; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
-        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
         if(!sub) continue;
         int nconnect = sub->NConnects();
         for(int ic=0; ic<nconnect; ic++)
@@ -626,7 +626,7 @@ void TPZMHMHDivErrorEstimator::TransferEmbeddedElements()
     for (int64_t el=0; el<nel; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
         if(!cel) continue;
-        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
         if(sub) continue;
         std::set<TPZSubCompMesh *> submeshes;
         int nconnect = cel->NConnects();
@@ -647,7 +647,7 @@ void TPZMHMHDivErrorEstimator::TransferEmbeddedElements()
     fPostProcMesh.ComputeNodElCon();
     for (int64_t el=0; el<nel; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
-        TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
         if(!sub) continue;
         sub->MakeAllInternal();
     }
@@ -687,7 +687,7 @@ void TPZMHMHDivErrorEstimator::ComputeAveragePressures(int target_dim)
         if(!gel) continue;
         if(gel->Dimension() == target_dim)
         {
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
             if(!intel) DebugStop();
             
             int matId = gel->MaterialId();
@@ -726,7 +726,7 @@ void TPZMHMHDivErrorEstimator::ComputeNodalAverages()
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if(!gel || !gel->Reference()) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if(!intel) DebugStop();
         if (gel->Dimension() == dim-1) {
             int ncorner = gel->NCornerNodes();
@@ -834,7 +834,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
     int64_t nel = pressuremesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl* cel = pressuremesh->Element(el);
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!cel) continue;
         if(!intel) DebugStop();
         // load just d dimensional elements
@@ -849,7 +849,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl* cel = pressuremesh->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl* gel = cel->Reference();
         // filters just (d-1) dimensional elements
@@ -999,7 +999,7 @@ void TPZMHMHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
 #endif
 
                     // Checks pressure value on these nodes
-                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
+                    auto *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
                     if (!intel) DebugStop();
                 }
             }
@@ -1090,7 +1090,7 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
             if (neighGel->Dimension() != dim) continue;
             TPZCompEl *neighCel = geltocel[neighGel];
             if (!neighCel) DebugStop();
-            TPZInterpolatedElement *neighIntel = dynamic_cast<TPZInterpolatedElement*>(neighCel);
+            auto *neighIntel = dynamic_cast<TPZInterpolatedElement*>(neighCel);
             if (!neighIntel) DebugStop();
 
             // TODO sometimes the order here is 1, I think it should always be 3 for the case I'm running. Need to
@@ -1105,7 +1105,7 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
             TPZGeoElBC gbc(neighbour, fHDivWrapMatId);
             int64_t index;
             TPZCompEl * wrap = flux_mesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *flux_mesh, index);
-            TPZInterpolatedElement *wrapintel = dynamic_cast<TPZInterpolatedElement *>(wrap);
+            auto *wrapintel = dynamic_cast<TPZInterpolatedElement *>(wrap);
             neighIntel->SetSideOrient(neighbour.Side(), 1);
             wrapintel->SetSideOrient(gbc.CreatedElement()->NSides()-1,1);
             int64_t newc_index = wrap->ConnectIndex(0);

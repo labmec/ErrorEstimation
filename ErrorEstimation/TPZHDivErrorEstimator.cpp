@@ -248,7 +248,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
             TPZGeoEl *bcGeoEl = gmesh->Element(bcElID);
             // We load the volumetric element reference so it shares its connects with the BC element to be created
             neighCel->LoadElementReference();
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(neighCel);
+            auto *intel = dynamic_cast<TPZInterpolatedElement *>(neighCel);
             if (!intel) DebugStop();
             // Get order of the neighbour side of the volumetric element
             int iside = neighSide.Side();
@@ -420,7 +420,7 @@ void TPZHDivErrorEstimator::IncreaseSideOrders(TPZCompMesh *mesh) {
         if (gel->Dimension() != dim) {
             continue;
         }
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
         int nc = cel->NConnects();
         int order = cel->Connect(nc - 1).Order();
         int nsides = gel->NSides();
@@ -476,12 +476,12 @@ void TPZHDivErrorEstimator::IncreasePressureSideOrders(TPZCompMesh *cmesh) {
         int maxOrder = 0;
 
         for (int ineigh = 0; ineigh < nneigh; ineigh++) {
-            TPZInterpolatedElement *intelS = dynamic_cast<TPZInterpolatedElement *>(celstack[ineigh].Element());
+            auto *intelS = dynamic_cast<TPZInterpolatedElement *>(celstack[ineigh].Element());
             int orderEl = intelS->GetPreferredOrder();
             maxOrder = (orderEl > maxOrder) ? orderEl : maxOrder;
         }
 
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
         int nsides = gel->NSides();
         int ncorner = gel->NCornerNodes();
         
@@ -514,7 +514,7 @@ void TPZHDivErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh) {
     if (pressuremesh->MaterialVec().find(fPressureSkeletonMatId) != pressuremesh->MaterialVec().end()) {
         DebugStop();
     }
-    TPZNullMaterial<STATE> *nullmat = new TPZNullMaterial<STATE>(fPressureSkeletonMatId);
+    auto *nullmat = new TPZNullMaterial<STATE>(fPressureSkeletonMatId);
     pressuremesh->InsertMaterialObject(nullmat);
     int dim = fPostProcMesh.Dimension();
     int64_t nel = pressuremesh->NElements();
@@ -523,7 +523,7 @@ void TPZHDivErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh) {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = cel->Reference();
         if (!gel) DebugStop();
@@ -607,7 +607,7 @@ void TPZHDivErrorEstimator::RestrainSmallEdges(TPZCompMesh *pressuremesh) {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = cel->Reference();
         if (!gel) DebugStop();
@@ -620,7 +620,7 @@ void TPZHDivErrorEstimator::RestrainSmallEdges(TPZCompMesh *pressuremesh) {
         bool onlyinterpolated = true;
         TPZCompElSide large_celside = gelside.LowerLevelCompElementList2(onlyinterpolated);
         if (large_celside) {
-            TPZInterpolatedElement *largeintel = dynamic_cast<TPZInterpolatedElement *>(large_celside.Element());
+            auto *largeintel = dynamic_cast<TPZInterpolatedElement *>(large_celside.Element());
             if (!largeintel) DebugStop();
             int largeside = large_celside.Side();
             intel->RestrainSide(nsides - 1, largeintel, largeside);
@@ -652,7 +652,7 @@ void TPZHDivErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *pressur
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressureHybrid->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = intel->Reference();
         if (gel->Dimension() >= dim) continue;
@@ -664,7 +664,7 @@ void TPZHDivErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *pressur
         for (int64_t el = 0; el < nel; el++) {
             TPZCompEl *cel = pressureHybrid->Element(el);
             if (!cel) continue;
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
             if (!intel) DebugStop();
             TPZGeoEl *gel = intel->Reference();
             if (gel->Dimension() >= dim) continue;
@@ -696,7 +696,7 @@ void TPZHDivErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *pressur
                 for (int ieq = 0; ieq < nequal; ieq++) {
                     TPZCompEl *celneigh = celstack[ieq].Element();
                     int celside = celstack[ieq].Side();
-                    TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
+                    auto *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
                     if (!intelneigh) DebugStop();
                     int nneighconnects = intelneigh->NSideConnects(celside);
                     int neighporder = intelneigh->SideConnect(nneighconnects - 1, celside).Order();
@@ -711,7 +711,7 @@ void TPZHDivErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *pressur
                 for (int ieq = 0; ieq < nequal; ieq++) {
                     TPZCompEl *celneigh = celstack[ieq].Element();
                     int celside = celstack[ieq].Side();
-                    TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
+                    auto *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
                     if (!intelneigh) DebugStop();
                     int nneighconnects = intelneigh->NSideConnects(celside);
                     int neighporder = intelneigh->SideConnect(nneighconnects - 1, celside).Order();
@@ -736,7 +736,7 @@ void TPZHDivErrorEstimator::AdjustNeighbourPolynomialOrders(TPZCompMesh *pressur
         int porder = it.second;
         TPZCompEl *cel = pressureHybrid->Element(index);
         if (!cel) DebugStop();
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         intel->SetSideOrder(side, porder);
     }
@@ -760,7 +760,7 @@ void TPZHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressure_mesh->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = intel->Reference();
         if (gel->Dimension() != target_dim + 1 && gel->MaterialId() != fPressureSkeletonMatId) continue;
@@ -779,7 +779,7 @@ void TPZHDivErrorEstimator::ComputeAveragePressures(int target_dim) {
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressure_mesh->FindMaterial(matid);
         // TODO change this. Look for matIDs in bcMatIds instead. Only cast in debug mode for further checks
-        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        auto *bc = dynamic_cast<TPZBndCond *>(mat);
         if (bc) continue;
         
         // Skip calculation if the element is a small skeleton
@@ -837,7 +837,7 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
         
-        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        auto *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc || (bc->Type() != 0)) continue;
         
         cel->CalcStiff(ekbc, efbc);
@@ -1073,7 +1073,7 @@ void TPZHDivErrorEstimator::TransferEdgeSolution() {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressureHybrid->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = intel->Reference();
         if (gel->Dimension() > 2) continue;
@@ -1084,7 +1084,7 @@ void TPZHDivErrorEstimator::TransferEdgeSolution() {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressureHybrid->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = cel->Reference();
         if (!gel) DebugStop();
@@ -1115,7 +1115,7 @@ void TPZHDivErrorEstimator::TransferEdgeSolution() {
             int nshape_edge = pressureHybrid->Block().Size(edge_seqnum);
             for (int ieq = 0; ieq < nequal; ieq++) {
                 TPZCompEl *celneigh = equal[ieq].Element();
-                TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
+                auto *intelneigh = dynamic_cast<TPZInterpolatedElement *>(celneigh);
                 TPZGeoEl *neighgel = intelneigh->Reference();
                 if (!intelneigh) DebugStop();
                 if (neighgel->MaterialId() != fHybridizer.fLagrangeInterface) {
@@ -1153,7 +1153,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressure_mesh->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = intel->Reference();
         if (gel->Dimension() != dim - 1) continue;
@@ -1166,7 +1166,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
     TPZStack<TPZCompElSide> nodesToImposeSolution;
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressure_mesh->Element(el);
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) {
             continue;
         }
@@ -1218,7 +1218,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
             if (neigh_celside.Reference().Dimension() != 0) continue;
 
             // Get solution of the neighbour
-            TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *>(neigh_celside.Element());
+            auto *neigh_intel = dynamic_cast<TPZInterpolatedElement *>(neigh_celside.Element());
             if (!neigh_intel) DebugStop();
 
             int64_t neigh_conindex = neigh_intel->ConnectIndex(neigh_celside.Side());
@@ -1233,7 +1233,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverages() {
             }
 
             // Set solution to given connect
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(node_celside.Element());
+            auto *intel = dynamic_cast<TPZInterpolatedElement *>(node_celside.Element());
             if (!intel) DebugStop();
 
             int side = node_gelside.Side();
@@ -1289,14 +1289,14 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
             continue;
         }
         
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(celside.Element());
         if (!intel) DebugStop();
         int64_t index = intel->Index();
         REAL weight = fPressureweights[index];
 
         if (IsZero(weight)) {
-            TPZMaterial *mat = intel->Material();
-            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            mat = intel->Material();
+            auto *bc = dynamic_cast<TPZBndCond *>(mat);
             if (!bc) DebugStop();
             
             continue;
@@ -1472,7 +1472,7 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
 
         TPZCompEl *cel = cmesh->Element(el);
         if (!cel) continue;
-        TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
+        auto *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
         if (subcmesh) {
             ComputeEffectivityIndices(subcmesh);
         }
@@ -1552,7 +1552,7 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
 
         TPZCompEl *cel = cmesh->Element(el);
         if (!cel) continue;
-        TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
+        auto *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
         if (subcmesh) {
             ComputeEffectivityIndices(subcmesh);
         }
@@ -1989,7 +1989,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         
         for (int i = 0; i < compNeighSides.size(); i++) {
             TPZCompEl *neighCel = compNeighSides[i].Element();
-            TPZInterpolatedElement *neighIntEl = dynamic_cast<TPZInterpolatedElement *>(neighCel);
+            auto *neighIntEl = dynamic_cast<TPZInterpolatedElement *>(neighCel);
             if (!neighIntEl) DebugStop();
             
             int sideNum = compNeighSides[i].Side();
@@ -2013,7 +2013,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         if (!gel) DebugStop();
         
         if (gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZMultiphysicsElement *mcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
+        auto *mcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
         if (!mcel) DebugStop();
         
         std::set<int64_t> elementsToGroup;
@@ -2028,7 +2028,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
                 TPZCompElSide compSide = compNeighSides[i];
                 TPZCompEl *neighCel = compSide.Element();
                 TPZMaterial *mat = neighCel->Material();
-                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+                auto *bc = dynamic_cast<TPZBndCond *>(mat);
                 if (bc) {
                     elementsToGroup.insert(mcel->Index());
                     elementsToGroup.insert(neighCel->Index());
@@ -2067,17 +2067,17 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if (!gel) {
-            TPZElementGroup *group = dynamic_cast<TPZElementGroup *>(cel);
+            auto *group = dynamic_cast<TPZElementGroup *>(cel);
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel, false);
+        auto *condense = new TPZCondensedCompEl(cel, false);
     }
     
     // @TODO what is the meaning of this? phil
     for (auto matit : fPostProcMesh.MaterialVec()) {
         TPZMaterial *mat = matit.second;
-        TPZHDivErrorEstimateMaterial *errormat = dynamic_cast<TPZHDivErrorEstimateMaterial *>(mat);
+        auto *errormat = dynamic_cast<TPZHDivErrorEstimateMaterial *>(mat);
         if (errormat) {
             errormat->fNeumannLocalProblem = false;
         }
@@ -2104,7 +2104,7 @@ void TPZHDivErrorEstimator::CopySolutionFromSkeleton() {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         TPZGeoEl *gel = intel->Reference();
         if (gel->Dimension() != dim) continue;
@@ -2123,7 +2123,7 @@ void TPZHDivErrorEstimator::CopySolutionFromSkeleton() {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
                 if (gneigh.Element()->MaterialId() == this->fPressureSkeletonMatId || IsDirichletCondition(gneigh)) {
-                    TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
+                    auto *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                     if (!intelneigh) DebugStop();
                     TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
                     int64_t con_seqnum = con_neigh.SequenceNumber();
@@ -2346,12 +2346,12 @@ void TPZHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) {
 
         TPZCompEl *smallCel = small.Element()->Reference();
         if (!smallCel) DebugStop();
-        TPZInterpolatedElement *smallIntel = dynamic_cast<TPZInterpolatedElement *>(smallCel);
+        auto *smallIntel = dynamic_cast<TPZInterpolatedElement *>(smallCel);
         if (!smallIntel) DebugStop();
 
         TPZCompEl *largeCel = largerNeigh.Element()->Reference();
         if (!largeCel) DebugStop();
-        TPZInterpolatedElement *largeIntel = dynamic_cast<TPZInterpolatedElement *>(largeCel);
+        auto *largeIntel = dynamic_cast<TPZInterpolatedElement *>(largeCel);
         if (!largeIntel) DebugStop();
 
         TPZManVector<REAL, 3> xicenter(small.Element()->Dimension(), 0.);
@@ -2418,7 +2418,7 @@ bool TPZHDivErrorEstimator::IsAdjacentToHangingNode(const TPZCompElSide &celside
         if (neigh_gelside.Element()->Dimension() != dim - 1) {
             continue;
         }
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(neigh_celside.Element());
+        auto *intel = dynamic_cast<TPZInterpolatedElement *>(neigh_celside.Element());
         if (!intel) DebugStop();
 
         int64_t conindex = intel->ConnectIndex(neigh_celside.Side());
