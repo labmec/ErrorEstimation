@@ -2036,7 +2036,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
             }
         }
         
-        if (elementsToGroup.size()) {
+        if (!elementsToGroup.empty()) {
             int64_t index;
             auto *elGroup = new TPZElementGroup(fPostProcMesh, index);
             for (const auto &it : elementsToGroup) {
