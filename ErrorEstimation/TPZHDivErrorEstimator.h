@@ -167,7 +167,7 @@ protected:
     /// and if the boundary condition is dirichlet type
     bool IsDirichletCondition(const TPZGeoElSide& gelside);
 
-    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
+    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh) const;
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);

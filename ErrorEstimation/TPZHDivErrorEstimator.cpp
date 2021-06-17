@@ -2314,7 +2314,7 @@ void TPZHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
 
 }
 
-void TPZHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) {
+void TPZHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) const {
 
     TPZGeoMesh *gmesh = pressure_mesh->Reference();
     gmesh->ResetReference();
