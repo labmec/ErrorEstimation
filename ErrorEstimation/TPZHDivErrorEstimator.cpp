@@ -74,22 +74,18 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
         an.SetExact(fExact->ExactSolution());
     }
 
-    int64_t nErrorCols = 6;
-    errorVec.resize(nErrorCols);
-    for (int64_t i = 0; i < nErrorCols; i++) {
-        errorVec[i] = 0;
-    }
-    
+    constexpr int64_t nErrorCols = 6;
+    errorVec.Resize(nErrorCols);
+    errorVec.Fill(0);
+
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
     fPostProcMesh.ElementSolution().Redim(nelem, 5);
-    for(int64_t el = 0; el<nelem; el++)
-    {
+    for(int64_t el = 0; el < nelem; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
-        TPZSubCompMesh *subc = dynamic_cast<TPZSubCompMesh *>(cel);
-        if(subc)
-        {
+        auto *subc = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(subc) {
             int64_t nelsub = subc->NElements();
             subc->ElementSolution().Redim(nelsub, 5);
         }
@@ -98,7 +94,7 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
     // Calculate error and store in element solution
     bool store_error = true;
     an.PostProcessError(errorVec, store_error);
-    
+
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
 
