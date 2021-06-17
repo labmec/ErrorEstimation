@@ -359,7 +359,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
         // construction of the multiphysics mesh
         //cria elementos de interface
         fHybridizer.CreateInterfaceElements(&fPostProcMesh);
-        fHybridizer.GroupandCondenseElements(&fPostProcMesh);
+        TPZHybridizeHDiv::GroupandCondenseElements(&fPostProcMesh);
         fPostProcMesh.CleanUpUnconnectedNodes();
     }
     else {
