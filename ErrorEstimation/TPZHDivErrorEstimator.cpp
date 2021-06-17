@@ -1325,11 +1325,11 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
     
     TPZManVector<STATE, 3> averageSol(nstate, 0);
     REAL sum_weight = 0.;
-    for (auto it = connects.begin(); it != connects.end(); it++) {
-        REAL weight = it->second.first;
+    for (auto & connect : connects) {
+        REAL weight = connect.second.first;
         sum_weight += weight;
         for (int istate = 0; istate < nstate; istate++) {
-            averageSol[istate] += it->second.second[istate] * weight;
+            averageSol[istate] += connect.second.second[istate] * weight;
         }
     }
     
@@ -1347,8 +1347,8 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
         LOGPZ_DEBUG(logger, sout.str())
     }
 #endif
-    for (auto it = connects.begin(); it != connects.end(); it++) {
-        int64_t conindex = it->first;
+    for (auto & connect : connects) {
+        int64_t conindex = connect.first;
         TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
         int64_t seqnum = c.SequenceNumber();
         
