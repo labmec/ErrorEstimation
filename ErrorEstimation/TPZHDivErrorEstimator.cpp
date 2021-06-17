@@ -1943,7 +1943,7 @@ void TPZHDivErrorEstimator::VerifySolutionConsistency(TPZCompMesh *cmesh) {
 #endif
                     
                     // Checks pressure value on these nodes
-                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
+                    auto *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
                     if (!intel) DebugStop();
                 }
             }
