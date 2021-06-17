@@ -164,7 +164,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
     fPostProcMesh.ComputeNodElCon();
     // TODO  refactor here
     std::cout << "Transferring volumetric elements...\n";
-    if(1) {
+    if(true) {
 
         TPZVec<TPZSubCompMesh *> connectToSubcmesh(fPostProcMesh.NConnects(), nullptr);
         // transfer the elements in the submesh indicated by elementgroup
@@ -303,7 +303,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
 
     // set an analysis type for the submeshes
     {
-        int64_t nel = fPostProcMesh.NElements();
+        nel = fPostProcMesh.NElements();
         for (int64_t el = 0; el < nel; el++) {
             TPZCompEl *cel = fPostProcMesh.Element(el);
             auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
@@ -637,7 +637,7 @@ void TPZMHMHDivErrorEstimator::TransferEmbeddedElements()
         }
         if(submeshes.size() == 1)
         {
-            TPZSubCompMesh *sub = *submeshes.begin();
+            sub = *submeshes.begin();
             if(sub)
             {
                 sub->TransferElement(&fPostProcMesh, el);
@@ -862,7 +862,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
             
             TPZConnect &c = intel->Connect(is);
             int64_t c_gelSide_seqnum  = c.SequenceNumber();
-            int c_blocksize = c.NShape() * c.NState();
+            uint c_blocksize = c.NShape() * c.NState();
             TPZStack<TPZCompElSide> celstack;
 
             gelside.EqualLevelCompElementList(celstack, 1, 0);
@@ -873,11 +873,11 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
                 TPZCompElSide cneigh = celstack[ist];
                 TPZGeoElSide gneigh = cneigh.Reference();
 
-                TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
+                auto *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                 if (!intelneigh) DebugStop();
                 TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
                 int64_t c_neigh_seqnum = con_neigh.SequenceNumber();
-                int con_size = con_neigh.NState() * con_neigh.NShape();
+                uint con_size = con_neigh.NState() * con_neigh.NShape();
                 if (con_size != c_blocksize) DebugStop();
                 for (int ibl = 0; ibl < con_size; ibl++) {
                     sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) = sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0));
