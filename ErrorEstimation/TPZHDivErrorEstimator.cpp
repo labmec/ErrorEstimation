@@ -844,7 +844,7 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = pressuremesh->Block().Position(seqnum);
-            int ndof = c.NShape() * c.NState();
+            uint ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
                 mesh_sol(pos + idf, 0) = efbc.fMat(count++);
             }
@@ -1037,7 +1037,7 @@ void TPZHDivErrorEstimator::ComputeAverage(TPZCompMesh *pressuremesh, int64_t ie
         TPZConnect &c = cel->Connect(ic);
         int64_t seqnum = c.SequenceNumber();
         int64_t pos = pressuremesh->Block().Position(seqnum);
-        int ndof = c.NShape() * c.NState();
+        uint ndof = c.NShape() * c.NState();
         for (int idf = 0; idf < ndof; idf++) {
             mesh_sol(pos + idf, 0) = L2Rhs(count++);
         }
@@ -2110,7 +2110,7 @@ void TPZHDivErrorEstimator::CopySolutionFromSkeleton() {
             TPZGeoElSide gelside(gel, is);
             TPZConnect &c = intel->Connect(is);
             int64_t c_seqnum = c.SequenceNumber();
-            int c_blocksize = c.NShape() * c.NState();
+            uint c_blocksize = c.NShape() * c.NState();
             
             TPZStack<TPZCompElSide> celstack;
             gelside.EqualLevelCompElementList(celstack, 1, 0);
@@ -2123,7 +2123,7 @@ void TPZHDivErrorEstimator::CopySolutionFromSkeleton() {
                     if (!intelneigh) DebugStop();
                     TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
                     int64_t con_seqnum = con_neigh.SequenceNumber();
-                    int con_size = con_neigh.NState() * con_neigh.NShape();
+                    uint con_size = con_neigh.NState() * con_neigh.NShape();
                     if (con_size != c_blocksize) DebugStop();
                     for (int ibl = 0; ibl < con_size; ibl++) {
 
