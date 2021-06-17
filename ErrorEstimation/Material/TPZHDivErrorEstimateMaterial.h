@@ -25,7 +25,7 @@ public:
     
     TPZHDivErrorEstimateMaterial(const TPZHDivErrorEstimateMaterial &copy);
     
-    TPZHDivErrorEstimateMaterial(const TPZMixedDarcyFlow &copy);
+    explicit TPZHDivErrorEstimateMaterial(const TPZMixedDarcyFlow &copy);
     
     ~TPZHDivErrorEstimateMaterial() override;
     

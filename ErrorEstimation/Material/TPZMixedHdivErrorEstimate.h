@@ -25,7 +25,7 @@ public:
     
     ~TPZMixedHDivErrorEstimate() override;
     
-    TPZMixedHDivErrorEstimate(const TPZMixedDarcyFlow &cp);
+    explicit TPZMixedHDivErrorEstimate(const TPZMixedDarcyFlow &cp);
     
     TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp);
     
