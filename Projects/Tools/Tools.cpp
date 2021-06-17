@@ -1035,6 +1035,7 @@ TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, int dim, bool isOr
         return gmesh;
     }
     DebugStop(); // Dim should be 2 or 3
+    return nullptr;
 }
 
 void Tools::DrawGeoMesh(ProblemConfig &config, PreConfig &preConfig) {
