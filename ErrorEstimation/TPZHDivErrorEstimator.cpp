@@ -199,7 +199,8 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
             if (!bc) DebugStop();
 
             int volumetricMatId = bc->Material()->Id();
-            TPZMatBase<STATE> *pressuremat = dynamic_cast<TPZMatBase<STATE>*>(pressureMesh->FindMaterial(volumetricMatId));
+            TPZMaterial * volumetricMat = pressureMesh->FindMaterial(volumetricMatId);
+            auto *pressuremat = dynamic_cast<TPZNullMaterial<STATE>*>(volumetricMat);
             if (!pressuremat) DebugStop();
 
             TPZBndCondT<STATE> *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
