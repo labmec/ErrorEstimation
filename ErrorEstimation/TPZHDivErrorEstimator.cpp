@@ -626,9 +626,9 @@ void TPZHDivErrorEstimator::RestrainSmallEdges(TPZCompMesh *pressuremesh) {
                 TPZGeoElSide gelside_small(gel, side);
                 TPZCompElSide celside_restraint = gelside_small.LowerLevelCompElementList2(onlyinterpolated);
                 if (celside_restraint) {
-                    TPZInterpolatedElement *largeintel = dynamic_cast<TPZInterpolatedElement *>(celside_restraint.Element());
+                    largeintel = dynamic_cast<TPZInterpolatedElement *>(celside_restraint.Element());
                     if (!largeintel) DebugStop();
-                    int largeside = large_celside.Side();
+                    largeside = large_celside.Side();
                     intel->RestrainSide(side, largeintel, largeside);
                 }
             }
@@ -1574,9 +1574,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             }
 #endif
 
-            TPZGeoEl *gel = cel->Reference();
+            gel = cel->Reference();
 
-            REAL hk = gel->CharacteristicSize();
+            hk = gel->CharacteristicSize();
 
             REAL oscilatorytherm = 0;
             if (i == 2) {
