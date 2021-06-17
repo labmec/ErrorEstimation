@@ -137,7 +137,7 @@ protected:
 
     /// adjust the interpolation orders so as to create an H1/2 boundary mesh
     // this method is called by the CreateEdgeSkeletonMesh method
-    void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
+    static void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
 
     /// restrain the edge elements that have larger elements as neighbours
     void RestrainSmallEdges(TPZCompMesh *pressuremesh);
