@@ -58,8 +58,8 @@ public:
     // error[3] - energy error computed with reconstructed solution
     void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
 
-    void ErrorsBC(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact,
-                  TPZVec<REAL> &errors, TPZBndCond &bc);
+    //void ErrorsBC(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact,
+    //              TPZVec<REAL> &errors, TPZBndCond &bc);
 
     [[nodiscard]] int VariableIndex(const std::string &name) const override;
     [[nodiscard]] int NSolutionVariables(int var) const override;
