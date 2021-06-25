@@ -24,7 +24,7 @@ TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(const TPZMixedDarcyFl
 TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(const TPZHDivErrorEstimateMaterial &copy)
         : TPZMixedDarcyFlow(copy) {}
 
-TPZHDivErrorEstimateMaterial::~TPZHDivErrorEstimateMaterial() {}
+TPZHDivErrorEstimateMaterial::~TPZHDivErrorEstimateMaterial() = default;
 
 TPZHDivErrorEstimateMaterial &TPZHDivErrorEstimateMaterial::operator=(const TPZHDivErrorEstimateMaterial &copy) {
     TPZMixedDarcyFlow::operator=(copy);
