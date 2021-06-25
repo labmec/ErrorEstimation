@@ -23,7 +23,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
 
-    fOriginal->CopyMaterials(fPostProcMesh);
+    //fOriginal->CopyMaterials(fPostProcMesh);
     // Switch the material from mixed to TPZMHMHDivErrorEstimationMaterial
     InsertPostProcMaterials();
 
@@ -473,6 +473,9 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
 
     // Copies BC materials
     std::set<int> bcMatIDs;
+
+    auto * dummy_mat = new TPZDarcyFlow(-999, fPostProcMesh.Dimension());
+    reconstruction_pressure->InsertMaterialObject(dummy_mat);
     for (auto it : fOriginal->MaterialVec()) {
         TPZMaterial *mat = it.second;
         auto *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
@@ -480,7 +483,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
             int bcID = bc->Material()->Id();
             TPZMaterial * press = original_pressure->FindMaterial(bcID);
             auto *pressure_mat = dynamic_cast<TPZMaterialT<STATE>*>(original_pressure->FindMaterial(bcID));
-            TPZBndCondT<STATE> *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            TPZBndCondT<STATE> *bc_mat = dummy_mat->CreateBC(dummy_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (fExact) {
                 auto ff_bc = [this](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal,
                                     TPZFMatrix<STATE> &matVal) {
