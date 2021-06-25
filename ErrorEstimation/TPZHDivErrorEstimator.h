@@ -33,8 +33,6 @@ protected:
     TPZVec<REAL> fPressureweights;
     /// weights associated with material ids
     std::map<int,REAL> fMatid_weights;
-    // object to assist in creating a hybridized version of the computational mesh
-    TPZHybridizeHDiv fHybridizer;
 
     // material id of the dim-1 skeleton elements
     int fPressureSkeletonMatId = 0;
@@ -42,6 +40,10 @@ protected:
     TPZAnalyticSolution *fExact;
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = false;
+
+private:
+    // object to assist in creating a hybridized version of the computational mesh
+    TPZHybridizeHDiv fHybridizer;
 
 public:
     explicit TPZHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
@@ -62,7 +64,7 @@ public:
     /// Set the analytic solution object
     void SetAnalyticSolution(TPZAnalyticSolution &exact) { fExact = &exact; }
 
-    void SetHybridizer(TPZHybridizeHDiv &hybridizer) { fHybridizer = hybridizer; }
+    [[maybe_unused]] void SetHybridizer(TPZHybridizeHDiv &hybridizer) { fHybridizer = hybridizer; }
 
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
