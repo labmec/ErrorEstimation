@@ -66,21 +66,19 @@ void TPZHDivErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STAT
    
      **/
 
-    int H1functionposition = 0;
-    H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
+    int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
 
     int dim = datavec[H1functionposition].axes.Rows();
     //defining test functions
     // Setting the phis
     TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
     TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
-    TPZFNMatrix<9, REAL> dphiuk(3, dphiukaxes.Cols());
+    TPZFNMatrix<9, REAL> dphiuk(3, 1);
     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
-
 
     int nphiuk = phiuk.Rows();
 
-    TPZFMatrix<STATE> solsigmafem(3, nphiuk), solukfem(1, 1);
+    TPZFMatrix<STATE> solsigmafem(3, 1), solukfem(1, 1);
     solsigmafem.Zero();
     solukfem.Zero();
 
@@ -96,8 +94,9 @@ void TPZHDivErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STAT
     }
 
 
-    TPZFNMatrix<9, REAL> PermTensor;
-    TPZFNMatrix<9, REAL> InvPermTensor;
+
+    TPZFNMatrix<9, REAL> PermTensor(1, 1, 0.);
+    TPZFNMatrix<9, REAL> InvPermTensor(1, 1, 0.);
 
     GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
 

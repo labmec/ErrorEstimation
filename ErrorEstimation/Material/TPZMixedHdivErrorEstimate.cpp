@@ -123,7 +123,6 @@ TPZMixedHDivErrorEstimate::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datav
     }
 
 
-    STATE pressureexact = 0.;
     TPZManVector<STATE,2> pressvec(1,0.);
     TPZFNMatrix<9, STATE> gradu(dim, 1, 0.), fluxinv(dim, 1);
 
@@ -134,7 +133,7 @@ TPZMixedHDivErrorEstimate::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datav
     }
 
     PermTensor.Multiply(gradu, fluxinv);
-    pressureexact = pressvec[0];
+    STATE pressureexact = pressvec[0];
     switch (var)
     {
         case 40://FluxFem
