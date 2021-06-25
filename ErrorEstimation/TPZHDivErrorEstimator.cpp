@@ -75,10 +75,6 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
         an.SetExact(fExact->ExactSolution());
     }
 
-    constexpr int64_t nErrorCols = 6;
-    errorVec.Resize(nErrorCols);
-    errorVec.Fill(0);
-
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
@@ -109,6 +105,9 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
     for (REAL & elementerror : elementErrors) {
         elementerror = 0;
     }
+
+    constexpr int64_t nErrorCols = 6;
+    errorVec.Resize(nErrorCols);
 
     TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
     for (int64_t i = 0; i < nelem; i++) {
