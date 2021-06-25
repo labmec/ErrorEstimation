@@ -1469,6 +1469,7 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
         if (!cel) continue;
         auto *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
         if (subcmesh) {
+            //continue;
             ComputeEffectivityIndices(subcmesh);
         }
         TPZGeoEl *gel = cel->Reference();
@@ -1549,7 +1550,7 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
         if (!cel) continue;
         auto *subcmesh = dynamic_cast<TPZSubCompMesh *>(cel);
         if (subcmesh) {
-            ComputeEffectivityIndices(subcmesh);
+            //ComputeEffectivityIndices(subcmesh);
         }
         TPZGeoEl *gel = cel->Reference();
         if (!gel) continue;
