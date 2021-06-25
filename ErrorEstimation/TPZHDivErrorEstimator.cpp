@@ -1281,7 +1281,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
     // and the solution of that connect. The weight of Dirichlet condition is
     // higher and will be used later to impose the value of the BC in the
     // connects when needed
-    std::map<int64_t, std::pair<REAL, TPZVec<STATE>>> connects;
+    std::map<int64_t, std::pair<REAL, STATE>> connects;
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         TPZGeoElSide gelside = celside.Reference();
@@ -1312,10 +1312,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
         int64_t seqnum = c.SequenceNumber();
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         TPZManVector<REAL,3> pt(0), x(3);
-        TPZManVector<STATE, 3> sol(nstate, 0.);
-        for (int istate = 0; istate < nstate; istate++) {
-            sol[istate] = solMatrix.at(block.at(seqnum, 0, istate, 0));
-        }
+        STATE sol = solMatrix.at(block.at(seqnum, 0, 0, 0));
 #ifdef LOG4CXX
         if(logger->isDebugEnabled())
         {
@@ -1333,7 +1330,7 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
         REAL weight = connect.second.first;
         sum_weight += weight;
         for (int istate = 0; istate < nstate; istate++) {
-            averageSol[istate] += connect.second.second[istate] * weight;
+            averageSol[istate] += connect.second.second * weight;
         }
     }
     
