@@ -3,6 +3,7 @@
 //
 
 #include "Tools.h"
+#include <DarcyFlow/TPZMixedDarcyFlow.h>
 #include <TPZGenGrid2D.h>
 #include <TPZGenGrid3D.h>
 #include <TPZMFSolutionTransfer.h>
@@ -20,7 +21,7 @@ Interpolator interpolator;
 // Function declarations
 void ReadSPE10CellPermeabilities(TPZVec<REAL>*perm_vec, int layer);
 TPZGeoMesh *CreateSPE10GeoMesh();
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
+void PermeabilityFunction(const TPZVec<REAL> &x, TPZMatrix<REAL> &K, TPZMatrix<REAL> &invK);
 void InsertMaterials(TPZCompMesh *cmesh);
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm);
 void SolveMHMProblem(TPZMHMixedMeshControl &mhm);
@@ -67,7 +68,7 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
 
     const TPZManVector<REAL, 3> x0 = {0, 0, 0};
     const TPZManVector<REAL, 3> x1 = {220., 60., 0.};
-    const TPZManVector<int, 3> ndiv = {20, 6, 0};
+    const TPZManVector<int, 3> ndiv = {22, 6, 0};
 
     TPZGenGrid2D gen(ndiv, x0, x1);
 
@@ -116,23 +117,15 @@ void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
     std::cout << "Finished reading permeability data from input file!\n";
 }
 
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat) {
-
-    for (int i = 0; i < 2; i++) {
-        auto perm = interpolator(x[0], x[1]);
-        if (perm <= 1) {
-            perm = 1;
-        } else {
-            perm += 1;
-        }
-        res_mat(i + 2, i) = 1 / perm;
-        res_mat(i, i) = perm;
+void PermeabilityFunction(const TPZVec<REAL> &x, TPZMatrix<REAL> &K, TPZMatrix<REAL> &invK) {
+    auto perm = interpolator(x[0], x[1]);
+    if (perm <= 1) {
+        perm = 1;
+    } else {
+        perm += 1;
     }
-    //std::cout << "[" << x[0] << ", " << x[1] << "]\n";
-    //std::cout << "[" << res_mat(0, 0) << " " << res_mat(0, 1) << "\n";
-    //std::cout        << res_mat(1, 0) << " " << res_mat(1, 1) << "\n";
-    //std::cout        << res_mat(2, 0) << " " << res_mat(2, 1) << "\n";
-    //std::cout        << res_mat(3, 0) << " " << res_mat(3, 1) << "]\n\n";
+    K(0, 0) = perm;
+    invK(0, 0) = 1 / perm;
 }
 
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm) {
@@ -179,13 +172,13 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
     TPZAutoPointer<TPZCompMesh> cmesh = mhm.CMesh();
 
     bool should_renumber = true;
-    TPZAnalysis an(cmesh, should_renumber);
+    TPZLinearAnalysis an(cmesh, should_renumber);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(8);
+    TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
+    strmat.SetNumThreads(0);
 #else
-    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    TPZSkylineStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(8);
 #endif
 
@@ -224,15 +217,17 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
 
 void InsertMaterials(TPZCompMesh *cmesh) {
 
-    auto *mix = new TPZMixedPoisson(1, cmesh->Dimension());
-    TPZAutoPointer<TPZFunction<STATE>> perm_function = new TPZDummyFunction<STATE>(&PermeabilityFunction, 3);
-    mix->SetPermeabilityFunction(perm_function);
+    auto *mix = new TPZMixedDarcyFlow(1, cmesh->Dimension());
+    std::function<void(const TPZVec<REAL> &coord, TPZMatrix<REAL> &K, TPZMatrix<REAL> &InvK)> func =
+        PermeabilityFunction;
+    mix->SetPermeabilityFunction(func);
 
-    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+    TPZManVector<REAL, 1> val2(1, 0.);
     constexpr int dirichlet_bc = 0;
 
     // Pressure at reservoir boundary
-    val2(0, 0) = 1;
+    val2[0] = 1;
     TPZBndCond *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
 
     cmesh->InsertMaterialObject(mix);
@@ -247,7 +242,7 @@ void EstimateError(TPZMHMixedMeshControl *mhm) {
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!originalMesh) DebugStop();
 
-    bool postProcWithHDiv = true;
+    bool postProcWithHDiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.PotentialReconstruction();
 
