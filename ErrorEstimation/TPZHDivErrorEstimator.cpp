@@ -1375,28 +1375,25 @@ void TPZHDivErrorEstimator::ComputeNodalAverage(TPZCompElSide &node_celside)
 void TPZHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) {
     TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
     int64_t nrows = elsol.Rows();
-    int64_t ncols = 5; // subcmesh->ElementSolution().Cols();
-
-    if (subcmesh->ElementSolution().Cols() != 7) {
-        // TODO I made some changes to be able to run the code again.
-        //  Sometimes subcmesh->ElementSolution().Cols() equals 5  sometimes it's already 7.
-        //  I'm not sure if this behaviour is expected.
-        subcmesh->ElementSolution().Resize(nrows, 7);
+    if (subcmesh->ElementSolution().Cols() != 5) {
+       // DebugStop();
     }
+    subcmesh->ElementSolution().Resize(nrows, 7);
 
     int64_t nel = subcmesh->NElements();
     TPZManVector<REAL, 5> errors(5, 0.);
     for (int64_t el = 0; el < nel; el++) {
-        for (int i = 0; i < ncols; i++) {
+        for (int i = 0; i < 5; i++) {
             errors[i] += elsol(el, i) * elsol(el, i);
         }
     }
-    for (int i = 0; i < ncols; i++) {
+    for (int i = 0; i < 5; i++) {
         errors[i] = sqrt(errors[i]);
     }
 
+    // Substitute original errors by a constant in each subcmesh
     for (int64_t el = 0; el < nel; el++) {
-        for (int i = 0; i < ncols; i++) {
+        for (int i = 0; i < 5; i++) {
             elsol(el, i) = errors[i];
         }
     }
@@ -1419,11 +1416,11 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) 
             }
 
             if (abs(ErrorEstimate) < tol) {
-                elsol(el, ncols + i / 2) = 1.;
+                elsol(el, 5 + i / 2) = 1.;
 
             } else {
                 REAL EfIndex = (ErrorEstimate + oscillatoryterm) / ErrorExact;
-                elsol(el, ncols + i / 2) = EfIndex;
+                elsol(el, 5 + i / 2) = EfIndex;
             }
         }
     }
