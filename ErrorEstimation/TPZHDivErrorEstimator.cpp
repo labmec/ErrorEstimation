@@ -193,6 +193,9 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
 
         // Insert BC materials in pressure reconstruction mesh
         std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
+        // Insert dummy volumetric material since we need ContributeBC
+        auto *dummy_mat = new TPZDarcyFlow(-999, fPostProcMesh.Dimension());
+
         for (auto bcID : bcMatIDs) {
             TPZMaterial *mat = mult->FindMaterial(bcID);
             auto *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
@@ -203,7 +206,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
             auto *pressuremat = dynamic_cast<TPZNullMaterial<STATE>*>(volumetricMat);
             if (!pressuremat) DebugStop();
 
-            TPZBndCondT<STATE> *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            TPZBndCondT<STATE> *newbc = dummy_mat->CreateBC(dummy_mat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (bc->HasForcingFunctionBC()) {
                 newbc->SetForcingFunctionBC(bc->ForcingFunctionBC());
             }
