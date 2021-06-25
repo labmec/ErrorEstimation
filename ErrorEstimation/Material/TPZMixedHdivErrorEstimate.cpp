@@ -23,10 +23,7 @@ TPZMixedHDivErrorEstimate::TPZMixedHDivErrorEstimate(const TPZMixedDarcyFlow &co
     
 }
 
-TPZMixedHDivErrorEstimate::~TPZMixedHDivErrorEstimate()
-{
-    
-}
+TPZMixedHDivErrorEstimate::~TPZMixedHDivErrorEstimate() = default;
 
 TPZMixedHDivErrorEstimate::TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp) : TPZMixedDarcyFlow(cp)
 {
