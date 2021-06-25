@@ -1,17 +1,17 @@
 
 #include "TPZMHMHDivErrorEstimator.h"
-#include "TPZNullMaterial.h"
-#include "TPZLagrangeMultiplierCS.h"
-#include "TPZVTKGeoMesh.h"
 #include "TPZBndCond.h"
+#include "TPZLagrangeMultiplierCS.h"
+#include "TPZNullMaterial.h"
+#include "TPZVTKGeoMesh.h"
 #include "pzintel.h"
 #include "pzsubcmesh.h"
+#include <DarcyFlow/TPZDarcyFlow.h>
 #include <Material/TPZLagrangeMultiplier.h>
 #include <Mesh/TPZCompMeshTools.h>
 #include <Mesh/TPZGeoElSideAncestors.h>
-#include <Mesh/pzmultiphysicscompel.h>
 #include <Mesh/TPZMultiphysicsInterfaceEl.h>
-
+#include <Mesh/pzmultiphysicscompel.h>
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
