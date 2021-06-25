@@ -6,17 +6,17 @@
 //  Created by Philippe Devloo on 10/06/18.
 //
 
-#include <Material/TPZHDivErrorEstimateMaterial.h>
-#include <Material/TPZMixedHdivErrorEstimate.h>
-#include "TPZElementMatrixT.h"
 #include "TPZHDivErrorEstimator.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "TPZAnalysis.h"
+#include "TPZBndCond.h"
+#include "TPZCompMeshTools.h"
+#include "TPZElementMatrixT.h"
 #include "TPZGeoElSideAncestors.h"
 #include "TPZGeoElSidePartition.h"
 #include "TPZInterfaceEl.h"
 #include "TPZNullMaterial.h"
-#include "DarcyFlow/TPZMixedDarcyFlow.h"
-#include "TPZAnalysis.h"
-#include "TPZBndCond.h"
+#include "TPZVTKGeoMesh.h"
 #include "pzbuildmultiphysicsmesh.h"
 #include "pzcmesh.h"
 #include "pzcompel.h"
@@ -24,11 +24,12 @@
 #include "pzelementgroup.h"
 #include "pzelmat.h"
 #include "pzintel.h"
-#include "pzsubcmesh.h"
-#include "pzstepsolver.h"
-#include "TPZVTKGeoMesh.h"
 #include "pzmultiphysicscompel.h"
-#include "TPZCompMeshTools.h"
+#include "pzstepsolver.h"
+#include "pzsubcmesh.h"
+#include <DarcyFlow/TPZDarcyFlow.h>
+#include <Material/TPZHDivErrorEstimateMaterial.h>
+#include <Material/TPZMixedHdivErrorEstimate.h>
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
