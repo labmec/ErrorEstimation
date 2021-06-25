@@ -1750,7 +1750,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
     }
 }
 
-void TPZHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bool reconstructed) {
+[[maybe_unused]] void TPZHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bool reconstructed) {
     
     TPZCompMesh *pressure = nullptr;
 
@@ -1778,7 +1778,7 @@ void TPZHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bo
     }
 }
 
-void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, bool reconstructed) {
+[[maybe_unused]] void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, bool reconstructed) {
     TPZCompMesh *flux_mesh = nullptr;
     if (reconstructed) {
         if (!fPostProcesswithHDiv) DebugStop();
@@ -2209,7 +2209,7 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
     std::cout << "Finished computing pressure weights\n";
 }
 
-void TPZHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic) {
+[[maybe_unused]] void TPZHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic) {
     
     std::ofstream outTXT("PressuretoStateGraph.txt");
     cmesh->Print(outTXT);

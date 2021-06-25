@@ -74,11 +74,11 @@ public:
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an, std::string &out);
 
-    void PlotPressureSkeleton(const std::string &filename, bool reconstructed = true);
-    void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
+    [[maybe_unused]] void PlotPressureSkeleton(const std::string &filename, bool reconstructed = true);
+    [[maybe_unused]] void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
-    static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
+    [[maybe_unused]] static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
 
     [[nodiscard]] int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
 
