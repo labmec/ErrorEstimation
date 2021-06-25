@@ -1432,12 +1432,13 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) 
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
 void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
-    /**The  ElementSolution() is a matrix with 4 cols,
+    /**The  ElementSolution() is a matrix with 5 cols,
      col 0: pressure exact error
      col 1: pressure estimate error
      col 2: flux exact error
      col 3: flux estimate error
-     Is increased 2 cols on ElementSolution() to store the efectivity index for pressure and flux
+     col 4: residual/oscillatory term
+     Is increased 2 cols on ElementSolution() to store the effectivity index for pressure and flux
      **/
 
     TPZCompMesh *cmesh = &fPostProcMesh;
