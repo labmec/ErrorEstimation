@@ -149,8 +149,6 @@ protected:
 
     /// compute the nodal average of all elements that share a point
     void ComputeNodalAverage(TPZCompElSide &node_celside);
-    //compute the global efectivity index using the CharacteristicSize() of element
-    void GlobalEffectivityIndex();
 
     /// copy the solution from the neighbouring skeleton elements
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
