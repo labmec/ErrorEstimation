@@ -41,6 +41,8 @@ protected:
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = false;
 
+    int fAdaptivityStep{0};
+
 private:
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
@@ -65,6 +67,8 @@ public:
     void SetAnalyticSolution(TPZAnalyticSolution &exact) { fExact = &exact; }
 
     [[maybe_unused]] void SetHybridizer(TPZHybridizeHDiv &hybridizer) { fHybridizer = hybridizer; }
+
+    void SetAdaptivityStep(int step) { fAdaptivityStep = step; };
 
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
