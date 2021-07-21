@@ -22,8 +22,8 @@ int main() {
 
     ProblemConfig config;
 
-    config.porder = 1;
-    config.hdivmais = 1;
+    config.porder = 2;
+    config.hdivmais = 3;
 
     config.dimension = 2;
     config.makepressurecontinuous = true;
@@ -31,11 +31,12 @@ int main() {
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
 
-    config.dir_name = "AdaptivityLShape";
+    config.dir_name = "HDivAdaptivity";
     config.problemname = "ESinSinMark";
-
-    std::string command = "mkdir -p " + config.dir_name;
-    system(command.c_str());
+    {
+        std::string command = "mkdir -p " + config.dir_name;
+        system(command.c_str());
+    }
 
     TPZManVector<int, 4> bcids(8, -1);
     bcids[1] = -1;
@@ -46,10 +47,10 @@ int main() {
     Tools::UniformRefinement(2, 2 , gmeshOriginal) ;
     Tools::DivideLowerDimensionalElements(gmeshOriginal);
 
-    for (int iSteps = 0; iSteps < refinementSteps; iSteps++) {
+    for (int iStep = 0; iStep < refinementSteps; iStep++) {
 
         config.gmesh = new TPZGeoMesh(*gmeshOriginal);
-        config.adaptivityStep = iSteps;
+        config.adaptivityStep = iStep;
 
         TPZMultiphysicsCompMesh *mixedCompMesh = Tools::CreateMixedMesh(config); // Hdiv x L2
         mixedCompMesh->InitializeBlock();
@@ -59,12 +60,14 @@ int main() {
         {
             TPZHDivErrorEstimator HDivEstimate(*mixedCompMesh, postProcessWithHDiv);
             HDivEstimate.SetAnalyticSolution(config.exact);
-
+            HDivEstimate.SetAdaptivityStep(iStep);
             HDivEstimate.PotentialReconstruction();
             TPZManVector<REAL> elementerrors;
             TPZManVector<REAL> errorvec;
-            std::string vtkPath = "adaptivity_error_results.vtk";
-            HDivEstimate.ComputeErrors(errorvec, elementerrors, vtkPath);
+            std::stringstream outVTK;
+            outVTK << config.dir_name << "/" << config.problemname << "-Errors.vtk";
+            auto stringVTK = outVTK.str();
+            HDivEstimate.ComputeErrors(errorvec, elementerrors, stringVTK);
             Tools::hAdaptivity(HDivEstimate.PostProcMesh(), gmeshOriginal, config);
         }
     }
