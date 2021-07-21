@@ -5,8 +5,8 @@
 add_executable(HybridHDiv main.cpp)
 target_link_libraries(HybridHDiv Tools ErrorEstimationLib)
 
-#add_executable(AdaptivityTest mainAdaptivity.cpp)
-#target_link_libraries(AdaptivityTest Tools ErrorEstimationLib)
+add_executable(AdaptivityHDiv mainAdaptivity.cpp)
+target_link_libraries(AdaptivityHDiv Tools ErrorEstimationLib)
 
 #add_executable(SteklovProblem mainSteklov.cpp)
 #target_link_libraries(SteklovProblem Tools ErrorEstimationLib)
