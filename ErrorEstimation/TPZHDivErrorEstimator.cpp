@@ -75,6 +75,8 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
         an.SetExact(fExact->ExactSolution());
     }
 
+    an.SetStep(fAdaptivityStep);
+
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
