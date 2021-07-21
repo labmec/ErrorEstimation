@@ -61,8 +61,6 @@ public:
 
     ~TPZHDivErrorEstimator();
 
-    //void SetProblemConfig(const ProblemConfig &cfg) { fProblemConfig = cfg; }
-
     /// Set the analytic solution object
     void SetAnalyticSolution(TPZAnalyticSolution &exact) { fExact = &exact; }
 
