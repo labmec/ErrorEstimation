@@ -8,7 +8,7 @@
 #include "Tools.h"
 
 constexpr bool postProcessWithHDiv = false;
-constexpr int refinementSteps = 7;
+constexpr int refinementSteps = 15;
 
 int main() {
 
@@ -22,29 +22,27 @@ int main() {
 
     ProblemConfig config;
 
-    config.porder = 2;
+    config.porder = 1;
     config.hdivmais = 3;
 
     config.dimension = 2;
     config.makepressurecontinuous = true;
 
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+    config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
 
     config.dir_name = "HDivAdaptivity";
-    config.problemname = "ESinSinMark";
+    config.problemname = "EBoundaryLayer";
     {
         std::string command = "mkdir -p " + config.dir_name;
         system(command.c_str());
     }
 
-    TPZManVector<int, 4> bcids(8, -1);
-    bcids[1] = -1;
-    gmeshOriginal = Tools::CreateLShapeMesh(bcids);
+    TPZManVector<int, 4> bcids(4, -1);
+    gmeshOriginal = Tools::CreateGeoMesh(2, bcids);
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
 
-    Tools::UniformRefinement(2, 2 , gmeshOriginal) ;
     Tools::DivideLowerDimensionalElements(gmeshOriginal);
 
     for (int iStep = 0; iStep < refinementSteps; iStep++) {
