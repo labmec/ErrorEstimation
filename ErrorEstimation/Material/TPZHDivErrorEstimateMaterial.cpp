@@ -344,10 +344,17 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
 #endif
 
     for (int i = 0; i < 3; i++) {
-        innerexact += (fluxfem[i] + fluxexactneg(i, 0)) * InvPermTensor(0, 0) *
-                      (fluxfem[i] + fluxexactneg(i, 0)); // Pq esta somando: o fluxo fem esta + e o exato -
+        if (this->fExactSol) {
+            innerexact += (fluxfem[i] + fluxexactneg(i, 0)) * InvPermTensor(0, 0) *
+                          (fluxfem[i] + fluxexactneg(i, 0)); // Pq esta somando: o fluxo fem esta + e o exato -
+        }
         innerestimate +=
             (fluxfem[i] - fluxreconstructed[i]) * InvPermTensor(0, 0) * (fluxfem[i] - fluxreconstructed[i]);
+    }
+
+    STATE exact_pressure_error = 0;
+    if (this->fExactSol) {
+        exact_pressure_error = (pressurefem - u_exact[0]) * (pressurefem - u_exact[0]);
     }
 
 #ifdef PZDEBUG2
@@ -355,7 +362,7 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
 #endif
-    errors[0] = (pressurefem - u_exact[0]) * (pressurefem - u_exact[0]);//exact error pressure
+    errors[0] = exact_pressure_error;
     errors[1] =
             (pressurefem - pressurereconstructed) * (pressurefem - pressurereconstructed);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
