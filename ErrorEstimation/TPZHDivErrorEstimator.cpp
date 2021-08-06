@@ -97,7 +97,7 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
 
-    if (fExact) ComputeEffectivityIndices();
+    ComputeEffectivityIndices();
 
     if (!vtkPath.empty()) {
         PostProcessing(an, vtkPath);
