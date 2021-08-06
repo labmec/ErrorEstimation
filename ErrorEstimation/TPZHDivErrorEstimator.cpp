@@ -119,7 +119,7 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
         if (!gel) continue;
         elementErrors[gel->Index()] = elsol(i, 3);
     }
-    
+
 }
 
 void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
@@ -2356,9 +2356,6 @@ void TPZHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) co
         gel->CenterPoint(nsides - 1, xicenter);
         TPZManVector<REAL> xcenter(3, 0.);
         gel->X(xicenter, xcenter);
-        std::cout << "Restriction @ [" << xcenter << "]:"
-                  << "  Small El: " << small.Element()->Index() << ", Side: " << small.Side()
-                  << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << largerNeigh.Side() << "\n";
         smallIntel->RestrainSide(small.Side(), largeIntel, largerNeigh.Side());
         
         // Restrain subsides
@@ -2370,9 +2367,6 @@ void TPZHDivErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh) co
             if (subLargerNeigh.Element() == subsmall.Element()) DebugStop();
             gel->CenterPoint(iside, xicenter);
             gel->X(xicenter, xcenter);
-            std::cout << "SubRestriction @ [" << xcenter << "]:"
-                      << "  Small El: " << small.Element()->Index() << ", Side: " << subsmall.Side()
-                      << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << subLargerNeigh.Side() << "\n";
             smallIntel->RestrainSide(subsmall.Side(), largeIntel, subLargerNeigh.Side());
         }
     }
