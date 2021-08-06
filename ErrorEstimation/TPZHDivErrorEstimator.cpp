@@ -1977,14 +1977,14 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
         TPZGeoElSide skelSide(gel, gel->NSides() - 1);
         TPZStack<TPZCompElSide> compNeighSides;
         skelSide.EqualLevelCompElementList(compNeighSides, 1, 0);
-        if (compNeighSides.size() == 1) {
-            TPZCompElSide large = skelSide.LowerLevelCompElementList2(true);
-            if (large) {
-                std::cout << "Gel: " << gel->Index() << " Side: " << skelSide.Side() << '\n';
-                //compNeighSides.Push(large);
-            }
-        }
-        
+        //if (compNeighSides.size() == 1) {
+        //    TPZCompElSide large = skelSide.LowerLevelCompElementList2(true);
+        //    if (large) {
+        //        std::cout << "Gel: " << gel->Index() << " Side: " << skelSide.Side() << '\n';
+        //        //compNeighSides.Push(large);
+        //    }
+        //}
+
         for (int i = 0; i < compNeighSides.size(); i++) {
             TPZCompEl *neighCel = compNeighSides[i].Element();
             auto *neighIntEl = dynamic_cast<TPZInterpolatedElement *>(neighCel);
