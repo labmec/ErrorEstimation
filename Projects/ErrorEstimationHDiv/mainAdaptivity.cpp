@@ -67,6 +67,11 @@ int main() {
             auto stringVTK = outVTK.str();
             HDivEstimate.ComputeErrors(errorvec, elementerrors, stringVTK);
             Tools::hAdaptivity(HDivEstimate.PostProcMesh(), gmeshOriginal, config);
+
+            std::stringstream outTXT;
+            outTXT << config.dir_name << "/" << config.problemname << "-Errors-Step" << config.adaptivityStep << ".txt";
+            std::ofstream fileTXT(outTXT.str());
+            Tools::PrintErrors(fileTXT, config, errorvec);
         }
     }
     return 0;
