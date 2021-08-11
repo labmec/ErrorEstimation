@@ -14,9 +14,9 @@
 /// class to guide the error estimator
 struct ProblemConfig
 {
-    
+    TPZCompMesh *cmesh = nullptr;
     /// geometric mesh on which the computational meshes are based
-    TPZGeoMesh *gmesh = 0;
+    TPZGeoMesh *gmesh = nullptr;
     /// polynomial order of the original mesh
     int porder = 2;
     /// increment in internal order of flux and pressure
@@ -41,7 +41,7 @@ struct ProblemConfig
     bool GalvisExample = false;
     bool TensorNonConst = false;
     bool MeshNonConvex = false;
-    
+
     STATE alpha=1;
     STATE Km = 0.;
     STATE coefG = 0.;
