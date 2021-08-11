@@ -1073,6 +1073,9 @@ void Tools::PrintErrors(std::ofstream& out, const ProblemConfig& config, const T
     if (config.adaptivityStep != -1) {
         ss << ", AdaptivityStep = " << config.adaptivityStep;
     }
+    if (config.cmesh) {
+        ss << ", NEquations = " << config.cmesh->NEquations();
+    }
     ss << '\n';
     ss << "Global estimator = " << error_vec[3] << "\n";
     ss << "|ufem-urec| = " << error_vec[1] << "\n";
