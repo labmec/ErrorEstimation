@@ -53,6 +53,7 @@ int main() {
         TPZMultiphysicsCompMesh *mixedCompMesh = Tools::CreateMixedMesh(config); // Hdiv x L2
         mixedCompMesh->InitializeBlock();
         Tools::SolveMixedProblem(mixedCompMesh, config);
+        config.cmesh = mixedCompMesh;
 
         // Estimate error and run adaptive process
         {
