@@ -144,7 +144,8 @@ void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
         vecnames.Push("FluxFem");
         vecnames.Push("FluxReconstructed");
         scalnames.Push("POrder");
-        
+        scalnames.Push("Permeability");
+
         int dim = fPostProcMesh.Reference()->Dimension();
 
         an.DefineGraphMesh(dim, scalnames, vecnames, out);
