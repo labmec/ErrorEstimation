@@ -79,10 +79,10 @@ int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    const std::set<int> nCoarseDiv = {2, 4, 6, 8};
-    const std::set<int> nInternalRef = {0, 1, 2, 3};
-    const std::set<int> kOrder = {1, 2};
-    const std::set<int> nOrder = {1, 2};
+    const std::set<int> nCoarseDiv = {8};
+    const std::set<int> nInternalRef = {0};
+    const std::set<int> kOrder = {1};
+    const std::set<int> nOrder = {2};
 
     //RunSmoothProblemSuite(nCoarseDiv, nInternalRef, kOrder, nOrder);
 
@@ -890,7 +890,7 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
     config.exact = new TLaplaceExample1;
     config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
     config.problemname = "EBoundaryLayer";
-    config.dir_name = "Adaptivity";
+    config.dir_name = "MHMAdaptivity";
     config.porder = 2;
     config.hdivmais = 3;
     config.materialids.insert(1);
@@ -969,24 +969,23 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh *gmeshToRefine, Proble
     TPZMultiphysicsCompMesh *cmesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!cmesh) DebugStop();
 
-    TPZFMatrix<STATE> &sol = cmesh->Solution();
-    TPZSolutionMatrix &elsol = cmesh->ElementSolution();
+    TPZFMatrix<STATE> &sol = postProcMesh->ElementSolution();
+    TPZSolutionMatrix &elsol = postProcMesh->ElementSolution();
     int64_t nelem = elsol.Rows();
     int64_t nelem2 = sol.Rows();
 
     //postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
 
     // Iterates through element errors to get the maximum value
-    REAL maxError = 0.;
+    STATE maxError = 0.;
     for (int64_t iel = 0; iel < nelem; iel++) {
-        TPZCompEl* cel = cmesh->ElementVec()[iel];
-        if (!cel) continue;
-        if (cel->Dimension() != cmesh->Dimension()) continue;
-        REAL elementError = 0;//elsol(iel, fluxErrorEstimateCol);
 
+        auto * submesh = dynamic_cast<TPZSubCompMesh*>(postProcMesh->ElementVec()[iel]);
+        if (!submesh) continue;
 
-        if (elementError > maxError) {
-            maxError = elementError;
+        STATE submeshError = sol(iel, fluxErrorEstimateCol);
+        if (submeshError > maxError) {
+            maxError = submeshError;
         }
     }
 
@@ -996,50 +995,25 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh *gmeshToRefine, Proble
     REAL threshold = 0.2 * maxError;
 
     for (int64_t iel = 0; iel < nelem; iel++) {
-        TPZCompEl* cel = cmesh->ElementVec()[iel];
-        if (!cel) continue;
-        if (cel->Dimension() != cmesh->Dimension()) continue;
 
-        REAL elementError = 0;//elsol(iel, fluxErrorEstimateCol);
-        //prefinement
-        if (elementError > threshold) {
+        auto * submesh = dynamic_cast<TPZSubCompMesh*>(postProcMesh->ElementVec()[iel]);
+        if (!submesh) continue;
 
-            std::cout << "element error " << elementError << "el " << iel << "\n";
-            TPZGeoEl* gel = cel->Reference();
-            int iel = gel->Id();
-
-            TPZVec<TPZGeoEl*> sons;
-            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
-            if (gelToRefine && !gelToRefine->HasSubElement()) {
-                gelToRefine->Divide(sons);
-#ifdef LOG4CXX2
-                int nsides = gelToRefine->NSides();
-                TPZVec<REAL> loccenter(gelToRefine->Dimension());
-                TPZVec<REAL> center(3);
-                gelToRefine->CenterPoint(nsides - 1, loccenter);
-
-                gelToRefine->X(loccenter, center);
-                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
-                if (logger->isDebugEnabled()) {
-                    std::stringstream sout;
-                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
-                    sout << "Error = " << elementError << "\n\n";
-                    LOGPZ_DEBUG(logger, sout.str())
-                }
-#endif
-            }
-        } else {
-            std::cout << "como refinar em p? " << "\n";
-//            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
-//            if(!sp) continue;
-//            int level = sp->Reference()->Level();
-//            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
-//            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
-//            sp->PRefine(ordem);
-
+        STATE submeshError = sol(iel, fluxErrorEstimateCol);
+        if (submeshError > threshold) {
+            std::cout << "Adapt me, my error is " << submeshError << " !!!\n";
         }
     }
-    Tools::DivideLowerDimensionalElements(gmeshToRefine);
+    //std::cout << "element error " << elementError << "el " << iel << "\n";
+    //TPZGeoEl *gel = cel->Reference();
+    //int iel = gel->Id();
+
+    //TPZVec<TPZGeoEl *> sons;
+    //TPZGeoEl *gelToRefine = gmeshToRefine->ElementVec()[iel];
+    //if (gelToRefine && !gelToRefine->HasSubElement()) {
+    //    gelToRefine->Divide(sons);
+    //}
+    //Tools::DivideLowerDimensionalElements(gmeshToRefine);
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm, TPZMHMHDivErrorEstimator& estimator) {
