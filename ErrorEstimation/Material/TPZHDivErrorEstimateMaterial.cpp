@@ -389,6 +389,8 @@ int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name) const {
     if (name == "PressureFem") return 43;
     if (name == "PressureReconstructed") return 44;
     if (name == "PressureExact") return 45;
+    if (name == "POrder") return 46;
+    if (name == "Permeability") return 47;
     if (name == "PressureErrorExact") return 100;
     if (name == "PressureErrorEstimate") return 101;
     if (name == "EnergyErrorExact") return 102;
@@ -396,7 +398,6 @@ int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name) const {
     if (name == "ResidualError") return 104;
     if (name == "PressureEffectivityIndex") return 105;
     if (name == "EnergyEffectivityIndex") return 106;
-    if (name == "POrder") return 46;
 
     return -1;
 }
@@ -504,6 +505,9 @@ TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &da
             break;
         case 46://order p
             Solout[0] = datavec[1].p;
+            break;
+        case 47: // Permeability
+            Solout[0] = PermTensor(0, 0);
             break;
 
         default:
