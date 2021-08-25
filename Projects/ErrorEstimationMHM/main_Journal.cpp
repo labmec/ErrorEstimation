@@ -924,8 +924,8 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
-    config.problemname = "EBoundaryLayer";
+    config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
+    config.problemname = "EArcTan";
     config.dir_name = "MHMAdaptivity";
     config.porder = 1;
     config.hdivmais = 2;
@@ -933,7 +933,7 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseRef = 3;
+    int nCoarseRef = 4;
     int nInternalRef = 4;
 
     config.ndivisions = nCoarseRef;
@@ -945,11 +945,6 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
     for (int i = 0; i < n_steps; i++) {
 
         config.gmesh = CreateQuadGeoMesh(nCoarseRef, nInternalRef);
-        {
-            std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
-            std::ofstream file(fileName);
-            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
-        }
 
         auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
         TPZManVector<int64_t> coarseIndexes;
@@ -958,7 +953,8 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
         CreateMHMCompMesh(mhm, config, definePartitionByCoarseIndexes, coarseIndexes, skelsToRefine);
 
         {
-            std::string fileName = config.dir_name + "/" + config.problemname + "GeoMeshAfterPartition.vtk";
+            std::string fileName =
+                config.dir_name + "/" + config.problemname + "GMesh" + std::to_string(i) + ".vtk";
             std::ofstream file(fileName);
             TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
         }
@@ -1007,7 +1003,7 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMes
     std::cout << "Max error: " << maxError << "\n";
 
     // Refines elements which error are bigger than 30% of the maximum error
-    REAL threshold = 0.2 * maxError;
+    REAL threshold = 0.5 * maxError;
     const auto geoToMHM = mhm->GetGeoToMHMDomain();
     const auto interfaces = mhm->GetInterfaces();
 
@@ -1020,7 +1016,7 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMes
         if (submeshError > threshold) {
             TPZGeoEl * gel = submesh->Element(0)->Reference();
             const auto submesh_id = geoToMHM[gel->Index()];
-            // std::cout << "Refining submesh " << submesh_id << " which error is " << submeshError << ".\n";
+             std::cout << "Refining submesh " << submesh_id << " which error is " << submeshError << ".\n";
             for (auto interface : interfaces) {
                 if (interface.second.first == submesh_id || interface.second.second == submesh_id) {
                     interfacesToRefine.insert(interface.first);
