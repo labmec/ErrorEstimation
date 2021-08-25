@@ -6,9 +6,9 @@
 #include <Pre/TPZMHMixedMeshControl.h>
 #include <TPZMFSolutionTransfer.h>
 //#include <Tools.h>
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
-#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 
 struct ErrorResult {
     ErrorResult(const std::string &s, const int nIntRef, const int nCoarseDiv, const int kOrder, const int nOrder,
@@ -35,7 +35,7 @@ struct ErrorResult {
 std::vector<ErrorResult> result_vec;
 
 const int porder = 1;
-const int hdivmais = 3;
+const int hdivmais = 4;
 std::string dir_name = "Journal_k" + std::to_string(porder) + "n" + std::to_string(hdivmais);
 
 void RunSmoothProblem(int nCoarseDiv, int nInternalRef, int k, int n);
@@ -53,7 +53,7 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
                        TPZManVector<int64_t> &mhmIndexes);
 
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, bool definePartitionByCoarseIndex,
-                       TPZManVector<int64_t> &mhmIndexes, const std::set<int64_t>& skelsToDivide);
+                       TPZManVector<int64_t> &mhmIndexes, const std::vector<int64_t>& skelsToDivide);
 
 void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
                                  bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes);
@@ -64,7 +64,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm, TPZMHMHDivErrorEstimator &estimator);
 
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMesh *postProcMesh,
-                   std::set<int64_t> &skelsToRefine);
+                   std::vector<int64_t> &skelsToRefine);
 
 void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm);
 void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
@@ -92,7 +92,7 @@ int main() {
 
     //RunInnerSingularityProblemSuite(nCoarseDiv, nInternalRef, kOrder, nOrder);
 
-    RunHighGradientAdaptivityProblem(2);
+    RunHighGradientAdaptivityProblem(4);
 
     //RunNonConvexProblem();
     //std::ofstream out_latex("LatexGraphs.txt", std::ios::trunc);
@@ -465,7 +465,7 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
 }
 
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, bool definePartitionByCoarseIndex,
-                       TPZManVector<int64_t> &mhmIndexes, const std::set<int64_t> &skelsToDivide) {
+                       TPZManVector<int64_t> &mhmIndexes, const std::vector<int64_t> &skelsToDivide) {
 
     if (definePartitionByCoarseIndex) {
         mhm->DefinePartitionbyCoarseIndices(mhmIndexes);
@@ -486,7 +486,9 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     mhm->SetHdivmaismaisPOrder(config.hdivmais);
 
     // Refine skeleton elements
-    for (auto skelid : skelsToDivide) mhm->DivideSkeletonElement(skelid);
+    for (auto skelid : skelsToDivide) {
+        mhm->DivideSkeletonElement(skelid);
+    }
 
     mhm->DivideBoundarySkeletonElements();
     // Creates MHM mesh
@@ -925,29 +927,29 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
     config.exact.operator*().fExact = TLaplaceExample1::EBoundaryLayer;
     config.problemname = "EBoundaryLayer";
     config.dir_name = "MHMAdaptivity";
-    config.porder = 2;
-    config.hdivmais = 3;
+    config.porder = 1;
+    config.hdivmais = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
     int nCoarseRef = 3;
-    int nInternalRef = 2;
+    int nInternalRef = 4;
 
     config.ndivisions = nCoarseRef;
-    config.gmesh = CreateQuadGeoMesh(nCoarseRef, nInternalRef);
 
     std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
-    {
-        std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
-        std::ofstream file(fileName);
-        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
-    }
-
-    std::set<int64_t> skelsToRefine;
+    std::vector<int64_t> skelsToRefine;
     for (int i = 0; i < n_steps; i++) {
+
+        config.gmesh = CreateQuadGeoMesh(nCoarseRef, nInternalRef);
+        {
+            std::string fileName = config.dir_name + "/" + config.problemname + "GeoMesh.vtk";
+            std::ofstream file(fileName);
+            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+        }
 
         auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
         TPZManVector<int64_t> coarseIndexes;
@@ -967,20 +969,18 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
         TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
         if (!originalMesh) DebugStop();
         TPZMHMHDivErrorEstimator estimator(*originalMesh, mhm, postProcWithHDiv);
+        estimator.SetAdaptivityStep(i);
         EstimateError(config, mhm, estimator);
 
         auto *postprocmesh = estimator.PostProcMesh();
         if (!postprocmesh) DebugStop();
-
-        const auto sol = postprocmesh->ElementSolution();
-        int64_t nelem = sol.Rows();
 
         MHMAdaptivity(mhm, config, postprocmesh, skelsToRefine);
     }
 }
 
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMesh *postProcMesh,
-                   std::set<int64_t> &skelsToRefine) {
+                   std::vector<int64_t> &skelsToRefine) {
 
     // Column of the flux error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;
@@ -1008,24 +1008,29 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMes
 
     // Refines elements which error are bigger than 30% of the maximum error
     REAL threshold = 0.2 * maxError;
+    const auto geoToMHM = mhm->GetGeoToMHMDomain();
+    const auto interfaces = mhm->GetInterfaces();
+
+    std::set<int64_t> interfacesToRefine;
     for (int64_t iel = 0; iel < nelem; iel++) {
         auto * submesh = dynamic_cast<TPZSubCompMesh*>(postProcMesh->ElementVec()[iel]);
         if (!submesh) continue;
 
         STATE submeshError = sol(iel, fluxErrorEstimateCol);
         if (submeshError > threshold) {
-            std::cout << "Refine me, my error is " << submeshError << "!\n";
             TPZGeoEl * gel = submesh->Element(0)->Reference();
-            const auto geoToMHM = mhm->GetGeoToMHMDomain();
             const auto submesh_id = geoToMHM[gel->Index()];
-            const auto interfaces = mhm->GetInterfaces();
+            // std::cout << "Refining submesh " << submesh_id << " which error is " << submeshError << ".\n";
             for (auto interface : interfaces) {
                 if (interface.second.first == submesh_id || interface.second.second == submesh_id) {
-                    skelsToRefine.insert(interface.first);
-                    std::cout << "Interface to refine: " << interface.first << "\n";
+                    interfacesToRefine.insert(interface.first);
                 }
             }
         }
+    }
+
+    for (auto it : interfacesToRefine) {
+        skelsToRefine.push_back(it);
     }
 }
 
