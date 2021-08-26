@@ -32,11 +32,17 @@ public:
 
     virtual ~TPZMHMHDivErrorEstimator() = default;
 
+    void SetReferenceSolution(bool hasRefSol) {
+        fHasReferenceSolution = hasRefSol;
+    }
+
 private:
     // material id of the dim-1 multiphysic inerface and wrap elements
     // (only used for HDiv reconstruction)
     int fMultiPhysicsInterfaceMatId = 0;
     int fHDivWrapMatId = 0;
+
+    bool fHasReferenceSolution = false;
 
     /// a pointer to the datastructure used to generate the MHM mesh
     TPZMHMixedMeshControl *fMHM = nullptr;
