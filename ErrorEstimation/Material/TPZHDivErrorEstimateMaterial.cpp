@@ -68,7 +68,6 @@ void TPZHDivErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STAT
 
     int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
 
-    int dim = datavec[H1functionposition].axes.Rows();
     //defining test functions
     // Setting the phis
     TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
@@ -76,14 +75,9 @@ void TPZHDivErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STAT
     TPZFNMatrix<9, REAL> dphiuk(3, 1);
     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
 
-    int nphiuk = phiuk.Rows();
-
     TPZFMatrix<STATE> solsigmafem(3, 1), solukfem(1, 1);
     solsigmafem.Zero();
     solukfem.Zero();
-
-
-
 
     //potetial fem
     solukfem(0, 0) = datavec[3].sol[0][0];
@@ -93,23 +87,18 @@ void TPZHDivErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STAT
         solsigmafem(ip, 0) = datavec[2].sol[0][ip];
     }
 
+    STATE perm = GetPermeability(datavec[1].x);
 
-
-    TPZFNMatrix<9, REAL> PermTensor(1, 1, 0.);
-    TPZFNMatrix<9, REAL> InvPermTensor(1, 1, 0.);
-
-    GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
-
-
+    auto dim = datavec[H1functionposition].axes.Rows();
+    auto nphiuk = phiuk.Rows();
     TPZFMatrix<STATE> kgraduk(3, nphiuk, 0.);
-
 
     for (int irow = 0; irow < nphiuk; irow++) {
 
         //K graduk
         for (int id = 0; id < dim; id++) {
 
-            kgraduk(id, irow) += PermTensor(0, 0) * dphiuk(id, irow);
+            kgraduk(id, irow) += perm * dphiuk(id, irow);
             //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
             //the minus sign is necessary because we are working with sigma_h = - K grad u, Mark works with sigma_h = K grad u
 
@@ -159,11 +148,11 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<ST
      ek+= <w,Km s_i>
      ef+= <w,Km*u_d - g + sigma_i.n>
     */
-    int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
-    int dim = datavec[H1functionposition].axes.Rows();
+    auto H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
+    auto dim = datavec[H1functionposition].axes.Rows();
 
     TPZFMatrix<REAL> &phi_i = datavec[H1functionposition].phi;
-    int nphi_i = phi_i.Rows();
+    auto nphi_i = phi_i.Rows();
 
     TPZFMatrix<STATE> solsigmafem(3, 1);
     solsigmafem.Zero();
@@ -182,12 +171,11 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<ST
         bc.ForcingFunctionBC()(datavec[H1functionposition].x, res, gradu);
         u_D = res[0];
 
-        TPZFNMatrix<9, REAL> PermTensor(1, 1, 0.), InvPermTensor(1, 1, 0.);
-        GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
+        STATE perm = GetPermeability(datavec[1].x);
 
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                normflux += datavec[2].normal[i] * PermTensor(0, 0) * gradu(j, 0);
+                normflux += datavec[2].normal[i] * perm * gradu(j, 0);
             }
         }
 
@@ -240,8 +228,6 @@ void TPZHDivErrorEstimateMaterial::FillDataRequirements(TPZVec<TPZMaterialDataT<
 
     datavec[3].SetAllRequirements(false);
     datavec[3].fNeedsSol = true;
-
-
 }
 
 void
@@ -266,18 +252,12 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
       error[4] - oscillatory data error
      **/
 
-    errors.Resize(NEvalErrors());
-    errors.Fill(0.0);
-
-
     TPZManVector<STATE, 3> fluxfem(3);
     STATE divsigmafem, pressurefem, pressurereconstructed;
 
     TPZFNMatrix<3, REAL> fluxreconstructed(3, 1), fluxreconstructed2(3, 1);
 
-
     fluxfem = data[2].sol[0];
-
 
     divsigmafem = data[2].divsol[0][0];
 
@@ -287,7 +267,6 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
     }
 
     int H1functionposition = FirstNonNullApproxSpaceIndex(data);
-
 
     TPZVec<STATE> divsigma(1);
     divsigma[0] = 0.;
@@ -302,17 +281,10 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
     }
 
     REAL residual = (divsigma[0] - divsigmafem) * (divsigma[0] - divsigmafem);
-
-
     pressurereconstructed = data[H1functionposition].sol[0][0];
-
-
     pressurefem = data[3].sol[0][0];
 
-    TPZFNMatrix<9, REAL> PermTensor(1, 1, 0.);
-    TPZFNMatrix<9, REAL> InvPermTensor(1, 1, 0.);
-
-    GetPermeabilities(data[2].x, PermTensor, InvPermTensor);
+    STATE perm = GetPermeability(data[1].x);
 
     TPZFNMatrix<3, REAL> fluxexactneg(3, 1);
 
@@ -322,17 +294,16 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
     {
         TPZFNMatrix<9, REAL> gradpressure(3, 1);
         for (int i = 0; i < 3; i++) {
-            fluxexactneg(i, 0) = PermTensor(0,0) * du_exact[i];
+            fluxexactneg(i, 0) = perm * du_exact[i];
         }
     }
-
 
     TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
     TPZFNMatrix<9, REAL> fluxrec(3, 0);
     TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
 
     for (int id = 0; id < 3; id++) {
-        fluxreconstructed(id, 0) = (-1.) * PermTensor(0,0) * fluxrec(id, 0);
+        fluxreconstructed(id, 0) = (-1.) * perm * fluxrec(id, 0);
     }
 
     REAL innerexact = 0.;
@@ -346,11 +317,10 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
 
     for (int i = 0; i < 3; i++) {
         if (this->fExactSol) {
-            innerexact += (fluxfem[i] + fluxexactneg(i, 0)) * InvPermTensor(0, 0) *
-                          (fluxfem[i] + fluxexactneg(i, 0)); // Pq esta somando: o fluxo fem esta + e o exato -
+            innerexact += (fluxfem[i] + fluxexactneg(i, 0)) * (fluxfem[i] + fluxexactneg(i, 0)) / perm;
+            // Pq esta somando: o fluxo fem esta + e o exato -
         }
-        innerestimate +=
-            (fluxfem[i] - fluxreconstructed[i]) * InvPermTensor(0, 0) * (fluxfem[i] - fluxreconstructed[i]);
+        innerestimate += (fluxfem[i] - fluxreconstructed[i]) * (fluxfem[i] - fluxreconstructed[i]) / perm;
     }
 
     STATE exact_pressure_error = 0;
@@ -449,11 +419,7 @@ TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &da
 
     int H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
 
-    TPZFNMatrix<9, REAL> PermTensor(1, 1, 0.);
-    TPZFNMatrix<9, REAL> InvPermTensor(1, 1, 0.);
-
-    GetPermeabilities(datavec[2].x, PermTensor, InvPermTensor);
-
+    STATE perm = GetPermeability(datavec[1].x);
 
     TPZManVector<STATE, 2> pressexact(1, 0.);
     TPZFNMatrix<9, STATE> gradu(3, 1, 0.), fluxinv(3, 1);
@@ -463,7 +429,7 @@ TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &da
     }
 
     for (int i = 0; i < 3; i++) {
-        fluxinv(i, 0) = PermTensor(0, 0) * gradu(i, 0);
+        fluxinv(i, 0) = perm * gradu(i, 0);
     }
 
     int dim = this->fDim;
@@ -476,15 +442,10 @@ TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &da
         case 41: {//FluxReconstructed is grad U
             TPZFMatrix<REAL> &dsolaxes = datavec[H1functionposition].dsol[0];
             TPZFNMatrix<9, REAL> dsol(3, 1);
-            TPZFNMatrix<9, REAL> KGradsol(3, 1);
             TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
 
-            for (int i = 0; i < 3; i++) {
-                KGradsol(i, 0) = PermTensor(0, 0) * dsol(i, 0);
-            }
-
             for (int id = 0; id < fDim; id++) {
-                Solout[id] = -KGradsol(id, 0);//dsol(id,0);//derivate
+                Solout[id] = -perm * dsol(id, 0); // derivate
             }
         }
 
@@ -508,7 +469,7 @@ TPZHDivErrorEstimateMaterial::Solution(const TPZVec<TPZMaterialDataT<STATE>> &da
             Solout[0] = datavec[1].p;
             break;
         case 47: // Permeability
-            Solout[0] = PermTensor(0, 0);
+            Solout[0] = perm;
             break;
 
         default:
