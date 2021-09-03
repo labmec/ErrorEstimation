@@ -140,7 +140,7 @@ TPZMultiphysicsCompMesh* Tools::CreateMixedMesh(const ProblemConfig& problem) {
 
         mix->SetForcingFunction(ff_lambda, 5);
         mix->SetExactSol(exact_sol_lambda, 5);
-        mix->SetPermeabilityFunction(K(0,0));
+        mix->SetConstantPermeability(K(0,0));
 
         if (!mat) mat = mix;
 
@@ -535,7 +535,7 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
 
 
     TPZSSpStructMatrix<STATE> strmat(cmesh_HDiv);
-    strmat.SetNumThreads(0);
+    strmat.SetNumThreads(8);
     an.SetStructuralMatrix(strmat);
 
     std::set<int> matids;
@@ -582,35 +582,35 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
     int resolution = 2;
     an.PostProcess(resolution, dim);
 
-    if (config.exact.operator*().Exact()) {
-        TPZManVector<REAL> errors(4, 0.);
-        an.SetThreadsForError(0);
-        an.SetExact(config.exact.operator*().ExactSolution());
-        an.PostProcessError(errors, false);
+    //if (config.exact.operator*().Exact()) {
+    //    TPZManVector<REAL> errors(4, 0.);
+    //    an.SetThreadsForError(0);
+    //    an.SetExact(config.exact.operator*().ExactSolution());
+    //    an.PostProcessError(errors, false);
 
-        // Erro
-        std::ofstream myfile;
-        /*Error on MixedPoisson
-           [0] L2 for pressure
-           [1] L2 for flux
-           [2] L2 for div(flux)
-           [3] Grad pressure (Semi H1)
-           [4] Hdiv norm
-           */
+    //    // Erro
+    //    std::ofstream myfile;
+    //    /*Error on MixedPoisson
+    //       [0] L2 for pressure
+    //       [1] L2 for flux
+    //       [2] L2 for div(flux)
+    //       [3] Grad pressure (Semi H1)
+    //       [4] Hdiv norm
+    //       */
 
-          // Erro
-          myfile.open("ErrorMixed.txt", std::ios::app);
-          myfile << "\n\n Error for Mixed formulation ";
-          myfile << "\n-------------------------------------------------- \n";
-          myfile << "Ndiv = " << config.ndivisions
-                 << " Order k = " << config.porder << " n "<<config.hdivmais<< " K_R = "<<config.Km<<" Ndofs = "<<cmesh_HDiv->NEquations() <<"\n";
-          myfile << "L2 pressure = " << errors[0] << "\n";
-          myfile << "L2 flux= " << errors[1] << "\n";
-          myfile << "L2 div(flux) = " << errors[2] << "\n";
-        //  myfile << "Semi H1 = " << errors[3] << "\n";
-         // myfile << "Hdiv norm = " << errors[4] << "\n";
-        myfile.close();
-    }
+    //      // Erro
+    //      myfile.open("ErrorMixed.txt", std::ios::app);
+    //      myfile << "\n\n Error for Mixed formulation ";
+    //      myfile << "\n-------------------------------------------------- \n";
+    //      myfile << "Ndiv = " << config.ndivisions
+    //             << " Order k = " << config.porder << " n "<<config.hdivmais<< " K_R = "<<config.Km<<" Ndofs = "<<cmesh_HDiv->NEquations() <<"\n";
+    //      myfile << "L2 pressure = " << errors[0] << "\n";
+    //      myfile << "L2 flux= " << errors[1] << "\n";
+    //      myfile << "L2 div(flux) = " << errors[2] << "\n";
+    //    //  myfile << "Semi H1 = " << errors[3] << "\n";
+    //     // myfile << "Hdiv norm = " << errors[4] << "\n";
+    //    myfile.close();
+    //}
 }
 
 /// Divide lower dimensional elements
@@ -722,7 +722,6 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
 
-
         if (elementError > maxError) {
             maxError = elementError;
         }
@@ -739,15 +738,11 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
 
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
-        //prefinement
         if (elementError > threshold) {
-
-            std::cout << "element error " << elementError << "el " << iel << "\n";
             TPZGeoEl* gel = cel->Reference();
-            int iel = gel->Id();
 
             TPZVec<TPZGeoEl*> sons;
-            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
+            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[gel->Id()];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
 #ifdef LOG4CXX2
@@ -766,15 +761,6 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                 }
 #endif
             }
-        } else {
-            std::cout << "como refinar em p? " << "\n";
-//            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
-//            if(!sp) continue;
-//            int level = sp->Reference()->Level();
-//            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
-//            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
-//            sp->PRefine(ordem);
-
         }
     }
     DivideLowerDimensionalElements(gmeshToRefine);

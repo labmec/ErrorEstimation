@@ -639,7 +639,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
 
     mat->SetForcingFunction(ff_lambda, 5);
     mat->SetExactSol(exact_sol_lambda, 5);
-    mat->SetPermeabilityFunction(1);
+    mat->SetConstantPermeability(1);
 
     cmesh.InsertMaterialObject(mat);
 
@@ -689,14 +689,14 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
 
     mat->SetForcingFunction(ff_lambda, 5);
     mat->SetExactSol(exact_sol_lambda, 5);
-    mat->SetPermeabilityFunction(5);
+    mat->SetConstantPermeability(5);
 
     cmesh.InsertMaterialObject(mat);
 
     auto *mat2 = new TPZMixedDarcyFlow(2, dim);
     mat2->SetForcingFunction(ff_lambda, 5);
     mat2->SetExactSol(exact_sol_lambda, 5);
-    mat2->SetPermeabilityFunction(1);
+    mat2->SetConstantPermeability(1);
 
     cmesh.InsertMaterialObject(mat2);
 
