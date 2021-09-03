@@ -1833,6 +1833,7 @@ void TPZHDivErrorEstimator::InsertPostProcMaterials() {
         if (orig_bc) {
             it.second->Clone(fPostProcMesh.MaterialVec());
             auto *new_mat = fPostProcMesh.FindMaterial(orig_bc->Material()->Id());
+            if (!new_mat) DebugStop();
             auto *new_bc = dynamic_cast<TPZBndCond *>(fPostProcMesh.FindMaterial(orig_bc->Id()));
             if (!new_bc) DebugStop();
             new_bc->SetMaterial(new_mat);
