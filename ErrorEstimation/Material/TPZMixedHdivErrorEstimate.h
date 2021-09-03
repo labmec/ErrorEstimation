@@ -15,7 +15,7 @@
 
 
 class TPZMixedHDivErrorEstimate : public virtual TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,
-        TPZMatErrorCombinedSpaces<STATE>, TPZDarcyFlowInterface>, public TPZMixedDarcyFlow {
+        TPZMatErrorCombinedSpaces<STATE>, TPZIsotropicPermeability>, public TPZMixedDarcyFlow {
 
 public:
     
