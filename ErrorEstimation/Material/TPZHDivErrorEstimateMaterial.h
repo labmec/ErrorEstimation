@@ -18,6 +18,9 @@
 class TPZHDivErrorEstimateMaterial: public virtual TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,
         TPZMatErrorCombinedSpaces<STATE>, TPZIsotropicPermeability>, public virtual TPZMixedDarcyFlow {
 
+    // type alias to improve constructor readability
+    using TBase = TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,
+        TPZMatErrorCombinedSpaces<STATE>, TPZIsotropicPermeability>;
 public:
     TPZHDivErrorEstimateMaterial(int matid, int dim);
 

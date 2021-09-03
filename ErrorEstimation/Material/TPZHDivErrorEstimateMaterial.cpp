@@ -18,7 +18,8 @@ TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(int matid, int dim) :
 
 TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial() : TPZMixedDarcyFlow() {}
 
-TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(const TPZMixedDarcyFlow &copy) : TPZMixedDarcyFlow(copy) {}
+TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(const TPZMixedDarcyFlow &copy)
+    : TBase(copy), TPZMixedDarcyFlow(copy) {}
 
 TPZHDivErrorEstimateMaterial::TPZHDivErrorEstimateMaterial(const TPZHDivErrorEstimateMaterial &copy)
         : TPZMixedDarcyFlow(copy) {}
