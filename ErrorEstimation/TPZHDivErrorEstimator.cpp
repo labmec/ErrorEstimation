@@ -2194,15 +2194,12 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
             auto *mixpoisson = dynamic_cast<TPZMixedDarcyFlow*>(mat);
             if (!mixpoisson) DebugStop();
 
-            REAL perm;
             TPZVec<REAL> xi(gel->Dimension(), 0.);
             gel->CenterPoint(gel->NSides() - 1, xi);
             TPZVec<REAL> x(3, 0.);
             gel->X(xi, x);
 
-            TPZFNMatrix<1, STATE> K(1, 1, 0.), InvK(1, 1, 0.);
-            mixpoisson->GetPermeabilities(x, K, InvK);
-            perm = K(0, 0);
+            STATE perm = mixpoisson->GetPermeability(x);
             if (IsZero(perm)) DebugStop();
             this->fPressureweights[el] = perm;
             fMatid_weights[matid] = perm;
