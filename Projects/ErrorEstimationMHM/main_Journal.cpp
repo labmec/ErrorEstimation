@@ -67,7 +67,6 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMes
                    std::vector<int64_t> &skelsToRefine);
 
 void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm);
-void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
 void PeriodicProblemForcingFunction(const TPZVec <REAL> &pt, TPZVec <STATE> &result);
 
 void PrintLatexGraphs(std::ostream & out);
@@ -747,7 +746,20 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
     // Insert the material objects in the multiphysics mesh
     TPZCompMesh *cmesh = mhm.CMesh().operator->();
     auto *mix = new TPZMixedDarcyFlow(1, cmesh->Dimension());
-    TPZAutoPointer<TPZFunction<STATE>> perm_function = new TPZDummyFunction<STATE>(&PeriodicPermeabilityFunction, 3);
+
+    std::function<STATE(const TPZVec<REAL> &coord)> perm_function = [](const TPZVec<REAL> &coord) {
+        constexpr auto epsilon = 0.04;
+        constexpr auto P = 1.8;
+        const auto x = coord[0];
+        const auto y = coord[1];
+
+        REAL term_1 = 2 + P * cos(2 * M_PI * (x - 0.5) / epsilon);
+        REAL term_2 = 2 + P * cos(2 * M_PI * (y - 0.5) / epsilon);
+
+        auto perm = 1 / (term_1 * term_2);
+        return perm;
+    };
+
     mix->SetPermeabilityFunction(perm_function);
     mix->SetForcingFunction(PeriodicProblemForcingFunction, 1);
 
@@ -771,24 +783,6 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
     // Creates MHM mesh
     bool substructure = true;
     mhm.BuildComputationalMesh(substructure);
-}
-
-void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat) {
-
-    constexpr auto epsilon = 0.04;
-    constexpr auto P = 1.8;
-    const auto x = coord[0];
-    const auto y = coord[1];
-
-    REAL term_1 = 2 + P * cos(2 * M_PI * (x - 0.5) / epsilon);
-    REAL term_2 = 2 + P * cos(2 * M_PI * (y - 0.5) / epsilon);
-
-    auto perm = 1 / (term_1 * term_2);
-
-    for (int i = 0; i < 2; i++) {
-        res_mat(i, i) = perm;
-        res_mat(i + 2, i) = 1 / perm;
-    }
 }
 
 void PeriodicProblemForcingFunction(const TPZVec<REAL> &pt, TPZVec<STATE> &result) { result[0] = -1; }
