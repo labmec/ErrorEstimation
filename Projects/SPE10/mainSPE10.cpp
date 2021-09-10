@@ -21,7 +21,7 @@ Interpolator interpolator;
 // Function declarations
 void ReadSPE10CellPermeabilities(TPZVec<REAL>*perm_vec, int layer);
 TPZGeoMesh *CreateSPE10GeoMesh();
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZMatrix<REAL> &K, TPZMatrix<REAL> &invK);
+STATE PermeabilityFunction(const TPZVec<REAL> &x);
 void InsertMaterials(TPZCompMesh *cmesh);
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm);
 void SolveMHMProblem(TPZMHMixedMeshControl &mhm);
@@ -117,15 +117,14 @@ void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
     std::cout << "Finished reading permeability data from input file!\n";
 }
 
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZMatrix<REAL> &K, TPZMatrix<REAL> &invK) {
+STATE PermeabilityFunction(const TPZVec<REAL> &x) {
     auto perm = interpolator(x[0], x[1]);
     if (perm <= 1) {
         perm = 1;
     } else {
         perm += 1;
     }
-    K(0, 0) = perm;
-    invK(0, 0) = 1 / perm;
+    return perm;
 }
 
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm) {
@@ -218,8 +217,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
 void InsertMaterials(TPZCompMesh *cmesh) {
 
     auto *mix = new TPZMixedDarcyFlow(1, cmesh->Dimension());
-    std::function<void(const TPZVec<REAL> &coord, TPZMatrix<REAL> &K, TPZMatrix<REAL> &InvK)> func =
-        PermeabilityFunction;
+    std::function<STATE(const TPZVec<REAL> &coord)> func = PermeabilityFunction;
     mix->SetPermeabilityFunction(func);
 
     TPZFNMatrix<1, REAL> val1(1, 1, 0.);
