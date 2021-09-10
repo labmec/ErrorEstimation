@@ -538,7 +538,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         config.exact.operator*().ForcingFunction()->Execute(loc, result);
     };
 
-    mat->SetPermeabilityFunction(1);
+    mat->SetConstantPermeability(1);
     mat->SetExactSol(exact_lambda, 8);
     mat->SetForcingFunction(ff_lambda, 8);
 

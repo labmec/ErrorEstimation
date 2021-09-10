@@ -318,7 +318,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
 
     mat->SetForcingFunction(ff_lambda, 5);
     mat->SetExactSol(exact_sol_lambda, 5);
-    mat->SetPermeabilityFunction(1);
+    mat->SetConstantPermeability(1);
 
     cmesh.InsertMaterialObject(mat);
 
