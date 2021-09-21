@@ -252,12 +252,10 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
       error[4] - oscillatory data error
      **/
 
-    TPZManVector<STATE, 3> fluxfem(3);
+    TPZManVector<STATE, 3> fluxfem = data[2].sol[0];
     STATE divsigmafem, pressurefem, pressurereconstructed;
 
-    TPZFNMatrix<3, REAL> fluxreconstructed(3, 1), fluxreconstructed2(3, 1);
-
-    fluxfem = data[2].sol[0];
+    TPZFNMatrix<3, REAL> fluxreconstructed(3, 1);
 
     divsigmafem = data[2].divsol[0][0];
 
@@ -309,12 +307,6 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
     REAL innerexact = 0.;
     REAL innerestimate = 0.;
 
-#ifdef PZDEBUG2
-    std::cout<<"flux fem "<<fluxfem<<std::endl;
-    std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
-
     for (int i = 0; i < 3; i++) {
         if (this->fExactSol) {
             innerexact += (fluxfem[i] + fluxexactneg(i, 0)) * (fluxfem[i] + fluxexactneg(i, 0)) / perm;
@@ -328,29 +320,12 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
         exact_pressure_error = (pressurefem - u_exact[0]) * (pressurefem - u_exact[0]);
     }
 
-#ifdef PZDEBUG2
-    std::cout<<"potential fem "<<pressurefem<<std::endl;
-    std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
     errors[0] = exact_pressure_error;
     errors[1] =
             (pressurefem - pressurereconstructed) * (pressurefem - pressurereconstructed);//error pressure reconstructed
     errors[2] = innerexact;//error flux exact
     errors[3] = innerestimate;//error flux reconstructed
     errors[4] = residual; //||f - Proj_divsigma||
-
-#ifdef LOG4CXX
-    if(logger->isDebugEnabled()) {
-        std::stringstream sout;
-        sout << "Coord: " << data[H1functionposition].x[0] << ", " << data[H1functionposition].x[1] << ", "
-             << data[H1functionposition].x[2] << '\n';
-        sout << "PressureReconstructed = " << pressurereconstructed << "\n";
-        sout << "FluxReconstructed = " << fluxreconstructed[0] << ", " << fluxreconstructed[1] << ", "
-             << fluxreconstructed[2] << "\n";
-        LOGPZ_DEBUG(logger, sout.str())
-    }
-#endif
 }
 
 int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name) const {
