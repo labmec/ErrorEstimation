@@ -68,6 +68,8 @@ public:
 
     void SetAdaptivityStep(int step) { fAdaptivityStep = step; };
 
+    [[nodiscard]] int AdaptivityStep() const { return fAdaptivityStep; };
+
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
     virtual void ComputeErrors(TPZVec<REAL> &error_vec, TPZVec<REAL> &element_errors, std::string&vtkPath);
