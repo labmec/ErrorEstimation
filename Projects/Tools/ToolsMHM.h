@@ -8,7 +8,7 @@
 #ifndef ToolsMHM_hpp
 #define ToolsMHM_hpp
 
-#include <stdio.h>
+#include <cstdio>
 
 #endif /* ToolsMHM_hpp */
 
