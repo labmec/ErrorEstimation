@@ -92,6 +92,7 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
     
     // Calculate error and store in element solution
     bool store_error = true;
+    an.SetThreadsForError(12);
     an.PostProcessError(errorVec, store_error);
 
     TPZCompMeshTools::UnCondensedElements(&fPostProcMesh);
