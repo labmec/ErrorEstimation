@@ -43,6 +43,8 @@ protected:
 
     int fAdaptivityStep{0};
 
+    bool fHasReferenceSolution{false};
+
 private:
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
@@ -184,6 +186,8 @@ protected:
     bool IsAdjacentToHangingNode(const TPZCompElSide &celside);
 
     static std::set<int> GetBCMatIDs(const TPZCompMesh* cmesh);
+
+    void SetReferenceSolutionMeshes(TPZCompMesh* ref_pressure, TPZCompMesh* ref_flux);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

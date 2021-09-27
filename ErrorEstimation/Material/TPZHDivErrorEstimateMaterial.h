@@ -78,7 +78,7 @@ public:
     }
 
 private:
-    bool fHasReferenceSolution = false;
+    bool fHasReferenceSolution{false};
 };
 
 #endif /* TPZHDivErrorEstimateMaterial_hpp */

@@ -1817,7 +1817,9 @@ void TPZHDivErrorEstimator::InsertPostProcMaterials() {
             if (fPostProcesswithHDiv) {
                 new_mat = new TPZMixedHDivErrorEstimate(*orig_mat);
             } else {
-                new_mat = new TPZHDivErrorEstimateMaterial(*orig_mat);
+                auto ee_mat = new TPZHDivErrorEstimateMaterial(*orig_mat);
+                ee_mat->SetReferenceSolution(fHasReferenceSolution);
+                new_mat = ee_mat;
             }
             if (orig_mat->HasForcingFunction()) {
                 new_mat->SetForcingFunction(orig_mat->ForcingFunction(), orig_mat->ForcingFunctionPOrder());
@@ -2446,4 +2448,19 @@ std::set<int> TPZHDivErrorEstimator::GetBCMatIDs(const TPZCompMesh* cmesh) {
         }
     }
     return bc_mat_ids;
+}
+
+void TPZHDivErrorEstimator::SetReferenceSolutionMeshes(TPZCompMesh* ref_pressure, TPZCompMesh* ref_flux) {
+    fHasReferenceSolution = true;
+    auto &mesh_vec = fPostProcMesh.MeshVector();
+    auto active_spaces = fPostProcMesh.GetActiveApproximationSpaces();
+
+    mesh_vec.resize(6);
+    active_spaces.resize(6);
+
+    mesh_vec[4] = ref_pressure;
+    mesh_vec[5] = ref_flux;
+
+    active_spaces[4] = 0;
+    active_spaces[5] = 0;
 }
