@@ -213,7 +213,7 @@ void TPZHDivErrorEstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<ST
         }
 
         default: {
-            // std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
+            // std::cout << " This material does not implement BC of type " << bc.Type() << std::endl;
             break;
         }
     }
