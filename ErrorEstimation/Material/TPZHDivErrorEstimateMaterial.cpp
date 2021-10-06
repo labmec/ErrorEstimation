@@ -239,93 +239,68 @@ TPZHDivErrorEstimateMaterial::FillBoundaryConditionDataRequirements(int type,
 }
 
 void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) {
-    /**
-     datavec[0] H1 mesh, uh_reconstructed
-     datavec[1] L2 mesh,
-     datavec[2] Hdiv fem mesh, sigma_h
-     datavec[3] L2 mesh fem, u_h
-     
-      error[0] - error computed with exact pressure
-      error[1] - error computed with reconstructed pressure
-      error[2] - energy error computed with exact solution
-      error[3] - energy error computed with reconstructed solution
-      error[4] - oscillatory data error
-     **/
+    /*
+     * data[0]: H1 mesh, uh_reconstructed
+     * data[1]: L2 mesh,
+     * data[2]: Hdiv fem mesh, sigma_h
+     * data[3]: L2 mesh fem, u_h
+     *
+     * error[0]: error computed with exact/reference pressure
+     * error[1]: error computed with reconstructed pressure
+     * error[2]: energy error computed with exact/reference solution
+     * error[3]: energy error computed with reconstructed solution
+     * error[4]: oscillatory data error
+     */
 
-    TPZManVector<STATE, 3> fluxfem = data[2].sol[0];
-    STATE divsigmafem, pressurefem, pressurereconstructed;
+    // Variables to store error norms/components
+    STATE flux_error_estimate = 0.;
+    STATE flux_error_exact = 0.;
+    STATE pressure_error_estimate = 0.;
+    STATE pressure_error_exact = 0.;
+    STATE residual_error = 0.;
 
-    TPZFNMatrix<3, REAL> fluxreconstructed(3, 1);
+    const auto perm = GetPermeability(data[1].x);
 
-    divsigmafem = data[2].divsol[0][0];
+    const auto pressurefem = data[3].sol[0][0];
+    const auto &fluxfem = data[2].sol[0];
+    const auto divfluxfem = data[2].divsol[0][0];
+    const auto pressurerec = data[1].sol[0][0];
 
-    STATE divtest = 0.;
-    for (int j = 0; j < fDim; j++) {
-        divtest += data[2].dsol[0](j, j);
-    }
-
-    int H1functionposition = FirstNonNullApproxSpaceIndex(data);
-
-    TPZVec<STATE> divsigma(1);
-    divsigma[0] = 0.;
-
-    TPZManVector<STATE, 1> u_exact(1);
-    TPZFNMatrix<9, STATE> du_exact(3, 3);
-    if (this->fExactSol) {
-        this->fExactSol(data[H1functionposition].x, u_exact, du_exact);
-    }
-    if (this->fForcingFunction) {
-        this->fForcingFunction(data[H1functionposition].x, divsigma);
-    }
-
-    REAL residual = (divsigma[0] - divsigmafem) * (divsigma[0] - divsigmafem);
-    pressurereconstructed = data[H1functionposition].sol[0][0];
-    pressurefem = data[3].sol[0][0];
-
-    STATE perm = GetPermeability(data[1].x);
-
-    TPZFNMatrix<3, REAL> fluxexactneg(3, 1);
-
-    //sigmarec = -K grad(urec)
-    //  sigmak = -K graduk
-
-    {
-        TPZFNMatrix<9, REAL> gradpressure(3, 1);
-        for (int i = 0; i < 3; i++) {
-            fluxexactneg(i, 0) = perm * du_exact[i];
-        }
-    }
-
-    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
-    TPZFNMatrix<9, REAL> fluxrec(3, 0);
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
-
-    for (int id = 0; id < 3; id++) {
-        fluxreconstructed(id, 0) = (-1.) * perm * fluxrec(id, 0);
-    }
-
-    REAL innerexact = 0.;
-    REAL innerestimate = 0.;
-
+    // Calculate estimated errors
+    const auto &du_rec = data[1].dsol[0];
+    TPZFNMatrix<3, REAL> flux_rec(3, 1);
+    TPZAxesTools<REAL>::Axes2XYZ(du_rec, flux_rec, data[1].axes);
+    pressure_error_estimate = (pressurefem - pressurerec) * (pressurefem - pressurerec);
     for (int i = 0; i < 3; i++) {
-        if (this->fExactSol) {
-            innerexact += (fluxfem[i] + fluxexactneg(i, 0)) * (fluxfem[i] + fluxexactneg(i, 0)) / perm;
-            // Pq esta somando: o fluxo fem esta + e o exato -
-        }
-        innerestimate += (fluxfem[i] - fluxreconstructed[i]) * (fluxfem[i] - fluxreconstructed[i]) / perm;
+        flux_rec(i, 0) = -perm * flux_rec(i, 0);
+        flux_error_estimate += (fluxfem[i] - flux_rec(i, 0)) * (fluxfem[i] - flux_rec(i, 0)) / perm;
     }
 
-    STATE exact_pressure_error = 0;
+    // Calculate exact errors, if applicable
     if (this->fExactSol) {
-        exact_pressure_error = (pressurefem - u_exact[0]) * (pressurefem - u_exact[0]);
+        TPZManVector<STATE, 1> u_exact(1);
+        TPZFNMatrix<3, STATE> flux_exact(3, 1);
+        this->fExactSol(data[1].x, u_exact, flux_exact);
+        pressure_error_exact = (pressurefem - u_exact[0]) * (pressurefem - u_exact[0]);
+        for (int i = 0; i < 3; i++) {
+            flux_exact(i, 0) = -perm * flux_exact(i, 0);
+            flux_error_exact += (fluxfem[i] - flux_exact(i, 0)) * (fluxfem[i] - flux_exact(i, 0)) / perm;
+        }
     }
 
-    errors[0] = exact_pressure_error;
-    errors[1] =
-            (pressurefem - pressurereconstructed) * (pressurefem - pressurereconstructed);//error pressure reconstructed
-    errors[2] = innerexact;//error flux exact
-    errors[3] = innerestimate;//error flux reconstructed
-    errors[4] = residual; //||f - Proj_divsigma||
+    // Calculate residual component
+    TPZManVector<STATE, 1> source_term(1, 0);
+    if (this->fForcingFunction) {
+        this->fForcingFunction(data[1].x, source_term);
+    }
+    residual_error = (source_term[0] - divfluxfem) * (source_term[0] - divfluxfem);
+
+    // Fill error vector
+    errors[0] = pressure_error_exact;
+    errors[1] = pressure_error_estimate;
+    errors[2] = flux_error_exact;
+    errors[3] = flux_error_estimate;
+    errors[4] = residual_error;
 }
 
 int TPZHDivErrorEstimateMaterial::VariableIndex(const std::string &name) const {
