@@ -549,8 +549,8 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[2] = innerexact;//error flux exact
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
     errors[4] = residual; //||f - Proj_divsigma||
-    //errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
-    errors[5] = npz;
+    errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    //errors[5] = npz;
     errors[6] = altResidual*altResidual;
 }
 
@@ -578,10 +578,12 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
 
     STATE divsigmarec, pressurefem, pressurereconstructed, forceProj;
 
-    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1), gradreconstructed(3,1);
-    TPZFMatrix<REAL> gradfem,fluxfem(3,1);
+    TPZFNMatrix<3,REAL> fluxreconstructed(3,1,0), fluxreconstructed2(3,1), gradreconstructed(3,1);
+    TPZFMatrix<REAL> gradfem,gradfemaxis,fluxfem(3,1);
 
-    gradfem=data[3].dsol[0];
+
+    gradfemaxis=data[3].dsol[0];
+    TPZAxesTools<REAL>::Axes2XYZ(gradfemaxis, gradfem, data[3].axes);
 
     gradfem.Resize(3,1);
 
@@ -670,8 +672,6 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     std::cout<<"-------"<<std::endl;
 #endif
 
-
-
     for (int i=0; i<3; i++) {
         for (int j=0; j<3; j++) {
             innerexact += (fluxfem[i]-fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]-fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
@@ -691,8 +691,8 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(TPZVec<TPZMaterialData> &data, TPZ
     errors[2] = innerexact;//error flux exact
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
     errors[4] = residual; // ||f - div (sigma_h)||
-    //errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
-    errors[5] = npz;
+    errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    //errors[5] = npz;
     errors[6] = altResidual*altResidual; //||f - Proj_divsigma||
 }
 
@@ -714,6 +714,7 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
     if(name == "NFIndex") return 105;
     if(name == "PressureEffectivityIndex") return 107;
     if(name == "EnergyEffectivityIndex") return 108;
+    if(name == "EnergyErrorEstimated") return 109;
     if(name == "POrder") return 46;
 
     return -1;
@@ -742,6 +743,7 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var)
         case 106:
         case 107:
         case 108:
+        case 109:
             return 1;
             break;
         default:

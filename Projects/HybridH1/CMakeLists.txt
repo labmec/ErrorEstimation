@@ -9,6 +9,8 @@ add_library(Methods
         Solver.h
         TPZHybMixDiffMaterial.h
         TPZHybMixDiffMaterial.cpp
+        ForcingFunction.cpp
+        ForcingFunction.h
         )
 
 target_link_libraries(Methods Tools ErrorEstimationLib)

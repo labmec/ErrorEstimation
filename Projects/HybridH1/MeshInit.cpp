@@ -583,7 +583,11 @@ void InsertMaterialHybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig
             material->SetPermeability(1.);
             cmesh_H1Hybrid->InsertMaterialObject(material);
 
-            if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+            if(pConfig.type == 9){
+                material->SetForcingFunction(SingularityForcingFunction,5);
+                material->SetExactSol(SingularityExact,5);
+            }
+            else if(config.exact.operator*().fExact != TLaplaceExample1::ENone){
                 material->SetForcingFunction(config.exact.operator*().ForcingFunction());
                 material->SetExactSol(config.exact.operator*().Exact());
             }
@@ -593,7 +597,11 @@ void InsertMaterialHybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig
             TPZMaterial *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
             TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
-            if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+            if(pConfig.type == 9){
+                BCond0->SetForcingFunction(SingularityExact,5);
+                BCond1->SetForcingFunction(SingularityExact,5);
+            }
+            else if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
                 BCond0->SetForcingFunction(config.exact.operator*().Exact());
                 BCond1->SetForcingFunction(config.exact.operator*().Exact());
             }

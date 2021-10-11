@@ -120,7 +120,6 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
         TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
         elementErrors[gel->Index()] = elsol(i, 3);
     }
-    
 }
 
 void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
@@ -1556,6 +1555,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             }
         }
     }
+    double globalIeff = 0.;
+    double globalRight = 0.;
+    double globalLeft =0.;
     for (int64_t el = 0; el < nrows; el++) {
 
         TPZCompEl *cel = cmesh->Element(el);
@@ -1593,6 +1595,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             if (i == 2) {
                 oscilatorytherm = elsol(el, i + 2);
                 oscilatorytherm *= (hk / M_PI);
+
+                globalRight += (ErrorEstimate*ErrorEstimate +oscilatorytherm*oscilatorytherm);
+                globalLeft += (ErrorExact*ErrorExact);
             }
 
             if (abs(ErrorEstimate) < tol) {
@@ -1605,6 +1610,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             }
         }
     }
+
+    globalIeff = sqrt(globalRight/globalLeft);
+    std::cout << "GlobalIeff: " << globalIeff << "\n";
 
     {
         std::ofstream out("IeffPerElement.nb");

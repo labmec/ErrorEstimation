@@ -16,7 +16,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     config.exact->fDimension = config.dimension;
 
     bool isOriginCentered = 0; /// Wheater the domain = [0,1]x^n or [-1,1]^n
-    if(pConfig.type == 2) isOriginCentered = 1;
+    if(pConfig.type == 2 || pConfig.type >= 7) isOriginCentered = 1;
 
     TPZGeoMesh *gmesh;
     TPZManVector<int, 4> bcids(4, -1);
@@ -154,6 +154,11 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "ESteklovNonConst") pConfig.type = 2;
         else if (pConfig.problem == "EBubble2D") pConfig.type = 3;
         else if (pConfig.problem == "ELaplace") pConfig.type = 4;
+        else if (pConfig.problem == "E2SinSin") pConfig.type = 5;
+        else if (pConfig.problem == "E10SinSin") pConfig.type = 6;
+        else if (pConfig.problem == "ESing2D") pConfig.type = 7;
+        else if (pConfig.problem == "ESinMark") pConfig.type = 8;
+        else if (pConfig.problem == "EProb") pConfig.type = 9;
         else DebugStop();
     }
 
@@ -163,9 +168,10 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
     else if (pConfig.topology == "Tetrahedral") pConfig.topologyMode = 3;
     else if (pConfig.topology == "Hexahedral") pConfig.topologyMode = 4;
     else if (pConfig.topology == "Prism") pConfig.topologyMode = 5;
+    else if (pConfig.topology == "LQuad") pConfig.topologyMode = 6;
     if (pConfig.topologyMode == -1) DebugStop();
 
-    if(pConfig.topologyMode < 3) pConfig.dim = 2;
+    if(pConfig.topologyMode < 3 || pConfig.topologyMode == 6) pConfig.dim = 2;
     else pConfig.dim = 3;
 }
 
@@ -199,6 +205,9 @@ void InitializeOutstream(PreConfig &pConfig, char *argv[]){
             break;
         case 5:
             pConfig.topologyFileName = "3D-Prism";
+            break;
+        case 6:
+            pConfig.topologyFileName = "2D-LQuad";
             break;
         default:
             DebugStop();
@@ -268,6 +277,21 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
             break;
         case 4:
             config.exact.operator*().fExact = TLaplaceExample1::ELaplace2D;
+            break;
+        case 5:
+            config.exact.operator*().fExact = TLaplaceExample1::E2SinSin;
+            break;
+        case 6:
+            config.exact.operator*().fExact = TLaplaceExample1::E10SinSin;
+            break;
+        case 7:
+            config.exact.operator*().fExact = TLaplaceExample1::ESing2D;
+            break;
+        case 8:
+            config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+            break;
+        case 9:
+            config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
             break;
         default:
             DebugStop();

@@ -957,7 +957,13 @@ TPZGeoMesh* Tools::CreateQuadLShapeMesh(TPZVec<int>& bcids) {
 
 TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode) {
 
-    if (dim == 2){
+    if (dim == 2) {
+
+        if (topologyMode == 6) {
+            TPZManVector<int, 4> Lbcids(8, -1);
+            return Tools::CreateQuadLShapeMesh(Lbcids);
+        }
+
         TPZManVector<int> nx(2, nel);
         TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
         if(isOriginCentered == 1){
