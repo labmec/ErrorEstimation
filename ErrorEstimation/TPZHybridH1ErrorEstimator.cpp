@@ -14,12 +14,16 @@
 #include "pzcondensedcompel.h"
 #include "pzelementgroup.h"
 #include "pzintel.h"
-#include "TPZElementMatrixT.h"
+#include "pzelmat.h"
+#include "pzbndcond.h"
+#include "mixedpoisson.h"
 #include "TPZMixedHdivErrorEstimate.h"
 #include "pzbuildmultiphysicsmesh.h"
-#include "TPZAnalysis.h"
+#include "tpzcompmeshreferred.h"
+#include "pzanalysis.h"
+#include "pzmat1dlin.h"
+#include "TPZVecL2.h"
 #include "TPZNullMaterial.h"
-#include "TPZNullMaterialCS.h"
 #include "pzelementgroup.h"
 #include "TPZInterfaceEl.h"
 
@@ -44,6 +48,85 @@
 #include "TPZGeoElSidePartition.h"
 
 #include "TPZHDivErrorEstimateMaterial.h"
+
+void SingularityPotential( const TPZVec<REAL> &x, TPZVec<REAL> &g) {
+    double theta = atan2(x[1], x[0]);//theta=arctan(y/x)
+    auto thetaval = shapeFAD::val(theta);
+    if (thetaval < (0.)) theta += 2. * M_PI;
+
+    double r = sqrt(x[0]*x[0]+x[1]*x[1]);
+
+    // Verification to avoid numerical errors when x > 0 and y = 0
+    if (x[0] > 0 && x[1] < 1e-15 && x[1] > -1.e-15) {
+        g[0] = 0.;
+    }
+
+    else {
+        double factor = pow(r,2./3.);//pow(r,TVar (2.)/TVar (3.))-pow(r,TVar (2.));//
+        g[0] = factor * (sin( (2.) * theta / (3.)));
+    }
+}
+
+void SingularityEx( const TPZVec<REAL> &x, TPZVec<REAL> &g, TPZFMatrix<REAL> &dg)
+{
+    double theta = atan2(x[1], x[0]);//theta=arctan(y/x)
+    auto thetaval = shapeFAD::val(theta);
+    if (thetaval < (0.)) theta += 2. * M_PI;
+
+    double r = sqrt(x[0]*x[0]+x[1]*x[1]);
+
+    // Verification to avoid numerical errors when x > 0 and y = 0
+    if (x[0] > 0 && x[1] < 1e-15 && x[1] > -1.e-15) {
+        g[0] = 0.;
+    }
+
+    else {
+        double factor = pow(r,2./3.);//pow(r,TVar (2.)/TVar (3.))-pow(r,TVar (2.));//
+        g[0] = factor * (sin( (2.) * theta / (3.)));
+    }
+
+    dg.Resize(3,1);
+    //double denominator = 3*pow(x[0],1./3.);//3*pow(x[0]*x[0]+x[1]*x[1],2./3.);
+    //if (denominator < 1e-15 ) {
+     //   denominator = 1e-15;
+    //}
+    double denominator = 3.*pow(x[0]*x[0]+x[1]*x[1],2./3.);
+    if (denominator < 1e-18 &&  denominator > -1e-18) {
+        double mindeno = 1e-15;
+        double xmin = mindeno*cos(theta);
+        double ymin = mindeno*sin(theta);
+
+        dg(0,0) = 2.*(-ymin*cos(2.*theta/3.)+xmin*sin(2.*theta/3.))/mindeno;
+        dg(1,0) = 2.*(xmin*cos(2.*theta/3.)+ymin*sin(2.*theta/3.))/mindeno;
+    } else {
+        dg(0, 0) = 2. * (-x[1] * cos(2. * theta / 3.) + x[0] * sin(2. * theta / 3.)) / denominator;
+        dg(1, 0) = 2. * (x[0] * cos(2. * theta / 3.) + x[1] * sin(2. * theta / 3.)) / denominator;
+
+    }
+    dg(2, 0) = 0;
+}
+/*
+void SingularityPotential( const TPZVec<REAL> &x, TPZVec<REAL> &g) {
+    double x2 = x[0]*x[0];
+    double y2 = x[1]*x[1];
+    double r = sqrt(x2+y2);
+    g.Resize(1);
+    g[0] = pow(r,1./100.)*(1.-x2)*(1.-y2);
+}
+
+void SingularityEx( const TPZVec<REAL> &x, TPZVec<REAL> &g, TPZFMatrix<REAL> &dg)
+{
+    double x2 = x[0]*x[0];
+    double y2 = x[1]*x[1];
+    double r = sqrt(x2+y2);
+    g.Resize(1);
+    g[0] = pow(r,1./100.)*(1.-x2)*(1.-y2);
+
+    dg.Resize(3,1);
+    dg(0,0) = x[0]*(-1+y2)*(-1+201*x2+200*y2)/(100*pow(x2+y2,199/200));
+    dg(1,0) = x[1]*(-1+x2)*(-1+200*x2+201*y2)/(100*pow(x2+y2,199/200));
+    dg(2,0) = 0;
+}*/
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -73,10 +156,11 @@ TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
 void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REAL> &elementerrors, bool store = true) {
-    TPZLinearAnalysis an(&fPostProcMesh, false);
+    TPZAnalysis an(&fPostProcMesh, false);
     
     if (fExact) {
-        an.SetExact(fExact->ExactSolution());
+        //an.SetExact(fExact->ExactSolution());
+        an.SetExact(SingularityEx,5); // DELETE-ME
     }
     
 #ifdef ERRORESTIMATION_DEBUG2
@@ -259,6 +343,7 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
             scalnames.Push("EnergyErrorExact");
             scalnames.Push("PressureEffectivityIndex");
             scalnames.Push("EnergyEffectivityIndex");
+            scalnames.Push("EnergyErrorEstimated");
             vecnames.Push("FluxExact");
         }
         scalnames.Push("PressureFem");
@@ -305,8 +390,9 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     system(command.c_str());
     {
         std::ofstream outCon(dirPath + "OriginalFluxConnects.txt");
-        if(cmeshHdiv->Dimension() == 2)
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
+        if(cmeshHdiv->Dimension() == 2) {
+            //TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
+        }
         std::ofstream outOriginalP(dirPath + "OriginalFlux.txt");
         cmeshHdiv->Print(outOriginalP);
         std::ofstream outGOriginalVTK(dirPath + "gFlux.vtk");
@@ -346,7 +432,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
 #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream outCon(dirPath + "HdivFluxConnects.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
+        //TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outCon, {}, false, true);
         std::ofstream outOriginalP(dirPath + "HdivFlux.txt");
         cmeshHdiv->Print(outOriginalP);
         std::ofstream outGOriginalVTK(dirPath + "gHdivFlux.vtk");
@@ -374,7 +460,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     pressure->ApproxSpace().CreateDisconnectedElements(true);
 
     for(auto matid:fProblemConfig.materialids){
-        TPZNullMaterial<> *material = new TPZNullMaterial<>(matid); material->SetDimension(dimMesh);
+        TPZNullMaterial *material = new TPZNullMaterial(matid); material->SetDimension(dimMesh);
         pressure->InsertMaterialObject(material);
     }
     pressure->AutoBuild();
@@ -383,7 +469,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     TPZCompMesh *gspace = new TPZCompMesh(fProblemConfig.gmesh);
     {
         for (auto matid:fProblemConfig.materialids) {
-            TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
+            TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
             nullmat->SetDimension(fProblemConfig.gmesh->Dimension());
             nullmat->SetNStateVariables(1);
             gspace->InsertMaterialObject(nullmat);
@@ -450,7 +536,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     }
 #endif
 #ifdef ERRORESTIMATION_DEBUG
-    TPZLinearAnalysis an(&HdivRecMesh, false);
+    TPZAnalysis an(&HdivRecMesh, false);
     TPZStack<std::string> scalnames, vecnames;
     int dim = HdivRecMesh.Reference()->Dimension();
 
@@ -540,16 +626,17 @@ void TPZHybridH1ErrorEstimator::AddBC2PressureMesh(TPZCompMesh *pressureMesh){
     std::set<int> bcMatIDs = fProblemConfig.bcmaterialids;
     for (auto bcID : bcMatIDs) {
         TPZMaterial *mat = mult->FindMaterial(bcID);
-        TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc) DebugStop();
 
         int volumetricMatId = bc->Material()->Id();
         TPZMaterial *pressuremat = pressureMesh->FindMaterial(volumetricMatId);
         if (!pressuremat) DebugStop();
-        TPZMaterialT<STATE> *press = dynamic_cast<TPZMaterialT<STATE> *>(pressuremat);
-        TPZBndCondT<STATE> *newbc = press->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
-        if (bc->HasForcingFunctionBC()) {
-            newbc->SetForcingFunctionBC(bc->ForcingFunctionBC(),4);
+
+        TPZMaterial *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
+        if (bc->HasForcingFunction()) {
+            //newbc->SetForcingFunction(bc->ForcingFunction());
+            newbc->SetForcingFunction(SingularityPotential,5); // DELETE-ME
         }
         pressureMesh->InsertMaterialObject(newbc);
     }
@@ -596,7 +683,8 @@ void TPZHybridH1ErrorEstimator::AddBC2PressureMesh(TPZCompMesh *pressureMesh){
         int order = intel->Connect(iside).Order();
         pressureMesh->SetDefaultOrder(order);
 
-        TPZCompEl *bcCel = pressureMesh->CreateCompEl(bcGeoEl);
+        int64_t id;
+        TPZCompEl *bcCel = pressureMesh->CreateCompEl(bcGeoEl, id);
         // Reset references so that future elements will not share connects with these two elements
         bcCel->Reference()->ResetReference();
         neighCel->Reference()->ResetReference();
@@ -658,7 +746,7 @@ void TPZHybridH1ErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mes
 #endif
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPressureSkeletonMatId);
+    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
     fPostProcMesh.InsertMaterialObject(skeletonMat->NewMaterial());
@@ -749,11 +837,10 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
     forceProj->ApproxSpace().CreateDisconnectedElements(true);
 
     for(auto matid:fProblemConfig.materialids){
-        TPZNullMaterial<> *material = new TPZNullMaterial<>(matid);
+        TPZNullMaterial *material = new TPZNullMaterial(matid);
         material->SetDimension(dimMesh);
         forceProj->InsertMaterialObject(material);
-        int porder = 5;
-        material->SetForcingFunction(fProblemConfig.exact->ForceFunc(),porder);
+        material->SetForcingFunction(fProblemConfig.exact.operator*().ForcingFunction());
     }
     forceProj->AutoBuild();
     forceProj->ExpandSolution();
@@ -770,10 +857,10 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         int nc = cel->NConnects();
-        TPZMaterial *matabstr = cel->Material();
-        TPZMatSingleSpace *material = dynamic_cast<TPZMatSingleSpace*>(matabstr);
+        TPZMaterial *material = cel->Material();
         int polyOrder = cel->Connect(nc - 1).Order();
         int order = material->IntegrationRuleOrder(polyOrder);
+        //int order = 40; //DELETE-ME
 
         int nshape = intel->NShapeF();
         TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
@@ -797,15 +884,14 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
             gel->Jacobian(intpointtemp, jac, axe, detJac, jacInv);
             weight *= fabs(detJac);
 
-            TPZMaterialDataT<STATE> data;
+            TPZMaterialData data;
             intel->Shape(intpointtemp, phi, dphi);
             gel->X(intpointtemp,x);
 
-            TPZMaterialT<STATE> *material = dynamic_cast<TPZMaterialT<STATE>*>(matabstr);
-            if(!material->HasForcingFunction()) DebugStop();
+            if(!material->ForcingFunction()) DebugStop();
             STATE force;
             TPZManVector<STATE> res(3);
-            material->ForcingFunction()(x,res);
+            material->ForcingFunction()->Execute(x,res);
             force = res[0];
 
             //std::cout << "[" << intpointtemp[0] << ", " << intpointtemp[1] << ", " << intpointtemp[2] << "]\n";
@@ -844,7 +930,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
     {
         std::string dirPath = fDebugDirName + "/";
         std::ofstream outCon(dirPath + "forceProj.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(forceProj, outCon, {1}, false, true);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(forceProj, outCon, {}, false, true);
     }
 
     return forceProj->Clone();
@@ -1056,11 +1142,11 @@ static TPZGeoElSide HasNeighbour(const TPZGeoElSide &gelside, int matid) {
 // will do nothing if the dimension of the mesh == 2
 void TPZHybridH1ErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh) {
     
-    if (pressuremesh->MaterialVec().find(fPressureSkeletonMatId) != pressuremesh->MaterialVec().end()) {
+    /*if (pressuremesh->MaterialVec().find(fPressureSkeletonMatId) != pressuremesh->MaterialVec().end()) {
         DebugStop();
     }
-    TPZNullMaterialCS<> *nullmat = new TPZNullMaterialCS<>(fPressureSkeletonMatId);
-    pressuremesh->InsertMaterialObject(nullmat);
+    TPZNullMaterial *nullmat = new TPZNullMaterial(fPressureSkeletonMatId);
+    pressuremesh->InsertMaterialObject(nullmat);*/
     int dim = fPostProcMesh.Dimension();
     int64_t nel = pressuremesh->NElements();
     std::map<int64_t, int> gelpressures;
@@ -1112,8 +1198,9 @@ void TPZHybridH1ErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh
         TPZGeoEl *gel = gmesh->Element(index);
         if (!gel) DebugStop();
         TPZCompEl *cel = 0;
+        int64_t celindex = -1;
         pressuremesh->SetDefaultOrder(polynomialorder);
-        cel = pressuremesh->ApproxSpace().CreateCompEl(gel, *pressuremesh);
+        cel = pressuremesh->ApproxSpace().CreateCompEl(gel, *pressuremesh, celindex);
 #ifdef ERRORESTIMATION_DEBUG
         {
             TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
@@ -1570,7 +1657,7 @@ void TPZHybridH1ErrorEstimator::ComputeBoundaryL2Projection(TPZCompMesh *pressur
     
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
     
-    TPZElementMatrixT<STATE> ekbc, efbc;
+    TPZElementMatrix ekbc, efbc;
     for (int iel = 0; iel < nel; iel++) {
         TPZCompEl *cel = elementvec[iel];
         if (!cel) continue;
@@ -1639,7 +1726,7 @@ void TPZHybridH1ErrorEstimator::BoundaryPressureProjection(TPZCompMesh *pressure
     //        pressmesh->Print(out);
     //    }
     
-    TPZElementMatrixT<STATE> ekbc,efbc;
+    TPZElementMatrix ekbc,efbc;
 
     int64_t nel = fPostProcMesh.NElements();
     for (int64_t el = 0; el<nel; el++) {
@@ -1747,7 +1834,7 @@ void TPZHybridH1ErrorEstimator::NewComputeBoundaryL2Projection(
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
         
-        TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
         if (!bc) continue;
         
         if(bc->Type()==4 && IsZero(bc->Val1()(0,0))) continue;
@@ -1774,12 +1861,12 @@ void TPZHybridH1ErrorEstimator::NewComputeBoundaryL2Projection(
             REAL u_D = 0.;
             REAL g = 0.;
             
-            if (bc->HasForcingFunctionBC()) {
+            if (bc->HasForcingFunction()) {
                 TPZManVector<STATE> result(3);
                 TPZFNMatrix<9, STATE> gradu(dim, 1);
                 TPZManVector<REAL, 3> x;
                 gel->X(pt, x);
-                bc->ForcingFunctionBC()(x, result, gradu);
+                bc->ForcingFunction()->Execute(x, result, gradu);
                 u_D = result[0];
                 //tem que calcular o g aqui..que é Kgradu.n
                 
@@ -2607,7 +2694,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     
     //    REAL oscilatorytherm = 0;
     int dim = cmesh->Dimension();
-    elsol.Resize(nrows, ncols+2);
+    elsol.Resize(nrows, ncols+3);
     REAL oscilatorytherm = 0;
     REAL fluxestimator = 0;
     for (int64_t el = 0; el < nrows; el++) {
@@ -2676,7 +2763,6 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     }
     REAL globalResidual =0., globalProjResidual =0.;;
     REAL n1 = 0.,n2n3 = 0.,ex = 0.;
-    REAL n2Prop = 0., n2Voh = 0.;
     for (int64_t el = 0; el < nrows; el++) {
         
         TPZCompEl *cel = cmesh->Element(el);
@@ -2719,10 +2805,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
 
                 ex += elsol(el, 2)*elsol(el, 2);
                 n1 += elsol(el, 3)*elsol(el, 3);
-                n2n3 += (elsol(el, 4) + elsol(el, 5))*(elsol(el, 4) + elsol(el, 5));
-
-                n2Voh += elsol(el, 5)*elsol(el, 5);
-                n2Prop += elsol(el, 6)*elsol(el, 6);
+                n2n3 += (oscilatorytherm + elsol(el, 5))*(oscilatorytherm + elsol(el, 5));
             }
             
             
@@ -2736,6 +2819,10 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
                 dataIeff(el,0)= EfIndex;
                 
                 elsol(el, ncols + i / 2) = EfIndex;
+                if(i == 2){
+                    elsol(el, ncols + 2) = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator));
+                }
+
             }
         }
     }
@@ -2746,6 +2833,8 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     std::cout << "\n\n";
     std::cout << "Residual = " << globalResidual << "\n";
     std::cout << "ProjResidual = " << globalProjResidual << "\n";
+    std::cout << "I_{EF} = " << globalIndex << "\n";
+    std::cout << "Est. Error = " << sqrt(n1+n2n3) << "\n";
     std::cout << "\n\n";
 
     {
@@ -2754,11 +2843,8 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
         myfile << "||f-Proj(f)|| = " << globalProjResidual << "\n";
         myfile << "||f-Div(T_h)|| = " << globalResidual << "\n";
         myfile << "I_{EF} = " << globalIndex << "\n";
+        myfile << "Est. Error = " << sqrt(n1+n2n3) << "\n";
         myfile.close();
-        std::cout <<"nProp^2: " << n2Prop << "\n";;
-        std::cout <<"nVoh^2: " << n2Voh << "\n";;
-        std::cout <<"n1^2: " << n1 << "\n";
-        std::cout <<"nProp^2 - (n1^2+nVoh^2): " << n2Prop - n2Voh - n1 << "\n";;
     }
 
     
@@ -2788,21 +2874,20 @@ void TPZHybridH1ErrorEstimator::GetDirichletValue(TPZGeoElSide gelside, TPZVec<S
     TPZGeoEl *gel = gelside.Element();
     int matid = gel->MaterialId();
     TPZMaterial *mat = fPostProcMesh.FindMaterial(matid);
-    TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+    TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
     if (!bc) DebugStop();
     int typ = bc->Type();
     if (typ != 0) DebugStop();
     //TPZManVector<REAL,3> xco(3,0.);
     TPZVec<REAL> xco;
     xco.resize(3);
-    if (bc->HasForcingFunctionBC()) {
+    if (bc->HasForcingFunction()) {
         gel->NodePtr(gelside.Side())->GetCoordinates(xco);
-        TPZFNMatrix<4,STATE> grad(3,1);
-        bc->ForcingFunctionBC()(xco, vals,grad);
+        bc->ForcingFunction()->Execute(xco, vals);
     } else {
         int nv = vals.size();
         for (int iv = 0; iv < nv; iv++) {
-            vals[iv] = bc->Val2()[iv];
+            vals[iv] = bc->Val2()(iv, 0);
         }
     }
 }
@@ -3068,7 +3153,7 @@ void TPZHybridH1ErrorEstimator::PlotLagrangeMultiplier(const std::string &filena
     pressure->Print(out2);
     
     {
-        TPZLinearAnalysis an(pressure, false);
+        TPZAnalysis an(pressure, false);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
         scalnames.Push("Pressure");
@@ -3594,7 +3679,8 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
         }
 
         if (elementsToGroup.size()) {
-            TPZElementGroup *elGroup = new TPZElementGroup(fPostProcMesh);
+            int64_t index;
+            TPZElementGroup *elGroup = new TPZElementGroup(fPostProcMesh, index);
             for (const auto &it : elementsToGroup) {
                 elGroup->AddElement(fPostProcMesh.Element(it));
             }
@@ -3630,7 +3716,7 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompElT<STATE>(cel, false);
+        TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel, false);
     }
 
     for (auto matit : fPostProcMesh.MaterialVec()) {
@@ -3737,7 +3823,7 @@ void TPZHybridH1ErrorEstimator::ComputePressureWeights() {
         }
         if (!mat)  DebugStop();
 
-        TPZBndCondT<STATE> *bcmat = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
         
         if (bcmat) {
             if (bcmat->Type() == 0) {
@@ -3765,7 +3851,7 @@ void TPZHybridH1ErrorEstimator::ComputePressureWeights() {
             if (!matlaplacian) DebugStop();
             
             REAL perm;
-            perm = matlaplacian->GetPermeability({0,0,0});
+            matlaplacian->GetMaxPermeability(perm);
             if (IsZero(perm)) DebugStop();
             this->fPressureweights[el] = perm;
             fMatid_weights[matid] = perm;
@@ -3779,7 +3865,7 @@ void TPZHybridH1ErrorEstimator::PlotState(const std::string& filename, int targe
     cmesh->Print(out2);
     
     {
-        TPZLinearAnalysis an(cmesh, false);
+        TPZAnalysis an(cmesh, false);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
         scalnames.Push("PressureReconstructed");

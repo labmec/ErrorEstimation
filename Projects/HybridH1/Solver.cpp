@@ -19,6 +19,7 @@
 #include "MeshInit.h"
 #include "TPZHybridH1ErrorEstimator.h"
 #include "InputTreatment.h"
+#include "ForcingFunction.h"
 
 using namespace std;
 void Solve(ProblemConfig &config, PreConfig &preConfig){
@@ -89,15 +90,13 @@ void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]){
 
 void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, ProblemConfig &config){
 
-    TPZLinearAnalysis an(multHybMix);
+    TPZAnalysis an(multHybMix);
 
     std::cout << "Post Processing ""Hyb - Mix"" difference " << std::endl;
     an.SetExact(config.exact.operator*().ExactSolution());
 
     TPZVec<REAL> errorVec;
-    auto mat_error = dynamic_cast<TPZMatError<STATE>*>(multHybMix->MaterialVec().at(1));
-    if (!mat_error) DebugStop();
-    int64_t nErrorCols = mat_error->NEvalErrors() + 1;
+    int64_t nErrorCols =multHybMix->MaterialVec().at(1)->NEvalErrors()+1;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -338,10 +337,10 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
     std::cout << "Solving H1 " << std::endl;
 
-    TPZLinearAnalysis an(cmeshH1);
+    TPZAnalysis an(cmeshH1);
 
 #ifdef PZ_USING_MKL
-    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
+    TPZSymetricSpStructMatrix strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -449,7 +448,12 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
     if(pConfig.debugger) {
         std::cout << "Computing Error HYBRID_H1 " << std::endl;
-        an.SetExact(config.exact.operator*().ExactSolution());
+        if(pConfig.type == 9){
+            an.SetExact(SingularityExact,100);
+        }
+        else{
+            an.SetExact(config.exact.operator*().ExactSolution());
+        }
         ////Calculo do erro
         StockErrors(an,cmesh_H1Hybrid,pConfig.Erro,pConfig.Log,pConfig);
         std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
@@ -458,6 +462,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
         vecnames.Push("Flux");
+        vecnames.Push("ExactFlux");
 
         int dim = pConfig.dim;
         std::string plotname;
