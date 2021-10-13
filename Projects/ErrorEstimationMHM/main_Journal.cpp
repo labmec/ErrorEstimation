@@ -43,7 +43,7 @@ void RunNonConvexProblem();
 void RunHighGradientProblem(int nCoarseDiv, int nInternalRef);
 void RunInnerSingularityProblem(int nCoarseDiv, int nInternalRef, int k, int n);
 void RunPeriodicPermProblem(int nCoarseDiv, int nInternalRef);
-void RunHighGradientAdaptivityProblem(int n_steps);
+void RunHighGradientAdaptivityProblem(int n_divisions);
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes);
@@ -53,7 +53,7 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
                        TPZManVector<int64_t> &mhmIndexes);
 
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, bool definePartitionByCoarseIndex,
-                       TPZManVector<int64_t> &mhmIndexes, const std::vector<int64_t>& skelsToDivide);
+                       TPZManVector<int64_t> &mhmIndexes, const std::vector<int> &refLevelPerSubdomain);
 
 void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, int nInternalRef,
                                  bool definePartitionByCoarseIndex, TPZManVector<int64_t>& mhmIndexes);
@@ -64,7 +64,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm, TPZMHMHDivErrorEstimator &estimator);
 
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMesh *postProcMesh,
-                   std::vector<int64_t> &skelsToRefine);
+                   std::vector<int> &refLevelPerSubdomain);
 
 void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm);
 void PeriodicProblemForcingFunction(const TPZVec <REAL> &pt, TPZVec <STATE> &result);
@@ -83,7 +83,7 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     const std::set<int> nCoarseDiv = {8};
-    const std::set<int> nInternalRef = {0};
+    const std::set<int> nInternalRef = {1};
     const std::set<int> kOrder = {1};
     const std::set<int> nOrder = {2};
 
@@ -99,6 +99,7 @@ int main() {
 
     return 0;
 }
+
 void RunInnerSingularityProblemSuite(const std::set<int> &nCoarseDiv, const std::set<int> &nInternalRef,
                                      const std::set<int> &kOrder, const std::set<int> &nOrder) {
     for (const auto k : kOrder) {
@@ -464,7 +465,7 @@ TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64
 }
 
 void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, bool definePartitionByCoarseIndex,
-                       TPZManVector<int64_t> &mhmIndexes, const std::vector<int64_t> &skelsToDivide) {
+                       TPZManVector<int64_t> &mhmIndexes, const std::vector<int> &refLevelPerSubdomain) {
 
     if (definePartitionByCoarseIndex) {
         mhm->DefinePartitionbyCoarseIndices(mhmIndexes);
@@ -484,9 +485,15 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     mhm->SetSkeletonPOrder(config.porder);
     mhm->SetHdivmaismaisPOrder(config.hdivmais);
 
-    // Refine skeleton elements
-    for (auto skelid : skelsToDivide) {
-        mhm->DivideSkeletonElement(skelid);
+    const auto interfaces = mhm->GetInterfaces();
+    if (!refLevelPerSubdomain.empty()) {
+        for (auto interface : interfaces) {
+            if (interface.first == interface.second.first || interface.first == interface.second.second) continue;
+            auto right_ref_level = refLevelPerSubdomain[interface.second.first];
+            auto left_ref_level = refLevelPerSubdomain[interface.second.second];
+            const auto n_divisions = std::max(right_ref_level, left_ref_level);
+            mhm->DivideSkeletonElement(interface.first, n_divisions);
+        }
     }
 
     mhm->DivideBoundarySkeletonElements();
@@ -913,7 +920,7 @@ void PrintLatexGraphs(std::ostream & out) {
     std::cout << latex_text.str();
 }
 
-void RunHighGradientAdaptivityProblem(const int n_steps){
+void RunHighGradientAdaptivityProblem(const int n_divisions){
 
     ProblemConfig config;
     config.dimension = 2;
@@ -927,28 +934,33 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseRef = 4;
-    int nInternalRef = 4;
+    int nCoarseRef = 7;
+    int nInternalRef = n_divisions;
 
     config.ndivisions = nCoarseRef;
 
     std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
-    std::vector<int64_t> skelsToRefine;
-    for (int i = 0; i < n_steps; i++) {
-
+    std::vector<int> refLevelPerSubdomain;
+    int max_refinement = 0;
+    int adaptivity_step = 0;
+    while (max_refinement <= n_divisions) {
         config.gmesh = CreateQuadGeoMesh(nCoarseRef, nInternalRef);
 
         auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
         TPZManVector<int64_t> coarseIndexes;
         ComputeCoarseIndices(config.gmesh, coarseIndexes);
         bool definePartitionByCoarseIndexes = true;
-        CreateMHMCompMesh(mhm, config, definePartitionByCoarseIndexes, coarseIndexes, skelsToRefine);
+        CreateMHMCompMesh(mhm, config, definePartitionByCoarseIndexes, coarseIndexes, refLevelPerSubdomain);
+        if (max_refinement == 0) {
+            const auto n_subdomains = mhm->Coarse_to_Submesh().size();
+            refLevelPerSubdomain.resize(n_subdomains, 0);
+        }
 
         {
-            std::string fileName =
-                config.dir_name + "/" + config.problemname + "GMesh" + std::to_string(i) + ".vtk";
+            std::string fileName = config.dir_name + "/" + config.problemname + "GMesh" + std::to_string(nCoarseRef) +
+                                   "x" + std::to_string(nCoarseRef) + std::to_string(adaptivity_step) + ".vtk";
             std::ofstream file(fileName);
             TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
         }
@@ -959,18 +971,22 @@ void RunHighGradientAdaptivityProblem(const int n_steps){
         TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
         if (!originalMesh) DebugStop();
         TPZMHMHDivErrorEstimator estimator(*originalMesh, mhm, postProcWithHDiv);
-        estimator.SetAdaptivityStep(i);
+        estimator.SetAdaptivityStep(adaptivity_step);
         EstimateError(config, mhm, estimator);
 
         auto *postprocmesh = estimator.PostProcMesh();
         if (!postprocmesh) DebugStop();
 
-        MHMAdaptivity(mhm, config, postprocmesh, skelsToRefine);
+        MHMAdaptivity(mhm, config, postprocmesh, refLevelPerSubdomain);
+        adaptivity_step++;
+
+        max_refinement = *std::max_element(refLevelPerSubdomain.begin(), refLevelPerSubdomain.end());
+        std::cout << "Max ref level: " << max_refinement << '\n';
     }
 }
 
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMesh *postProcMesh,
-                   std::vector<int64_t> &skelsToRefine) {
+                   std::vector<int> &refLevelPerSubdomain) {
 
     // Column of the flux error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;
@@ -1001,7 +1017,6 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMes
     const auto geoToMHM = mhm->GetGeoToMHMDomain();
     const auto interfaces = mhm->GetInterfaces();
 
-    std::set<int64_t> interfacesToRefine;
     for (int64_t iel = 0; iel < nelem; iel++) {
         auto * submesh = dynamic_cast<TPZSubCompMesh*>(postProcMesh->ElementVec()[iel]);
         if (!submesh) continue;
@@ -1010,18 +1025,17 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, ProblemConfig &config, TPZCompMes
         if (submeshError > threshold) {
             TPZGeoEl * gel = submesh->Element(0)->Reference();
             const auto submesh_id = geoToMHM[gel->Index()];
-             std::cout << "Refining submesh " << submesh_id << " which error is " << submeshError << ".\n";
-            for (auto interface : interfaces) {
-                if (interface.second.first == submesh_id || interface.second.second == submesh_id) {
-                    interfacesToRefine.insert(interface.first);
-                }
-            }
+            refLevelPerSubdomain[submesh_id]++;
+            std::cout << "Refining submesh " << submesh_id << " which error is " << submeshError << ".\n";
         }
     }
 
-    for (auto it : interfacesToRefine) {
-        skelsToRefine.push_back(it);
+    for (auto i = 0; i < refLevelPerSubdomain.size(); i++) {
+        if (refLevelPerSubdomain[i] != 0) {
+            std::cout << i << ": " << refLevelPerSubdomain[i] << '\n';
+        }
     }
+    std::cout << "Done!\n";
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm, TPZMHMHDivErrorEstimator& estimator) {
