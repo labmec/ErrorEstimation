@@ -2232,7 +2232,7 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
             plotname = out.str();
         }
         an.DefineGraphMesh(targetDim, scalnames, vecnames, plotname);
-        an.PostProcess(4, targetDim);
+        an.PostProcess(0, targetDim);
     }
 }
 
