@@ -12,6 +12,7 @@
 #include <libInterpolate/Interpolate.hpp>
 #include <memory>
 #include <pzgmesh.h>
+#include "ToolsSPE10.h"
 
 typedef _2D::BicubicInterpolator<REAL> Interpolator;
 
@@ -28,9 +29,19 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm, int adaptivity_step);
 void EstimateError(TPZMHMixedMeshControl &mhm, TPZMHMHDivErrorEstimator &estimator);
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZCompMesh *postProcMesh, std::vector<int64_t> &skelsToRefine);
 
+constexpr int adaptivity_steps = 4;
 int main() {
 
-    constexpr int adaptivity_steps = 3;
+    auto * gmesh = SPE10::CreateFineGridGeoMesh();
+    auto * gmeshMHM = SPE10::CreateMHMGeoMesh();
+
+    {
+        std::string fileName = "GMeshMHM.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(gmeshMHM, file);
+    }
+
+    return 0;
     constexpr int layer = 36;
     constexpr int nx = 220;
     constexpr int ny = 60;
@@ -152,7 +163,7 @@ void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm, const std::vector<int64_
     TPZManVector<int64_t, 22 * 6> coarse_indexes;
     ComputeCoarseIndices(gmesh, coarse_indexes);
 
-    int nInternalRef = 3;
+    int nInternalRef = adaptivity_steps;
     Tools::UniformRefinement(nInternalRef, 2, gmesh);
     Tools::DivideLowerDimensionalElements(gmesh);
 
@@ -169,7 +180,7 @@ void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm, const std::vector<int64_
     // General approximation order settings
     mhm.SetInternalPOrder(1);
     mhm.SetSkeletonPOrder(1);
-    mhm.SetHdivmaismaisPOrder(1);
+    mhm.SetHdivmaismaisPOrder(2);
 
     // Refine skeleton elements
     for (auto skelid : skelsToDivide) {

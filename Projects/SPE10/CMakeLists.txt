@@ -1,4 +1,4 @@
-add_executable(SPE10 mainSPE10.cpp)
+add_executable(SPE10 mainSPE10.cpp ToolsSPE10.cpp ToolsSPE10.h)
 target_link_libraries(SPE10 PRIVATE Tools ErrorEstimationLib)
 
 find_package(libInterpolate REQUIRED)
