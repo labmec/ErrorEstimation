@@ -85,28 +85,45 @@
         new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId2, *gmesh);
     }
 
-    //for (int64_t i = 0; i < 6; i++) {
-    //    nodesIdVec[0] = 0;
-    //    nodesIdVec[1] = 1 + 2 * i;
-    //    nodesIdVec[2] = 3 + 2 * i;
-    //    new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
-    //}
-    //// Inserts arc elements
-    //for (int64_t i = 0; i < 6; i++) {
-    //    nodesIdVec[0] = 1 + 2 * i;
-    //    nodesIdVec[1] = 3 + 2 * i;
-    //    nodesIdVec[2] = 2 + 2 * i;
-    //    new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, matIdArc, *gmesh);
-    //}
-    //// Finally, inserts line elements to complete boundary
-    //nodesIdVec.Resize(2);
-    //nodesIdVec[0] = 0;
-    //nodesIdVec[1] = 1;
-    //new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+    gmesh->BuildConnectivity();
+    return gmesh;
+}
 
-    //nodesIdVec[0] = 0;
-    //nodesIdVec[1] = 13;
-    //new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
+[[maybe_unused]] TPZGeoMesh *SPE10::CreateRefinementGeoMesh(const int nx, const int ny) {
+    auto* gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(2);
+    TPZManVector<REAL, 3> coord(3, 0.);
+
+    for (int y = 0; y <= ny; y++) {
+        for (int x = 0; x <= nx; x++) {
+            coord = {static_cast<double>(x), static_cast<double>(y), 0.};
+            // Create new node
+            const auto newID = gmesh->NodeVec().AllocateNewElement();
+            gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+        }
+    }
+
+    constexpr int matId = 1;
+
+    // Inserts quad elements
+    TPZManVector<int64_t, 4> nodesIdVec(4, 0);
+    nodesIdVec[1] = nx;
+    nodesIdVec[2] = (ny + 1) * (nx + 1) - 1;
+    nodesIdVec[3] = ny * (nx + 1);
+    auto * father_gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, matId, *gmesh);
+
+    int nelem = 0;
+    for (int y = 0; y < ny; y++) {
+        for (int x = 0; x < nx; x++) {
+            nodesIdVec[0] = (nx + 1) * y + x;
+            nodesIdVec[1] = (nx + 1) * y + x + 1;
+            nodesIdVec[2] = (nx + 1) * (y + 1) + x + 1;
+            nodesIdVec[3] = (nx + 1) * (y + 1) + x + 0;
+            auto * gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, matId, *gmesh);
+            gel->SetFather(father_gel);
+            nelem++;
+        }
+    }
 
     gmesh->BuildConnectivity();
     return gmesh;

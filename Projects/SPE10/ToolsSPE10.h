@@ -10,6 +10,7 @@
 namespace SPE10 {
 [[maybe_unused]] [[maybe_unused]] TPZGeoMesh *CreateFineGridGeoMesh();
 [[maybe_unused]] TPZGeoMesh *CreateMHMGeoMesh();
+[[maybe_unused]] TPZGeoMesh *CreateRefinementGeoMesh(int nx, int ny);
 
 }
 
