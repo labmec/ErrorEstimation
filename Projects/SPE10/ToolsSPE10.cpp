@@ -79,23 +79,35 @@
         }
     }
 
+    auto *gmesh1x1line = CreateLineRefinementGeoMesh(1);
+    TPZRefPattern ref_pat1x1line(*gmesh1x1line);
+    TPZAutoPointer<TPZRefPattern> ref1x1line(&ref_pat1x1line);
+
     nodesIdVec.resize(2);
     for (int x = 0; x < 28; x++) {
         nodesIdVec[0] = x;
         nodesIdVec[1] = x + 1;
-        new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId1, *gmesh);
+        auto *bc1 = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId1, *gmesh);
         nodesIdVec[0] = x + 8 * 29;
         nodesIdVec[1] = x + 8 * 29 + 1;
-        new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId1, *gmesh);
+        auto *bc2 = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId1, *gmesh);
+        if (x == 27) {
+            bc1->SetRefPattern(ref1x1line);
+            bc2->SetRefPattern(ref1x1line);
+        }
     }
 
     for (int y = 0; y < 8; y++) {
         nodesIdVec[0] = y * 29;
         nodesIdVec[1] = (y + 1) * 29;
-        new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId1, *gmesh);
+        auto *bc1 = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId1, *gmesh);
         nodesIdVec[0] = y * 29 + 28;
         nodesIdVec[1] = (y + 1) * 29 + 28;
-        new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId2, *gmesh);
+        auto *bc2 = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, bcMatId2, *gmesh);
+        if (y == 7) {
+            bc1->SetRefPattern(ref1x1line);
+            bc2->SetRefPattern(ref1x1line);
+        }
     }
 
     gmesh->BuildConnectivity();
