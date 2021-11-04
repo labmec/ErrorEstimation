@@ -151,3 +151,33 @@
     gmesh->BuildConnectivity();
     return gmesh;
 }
+
+[[maybe_unused]] TPZGeoMesh *SPE10::CreateLineRefinementGeoMesh(const int nx) {
+    auto *gmesh = new TPZGeoMesh();
+    gmesh->SetDimension(1);
+
+    TPZManVector<REAL, 3> coord(3, 0.);
+    for (int x = 0; x <= nx; x++) {
+        coord = {static_cast<REAL>(x), 0, 0.};
+        // Create new node
+        const auto newID = gmesh->NodeVec().AllocateNewElement();
+        gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
+    }
+
+    constexpr int matId = 1;
+
+    // Inserts line elements
+    TPZManVector<int64_t, 4> nodesIdVec(2, 0);
+    nodesIdVec[1] = nx;
+    auto *father_gel = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matId, *gmesh);
+
+    for (int x = 0; x < nx; x++) {
+        nodesIdVec[0] = x;
+        nodesIdVec[1] = x + 1;
+        auto *gel = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matId, *gmesh);
+        gel->SetFather(father_gel);
+    }
+
+    gmesh->BuildConnectivity();
+    return gmesh;
+}
