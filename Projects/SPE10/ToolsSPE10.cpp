@@ -121,7 +121,7 @@
 
     for (int y = 0; y <= ny; y++) {
         for (int x = 0; x <= nx; x++) {
-            coord = {static_cast<double>(x), static_cast<double>(y), 0.};
+            coord = {static_cast<REAL>(x), static_cast<REAL>(y), 0.};
             // Create new node
             const auto newID = gmesh->NodeVec().AllocateNewElement();
             gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
