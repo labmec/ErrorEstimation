@@ -32,18 +32,18 @@
 
 [[maybe_unused]] TPZGeoMesh *SPE10::CreateMHMGeoMesh() {
 
-    auto* gmesh = new TPZGeoMesh();
+    auto *gmesh = new TPZGeoMesh();
     gmesh->SetDimension(2);
 
-    auto * gmesh2x1 = CreateRefinementGeoMesh(2, 1);
+    auto *gmesh2x1 = CreateRefinementGeoMesh(2, 1);
     TPZRefPattern ref_pat2x1(*gmesh2x1);
     TPZAutoPointer<TPZRefPattern> ref2x1(&ref_pat2x1);
 
-    auto * gmesh1x2 = CreateRefinementGeoMesh(1, 2);
+    auto *gmesh1x2 = CreateRefinementGeoMesh(1, 2);
     TPZRefPattern ref_pat1x2(*gmesh1x2);
     TPZAutoPointer<TPZRefPattern> ref1x2(&ref_pat1x2);
 
-    auto * gmesh1x1 = CreateRefinementGeoMesh(1, 1);
+    auto *gmesh1x1 = CreateRefinementGeoMesh(1, 1);
     TPZRefPattern ref_pat1x1(*gmesh1x1);
     TPZAutoPointer<TPZRefPattern> ref1x1(&ref_pat1x1);
 
@@ -72,7 +72,7 @@
             nodesIdVec[1] = 29 * y + x + 1;
             nodesIdVec[2] = 29 * (y + 1) + x + 1;
             nodesIdVec[3] = 29 * (y + 1) + x + 0;
-            auto * gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, porousMediaMatId, *gmesh);
+            auto *gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, porousMediaMatId, *gmesh);
             if (x == 27 && y != 7) gel->SetRefPattern(ref1x2);
             if (x != 27 && y == 7) gel->SetRefPattern(ref2x1);
             if (x == 27 && y == 7) gel->SetRefPattern(ref1x1);
@@ -100,11 +100,11 @@
 
     gmesh->BuildConnectivity();
 
-    TPZManVector<TPZGeoEl*, 4> sons;
+    TPZManVector<TPZGeoEl *, 4> sons;
     for (int div = 0; div < 3; div++) {
         auto nelem = gmesh->NElements();
         for (int64_t i = 0; i < nelem; i++) {
-            auto * gel = gmesh->ElementVec()[i];
+            auto *gel = gmesh->ElementVec()[i];
             const int has_sub = gel->HasSubElement();
             if (has_sub == 0) {
                 gel->Divide(sons);
@@ -115,7 +115,7 @@
 }
 
 [[maybe_unused]] TPZGeoMesh *SPE10::CreateRefinementGeoMesh(const int nx, const int ny) {
-    auto* gmesh = new TPZGeoMesh();
+    auto *gmesh = new TPZGeoMesh();
     gmesh->SetDimension(2);
     TPZManVector<REAL, 3> coord(3, 0.);
 
@@ -135,7 +135,7 @@
     nodesIdVec[1] = nx;
     nodesIdVec[2] = (ny + 1) * (nx + 1) - 1;
     nodesIdVec[3] = ny * (nx + 1);
-    auto * father_gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, matId, *gmesh);
+    auto *father_gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, matId, *gmesh);
 
     for (int y = 0; y < ny; y++) {
         for (int x = 0; x < nx; x++) {
@@ -143,7 +143,7 @@
             nodesIdVec[1] = (nx + 1) * y + x + 1;
             nodesIdVec[2] = (nx + 1) * (y + 1) + x + 1;
             nodesIdVec[3] = (nx + 1) * (y + 1) + x + 0;
-            auto * gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, matId, *gmesh);
+            auto *gel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, matId, *gmesh);
             gel->SetFather(father_gel);
         }
     }
