@@ -1,123 +1,24 @@
 //
 //  ToolsMHM.cpp
-//  AdaptivityTest
 //
 //  Created by Denise De Siqueira on 01/11/19.
 //
 
 #include "ToolsMHM.h"
-#include <iostream>
 #include "pzvec.h"
 #include "pzstack.h"
-#include "pzfmatrix.h"
 #include "pzreal.h"
 #include "pzgmesh.h"
-#include "pzcmesh.h"
-#include "pzcompel.h"
-#include "pzgeoelside.h"
-#include "tpzgeoelrefpattern.h"
-#include "tpzautopointer.h"
-#include "TPZBndCond.h"
-#include "TPZNullMaterial.h"
-
-#include "TPZSSpStructMatrix.h"
-#include "pzstepsolver.h"
-#include "TPZStructMatrix.h"
-
-#include "tpzarc3d.h"
 #include "tpzgeoblend.h"
-
-#include "pzbuildmultiphysicsmesh.h"
-#include "TPZCompMeshTools.h"
-
-#include "TPZVTKGeoMesh.h"
-
 #include "TPZHybridizeHDiv.h"
 #include "TPZGenGrid2D.h"
 
-#include <string>
 #include <cmath>
 #include <set>
-#include <TPZMFSolutionTransfer.h>
-#include "TPZPersistenceManager.h"
-
-#include "TPZMHMHDivErrorEstimator.h"
-
-TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
-    
-    int impervious_mat = 1;
-    int permeable_mat = 2;
-    int dim = gmesh->Dimension();
-    
-    TPZVec<REAL> convdir(dim,0.0);
-    
-    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
-    cmesh->SetDimModel(dim);
-    cmesh->SetDefaultOrder(pOrder); //Default polynomial order of the approximation
-    
-    //Definition of the approximation space:
-    
-    auto *mat_0 = new TPZNullMaterial<STATE>(impervious_mat);
-    auto *mat_1 = new TPZNullMaterial<STATE>(permeable_mat);
-    
-    //  inserting volumetric materials objects
-    cmesh->InsertMaterialObject(mat_0);
-    cmesh->InsertMaterialObject(mat_1);
-    
-    cmesh->SetAllCreateFunctionsHDiv(); //Creating H(div) functions
-    
-    
-    int type_D = 0;
-    int type_N = 1;
-    TPZFMatrix<STATE> val1(1, 1, 0.);
-    TPZManVector<STATE, 1> val2(1, 0.);
-    
-    // Insert boundary conditions
-    //Neumann boundary conditions (flux = 0)
-    int right_bc_id = -2;
-    auto * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(right_bc);
-    
-    int left_bc_id = -4;
-    auto * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(left_bc);
-    
-    int bottom_bc_1id = -1;
-    auto * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(bottom_bc_1);
-    
-    int top_bc_1id = -3;
-    auto * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
-    cmesh->InsertMaterialObject(top_bc_1);
-
-    //Dirichlet Conditions (p=1 in, p=0 out)
-    int bottom_bc_id = -5;
-    auto * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
-    cmesh->InsertMaterialObject(bottom_bc);
-    
-    int top_bc_id = -6;
-    auto * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
-    cmesh->InsertMaterialObject(top_bc);
-    
-    cmesh->SetName("LaberintoTest");
-    cmesh->AutoBuild();
-    
-#ifdef PZDEBUG
-    std::ofstream file("cmesh_flux.txt");
-    cmesh->Print(file);
-#endif
-    
-    return cmesh;
-    
-}
 
 // compute the coarse indices of the geometric mesh
 void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
 {
-    //    {
-    //        std::ofstream out("gmeshref.txt");
-    //        gmesh->Print(out);
-    //    }
     coarseindices.Resize(gmesh->NElements());
     int count = 0;
     for (int64_t el=0; el<gmesh->NElements(); el++) {
@@ -130,203 +31,23 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
     coarseindices.Resize(count);
 }
 
-
-std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *cmesh){
-    
-    int nelements = cmesh->NElements();
-    TPZGeoElSide first_gelside;
-    for(int iel=0; iel<=nelements; iel++){
-        TPZCompEl *cel = cmesh->Element(iel);
-        if(!cel){continue;}
-        TPZGeoEl *gel = cel->Reference();
-        TPZGeoElSide gelside(gel,4);
-        TPZGeoEl *neig = gelside.Neighbour().Element();
-        if(neig->MaterialId()==-5){
-            first_gelside.SetElement(gel);
-            first_gelside.SetSide(4);
-            break;
-        }
-    }
-    
-    int count=0;
-    int count_chain=0;
-    double Flux_Max = 0.0;
-    std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> chain;
-    bool exit=false;
-    
-    while(exit==false){
-        
-        TPZGeoElSide exit_test = first_gelside;
-        exit_test.SetSide(6);
-        TPZGeoElSide candidate_exist =exit_test.Neighbour();
-        if(candidate_exist.Element()->MaterialId()==-6){
-            std::cout<<"Cadena encontrada con exito";
-            exit = true;
-            break;
-        }
-        
-        
-        //    while(candidate.Element()->Dimension()!=2){
-        //
-        //            candidate=candidate.Neighbour();
-        //
-        //    }
-        int side_in = first_gelside.Side();
-        for(int ican=4; ican<8; ican++){
-            first_gelside.SetSide(ican);
-            TPZGeoElSide candidate = first_gelside.Neighbour();
-            while(candidate.Element()->Dimension()!=2){
-                
-                candidate=candidate.Neighbour();
-            }
-            if(side_in == ican ){continue;}
-            
-            //calcula los 3 geoelement side y el fluxo
-            TPZVec<REAL> qsi(2);
-            qsi[0]=0;
-            qsi[1]=0;
-            int var=31;
-            TPZVec<STATE> sol;
-            TPZCompEl *cel = candidate.Element()->Reference();
-            cel->Solution(qsi, var,sol);
-            double Flux_can_Mag = sqrt(sol[0]*sol[0] + sol[1]*sol[1]);
-            
-            if(Flux_can_Mag > Flux_Max){
-                Flux_Max =Flux_can_Mag;
-                first_gelside.SetSide(ican);
-                chain[count].first= first_gelside;
-                chain[count].second =candidate;
-            }
-        }
-        Flux_Max=0.0;
-        first_gelside =chain[count].second;
-        count++;
-    }
-    
-    //here
-    
-    cmesh->LoadReferences();
-    TPZGeoMesh *gmesh =cmesh->Reference();
-    for(auto it:gmesh->ElementVec()){
-        int father_index = it->FatherIndex();
-        int element = it->Index();
-        std::cout<<"Element: "<<element<<" father: "<<father_index<<std::endl;
-        
-    }
-    
-    
-    int n_el_chain = chain.size();
-    std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> skelchanel;
-    int count_skel_chanel=0;
-    int matId_skel_chanel = 10;
-    count =0;
-    for(auto it : chain){
-        TPZGeoEl *first_element = it.second.first.Element();
-        TPZGeoEl *second_element = it.second.second.Element();
-        
-        int first_father_index = first_element->LowestFather()->Index();
-        int second_father_index = second_element->LowestFather()->Index();
-        
-        if(first_father_index!=second_father_index){
-            TPZGeoElBC(it.second.first, matId_skel_chanel);
-            skelchanel[count_skel_chanel] = it.second;
-            count_skel_chanel++;
-        }
-        
-    }
-    std::ofstream out("TestMesh.vtk");
-    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, true);
-    
-    return skelchanel;
-    
-}
-
-TPZGeoMesh *CreateCircleGeoMesh() {
-
-    TPZGeoMesh *gmesh = new TPZGeoMesh();
-    gmesh->SetDimension(2);
-
-    TPZVec<REAL> coord(3, 0.);
-
-    // Inserts node at origin
-    gmesh->NodeVec().AllocateNewElement();
-    gmesh->NodeVec()[0].Initialize(coord, *gmesh);
-
-    // Inserts circumference nodes
-    for (int64_t i = 0; i < 16; i++) {
-        const REAL step = M_PI / 8;
-        coord[0] = cos(i * step);
-        coord[1] = sin(i * step);
-        std::cout<<"{"<<coord[0]<<"," <<coord[1]<<"},"<<std::endl;
-
-
-
-        const int64_t newID = gmesh->NodeVec().AllocateNewElement();
-        gmesh->NodeVec()[newID].Initialize(coord, *gmesh);
-    }
-
-    int matIdTriangle = 1, matIdArc = 2;
-
-    // Inserts triangle elements
-    TPZManVector<int64_t, 3> nodesIdVec(3);
-    for (int64_t i = 0; i < 7; i++) {
-        nodesIdVec[0] = 0;
-        nodesIdVec[1] = 1 + 2 * i;
-        nodesIdVec[2] = 3 + 2 * i;
-        std::cout<<"{"<<nodesIdVec[0] <<"," <<nodesIdVec[1] <<", "<<nodesIdVec[2] <<"},"<<std::endl;
-        new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
-    }
-    nodesIdVec[0] = 0;
-    nodesIdVec[1] = 15;
-    nodesIdVec[2] = 1;
-
-    new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle>>(nodesIdVec, matIdTriangle, *gmesh);
-    // Inserts arc elements
-    for (int64_t i = 0; i < 7; i++) {
-        nodesIdVec[0] = 1 + 2 * i;
-        nodesIdVec[1] = 3 + 2 * i;
-        nodesIdVec[2] = 2 + 2 * i;
-        new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, matIdArc, *gmesh);
-    }
-
-    nodesIdVec[0] = 15;
-    nodesIdVec[1] = 1;
-    nodesIdVec[2] = 16;
-    //para o broblema do douglas matIdArc=3
-    new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, 3, *gmesh);
-    //    // Finally, inserts line elements to complete boundary
-    //    nodesIdVec.Resize(2);
-    //    nodesIdVec[0] = 0;
-    //    nodesIdVec[1] = 1;
-    //    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
-    //
-    //    nodesIdVec[0] = 0;
-    //    nodesIdVec[1] = 14;
-    //    new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matIdArc, *gmesh);
-
-    gmesh->BuildConnectivity();
-
-    return gmesh;
-}
-
 TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
+
+    int factor = static_cast<int>(lround(pow(2, nDiv) + 0.5));
     
-    int factor = (int)(pow(2, nDiv) + 0.5);
+    auto xElements = factor * 6;
+    auto yElements = factor * 4;
     
-    int xElements = factor * 6;
-    int yElements = factor * 4;
-    
-    TPZManVector<int> nx(2);
+    TPZManVector<int, 2> nx(2);
     nx[0] = xElements;
     nx[1] = yElements;
     
     TPZManVector<REAL> x0(3,0.), x1(3,1.);
     x1[2] = 0.;
     
-    
     TPZGenGrid2D gen(nx, x0, x1, 1, 0);
     
-    TPZGeoMesh *gmesh = new TPZGeoMesh();
+    auto *gmesh = new TPZGeoMesh();
     gen.Read(gmesh);
     gen.SetBC(gmesh, 4, -1);
     gen.SetBC(gmesh, 5, -1);
@@ -348,12 +69,12 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
             TPZGeoEl *gel = gmesh->ElementVec()[elem];
             if (gel->Dimension() != 2) DebugStop();
             
-            int lineInPattern = elem / nx[0] % 4;
-            int colInPattern = elem % nx[0] % 6;
+            auto lineInPattern = elem / nx[0] % 4;
+            auto colInPattern = elem % nx[0] % 6;
             
             // IDs of elements in the neighbourhood to which a coarse index has been already assigned
-            int leftEl = elem - 1;
-            int bottomEl = elem - nx[0];
+            auto leftEl = elem - 1;
+            auto bottomEl = elem - nx[0];
             
             if (lineInPattern == 0) {
                 if (colInPattern % 2 == 0) {
@@ -391,118 +112,6 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
             }
         }
     }
-    
-//    for(int ilinha =0 ; ilinha <coarseIndexes.size() ;ilinha++){
-//        std::cout<<"coarseIndex "<<coarseIndexes[ilinha]<<std::endl;
-//    }
-    
+
     return gmesh;
-}
-
-void SolveProblem(const TPZAutoPointer<TPZCompMesh>& cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh>> &compmeshes,
-                  TPZAnalyticSolution *analytic, const std::string &prefix, TRunConfig config) {
-    //calculo solution
-    bool shouldrenumber = true;
-    TPZLinearAnalysis an(cmesh,shouldrenumber);
-#ifdef PZ_USING_MKL
-    TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
-    strmat.SetNumThreads(0/*config.n_threads*/);
-#else
-    TPZSkylineStructMatrix<STATE> strmat(cmesh.operator->());
-    strmat.SetNumThreads(config.n_threads);
-#endif
-
-
-#ifdef PZDEBUG
-    if(0)
-    {
-        std::ofstream file("MeshToSolveProblem.txt");
-        cmesh->Print(file);
-    }
-#endif
-
-
-    an.SetStructuralMatrix(strmat);
-    TPZStepSolver<STATE> step;
-    step.SetDirect(ELDLt);
-    an.SetSolver(step);
-    std::cout << "Assembling\n";
-    an.Assemble();
-
-    std::cout << "Solving\n";
-    an.Solve();
-    std::cout << "Finished\n";
-    an.LoadSolution(); // compute internal dofs
-
-
-    TPZMFSolutionTransfer transfer;
-    transfer.BuildTransferData(cmesh.operator->());
-//    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(compmeshes, cmesh);
-    transfer.TransferFromMultiphysics();
-
-    if(0)
-    {
-        std::ofstream out1("mfmesh.txt");
-        cmesh->Print(out1);
-        std::ofstream out2("flux.txt");
-        compmeshes[0]->Print(out2);
-        std::ofstream out3("pressure.txt");
-        compmeshes[1]->Print(out3);
-        std::ofstream out4("transfer.txt");
-        transfer.Print(out4);
-    }
-
-    TPZStack<std::string> scalnames,vecnames;
-    TPZMaterial *mat = cmesh->FindMaterial(1);
-    if (!mat) {
-        DebugStop();
-    }
-    if (analytic)
-    {
-        an.SetExact(analytic->ExactSolution());
-        scalnames.Push("ExactPressure");
-        vecnames.Push("ExactFlux");
-    }
-    {
-        scalnames.Push("Pressure");
-        //  scalnames.Push("Permeability");
-        vecnames.Push("Flux");
-        //   vecnames.Push("Derivative");
-    }
-
-
-    std::string plotname;
-    {
-        std::stringstream out;
-        out << "MHMHdiv"<<"_kin" <<config.pOrderInternal << "ksk_"<<config.pOrderSkeleton << "hsk_" <<config.numDivSkeleton<<"hin_"<< config.numHDivisions<< ".vtk";
-        plotname = out.str();
-
-    }
-    int resolution=0;
-    an.DefineGraphMesh(cmesh->Dimension() , scalnames, vecnames, plotname);
-    an.PostProcess(resolution,cmesh->Dimension() );
-
-
-    if(analytic)
-    {
-        TPZManVector<REAL> errors(4,0.);
-        an.SetThreadsForError(config.n_threads);
-        an.SetExact(analytic->ExactSolution());
-        an.PostProcessError(errors,false);
-
-        //Erro
-
-        std::ofstream myfile;
-        myfile.open("ArquivosErrosMHM.txt", std::ios::app);
-        myfile << "\n\n Error for MHM formulation " ;
-        myfile << "\n-------------------------------------------------- \n";
-        myfile << "Ndiv = " << config.numHDivisions << " Order Internal= " << config.pOrderInternal <<" Order Skeleton= " << config.pOrderSkeleton <<"\n";
-        myfile << "DOF Total = " << cmesh->NEquations() << "\n";
-        myfile << "Energy norm = " << errors[0] << "\n";//norma energia
-        myfile << "error norm L2 = " << errors[1] << "\n";//norma L2
-        myfile << "Semi norm H1 = " << errors[2] << "\n";//norma L2
-        myfile.close();
-
-    }
-
 }
