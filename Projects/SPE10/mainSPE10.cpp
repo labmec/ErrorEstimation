@@ -20,11 +20,16 @@ typedef _2D::BicubicInterpolator<REAL> Interpolator;
 
 // Global variables
 Interpolator interpolator;
+constexpr int nx = 220;
+constexpr int ny = 60;
+constexpr int n_cells = nx * ny;
+TPZManVector<REAL, n_cells> perm_vec(n_cells, 1);
 
 // Function declarations
 void ReadSPE10CellPermeabilities(TPZVec<REAL>*perm_vec, int layer);
 TPZGeoMesh *CreateSPE10GeoMesh();
 STATE PermeabilityFunction(const TPZVec<REAL> &x);
+STATE NewPermeabilityFunction(const TPZVec<REAL> &x);
 void InsertMaterials(TPZCompMesh *cmesh);
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm, const std::vector<int64_t> &skelsToDivide);
 void SolveMHMProblem(TPZMHMixedMeshControl &mhm, int adaptivity_step);
@@ -159,6 +164,19 @@ STATE PermeabilityFunction(const TPZVec<REAL> &x) {
     return perm;
 }
 
+STATE NewPermeabilityFunction(const TPZVec<REAL> &x) {
+    const auto rounded_x = static_cast<int>(x[0]);
+    const auto rounded_y = static_cast<int>(x[1]);
+
+    auto perm = perm_vec[rounded_x * 60 + rounded_y];
+    if (perm <= 1) {
+        perm = 1;
+    } else {
+        perm += 1;
+    }
+    return perm;
+}
+
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm, const std::vector<int64_t> &skelsToDivide) {
 
     TPZGeoMesh *gmesh = mhm.GMesh().operator->();
@@ -247,7 +265,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm, const int adaptivity_step) {
 void InsertMaterials(TPZCompMesh *cmesh) {
 
     auto *mix = new TPZMixedDarcyFlow(1, cmesh->Dimension());
-    std::function<STATE(const TPZVec<REAL> &coord)> func = PermeabilityFunction;
+    std::function<STATE(const TPZVec<REAL> &coord)> func = NewPermeabilityFunction;
     mix->SetPermeabilityFunction(func);
 
     TPZFNMatrix<1, REAL> val1(1, 1, 0.);
