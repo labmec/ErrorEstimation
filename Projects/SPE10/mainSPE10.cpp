@@ -3,16 +3,18 @@
 //
 
 #include "Tools.h"
+#include "ToolsSPE10.h"
 #include <DarcyFlow/TPZMixedDarcyFlow.h>
 #include <TPZGenGrid2D.h>
 #include <TPZGenGrid3D.h>
 #include <TPZMFSolutionTransfer.h>
+#include <TPZMHMHDivErrorEstimator.h>
+#include <TPZMHMixedMeshControl.h>
 #include <ToolsMHM.h>
 #include <iostream>
 #include <libInterpolate/Interpolate.hpp>
 #include <memory>
 #include <pzgmesh.h>
-#include "ToolsSPE10.h"
 
 typedef _2D::BicubicInterpolator<REAL> Interpolator;
 
