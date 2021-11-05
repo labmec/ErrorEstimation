@@ -39,7 +39,8 @@ void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZCompMesh *postProcMesh, std::v
 constexpr int adaptivity_steps = 4;
 int main() {
 
-    auto * gmesh = SPE10::CreateFineGridGeoMesh();
+    gRefDBase.InitializeAllUniformRefPatterns();
+
     auto * gmeshMHM = SPE10::CreateMHMGeoMesh();
 
     {
@@ -48,33 +49,28 @@ int main() {
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshMHM, file);
     }
 
-    return 0;
     constexpr int layer = 36;
-    constexpr int nx = 220;
-    constexpr int ny = 60;
-    constexpr int n_cells = nx * ny;
 
-    auto perm_vec = TPZManVector<REAL, n_cells>(n_cells, 1);
     ReadSPE10CellPermeabilities(&perm_vec, layer);
 
     std::vector<int64_t> skelsToRefine;
     for (int step = 0; step < adaptivity_steps; step++) {
 
-        TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
+        TPZGeoMesh *gmesh = SPE10::CreateMHMGeoMesh();
         std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
 
-        std::vector<REAL> x, y, perm;
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < ny; j++) {
-                const int cell_id = ny * i + j;
-                const double cell_perm = perm_vec[cell_id];
-                x.push_back(0.5 + i);
-                y.push_back(0.5 + j);
-                perm.push_back(cell_perm);
-            }
-        }
+        //std::vector<REAL> x, y, perm;
+        //for (int i = 0; i < nx; i++) {
+        //    for (int j = 0; j < ny; j++) {
+        //        const int cell_id = ny * i + j;
+        //        const double cell_perm = perm_vec[cell_id];
+        //        x.push_back(0.5 + i);
+        //        y.push_back(0.5 + j);
+        //        perm.push_back(cell_perm);
+        //    }
+        //}
 
-        interpolator.setData(x.size(), x.data(), y.data(), perm.data());
+        //interpolator.setData(x.size(), x.data(), y.data(), perm.data());
 
         TPZMHMixedMeshControl mhm(gmesh);
         CreateSPE10MHMCompMesh(mhm, skelsToRefine);
