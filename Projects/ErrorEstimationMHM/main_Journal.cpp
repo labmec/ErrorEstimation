@@ -1,14 +1,22 @@
 //
 // Created by Gustavo Batistela on 3/31/21.
 //
+#include "ProblemConfig.h"
+#include "TPZMHMHDivErrorEstimator.h"
+#include "ToolsMHM.h"
 #include "pzgmesh.h"
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 #include <Pre/TPZGenGrid3D.h>
 #include <Pre/TPZMHMixedMeshControl.h>
+#include <TPZGenGrid2D.h>
+#include <TPZGeoCube.h>
 #include <TPZMFSolutionTransfer.h>
-//#include <Tools.h>
-#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
-#include <ToolsMHM.h>
+#include <TPZRefPatternDataBase.h>
+#include <TPZVTKGeoMesh.h>
+#include <Tools.h>
 #include <Util/pzlog.h>
+#include <pzgeoquad.h>
+#include <tpzgeoelrefpattern.h>
 
 struct ErrorResult {
     ErrorResult(const std::string &s, const int nIntRef, const int nCoarseDiv, const int kOrder, const int nOrder,

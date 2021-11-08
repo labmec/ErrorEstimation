@@ -2,14 +2,21 @@
 // Created by Gustavo A. Batistela on 06/07/2020.
 //
 
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 #include <Mesh/pzgmesh.h>
 #include <Pre/TPZGenGrid3D.h>
 #include <Pre/TPZMHMixedMeshControl.h>
+#include <ProblemConfig.h>
+#include <TPZGeoCube.h>
 #include <TPZMFSolutionTransfer.h>
-//#include <Tools.h>
+#include <TPZMHMHDivErrorEstimator.h>
+#include <TPZRefPatternDataBase.h>
+#include <TPZVTKGeoMesh.h>
+#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
-#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
+#include <pzgeoquad.h>
+#include <tpzgeoelrefpattern.h>
 
 void RunSmoothProblem();
 void RunHighGradientProblem();

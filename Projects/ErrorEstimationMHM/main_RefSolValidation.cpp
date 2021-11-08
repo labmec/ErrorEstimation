@@ -2,12 +2,19 @@
 // Created by Gustavo Batistela on 25/08/21.
 //
 #include "pzgmesh.h"
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 #include <Pre/TPZGenGrid3D.h>
 #include <Pre/TPZMHMixedMeshControl.h>
+#include <ProblemConfig.h>
+#include <TPZGeoCube.h>
 #include <TPZMFSolutionTransfer.h>
-#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
+#include <TPZMHMHDivErrorEstimator.h>
+#include <TPZRefPatternDataBase.h>
+#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
+#include <pzgeoquad.h>
+#include <tpzgeoelrefpattern.h>
 
 void RunReferenceSolutionValidationProblem();
 
