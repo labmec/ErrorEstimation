@@ -42,6 +42,9 @@ private:
 
     TPZGeoMesh *fGeoMesh = nullptr;
 
+    // Private member functions
+    static TPZRefPattern CreateNonUniformLineRefPattern(int a, int b);
+
 };
 
 #endif // TPZMULTISCALEGRIDGEN2D_H
