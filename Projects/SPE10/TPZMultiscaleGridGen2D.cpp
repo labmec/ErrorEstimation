@@ -5,6 +5,23 @@
 #include "TPZMultiscaleGridGen2D.h"
 #include <tpzgeoelrefpattern.h>
 
+TPZMultiscaleGridGen2D::TPZMultiscaleGridGen2D(const TPZVec<REAL> &minX, const TPZVec<REAL> &maxX,
+                                               const TPZVec<int> &NDivFineGrid, int NElemCoarseGrid)
+    : fMinX(minX), fMaxX(maxX), fNDivFineGrid(NDivFineGrid), fNElemCoarseGrid(NElemCoarseGrid) {
+
+    if (NDivFineGrid[0] < NElemCoarseGrid || NDivFineGrid[1] < NElemCoarseGrid) DebugStop();
+
+    fRefTreeDesiredSize = new RefTree(NElemCoarseGrid);
+
+    std::div_t div_x = std::div(NDivFineGrid[0], NElemCoarseGrid);
+    std::div_t div_y = std::div(NDivFineGrid[1], NElemCoarseGrid);
+    if (div_x.rem != 0) fRefTreeRemainderX = new RefTree(div_x.rem);
+    if (div_y.rem != 0) fRefTreeRemainderY = new RefTree(div_y.rem);
+
+    GenerateRefPatterns();
+
+}
+
 TPZRefPattern TPZMultiscaleGridGen2D::CreateNonUniformLineRefPattern(const int a, const int b) {
 
     auto *gmesh = new TPZGeoMesh();

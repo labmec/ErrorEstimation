@@ -30,6 +30,13 @@ struct RefTree {
 
 class TPZMultiscaleGridGen2D {
 
+public:
+    // Constructors
+    TPZMultiscaleGridGen2D() = delete;
+
+    TPZMultiscaleGridGen2D(const TPZVec<REAL> &minX, const TPZVec<REAL> &maxX, const TPZVec<int> &NDivFineGrid,
+                           int NElemCoarseGrid);
+
 private:
     // Member variables
     const TPZManVector<int, 2> fNDivFineGrid{0};
