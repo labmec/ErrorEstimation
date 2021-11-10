@@ -37,8 +37,10 @@ private:
     const TPZManVector<REAL, 3> fMinX{0};
     const TPZManVector<REAL, 3> fMaxX{0};
 
-    RefTree fRefTree;
-    std::map<int, std::map<int, TPZRefPattern>> fRefPatterns;
+    RefTree *fRefTreeDesiredSize = nullptr;
+    RefTree *fRefTreeRemainderX = nullptr;
+    RefTree *fRefTreeRemainderY = nullptr;
+    std::map<std::pair<int, int>, TPZRefPattern> fRefPatterns;
 
     TPZGeoMesh *fGeoMesh = nullptr;
 
