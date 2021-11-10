@@ -37,3 +37,33 @@ TPZRefPattern TPZMultiscaleGridGen2D::CreateNonUniformLineRefPattern(const int a
     gmesh->BuildConnectivity();
     return TPZRefPattern(*gmesh);
 }
+
+void TPZMultiscaleGridGen2D::GenerateRefPatterns() {
+    std::set<std::pair<int, int>> ref_levels;
+
+    std::function<void(RefTree*)> VisitNode = [&](RefTree *node) -> void {
+        if (node->fActualSize != 1) {
+            const auto left_size = node->fChildLeft->fActualSize;
+            const auto right_size = node->fChildRight->fActualSize;
+            if (left_size != right_size) {
+                ref_levels.insert({node->fChildLeft->fActualSize, node->fChildRight->fActualSize});
+            } else {
+                ref_levels.insert({1, 1});
+            }
+            VisitNode(node->fChildLeft);
+            VisitNode(node->fChildRight);
+        }
+    };
+
+    VisitNode(fRefTreeDesiredSize);
+    if (fRefTreeRemainderX) VisitNode(fRefTreeRemainderX);
+    if (fRefTreeRemainderY) VisitNode(fRefTreeRemainderY);
+
+    for (auto it : ref_levels) {
+        const auto a = it.first;
+        const auto b = it.second;
+
+        TPZRefPattern refPattern = CreateNonUniformLineRefPattern(a, b);
+        fRefPatterns.insert({{it.first, it.second}, refPattern});
+    }
+}

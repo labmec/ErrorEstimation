@@ -47,6 +47,7 @@ private:
     // Private member functions
     static TPZRefPattern CreateNonUniformLineRefPattern(int a, int b);
 
+    void GenerateRefPatterns();
 };
 
 #endif // TPZMULTISCALEGRIDGEN2D_H
