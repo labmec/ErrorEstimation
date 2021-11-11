@@ -3,6 +3,7 @@
 //
 
 #include "TPZMultiscaleGridGen2D.h"
+#include <TPZGenGrid2D.h>
 #include <tpzgeoelrefpattern.h>
 
 TPZMultiscaleGridGen2D::TPZMultiscaleGridGen2D(const TPZVec<REAL> &minX, const TPZVec<REAL> &maxX,
@@ -83,4 +84,22 @@ void TPZMultiscaleGridGen2D::GenerateRefPatterns() {
         TPZRefPattern refPattern = CreateNonUniformLineRefPattern(a, b);
         fRefPatterns.insert({{it.first, it.second}, refPattern});
     }
+}
+
+void TPZMultiscaleGridGen2D::CreateFineGridMesh() {
+
+    const TPZManVector<int, 4> bcIDs = {-2, -1, -2, -2};
+
+    TPZGenGrid2D gen(fNDivFineGrid, fMinX, fMaxX, 1, 0);
+    gen.SetRefpatternElements(true);
+
+    fGeoMesh = new TPZGeoMesh;
+    gen.Read(fGeoMesh);
+
+    gen.SetBC(fGeoMesh, 4, bcIDs[0]);
+    gen.SetBC(fGeoMesh, 5, bcIDs[1]);
+    gen.SetBC(fGeoMesh, 6, bcIDs[2]);
+    gen.SetBC(fGeoMesh, 7, bcIDs[3]);
+
+    fGeoMesh->SetDimension(2);
 }

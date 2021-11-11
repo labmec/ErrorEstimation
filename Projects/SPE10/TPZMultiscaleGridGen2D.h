@@ -55,6 +55,8 @@ private:
     static TPZRefPattern CreateNonUniformLineRefPattern(int a, int b);
 
     void GenerateRefPatterns();
+
+    void CreateFineGridMesh();
 };
 
 #endif // TPZMULTISCALEGRIDGEN2D_H
