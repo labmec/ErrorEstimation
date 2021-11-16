@@ -57,6 +57,8 @@ private:
     void GenerateRefPatterns();
 
     void CreateFineGridMesh();
+
+    void CreateSkeletonElements();
 };
 
 #endif // TPZMULTISCALEGRIDGEN2D_H

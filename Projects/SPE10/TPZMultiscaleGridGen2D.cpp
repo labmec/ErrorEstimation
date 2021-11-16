@@ -103,3 +103,57 @@ void TPZMultiscaleGridGen2D::CreateFineGridMesh() {
 
     fGeoMesh->SetDimension(2);
 }
+
+void TPZMultiscaleGridGen2D::CreateSkeletonElements() {
+
+    const auto node_vec = fGeoMesh->NodeVec();
+
+    const std::div_t div_x = std::div(fNDivFineGrid[0], fNElemCoarseGrid);
+    const std::div_t div_y = std::div(fNDivFineGrid[1], fNElemCoarseGrid);
+
+    const int n_full_size_x = div_x.quot;
+    const int n_full_size_y = div_x.quot;
+
+    const int ny_correction = div_y.rem == 0 ? 1 : 0;
+    const int nx_correction = div_x.rem == 0 ? 1 : 0;
+
+    const int n_nodes_x = fNDivFineGrid[0] + 1;
+
+    TPZManVector<int64_t, 2> node_id_vec(2, 0);
+    int node0, node1;
+    for (auto iy = 0; iy < n_full_size_y - ny_correction; iy++) {
+        for (auto ix = 0; ix < n_full_size_x; ix++) {
+            node0 =
+                fNElemCoarseGrid * fNDivFineGrid[0] + (ix + 1) * fNElemCoarseGrid + fNElemCoarseGrid * n_nodes_x * iy;
+            node1 = node0 + fNElemCoarseGrid;
+            node_id_vec[0] = node0;
+            node_id_vec[1] = node1;
+            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+        }
+        if (div_x.rem != 0) {
+            node0 = fNElemCoarseGrid * fNDivFineGrid[0] + (n_full_size_x + 1) * fNElemCoarseGrid +
+                    fNElemCoarseGrid * n_nodes_x * iy;
+            node1 = node0 + div_x.rem;
+            node_id_vec[0] = node0;
+            node_id_vec[1] = node1;
+            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+        }
+    }
+
+    for (auto ix = 0; ix < n_full_size_x - nx_correction; ix++) {
+        for (auto iy = 0; iy < n_full_size_y; iy++) {
+            node0 = (fNElemCoarseGrid) * (ix + 1) + n_nodes_x * iy * fNElemCoarseGrid;
+            node1 = node0 + n_nodes_x * fNElemCoarseGrid;
+            node_id_vec[0] = node0;
+            node_id_vec[1] = node1;
+            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+        }
+        if (div_y.rem != 0) {
+            node0 = (fNElemCoarseGrid) * (ix + 1) + n_nodes_x * n_full_size_y * fNElemCoarseGrid;
+            node1 = node0 + n_nodes_x * div_y.rem;
+            node_id_vec[0] = node0;
+            node_id_vec[1] = node1;
+            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+        }
+    }
+}
