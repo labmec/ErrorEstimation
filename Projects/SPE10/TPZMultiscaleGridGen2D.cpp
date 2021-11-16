@@ -20,6 +20,8 @@ TPZMultiscaleGridGen2D::TPZMultiscaleGridGen2D(const TPZVec<REAL> &minX, const T
     if (div_y.rem != 0) fRefTreeRemainderY = new RefTree(div_y.rem);
 
     GenerateRefPatterns();
+    CreateFineGridMesh();
+    CreateSkeletonElements();
 
 }
 
