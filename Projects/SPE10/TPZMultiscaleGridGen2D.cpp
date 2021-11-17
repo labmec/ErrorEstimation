@@ -130,7 +130,8 @@ void TPZMultiscaleGridGen2D::CreateSkeletonElements() {
             node1 = node0 + fNElemCoarseGrid;
             node_id_vec[0] = node0;
             node_id_vec[1] = node1;
-            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            auto * gel = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            fSkelIdToRefTree.insert({gel->Id(), fRefTreeDesiredSize});
         }
         if (div_x.rem != 0) {
             node0 = fNElemCoarseGrid * fNDivFineGrid[0] + (n_full_size_x + 1) * fNElemCoarseGrid +
@@ -138,7 +139,8 @@ void TPZMultiscaleGridGen2D::CreateSkeletonElements() {
             node1 = node0 + div_x.rem;
             node_id_vec[0] = node0;
             node_id_vec[1] = node1;
-            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            auto * gel = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            fSkelIdToRefTree.insert({gel->Id(), fRefTreeRemainderX});
         }
     }
 
@@ -148,14 +150,16 @@ void TPZMultiscaleGridGen2D::CreateSkeletonElements() {
             node1 = node0 + n_nodes_x * fNElemCoarseGrid;
             node_id_vec[0] = node0;
             node_id_vec[1] = node1;
-            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            auto * gel = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            fSkelIdToRefTree.insert({gel->Id(), fRefTreeDesiredSize});
         }
         if (div_y.rem != 0) {
             node0 = (fNElemCoarseGrid) * (ix + 1) + n_nodes_x * n_full_size_y * fNElemCoarseGrid;
             node1 = node0 + n_nodes_x * div_y.rem;
             node_id_vec[0] = node0;
             node_id_vec[1] = node1;
-            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            auto * gel = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(node_id_vec, 666, *fGeoMesh);
+            fSkelIdToRefTree.insert({gel->Id(), fRefTreeRemainderY});
         }
     }
 }

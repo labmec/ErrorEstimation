@@ -48,6 +48,7 @@ private:
     RefTree *fRefTreeRemainderX = nullptr;
     RefTree *fRefTreeRemainderY = nullptr;
     std::map<std::pair<int, int>, TPZRefPattern> fRefPatterns;
+    std::map<int64_t, RefTree*> fSkelIdToRefTree;
 
     TPZGeoMesh *fGeoMesh = nullptr;
 
