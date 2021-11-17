@@ -22,6 +22,7 @@ TPZMultiscaleGridGen2D::TPZMultiscaleGridGen2D(const TPZVec<REAL> &minX, const T
     GenerateRefPatterns();
     CreateFineGridMesh();
     CreateSkeletonElements();
+    RefineSkeletonElements();
 
 }
 
@@ -162,4 +163,33 @@ void TPZMultiscaleGridGen2D::CreateSkeletonElements() {
             fSkelIdToRefTree.insert({gel->Id(), fRefTreeRemainderY});
         }
     }
+}
+
+void TPZMultiscaleGridGen2D::RefineSkeletonElements() {
+
+    std::function<void(const std::pair<int64_t, RefTree *>)> RefineSkeleton = [&](std::pair<int64_t, RefTree*> data) -> void {
+        auto * node = data.second;
+        if (node->fActualSize != 1) {
+
+            auto right_size = node->fChildRight->fActualSize;
+            auto left_size = node->fChildLeft->fActualSize;
+
+            if (right_size == left_size) {
+                right_size = 1;
+                left_size = 1;
+            }
+            const auto ref_pattern = fRefPatterns.find({left_size, right_size});
+            if (ref_pattern == fRefPatterns.end()) DebugStop();
+            TPZAutoPointer<TPZRefPattern> ref_pattern_ptr(&ref_pattern->second);
+            auto * skel = fGeoMesh->Element(data.first);
+            skel->SetRefPattern(ref_pattern_ptr);
+            TPZManVector<TPZGeoEl *, 2> sons(2, nullptr);
+            skel->Divide(sons);
+
+            RefineSkeleton({sons[0]->Id(), node->fChildLeft});
+            RefineSkeleton({sons[1]->Id(), node->fChildRight});
+        }
+    };
+
+    std::for_each(fSkelIdToRefTree.begin(), fSkelIdToRefTree.end(), RefineSkeleton);
 }

@@ -60,6 +60,8 @@ private:
     void CreateFineGridMesh();
 
     void CreateSkeletonElements();
+
+    void RefineSkeletonElements();
 };
 
 #endif // TPZMULTISCALEGRIDGEN2D_H
