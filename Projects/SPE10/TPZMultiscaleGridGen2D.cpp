@@ -114,7 +114,7 @@ void TPZMultiscaleGridGen2D::CreateSkeletonElements() {
     const std::div_t div_y = std::div(fNDivFineGrid[1], fNElemCoarseGrid);
 
     const int n_full_size_x = div_x.quot;
-    const int n_full_size_y = div_x.quot;
+    const int n_full_size_y = div_y.quot;
 
     const int ny_correction = div_y.rem == 0 ? 1 : 0;
     const int nx_correction = div_x.rem == 0 ? 1 : 0;
