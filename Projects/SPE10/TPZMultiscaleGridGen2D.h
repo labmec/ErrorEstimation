@@ -37,6 +37,8 @@ public:
     TPZMultiscaleGridGen2D(const TPZVec<REAL> &minX, const TPZVec<REAL> &maxX, const TPZVec<int> &NDivFineGrid,
                            int NElemCoarseGrid);
 
+    [[nodiscard]] auto* GeoMesh() const { return fGeoMesh; }
+
 private:
     // Member variables
     const TPZManVector<int, 2> fNDivFineGrid{0};
