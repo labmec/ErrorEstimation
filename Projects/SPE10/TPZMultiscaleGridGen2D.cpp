@@ -193,3 +193,33 @@ void TPZMultiscaleGridGen2D::RefineSkeletonElements() {
 
     std::for_each(fSkelIdToRefTree.begin(), fSkelIdToRefTree.end(), RefineSkeleton);
 }
+
+void TPZMultiscaleGridGen2D::SwapSkeletonNodes() {
+
+    const auto x_step = (fMaxX[0] - fMinX[0]) / fNDivFineGrid[0];
+    const auto y_step = (fMaxX[1] - fMinX[1]) / fNDivFineGrid[1];
+
+    auto CoordToNodeId = [&](const auto &coord) {
+        return std::lround(coord[0] / x_step) + (fNDivFineGrid[0] + 1) * std::lround(coord[1] / y_step);
+    };
+
+    for (auto i = 0; i < fGeoMesh->NElements(); i++) {
+        const auto * gel = fGeoMesh->Element(i);
+        if (!gel) continue;
+        if (gel->MaterialId() != fSkeletonMatId) continue;
+        if (!gel->Father()) continue;
+        TPZManVector<REAL, 3> coord0(3), coord1(3);
+        auto node0 = gel->Node(0);
+        auto node1 = gel->Node(1);
+
+        node0.GetCoordinates(coord0);
+        node1.GetCoordinates(coord1);
+
+        auto node0_id = CoordToNodeId(coord0);
+        auto node1_id = CoordToNodeId(coord1);
+
+        //std::cout << "Old nodes: " << node0.Id() << ", " << node1.Id() << '\n';
+        //std::cout << "New nodes: " << node0_id << ", " << node1_id << '\n';
+
+    }
+}

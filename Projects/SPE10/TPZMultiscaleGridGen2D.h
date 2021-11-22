@@ -66,6 +66,8 @@ private:
     void CreateSkeletonElements();
 
     void RefineSkeletonElements();
+
+    void SwapSkeletonNodes();
 };
 
 #endif // TPZMULTISCALEGRIDGEN2D_H
