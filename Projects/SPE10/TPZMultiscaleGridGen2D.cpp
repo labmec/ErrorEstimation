@@ -23,7 +23,7 @@ TPZMultiscaleGridGen2D::TPZMultiscaleGridGen2D(const TPZVec<REAL> &minX, const T
     CreateFineGridMesh();
     CreateSkeletonElements();
     RefineSkeletonElements();
-
+    SwapSkeletonNodes();
 }
 
 TPZRefPattern TPZMultiscaleGridGen2D::CreateNonUniformLineRefPattern(const int a, const int b) {
