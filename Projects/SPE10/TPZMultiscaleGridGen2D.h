@@ -41,6 +41,8 @@ public:
 
 private:
     // Member variables
+    const int fSkeletonMatId{-99};
+
     const TPZManVector<int, 2> fNDivFineGrid{0};
     const int fNElemCoarseGrid{0};
     const TPZManVector<REAL, 3> fMinX{0};
