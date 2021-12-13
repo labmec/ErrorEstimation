@@ -118,7 +118,7 @@ void TPZSteklovMaterial::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &data
             }
             //jvecZ.Print("mat1 = ");
             REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
-            ek(iq,jq) += fvisc*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
+            ek(iq,jq) += weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
             
         }
     }
