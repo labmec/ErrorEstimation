@@ -14,6 +14,8 @@
 #include <memory>
 #include <Pre/TPZGenGrid3D.h>
 #include "DataStructure.h"
+#include "TPZNullMaterial.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 
 #include "pzelementgroup.h"
 
@@ -36,7 +38,7 @@ TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
     TPZMaterial* mat = 0;
     for (auto matid : problem.materialids) {
-        TPZMixedPoisson* mix = new TPZMixedPoisson(matid, cmesh->Dimension());
+        TPZNullMaterial<>* mix = new TPZNullMaterial<>(matid, cmesh->Dimension());
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
@@ -62,24 +64,26 @@ TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
 TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
     int dim = problem.gmesh->Dimension();
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial* mat = NULL;
+    TPZNullMaterial<>* mat = NULL;
     problem.gmesh->ResetReference();
     for (auto matid : problem.materialids) {
-        TPZVecL2* mix = new TPZVecL2(matid);
+        TPZNullMaterial<>* mix = new TPZNullMaterial<>(matid);
         mix->SetDimension(dim);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
+    if(!mat) DebugStop();
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 1.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZVec<REAL> val2(1, 1.);
         int bctype;
         if (matid == -1 || matid == 2) {
             bctype = 0;
         } else {
             bctype = 1;
         }
-        TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+//        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->SetDefaultOrder(problem.porder);
@@ -99,7 +103,6 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
 TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
 
     TPZMultiphysicsCompMesh* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
-    TPZMaterial* mat = NULL;
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
@@ -108,6 +111,7 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
 
     
     if (problem.TensorNonConst && problem.gmesh->Dimension() == 3) {
+        DebugStop();
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 if (i == j) {
@@ -124,12 +128,17 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
 
 //    K.Print(std::cout);
 //    invK.Print(std::cout);
+
+    typedef TPZMixedDarcyFlow TPZMixedPoisson;
     
+    TPZMixedPoisson* mat = NULL;
+
     for (auto matid : problem.materialids) {
         TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
-        mix->SetExactSol(problem.exact.operator*().Exact());
-        mix->SetPermeabilityTensor(K, invK);
+        int porder = 5;
+        mix->SetForcingFunction(problem.exact.operator*().ForceFunc(),porder);
+        mix->SetExactSol(problem.exact.operator*().ExactSolution(),porder);
+        mix->SetConstantPermeability(1.);
 
         if (!mat) mat = mix;
 
@@ -138,7 +147,8 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
         
     
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL,1> val2(1, 0.);
         int bctype;
     
         switch (matid) {
@@ -161,8 +171,8 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
             break;
             }
         }
-        TPZBndCond* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution());
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -404,10 +414,10 @@ void Tools::Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, const ProblemConfig &problem,
                    bool PostProcessingFEM) {
 
-    TPZAnalysis an(Hybridmesh);
+    TPZLinearAnalysis an(Hybridmesh);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(Hybridmesh);
+    TPZSSpStructMatrix<> strmat(Hybridmesh);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -517,10 +527,10 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
 #endif
 
 
-    TPZAnalysis an(cmesh_HDiv, false);
+    TPZLinearAnalysis an(cmesh_HDiv, false);
 
 
-    TPZSymetricSpStructMatrix strmat(cmesh_HDiv);
+    TPZSSpStructMatrix<> strmat(cmesh_HDiv);
     strmat.SetNumThreads(0);
     an.SetStructuralMatrix(strmat);
 
@@ -648,24 +658,26 @@ void Tools::DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
 TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
 
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial* mat = 0;
-
+    
+    typedef TPZDarcyFlow TPZMatPoisson3d;
+    TPZMatPoisson3d* mat = 0;
 
     for (auto matid : problem.materialids) {
         TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetExactSol(problem.exact.operator*().Exact());
-        mix->SetForcingFunction(problem.exact.operator*().ForcingFunction());
+        int porder = 5;
+        mix->SetExactSol(problem.exact.operator*().ExactSolution(),porder);
+        mix->SetForcingFunction(problem.exact.operator*().ForceFunc(),porder);
 
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
 
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL,1> val2(1, 0.);
         int bctype = 0;
-        val2.Zero();
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution());
 
         cmesh->InsertMaterialObject(bc);
     }
