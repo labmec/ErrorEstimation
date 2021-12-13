@@ -1,11 +1,11 @@
 
 #include "TPZMHMHDivErrorEstimator.h"
 #include "TPZNullMaterial.h"
+#include "TPZNullMaterialCS.h"
 #include "TPZVTKGeoMesh.h"
-#include "pzbndcond.h"
 #include "pzintel.h"
 #include "pzsubcmesh.h"
-#include <Material/TPZLagrangeMultiplier.h>
+#include <Material/TPZLagrangeMultiplierCS.h>
 #include <Mesh/TPZCompMeshTools.h>
 #include <Mesh/TPZGeoElSideAncestors.h>
 #include <Mesh/pzmultiphysicscompel.h>
@@ -46,11 +46,11 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     if (fPostProcesswithHDiv) {
         CreateFluxSkeletonElements(meshvec[0]);
         // TODO move this to InsertMaterials method
-        TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+        TPZNullMaterialCS<> *skeletonMat = new TPZNullMaterialCS<>(fPressureSkeletonMatId);
         skeletonMat->SetDimension(GMesh()->Dimension() - 1);
         fPostProcMesh.InsertMaterialObject(skeletonMat);
 
-        TPZNullMaterial *wrapMat = new TPZNullMaterial(fHDivWrapMatId);
+        TPZNullMaterialCS<> *wrapMat = new TPZNullMaterialCS<>(fHDivWrapMatId);
         skeletonMat->SetDimension(GMesh()->Dimension() - 1);
         fPostProcMesh.InsertMaterialObject(wrapMat);
     }
@@ -472,13 +472,14 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
     std::set<int> bcMatIDs;
     for (auto it : fOriginal->MaterialVec()) {
         TPZMaterial *mat = it.second;
-        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if (bc) {
             int bcID = bc->Material()->Id();
-            TPZMaterial *pressure_mat = original_pressure->FindMaterial(bcID);
-            TPZMaterial *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            TPZMaterial *pressure_abs = original_pressure->FindMaterial(bcID);
+            TPZMaterialT<STATE> *pressure_mat = dynamic_cast<TPZMaterialT<STATE>*>(pressure_abs);
+            TPZBndCondT<STATE> *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (fExact) {
-                bc_mat->SetForcingFunction(fExact->Exact());
+                bc_mat->SetForcingFunctionBC(fExact->ExactSolution());
             }
             reconstruction_pressure->InsertMaterialObject(bc_mat);
         }
@@ -801,7 +802,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *pre
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPressureSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
 
@@ -1120,7 +1121,7 @@ void TPZMHMHDivErrorEstimator::CreateMultiphysicsInterfaces() {
         fMultiPhysicsInterfaceMatId = FindFreeMatId(this->GMesh());
     }
 
-    TPZLagrangeMultiplier *interfaceMat = new TPZLagrangeMultiplier(fMultiPhysicsInterfaceMatId, dim - 1, 1);
+    TPZLagrangeMultiplierCS<> *interfaceMat = new TPZLagrangeMultiplierCS<>(fMultiPhysicsInterfaceMatId, dim - 1, 1);
     fPostProcMesh.InsertMaterialObject(interfaceMat);
     std::cout << "Created interface material of index " << fMultiPhysicsInterfaceMatId << '\n';
 

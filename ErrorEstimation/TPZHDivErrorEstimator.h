@@ -13,7 +13,7 @@
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZAnalyticSolution.h"
 #include "ProblemConfig.h"
-#include "pzanalysis.h"
+#include "TPZAnalysis.h"
 #include "pzsubcmesh.h"
 
 /// this class will compute the estimated value of the energy error of the input mesh

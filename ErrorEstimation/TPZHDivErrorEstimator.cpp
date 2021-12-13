@@ -12,17 +12,14 @@
 #include "TPZInterfaceEl.h"
 #include "TPZMixedHdivErrorEstimate.h"
 #include "TPZNullMaterial.h"
-#include "mixedpoisson.h"
-#include "pzanalysis.h"
-#include "pzbndcond.h"
+#include "TPZLinearAnalysis.h"
 #include "pzbuildmultiphysicsmesh.h"
 #include "pzcmesh.h"
 #include "pzcompel.h"
 #include "pzcondensedcompel.h"
 #include "pzelementgroup.h"
-#include "pzelmat.h"
+#include "TPZElementMatrixT.h"
 #include "pzintel.h"
-#include "pzmat1dlin.h"
 #include "pzsubcmesh.h"
 #include "pzstepsolver.h"
 #include "TPZVTKGeoMesh.h"
@@ -68,7 +65,7 @@ TPZHDivErrorEstimator::~TPZHDivErrorEstimator() {
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
 void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& elementErrors, std::string& vtkPath) {
-    TPZAnalysis an(&fPostProcMesh, false);
+    TPZLinearAnalysis an(&fPostProcMesh, false);
     
     if (fExact) {
         an.SetExact(fExact->ExactSolution());
@@ -198,16 +195,18 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
         std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
         for (auto bcID : bcMatIDs) {
             TPZMaterial *mat = mult->FindMaterial(bcID);
-            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
             if (!bc) DebugStop();
 
             int volumetricMatId = bc->Material()->Id();
             TPZMaterial *pressuremat = pressureMesh->FindMaterial(volumetricMatId);
             if (!pressuremat) DebugStop();
+            TPZMaterialT<STATE> *press = dynamic_cast<TPZMaterialT<STATE> *>(pressuremat);
 
-            TPZMaterial *newbc = pressuremat->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
-            if (bc->HasForcingFunction()) {
-                newbc->SetForcingFunction(bc->ForcingFunction());
+            TPZBndCondT<STATE> *newbc = press->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            if (bc->HasForcingFunctionBC()) {
+                
+                newbc->SetForcingFunctionBC(bc->ForcingFunctionBC());
             }
             pressureMesh->InsertMaterialObject(newbc);
         }
@@ -522,7 +521,7 @@ void TPZHDivErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh) {
     if (pressuremesh->MaterialVec().find(fPressureSkeletonMatId) != pressuremesh->MaterialVec().end()) {
         DebugStop();
     }
-    TPZNullMaterial *nullmat = new TPZNullMaterial(fPressureSkeletonMatId);
+    TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(fPressureSkeletonMatId);
     pressuremesh->InsertMaterialObject(nullmat);
     int dim = fPostProcMesh.Dimension();
     int64_t nel = pressuremesh->NElements();
@@ -835,7 +834,7 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
     
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
     
-    TPZElementMatrix ekbc, efbc;
+    TPZElementMatrixT<STATE> ekbc, efbc;
     TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
     for (int iel = 0; iel < nel; iel++) {
         TPZCompEl *cel = elementvec[iel];
@@ -1774,7 +1773,7 @@ void TPZHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bo
         scalnames.Push("State");
     }
 
-    TPZAnalysis an(pressure, false);
+    TPZLinearAnalysis an(pressure, false);
 
     {
         int dim = pressure->Reference()->Dimension() - 1;
@@ -1801,7 +1800,7 @@ void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, boo
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("State");
 
-    TPZAnalysis an(flux_mesh, false);
+    TPZLinearAnalysis an(flux_mesh, false);
 
     {
         int dim = flux_mesh->Reference()->Dimension() - 1;
@@ -1822,7 +1821,7 @@ void TPZHDivErrorEstimator::SwitchMaterialObjects() {
     for (auto mat : fPostProcMesh.MaterialVec()) {
         TPZMixedPoisson *mixpoisson = dynamic_cast<TPZMixedPoisson *>(mat.second);
         if (mixpoisson) {
-            TPZMaterial *newmat;
+            TPZMixedPoisson *newmat;
             if (fPostProcesswithHDiv) {
                 newmat = new TPZMixedHDivErrorEstimate<TPZMixedPoisson>(*mixpoisson);
             } else {
@@ -1830,10 +1829,12 @@ void TPZHDivErrorEstimator::SwitchMaterialObjects() {
             }
 
             if (mixpoisson->HasForcingFunction()) {
-                newmat->SetForcingFunction(mixpoisson->ForcingFunction());
+                newmat->SetForcingFunction(mixpoisson->ForcingFunction(),
+                                           mixpoisson->ForcingFunctionPOrder());
             }
             if (mixpoisson->HasExactSol()) {
-                newmat->SetExactSol(mixpoisson->GetExactSol());
+                newmat->SetExactSol(mixpoisson->ExactSol(),
+                                    mixpoisson->PolynomialOrderExact());
             }
 
             for (auto bcmat : fPostProcMesh.MaterialVec()) {
@@ -2179,7 +2180,7 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
         }
         if (!mat) DebugStop();
 
-        TPZBndCond *bcmat = dynamic_cast<TPZBndCond *>(mat);
+        TPZBndCondT<STATE> *bcmat = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if (bcmat) {
             switch(bcmat->Type()) {
                 case 0: // Dirichlet BC
@@ -2206,7 +2207,7 @@ void TPZHDivErrorEstimator::ComputePressureWeights() {
             gel->CenterPoint(gel->NSides() - 1, xi);
             TPZVec<REAL> x(3, 0.);
             gel->X(xi, x);
-            mixpoisson->GetMaxPermeability(perm);
+            perm = mixpoisson->GetPermeability(x);
 
             if (IsZero(perm)) DebugStop();
             this->fPressureweights[el] = perm;
@@ -2222,7 +2223,7 @@ void TPZHDivErrorEstimator::PlotState(const std::string& filename, int targetDim
     cmesh->Print(outTXT);
     
     {
-        TPZAnalysis an(cmesh, false);
+        TPZLinearAnalysis an(cmesh, false);
         TPZStack<std::string> scalnames, vecnames;
         if (atomic) {
             scalnames.Push("State");
@@ -2303,7 +2304,7 @@ void TPZHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh *pressure_mesh) {
 #endif
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPressureSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
 

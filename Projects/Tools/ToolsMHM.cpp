@@ -17,18 +17,15 @@
 #include "pzgeoelside.h"
 #include "tpzgeoelrefpattern.h"
 #include "tpzautopointer.h"
-#include "pzbndcond.h"
-#include "pzanalysis.h"
+#include "TPZLinearAnalysis.h"
 
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
-#include "pzstrmatrix.h"
+#include "TPZStructMatrixT.h"
 
 #include "tpzarc3d.h"
 #include "tpzgeoblend.h"
 
-#include "mixedpoisson.h"
-#include "TPZVecL2.h"
 
 #include "pzbuildmultiphysicsmesh.h"
 #include "TPZCompMeshTools.h"
@@ -37,6 +34,8 @@
 
 #include "TPZHybridizeHDiv.h"
 #include "TPZGenGrid2D.h"
+
+#include "TPZNullMaterial.h"
 
 #include <string>
 #include <cmath>
@@ -60,8 +59,8 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     
     //Definition of the approximation space:
     
-    TPZVecL2 *mat_0 = new TPZVecL2(impervious_mat);
-    TPZVecL2 *mat_1 = new TPZVecL2(permeable_mat);
+    TPZNullMaterial<> *mat_0 = new TPZNullMaterial<>(impervious_mat,dim);
+    TPZNullMaterial<> *mat_1 = new TPZNullMaterial<>(permeable_mat,dim);
     
     //  inserting volumetric materials objects
     cmesh->InsertMaterialObject(mat_0);
@@ -72,34 +71,35 @@ TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     
     int type_D = 0;
     int type_N = 1;
-    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFMatrix<STATE> val1(1, 1, 0.);
+    TPZManVector<REAL,1> val2(1, 0.);
     
     // Insert boundary conditions
     //Neumann boundary conditions (flux = 0)
     int right_bc_id = -2;
-    TPZMaterial * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
+    TPZBndCondT<STATE> * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
     cmesh->InsertMaterialObject(right_bc);
     
     int left_bc_id = -4;
-    TPZMaterial * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
+    TPZBndCondT<STATE> * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
     cmesh->InsertMaterialObject(left_bc);
     
     int bottom_bc_1id = -1;
-    TPZMaterial * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
+    TPZBndCondT<STATE>* bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
     cmesh->InsertMaterialObject(bottom_bc_1);
     
     int top_bc_1id = -3;
-    TPZMaterial * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
+    TPZBndCondT<STATE> * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
     cmesh->InsertMaterialObject(top_bc_1);
     
     
     //Dirichlet Conditions (p=1 in, p=0 out)
     int bottom_bc_id = -5;
-    TPZMaterial * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
+    TPZBndCondT<STATE> * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
     cmesh->InsertMaterialObject(bottom_bc);
     
     int top_bc_id = -6;
-    TPZMaterial * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
+    TPZBndCondT<STATE> * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
     cmesh->InsertMaterialObject(top_bc);
     
     cmesh->SetName("LaberintoTest");
@@ -188,7 +188,7 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
             TPZVec<REAL> qsi(2);
             qsi[0]=0;
             qsi[1]=0;
-            int var=31;
+            int var=1;
             TPZVec<STATE> sol;
             TPZCompEl *cel = candidate.Element()->Reference();
             cel->Solution(qsi, var,sol);
@@ -406,9 +406,9 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
                   TPZAnalyticSolution *analytic, const std::string &prefix, TRunConfig config) {
     //calculo solution
     bool shouldrenumber = true;
-    TPZAnalysis an(cmesh,shouldrenumber);
+    TPZLinearAnalysis an(cmesh,shouldrenumber);
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
+    TPZSSpStructMatrix<> strmat(cmesh.operator->());
     strmat.SetNumThreads(0/*config.n_threads*/);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());

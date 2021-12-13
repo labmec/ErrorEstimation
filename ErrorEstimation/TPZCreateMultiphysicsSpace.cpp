@@ -14,7 +14,7 @@
 #include "pzelementgroup.h"
 #include "pzcondensedcompel.h"
 #include "TPZNullMaterial.h"
-#include "TPZLagrangeMultiplier.h"
+#include "TPZLagrangeMultiplierCS.h"
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZMultiphysicsInterfaceEl.h"
 #include "TPZHybridizeHDiv.h"
@@ -312,7 +312,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
 void TPZCreateMultiphysicsSpace::InsertPressureMaterialIds(TPZCompMesh *pressure)
 {
     for (auto matid:fMaterialIds) {
-        TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+        TPZNullMaterial<STATE> *nullmat = new TPZNullMaterial<STATE>(matid);
         nullmat->SetDimension(fDimension);
         nullmat->SetNStateVariables(1);
         pressure->InsertMaterialObject(nullmat);
@@ -320,21 +320,21 @@ void TPZCreateMultiphysicsSpace::InsertPressureMaterialIds(TPZCompMesh *pressure
     if((fH1Hybrid.fHybridizeBCLevel == 2) || (fH1Hybrid.fHybridizeBCLevel == 0))
     {
         for (auto matid:fBCMaterialIds) {
-            TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+            TPZNullMaterial<STATE> *nullmat = new TPZNullMaterial<>(matid);
             nullmat->SetDimension(fDimension);
             nullmat->SetNStateVariables(1);
             pressure->InsertMaterialObject(nullmat);
         }
     }
     {
-        TPZNullMaterial *nullmat = new TPZNullMaterial(fH1Hybrid.fMatWrapId);
+        TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(fH1Hybrid.fMatWrapId);
         nullmat->SetDimension(fDimension);
         nullmat->SetNStateVariables(1);
         pressure->InsertMaterialObject(nullmat);
     }
     if(fSpaceType == EH1HybridSquared)
     {
-        TPZNullMaterial *nullmat = new TPZNullMaterial(fH1Hybrid.fInterfacePressure);
+        TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(fH1Hybrid.fInterfacePressure);
         nullmat->SetDimension(fDimension);
         nullmat->SetNStateVariables(1);
         pressure->InsertMaterialObject(nullmat);
@@ -347,7 +347,7 @@ void TPZCreateMultiphysicsSpace::InsertFluxMaterialIds(TPZCompMesh *fluxmesh)
 {
     if (fSpaceType == EH1Hybrid || fSpaceType == EH1HybridSquared) {
         int matid = fH1Hybrid.fFluxMatId;
-        TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+        TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
         nullmat->SetDimension(fDimension-1);
         nullmat->SetNStateVariables(1);
         fluxmesh->InsertMaterialObject(nullmat);
@@ -358,7 +358,7 @@ void TPZCreateMultiphysicsSpace::InsertFluxMaterialIds(TPZCompMesh *fluxmesh)
     if(fH1Hybrid.fHybridizeBCLevel == 1)
     {
         for (auto matid:fBCMaterialIds) {
-            TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+            TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
             nullmat->SetDimension(fDimension);
             nullmat->SetNStateVariables(1);
             fluxmesh->InsertMaterialObject(nullmat);
@@ -370,7 +370,7 @@ void TPZCreateMultiphysicsSpace::InsertFluxMaterialIds(TPZCompMesh *fluxmesh)
 void TPZCreateMultiphysicsSpace::InsertNullSpaceMaterialIds(TPZCompMesh *nullspace)
 {
     for (auto matid:fMaterialIds) {
-        TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+        TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
         nullmat->SetDimension(fDimension);
         nullmat->SetNStateVariables(1);
         nullspace->InsertMaterialObject(nullmat);
@@ -691,7 +691,7 @@ static void InsertNullMaterial(int matid, int dim, int nstate, TPZCompMesh *cmes
 {
     TPZMaterial *mat = cmesh->FindMaterial(matid);
     if(mat) return;
-    TPZNullMaterial *nullmat = new TPZNullMaterial(matid);
+    TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
     nullmat->SetDimension(dim);
     nullmat->SetNStateVariables(nstate);
     cmesh->InsertMaterialObject(nullmat);
@@ -720,16 +720,16 @@ void TPZCreateMultiphysicsSpace::InsertLagranceMaterialObjects(TPZMultiphysicsCo
 {
     if(fSpaceType == EH1Hybrid)
     {
-        TPZLagrangeMultiplier *lag1 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.first, fDimension-1, 1);
+        TPZLagrangeMultiplierCS<> *lag1 = new TPZLagrangeMultiplierCS<>(fH1Hybrid.fLagrangeMatid.first, fDimension-1, 1);
         mphys->InsertMaterialObject(lag1);
-        TPZLagrangeMultiplier *lag2 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.second, fDimension-1, 1);
+        TPZLagrangeMultiplierCS<> *lag2 = new TPZLagrangeMultiplierCS<>(fH1Hybrid.fLagrangeMatid.second, fDimension-1, 1);
         lag2->SetMultiplier(-1.);
         mphys->InsertMaterialObject(lag2);
     }
     else if (fSpaceType == EH1HybridSquared) {
-        TPZLagrangeMultiplier *lag1 = new TPZLagrangeMultiplier(fH1Hybrid.fLagrangeMatid.first, fDimension-1, 1);
+        TPZLagrangeMultiplierCS<> *lag1 = new TPZLagrangeMultiplierCS<>(fH1Hybrid.fLagrangeMatid.first, fDimension-1, 1);
         mphys->InsertMaterialObject(lag1);
-        TPZLagrangeMultiplier *lag2 = new TPZLagrangeMultiplier(fH1Hybrid.fSecondLagrangeMatid, fDimension-1, 1);
+        TPZLagrangeMultiplierCS<> *lag2 = new TPZLagrangeMultiplierCS<>(fH1Hybrid.fSecondLagrangeMatid, fDimension-1, 1);
         lag2->SetMultiplier(-1.);
         mphys->InsertMaterialObject(lag2);
     }
