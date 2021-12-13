@@ -6,29 +6,28 @@
 
 #include "TPZSteklovMaterial.h"
 #include "pzaxestools.h"
-#include "pzbndcond.h"
-
+#include "TPZMaterialDataT.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logdata(Logger::getLogger("TPZSteklovMaterial"));
 #endif
 
-TPZSteklovMaterial::TPZSteklovMaterial(int matid, int dim) : TPZMixedPoisson(matid,dim)
+TPZSteklovMaterial::TPZSteklovMaterial(int matid, int dim) : TPZMixedDarcyFlow(matid,dim)
 {
     
 }
 
-TPZSteklovMaterial::TPZSteklovMaterial() : TPZMixedPoisson()
+TPZSteklovMaterial::TPZSteklovMaterial() : TPZMixedDarcyFlow()
 {
     
 }
 
-TPZSteklovMaterial::TPZSteklovMaterial(const TPZMixedPoisson &copy) : TPZMixedPoisson(copy)
+TPZSteklovMaterial::TPZSteklovMaterial(const TPZMixedDarcyFlow &copy) : TPZMixedDarcyFlow(copy)
 {
     
 }
 
-TPZSteklovMaterial::TPZSteklovMaterial(const TPZSteklovMaterial &copy) : TPZMixedPoisson(copy)
+TPZSteklovMaterial::TPZSteklovMaterial(const TPZSteklovMaterial &copy) : TPZMixedDarcyFlow(copy)
 {
     
 }
@@ -40,11 +39,11 @@ TPZSteklovMaterial::~TPZSteklovMaterial()
 
 TPZSteklovMaterial &TPZSteklovMaterial::operator=(const TPZSteklovMaterial &copy)
 {
-    TPZMixedPoisson::operator=(copy);
+    TPZMixedDarcyFlow::operator=(copy);
     return *this;
 }
 
-void TPZSteklovMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
+void TPZSteklovMaterial::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
     
     ef.Resize(ek.Rows(), ek.Cols());
     ef.Zero();
@@ -52,10 +51,12 @@ void TPZSteklovMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weigh
     STATE force = 0.;
 
     
-    TPZFNMatrix<9,STATE> PermTensor;
-    TPZFNMatrix<9,STATE> InvPermTensor;
+    TPZFNMatrix<9,STATE> PermTensor(3,3);
+    TPZFNMatrix<9,STATE> InvPermTensor(3,3);
     
-    GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
+    STATE perm = GetPermeability(datavec[1].x);
+    PermTensor.Diagonal(perm);
+    InvPermTensor.Diagonal(1./perm);
     
     // Setting the phis
     TPZFMatrix<REAL> &phiQ = datavec[0].phi;
@@ -171,7 +172,7 @@ void TPZSteklovMaterial::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weigh
     
 }
 
-void TPZSteklovMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCond &bc){
+void TPZSteklovMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCondT<STATE> &bc){
     
     ef.Resize(ek.Rows(), ek.Cols());
     ef.Zero();
@@ -182,18 +183,20 @@ void TPZSteklovMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL wei
     TPZFMatrix<REAL>  &phiQ = datavec[0].phi;
     int phrq = phiQ.Rows();
 
-    REAL v2 = bc.Val2()(0,0);
+    REAL v2 = bc.Val2()[0];
     REAL v1 = bc.Val1()(0,0);
     REAL u_D = 0;
     REAL normflux = 0.;
     
-    if(bc.HasForcingFunction())
+    if(bc.HasForcingFunctionBC())
     {
         TPZManVector<STATE> res(3);
         TPZFNMatrix<9,STATE> gradu(dim,1);
-        bc.ForcingFunction()->Execute(datavec[0].x,res,gradu);
-        TPZFNMatrix<9,STATE> PermTensor, InvPermTensor;
-        GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
+        bc.ForcingFunctionBC()(datavec[0].x,res,gradu);
+        TPZFNMatrix<9,STATE> PermTensor(3,3), InvPermTensor(3,3);
+        STATE perm = GetPermeability(datavec[0].x);
+        PermTensor.Diagonal(perm);
+        InvPermTensor.Diagonal(1./perm);
         
         
         for(int i=0; i<3; i++)
@@ -222,7 +225,7 @@ void TPZSteklovMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL wei
         }
     }else
     {
-        v2 = bc.Val2()(0,0);
+        v2 = bc.Val2()[0];
     }
 
     switch (bc.Type()) {
@@ -241,9 +244,9 @@ void TPZSteklovMaterial::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL wei
             {
                 
                 for (int jq=0; jq<phrq; jq++) {
-                    ef(iq,jq)+= gBigNumber*phiQ(iq,0)*phiQ(jq,0)*weight;
+                    ef(iq,jq)+= fBigNumber*phiQ(iq,0)*phiQ(jq,0)*weight;
                     
-                    ek(iq,jq)+= gBigNumber*phiQ(iq,0)*phiQ(jq,0)*weight;
+                    ek(iq,jq)+= fBigNumber*phiQ(iq,0)*phiQ(jq,0)*weight;
                 }
             }
             break;
