@@ -14,16 +14,14 @@
 #include "pzgeoelside.h"
 #include "tpzgeoelrefpattern.h"
 #include "tpzautopointer.h"
-#include "pzbndcond.h"
-#include "pzanalysis.h"
+#include "TPZLinearAnalysis.h"
 
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
-#include "pzstrmatrix.h"
+#include "TPZStructMatrixT.h"
 
-#include "pzpoisson3d.h"
-#include "mixedpoisson.h"
-#include "TPZVecL2.h"
+#include "DarcyFlow/TPZDarcyFlow.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "pzmultiphysicscompel.h"
 #include "pzbuildmultiphysicsmesh.h"
 
@@ -78,10 +76,10 @@ void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &conf
 void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
 int main(){
-    InitializePZLOG();
+    TPZLogger::InitializePZLOG();
     
     ConfigCasesMaze ConfCasesMeze;
-    ConfCasesMeze.SetImageName("⁨../Mazes/maze8x8.png");
+    ConfCasesMeze.SetImageName("⁨../Mazes/maze128x128.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);//pouco permeavel
     ConfCasesMeze.SetPermeableMatPermeability(1000000);//dentro do labirinto
     ConfCasesMeze.SetFluxOrder(1);
@@ -89,7 +87,7 @@ int main(){
     ConfCasesMeze.SetCCPressureIn(100);//pressao na entrada
     ConfCasesMeze.SetCCPressureOut(1);//pressao na saida
     ConfCasesMeze.SetMHMOpenChannel(false);
-    ConfCasesMeze.SetVTKName("maze8x8.vtk");
+    ConfCasesMeze.SetVTKName("maze128x128.vtk");
 
     MHMTest(ConfCasesMeze);
     return 0;
@@ -141,10 +139,10 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf){
     
     bool must_opt_band_width_Q = true;
     int number_threads = 4;
-    TPZAnalysis *an = new TPZAnalysis(cmesh_m_Hybrid,must_opt_band_width_Q);
+    TPZLinearAnalysis *an = new TPZLinearAnalysis(cmesh_m_Hybrid,must_opt_band_width_Q);
     
     //
-    TPZSymetricSpStructMatrix sparse_matrix(cmesh_m_Hybrid);
+    TPZSSpStructMatrix<> sparse_matrix(cmesh_m_Hybrid);
     TPZStepSolver<STATE> step;
     sparse_matrix.SetNumThreads(number_threads);
     step.SetDirect(ELDLt);
@@ -188,11 +186,11 @@ TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf){
     cmesh->SetAllCreateFunctionsDiscontinuous();
     cmesh->ApproxSpace().CreateDisconnectedElements(true);
     
-    
+    typedef TPZDarcyFlow TPZMatPoisson3d;
     TPZMatPoisson3d *mat_0 = new TPZMatPoisson3d(impervious_mat,dim);
     TPZMatPoisson3d *mat_1 = new TPZMatPoisson3d(permeable_mat,dim);
-    mat_0->SetParameters(perm_0, conv, convdir);
-    mat_1->SetParameters(perm_1, conv, convdir);
+    mat_0->SetConstantPermeability(perm_0);
+    mat_1->SetConstantPermeability(perm_1);
     
     //  inserting volumetric materials objects
     cmesh->InsertMaterialObject(mat_0);
@@ -233,7 +231,7 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
 #ifdef MACOSX
     Mat image = imread("../Mazes/maze8x8.png",IMREAD_GRAYSCALE);
 #else
-    Mat image = imread("Mazes/maze8x8.png",IMREAD_GRAYSCALE);
+    Mat image = imread("../Mazes/maze128x128.png",IMREAD_GRAYSCALE);
 #endif
 
     int k=0;
@@ -324,7 +322,7 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
 TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec, ConfigCasesMaze &Conf ){
     
     //Creating computational mesh for multiphysic elements
-    TPZCompMesh *mphysics = new TPZCompMesh(gmesh);
+    TPZMultiphysicsCompMesh *mphysics = new TPZMultiphysicsCompMesh(gmesh);
     
     int impervious_mat = 1;
     int permeable_mat = 2;
@@ -338,15 +336,15 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     
     std::cout<<mphysics->NMaterials();
     
+    typedef TPZMixedDarcyFlow TPZMixedPoisson;
+    
     TPZMixedPoisson *mat_0 = new TPZMixedPoisson(impervious_mat,dim);
-    mat_0->SetPermeability(perm_0);
+    mat_0->SetConstantPermeability(perm_0);
     
     
     TPZMixedPoisson *mat_1 = new TPZMixedPoisson(permeable_mat,dim);
-    mat_1->SetPermeability(perm_1);
+    mat_1->SetConstantPermeability(perm_1);
     
-    mat_0->SetParameters(perm_0, conv, convdir);
-    mat_1->SetParameters(perm_1, conv, convdir);
     
     mphysics->InsertMaterialObject(mat_0);
     mphysics->InsertMaterialObject(mat_1);
@@ -354,49 +352,52 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     //Inserir condicoes de contorno
     int type_D = 0;
     int type_N = 1;
-    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFMatrix<STATE> val1(1, 1, 0.);
+    TPZManVector<STATE> val2(1, 0.);
     
     // Insert boundary conditions
     //Neumann boundary conditions (flux = 0)
     int right_bc_id = -2;
-    val2(0,0) = 0.0;
-    TPZMaterial * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
+    val2[0] = 0.0;
+    TPZBndCondT<STATE> * right_bc = mat_0->CreateBC(mat_0, right_bc_id, type_N, val1, val2);
     mphysics->InsertMaterialObject(right_bc);
     
     
     int left_bc_id = -4;
-    val2(0,0) = 0.0;
-    TPZMaterial * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
+    val2[0] = 0.0;
+    TPZBndCondT<STATE> * left_bc = mat_0->CreateBC(mat_0, left_bc_id, type_N, val1, val2);
     mphysics->InsertMaterialObject(left_bc);
     
     int bottom_bc_1id = -1;
-    val2(0,0) = 0;
-    TPZMaterial * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
+    val2[0] = 0;
+    TPZBndCondT<STATE> * bottom_bc_1 = mat_0->CreateBC(mat_0, bottom_bc_1id, type_N, val1, val2);
     mphysics->InsertMaterialObject(bottom_bc_1);
     
     int top_bc_1id = -3;
-    val2(0,0) = 0.0;
-    TPZMaterial * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
+    val2[0] = 0.0;
+    TPZBndCondT<STATE> * top_bc_1 = mat_0->CreateBC(mat_0, top_bc_1id, type_N, val1, val2);
     mphysics->InsertMaterialObject(top_bc_1);
     
     //Dirichlet Conditions (p=1 in, p=0 out)
     int bottom_bc_id = -5;
-    val2(0,0) = Conf.GetCCPressureIn();
-    TPZMaterial * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
+    val2[0] = Conf.GetCCPressureIn();
+    TPZBndCondT<STATE> * bottom_bc = mat_0->CreateBC(mat_0, bottom_bc_id, type_D, val1, val2);
     mphysics->InsertMaterialObject(bottom_bc);
     
     int top_bc_id = -6;
-    val2(0,0) = Conf.GetCCPressureOut();
-    TPZMaterial * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
+    val2[0] = Conf.GetCCPressureOut();
+    TPZBndCondT<STATE> * top_bc = mat_0->CreateBC(mat_0, top_bc_id, type_D, val1, val2);
     mphysics->InsertMaterialObject(top_bc);
     
     mphysics->SetAllCreateFunctionsMultiphysicElem();
     mphysics->SetDimModel(gmesh->Dimension());
-    mphysics->AutoBuild();
+//    mphysics->AutoBuild();
     
-    TPZBuildMultiphysicsMesh::AddElements(meshvec, mphysics);
-    TPZBuildMultiphysicsMesh::AddConnects(meshvec,mphysics);
-    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, mphysics);
+    mphysics->BuildMultiphysicsSpace(meshvec);
+    
+//    TPZBuildMultiphysicsMesh::AddElements(meshvec, mphysics);
+//    TPZBuildMultiphysicsMesh::AddConnects(meshvec,mphysics);
+//    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, mphysics);
     
 #ifdef ERRORESTIMATION_DEBUG
     std::ofstream file("cmesh_mphysics.txt");
@@ -409,13 +410,14 @@ int MHMTest(ConfigCasesMaze &Conf){
 
     TRunConfig Configuration;
 
-    TPZGeoMesh *gmeshcoarse =GenerateGeoMesh(Conf.GetImageName(), 2, 2);
+    TPZGeoMesh *gmeshcoarse =GenerateGeoMesh(Conf.GetImageName(), 32, 32);
     {
         std::ofstream file(Conf.GetVTKName());
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
     }
 
     int interface_mat_id = 600;
+    Conf.SetMHMOpenChannel(true);
     bool OpenChannel = Conf.GetMHMOpenChannel();
 
     TPZAutoPointer<TPZMHMixedMeshChannelControl> MHMixed;
@@ -455,10 +457,10 @@ int MHMTest(ConfigCasesMaze &Conf){
 
         InsertMaterialObjects(*mhm);
 
-        meshcontrol.SetInternalPOrder(3);
+        meshcontrol.SetInternalPOrder(1);
         meshcontrol.SetSkeletonPOrder(1);
 
-        meshcontrol.DivideSkeletonElements(2);
+//        meshcontrol.DivideSkeletonElements(2);
         meshcontrol.DivideBoundarySkeletonElements();
 
         bool substructure = true;
@@ -490,8 +492,8 @@ int MHMTest(ConfigCasesMaze &Conf){
     ProblemConfig config;
     config.dimension = 2;
     config.exact = nullptr;
-    config.problemname = "MazeHdiv8x8";
-    config.dir_name = "Results8x8";
+    config.problemname = "MazeHdiv128x128";
+    config.dir_name = "Results128x128";
     config.porder = 3;
     config.hdivmais = 3;
     config.materialids = {1, 2};
@@ -503,7 +505,7 @@ int MHMTest(ConfigCasesMaze &Conf){
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     bool postProcWithHdiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
-    EstimateError(ErrorEstimator, config);
+//    EstimateError(ErrorEstimator, config);
     //LocateElementsToAdapt(ErrorEstimator, config);
 
     return 0;
@@ -512,7 +514,9 @@ int MHMTest(ConfigCasesMaze &Conf){
 void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config) {
     cout << "Error Estimation processing for MHM-Hdiv problem " << endl;
 
-    errorEstimator.SetProblemConfig(config);
+    DebugStop();
+    
+//    errorEstimator.SetProblemConfig(config);
     errorEstimator.PotentialReconstruction();
 
     {
@@ -532,7 +536,8 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
 
     TPZGeoMesh &gmesh = control.GMesh();
     const int typeFlux = 1, typePressure = 0;
-    TPZFMatrix<STATE> val1(1,1,0.), val2Flux(1,1,0.), val2Pressure(1,1,10.);
+    TPZFMatrix<STATE> val1(1,1,0.);
+    TPZManVector<STATE> val2Flux(1,0.), val2Pressure(1,10.);
 
 
     int dim = gmesh.Dimension();
@@ -540,22 +545,21 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
 
     TPZCompMesh *MixedFluxPressureCmesh = &cmesh;
 
+    typedef TPZMixedDarcyFlow TPZMixedPoisson;
     // Material medio poroso
     TPZMixedPoisson * mat = new TPZMixedPoisson(1,dim);
-    mat->SetSymmetric();
-    mat->SetPermeability(1.);
+    mat->SetConstantPermeability(1.);
     //    mat->SetForcingFunction(One);
     MixedFluxPressureCmesh->InsertMaterialObject(mat);
 
     TPZMixedPoisson * mat_2 = new TPZMixedPoisson(2,dim);
-    mat_2->SetSymmetric();
     //mat_2->SetPermeability(1000000.0);
-    mat_2->SetPermeability(50.0);
+    mat_2->SetConstantPermeability(500000.0);
     //    mat->SetForcingFunction(One);
     MixedFluxPressureCmesh->InsertMaterialObject(mat_2);
 
    // Bc N
-    TPZBndCond * bcN = mat->CreateBC(mat, -1, typeFlux, val1, val2Flux);
+    TPZBndCondT<STATE> * bcN = mat->CreateBC(mat, -1, typeFlux, val1, val2Flux);
     //    bcN->SetForcingFunction(0, force);
 
     MixedFluxPressureCmesh->InsertMaterialObject(bcN);
@@ -570,11 +574,11 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
     bcS = mat->CreateBC(mat, -4, typeFlux, val1, val2Flux);
     MixedFluxPressureCmesh->InsertMaterialObject(bcS);
-    val2Pressure(0,0) = 100.;
+    val2Pressure[0] = 100.;
     TPZBndCond * bcIn = mat->CreateBC(mat, -5, typePressure, val1, val2Pressure);
 
     MixedFluxPressureCmesh->InsertMaterialObject(bcIn);
-    val2Pressure(0,0) = -100.;
+    val2Pressure[0] = -100.;
     TPZBndCond * bcOut = mat->CreateBC(mat, -6, typePressure, val1, val2Pressure);
 
     MixedFluxPressureCmesh->InsertMaterialObject(bcOut);
@@ -729,8 +733,8 @@ void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConf
         TPZMultiphysicsElement *m_cel_left = dynamic_cast<TPZMultiphysicsElement *>(left_cel);
         if (!m_cel_right || !m_cel_left) DebugStop();
 
-        TPZVec<TPZMaterialData> right_mat_data(4);
-        TPZVec<TPZMaterialData> left_mat_data(4);
+        TPZVec<TPZMaterialDataT<STATE>> right_mat_data(4);
+        TPZVec<TPZMaterialDataT<STATE>> left_mat_data(4);
         TPZManVector<int64_t, 4> indexes(4, 0);
 
         TPZManVector<int> active_spaces = postProcMesh->GetActiveApproximationSpaces();
@@ -777,9 +781,9 @@ void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConf
                 std::cout << "R: (" << right_x[0] << ", " << right_x[1] << ", " << right_x[2] << ")\n";
                 std::cout << "L: (" << left_x[0] << ", " << left_x[1] << ", " << left_x[2] << ")\n";
             }
-
-            TPZVec<TPZTransform<>> tr_vec(0);
-            m_cel_right->ComputeRequiredData(xi_right, tr_vec, right_mat_data, indexes);
+            DebugStop();
+//            TPZVec<TPZTransform<>> tr_vec(0);
+//            m_cel_right->ComputeRequiredData(xi_right, tr_vec, right_mat_data, indexes);
             //m_cel_left->ComputeRequiredData(left_mat_data, xi_left);
         }
     }

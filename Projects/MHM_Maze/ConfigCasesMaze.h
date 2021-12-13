@@ -6,8 +6,8 @@
 #ifndef ConfigCasesMaze_H
 #define ConfigCasesMaze_H
 
-#include "TPZMatLaplacian.h"
-#include "pzdiscgal.h"
+#include "DarcyFlow/TPZDarcyFlow.h"
+//#include "pzdiscgal.h"
 #include "pzfmatrix.h"
 #include <Pre/TPZAnalyticSolution.h>
 #include <iostream>
