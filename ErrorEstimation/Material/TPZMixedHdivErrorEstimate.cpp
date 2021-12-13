@@ -6,8 +6,9 @@
 //
 
 #include "TPZMixedHdivErrorEstimate.h"
-#include "mixedpoisson.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "pzaxestools.h"
+#include "TPZMaterialDataT.h"
 
 
 template<class MixedMat>
@@ -43,12 +44,13 @@ TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(const TPZMixedHDi
 template<class MixedMat>
 TPZMixedHDivErrorEstimate<MixedMat> &TPZMixedHDivErrorEstimate<MixedMat>::operator=(const TPZMixedHDivErrorEstimate &copy)
 {
-    MixedMat::operator=(copy);
+    MixedMat *me = this;
+    me->operator=(copy);
     return *this;
 }
 
 template<class MixedMat>
-void TPZMixedHDivErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMaterialData > &datavec)
+void TPZMixedHDivErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const
 {
     MixedMat::FillDataRequirements(datavec);
     {
@@ -61,7 +63,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMateria
 }
 
 template<class MixedMat>
-int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name)
+int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name) const
 {
     if(name == "FluxFem") return 40;
     if(name == "FluxReconstructed") return 41;
@@ -82,7 +84,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name)
 }
 
 template<class MixedMat>
-int TPZMixedHDivErrorEstimate<MixedMat>::NSolutionVariables(int var)
+int TPZMixedHDivErrorEstimate<MixedMat>::NSolutionVariables(int var) const
 {
     switch (var) {
         case 40:
@@ -117,7 +119,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::NSolutionVariables(int var)
  * @param Solout [out] is the solution vector
  */
 template<class MixedMat>
-void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
+void TPZMixedHDivErrorEstimate<MixedMat>::Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout)
 {
     /**
      datavec[0]= Hdiv Resconstructed
@@ -127,27 +129,14 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     
      **/
     
-    TPZFNMatrix<9,REAL> PermTensor;
-    TPZFNMatrix<9,REAL> InvPermTensor;
+    TPZFNMatrix<9,REAL> PermTensor(3,3);
+    TPZFNMatrix<9,REAL> InvPermTensor(3,3);
     
-    MixedMat::GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
-
+    STATE perm = MixedMat::GetPermeability(datavec[1].x);
+    PermTensor.Diagonal(perm);
+    InvPermTensor.Diagonal(1./perm);
     int dim = MixedMat::fDim;
 
-    if (MixedMat::fPermeabilityFunction) {
-        PermTensor.Redim(dim, dim);
-        InvPermTensor.Redim(dim, dim);
-        TPZFNMatrix<18, STATE> resultMat(2 * dim, dim, 0.);
-        TPZManVector<STATE> res;
-        MixedMat::fPermeabilityFunction->Execute(datavec[1].x, res, resultMat);
-
-        for (int id = 0; id < dim; id++) {
-            for (int jd = 0; jd < dim; jd++) {
-                PermTensor(id, jd) = resultMat(id, jd);
-                InvPermTensor(id, jd) = resultMat(id + dim, jd);
-            }
-        }
-    }
 
     STATE pressureexact = 0.;
     TPZManVector<STATE,2> pressvec(1,0.);
@@ -156,7 +145,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
     if(MixedMat::fExactSol)
     {
 
-        MixedMat::fExactSol->Execute(datavec[0].x, pressvec,gradu);
+        MixedMat::fExactSol(datavec[0].x, pressvec,gradu);
         gradu.Resize(3, 1);
         //gradu(2,0) = 0.;
     }
@@ -194,7 +183,7 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Solution(TPZVec<TPZMaterialData> &data
 
 /// make a contribution to the error computation
 template<class MixedMat>
-void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors)
+void TPZMixedHDivErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<REAL> &errors)
 {
     
     /**
@@ -221,11 +210,14 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
 
     TPZManVector<STATE, 1> u_exact(1);
     TPZFNMatrix<9, STATE> du_exact(3, 3);
-    if(this->fExactSol){
-        this->fExactSol->Execute(data[0].x,u_exact,du_exact);
-        this->fForcingFunction->Execute(data[0].x,divsigma);
+    if(this->HasExactSol()){
+        this->ExactSol()(data[0].x,u_exact,du_exact);
     }
-    
+    if(this->ForcingFunction())
+    {
+        this->ForcingFunction()(data[0].x,divsigma);
+
+    }
 
     
     REAL residual = 0.;
@@ -237,25 +229,13 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
     pressurereconstructed[0] = data[1].sol[0][0];
     pressurefem[0] = data[3].sol[0][0];
     
-    TPZFNMatrix<9,REAL> PermTensor;
-    TPZFNMatrix<9,REAL> InvPermTensor;
+    TPZFNMatrix<9,REAL> PermTensor(3,3);
+    TPZFNMatrix<9,REAL> InvPermTensor(3,3);
     
-    MixedMat::GetPermeabilities(data[1].x, PermTensor, InvPermTensor);
+    REAL perm = MixedMat::GetPermeability(data[1].x);
+    PermTensor.Diagonal(perm);
+    InvPermTensor.Diagonal(1./perm);
     
-    
-    if(MixedMat::fPermeabilityFunction){
-        PermTensor.Redim(dim, dim);
-        InvPermTensor.Redim(dim, dim);
-        TPZFNMatrix<18, STATE> resultMat(2 * dim, dim, 0.);
-        TPZManVector<STATE> res;
-        MixedMat::fPermeabilityFunction->Execute(data[1].x,res,resultMat);
-        for(int id=0; id<dim; id++){
-            for(int jd=0; jd<dim; jd++){
-                PermTensor(id,jd) = resultMat(id,jd);
-                InvPermTensor(id,jd) = resultMat(id+dim,jd);
-            }
-        }
-    }
     
     TPZFNMatrix<3,REAL> fluxexactneg;
 
@@ -292,4 +272,4 @@ void TPZMixedHDivErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialData> &data, 
 
 
 
-template class TPZMixedHDivErrorEstimate<TPZMixedPoisson>;
+template class TPZMixedHDivErrorEstimate<TPZMixedDarcyFlow>;
