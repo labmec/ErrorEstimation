@@ -65,7 +65,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control);
 
 // Solve the mixed problem with "Conf" configuration
 // Conf contains the maze information and the problem boundary conditions
-TPZCompMesh* MixedTest(ConfigCasesMaze &Conf);
+TPZCompMesh* MixedTest(ConfigCasesMaze &Conf, int nx, int ny);
 
 // Solve the maze using MHM. By default (2x2 coarse elements)
 // Conf contains the maze information and the problem boundary conditions
@@ -94,9 +94,9 @@ int main(){
 }
 
 
-TPZCompMesh* MixedTest(ConfigCasesMaze &Conf){
+TPZCompMesh* MixedTest(ConfigCasesMaze &Conf, int nx, int ny){
   
-    TPZGeoMesh *gmesh = GenerateGeoMesh(Conf.GetImageName(),2,2);
+    TPZGeoMesh *gmesh = GenerateGeoMesh(Conf.GetImageName(),nx,ny);
     int flux_order = Conf.GetFluxOrder();
     int p_order = Conf.GetPressureOrder();
     
@@ -466,8 +466,9 @@ int MHMTest(ConfigCasesMaze &Conf){
         bool substructure = true;
         std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
         if (OpenChannel) {
-            TPZCompMesh *flux_temp = MixedTest(Conf);
+            TPZCompMesh *flux_temp = MixedTest(Conf,32,32);
             test = IdentifyChanel(flux_temp);
+            flux_temp->Reference()->ResetReference();
         }
 
         meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
@@ -504,7 +505,7 @@ int MHMTest(ConfigCasesMaze &Conf){
 
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     bool postProcWithHdiv = false;
-    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
+//    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
 //    EstimateError(ErrorEstimator, config);
     //LocateElementsToAdapt(ErrorEstimator, config);
 
