@@ -14,7 +14,7 @@
 #include "TPZRefPatternDataBase.h"
 #include "TPZSteklovMaterial.h"
 #include "Tools.h"
-#include "pzbndcond.h"
+#include "TPZBndCondT.h"
 #include "pzlog.h"
 #include "tpzgeoelrefpattern.h"
 
@@ -91,14 +91,15 @@ void RunSteklovProblem() {
 TPZMultiphysicsCompMesh * CreateMixedMesh(const ProblemConfig& problem) {
 
     TPZMultiphysicsCompMesh* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
-    TPZMaterial* mat = NULL;
+    TPZMaterialT<STATE>* mat = NULL;
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
     
     STATE Km = problem.Km;
 
-    
+    K.Diagonal(Km);
+    invK.Diagonal(1./Km);
  
 
 //    K.Print(std::cout);
@@ -106,7 +107,8 @@ TPZMultiphysicsCompMesh * CreateMixedMesh(const ProblemConfig& problem) {
     
     for (auto matid : problem.materialids) {
         TPZSteklovMaterial *mix = new TPZSteklovMaterial(matid, cmesh->Dimension());
-        mix->SetPermeabilityTensor(K, invK);
+        mix->SetConstantPermeability(Km);
+//        mix->SetPermeabilityTensor(K, invK);
 
         if (!mat) mat = mix;
 
@@ -115,7 +117,8 @@ TPZMultiphysicsCompMesh * CreateMixedMesh(const ProblemConfig& problem) {
         
     
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, STATE> val1(1, 1, 0.);
+        TPZManVector<STATE,3> val2(1, 0.);
         int bctype;
     
         switch (matid) {
