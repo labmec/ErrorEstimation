@@ -6,8 +6,9 @@
 #define ERRORESTIMATION_TPZHYBMIXDIFFMATERIAL_H
 
 #include "TPZMatLaplacianHybrid.h"
-#include "mixedpoisson.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 
+typedef TPZMixedDarcyFlow TPZMixedPoisson;
 
 class TPZHybMixDiffMaterial: public TPZMixedPoisson {
     
@@ -27,23 +28,24 @@ public:
 
     TPZHybMixDiffMaterial &operator=(const TPZHybMixDiffMaterial &copy);
 
-    virtual void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
-    virtual void FillBoundaryConditionDataRequirement(int type,TPZVec<TPZMaterialData > &datavec) override;
+    virtual void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
 
-    virtual TPZMaterial * NewMaterial() override{
+    virtual void FillBoundaryConditionDataRequirements(int type,TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
+
+    virtual TPZMaterial * NewMaterial() const override{
         return new TPZHybMixDiffMaterial(*this);
     }
 
-    virtual int NEvalErrors() override {return 6;}
+    virtual int NEvalErrors() const override {return 6;}
 
     /// Compute the error and error estimate
-    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
+//    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
 
-    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<REAL> &errors) override;
+    virtual void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
     
-    virtual int VariableIndex(const std::string &name) override;
-    virtual int NSolutionVariables(int var) override;
-    virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var,
+    virtual int VariableIndex(const std::string &name) const override;
+    virtual int NSolutionVariables(int var) const override;
+    virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var,
                           TPZVec<STATE> &Solout) override;
 };
 
