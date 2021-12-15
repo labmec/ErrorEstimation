@@ -142,15 +142,14 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
         TPZCompEl *cel = cmesh->Element(iel);
         if(!cel){continue;}
         TPZGeoEl *gel = cel->Reference();
-        TPZGeoElSide gelside(gel,4);
-        TPZGeoEl *neig = gelside.Neighbour().Element();
-        if(neig->MaterialId()==-5){
-            first_gelside.SetElement(gel);
-            first_gelside.SetSide(4);
+        if(gel->MaterialId() == -5)
+        {
+            TPZGeoElSide gelside(gel);
+            first_gelside = gelside.Neighbour();
             break;
         }
     }
-    
+    if(!first_gelside) DebugStop();
     int count=0;
     int count_chain=0;
     double Flux_Max = 0.0;
@@ -159,6 +158,7 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
     
     while(exit==false){
         
+        // if their is a neighbour along side 6 with material id -6, we found the exit
         TPZGeoElSide exit_test = first_gelside;
         exit_test.SetSide(6);
         TPZGeoElSide candidate_exist =exit_test.Neighbour();
@@ -175,16 +175,21 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
         //
         //    }
         int side_in = first_gelside.Side();
+        // loop over the one dimensional sides
         for(int ican=4; ican<8; ican++){
+            // if the one-d side is the entry side, do not consider
+            if(side_in == ican ){continue;}
+
             first_gelside.SetSide(ican);
+            // find a neighbour of dimension 2
             TPZGeoElSide candidate = first_gelside.Neighbour();
             while(candidate.Element()->Dimension()!=2){
                 
                 candidate=candidate.Neighbour();
             }
-            if(side_in == ican ){continue;}
+            if(candidate.Element() == first_gelside.Element()) DebugStop();
             
-            //calcula los 3 geoelement side y el fluxo
+            //compute the flux values at the center of the 3 neighbours
             TPZVec<REAL> qsi(2);
             qsi[0]=0;
             qsi[1]=0;
@@ -197,6 +202,8 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
             if(Flux_can_Mag > Flux_Max){
                 Flux_Max =Flux_can_Mag;
                 first_gelside.SetSide(ican);
+                // first is the exit side
+                // second is the entry side
                 chain[count].first= first_gelside;
                 chain[count].second =candidate;
             }
@@ -210,16 +217,21 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
     
     cmesh->LoadReferences();
     TPZGeoMesh *gmesh =cmesh->Reference();
-    for(auto it:gmesh->ElementVec()){
-        int father_index = it->FatherIndex();
-        int element = it->Index();
-        std::cout<<"Element: "<<element<<" father: "<<father_index<<std::endl;
-        
-    }
+//    for(auto it:gmesh->ElementVec()){
+//        int father_index = it->FatherIndex();
+//        int element = it->Index();
+//        std::cout<<"Element: "<<element<<" father: "<<father_index<<std::endl;
+//
+//    }
     
     
     int n_el_chain = chain.size();
+    // same type as chain
     std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> skelchanel;
+    // the skel channel will filter the elements of chain that
+    // have different father index
+    // create a boundary element of matid 10 on the interfaces between macro
+    // elements
     int count_skel_chanel=0;
     int matId_skel_chanel = 10;
     count =0;
@@ -229,6 +241,16 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
         
         int first_father_index = first_element->LowestFather()->Index();
         int second_father_index = second_element->LowestFather()->Index();
+        
+        if(0)
+        {
+            TPZManVector<REAL> xic1(2),xic2(2),xc1(3),xc2(3);
+            first_element->CenterPoint(8, xic1);
+            first_element->X(xic1, xc1);
+            second_element->CenterPoint(8, xic2);
+            second_element->X(xic2, xc2);
+            std::cout << "fathers " << first_father_index << ' ' << second_father_index << " x1 " << xc1 << " x2 " << xc2 << std::endl;
+        }
         
         if(first_father_index!=second_father_index){
             TPZGeoElBC(it.second.first, matId_skel_chanel);
