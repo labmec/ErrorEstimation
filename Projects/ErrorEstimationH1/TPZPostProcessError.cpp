@@ -58,7 +58,7 @@ TPZPostProcessError::TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec)
     }
     BuildPatchStructures();
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("../patchinfo.txt");
         PrintPatchInformation(out);
@@ -274,7 +274,7 @@ void TPZPostProcessError::ComputeHDivSolution()
     
     int ModelDimension = meshmixed->Dimension();
     TPZAnalysis an(meshmixed);
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     int numthreads = 0;
 #else
     int numthreads = 8;
@@ -430,7 +430,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             }
 
         }
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::set<int64_t> permval;
             for (auto it:permute) {
@@ -1044,7 +1044,7 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
     }
     BuildPatchStructures();
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("../patchinfo.txt");
         PrintPatchInformation(out);

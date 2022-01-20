@@ -15,7 +15,7 @@
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZAnalyticSolution.h"
 #include "ProblemConfig.h"
-#include "pzanalysis.h"
+#include "TPZAnalysis.h"
 
 
 class TPZCompMesh;

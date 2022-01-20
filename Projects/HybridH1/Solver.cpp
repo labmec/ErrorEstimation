@@ -4,7 +4,6 @@
 
 #include "Solver.h"
 #include <TPZMultiphysicsCompMesh.h>
-#include "pzanalysis.h"
 #include "DataStructure.h"
 #include "MeshInit.h"
 #include "TPZCompMeshTools.h"
@@ -90,13 +89,15 @@ void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]){
 
 void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, ProblemConfig &config){
 
-    TPZAnalysis an(multHybMix);
+    TPZLinearAnalysis an(multHybMix);
 
     std::cout << "Post Processing ""Hyb - Mix"" difference " << std::endl;
     an.SetExact(config.exact.operator*().ExactSolution());
 
     TPZVec<REAL> errorVec;
-    int64_t nErrorCols =multHybMix->MaterialVec().at(1)->NEvalErrors()+1;
+    auto mat_error = dynamic_cast<TPZMatError<STATE>*>(multHybMix->MaterialVec().at(1));
+    if (!mat_error) DebugStop();
+    int64_t nErrorCols = mat_error->NEvalErrors() + 1;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -337,10 +338,10 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
     std::cout << "Solving H1 " << std::endl;
 
-    TPZAnalysis an(cmeshH1);
+    TPZLinearAnalysis an(cmeshH1);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmeshH1);
+    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -412,10 +413,10 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
     std::cout << "Solving HYBRID_H1 " << std::endl;
 
-    TPZAnalysis an(cmesh_H1Hybrid);
+    TPZLinearAnalysis an(cmesh_H1Hybrid);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh_H1Hybrid);
+    TPZSSpStructMatrix<STATE> strmat(cmesh_H1Hybrid);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -481,13 +482,13 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     bool optBW = true;
 
     std::cout << "Solving Mixed " << std::endl;
-    TPZAnalysis an(cmesh_Mixed, optBW); //Cria objeto de análise que gerenciará a analise do problema
+    TPZLinearAnalysis an(cmesh_Mixed, optBW); //Cria objeto de análise que gerenciará a analise do problema
     if(false){
         cout<<"Total ecuaciones:"<<an.Solution().Rows()<<endl;
     }
     //MKL solver
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh_Mixed);
+    TPZSSpStructMatrix<STATE> strmat(cmesh_Mixed);
     //strmat.SetNumThreads(8);
     strmat.SetNumThreads(0);
 #else
@@ -502,7 +503,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     delete direct;
     direct = 0;
     an.Assemble();
-#ifdef PZDEBUG2
+#ifdef ERRORESTIMATION_DEBUG2
     const string matrixNamevtk("matrixRigidezMixedProblem.vtk");
     TPZMatrix<REAL> * matrizRigidez = an.Solver().Matrix().operator->();
     //VisualMatrixVTK((TPZFMatrix<REAL>&)(*matrizRigidez),matrixNamevtk);

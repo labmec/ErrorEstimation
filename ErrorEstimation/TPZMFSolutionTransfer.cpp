@@ -19,21 +19,21 @@ void TPZMFSolutionTransfer::Match::TransferFromMultiphysics(TPZCompMesh * cmesh)
     if(blocksizeMF != blocksizeAto){
         DebugStop();
     }
-#ifdef PZDEBUG
-    //int64_t nblockMF = blockMF.NBlocks();
-    //int64_t nblockAto = blockAtomic->NBlocks();
-    //if(seqMF < nblockMF-1)
-    //{
-    //    int64_t PosMF = blockMF.Position(seqMF);
-    //    int64_t nextPosMF = blockMF.Position(seqMF+1);
-    //    if(nextPosMF-PosMF != blocksizeMF) DebugStop();
-    //}
-    //if(seqAto < nblockAto-1)
-    //{
-    //    int64_t PosAto = blockAto->Position(seqAto);
-    //    int64_t nextPosAto = blockAto->Position(seqAto+1);
-    //    if(nextPosAto-PosAto != blocksizeAto) DebugStop();
-    //}
+#ifdef ERRORESTIMATION_DEBUG
+    int64_t nblockMF = blockMF.NBlocks();
+    int64_t nblockAto = blockAtomic.NBlocks();
+    if(seqMF < nblockMF-1)
+    {
+        int64_t PosMF = blockMF.Position(seqMF);
+        int64_t nextPosMF = blockMF.Position(seqMF+1);
+        if(nextPosMF-PosMF != blocksizeMF) DebugStop();
+    }
+    if(seqAto < nblockAto-1)
+    {
+        int64_t PosAto = blockAtomic.Position(seqAto);
+        int64_t nextPosAto = blockAtomic.Position(seqAto+1);
+        if(nextPosAto-PosAto != blocksizeAto) DebugStop();
+    }
 #endif
     TPZFMatrix<STATE> solAtomic = fblockTarget.first->Solution();
     TPZFMatrix<STATE> solMF = cmesh->Solution();

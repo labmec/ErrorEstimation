@@ -18,10 +18,7 @@
 
 #include "ProblemConfig.h"
 
-#include "mixedpoisson.h"
 #include "TPZMatLaplacianHybrid.h"
-#include "TPZVecL2.h"
-#include "pzbndcond.h"
 
 #include "pzintel.h"
 
@@ -30,7 +27,6 @@
 #include "TPZMultiphysicsInterfaceEl.h"
 #include "TPZHybridizeHDiv.h"
 
-#include "pzanalysis.h"
 #include "pzstepsolver.h"
 #include "TPZSSpStructMatrix.h"
 #include "TPZParFrontStructMatrix.h"
@@ -102,7 +98,7 @@ int main(int argc, char *argv[]) {
     int refinement_depth = 3;
     Tools::RandomRefinement(config.gmesh, 5, refinement_depth);
     
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -150,7 +146,7 @@ int main(int argc, char *argv[]) {
         InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
         createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out3("pressure.txt");
         meshvec[0]->Print(out3);
@@ -165,7 +161,7 @@ int main(int argc, char *argv[]) {
 #endif
         cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::map<int,int> matelem;
             int64_t nel = cmesh_H1Hybrid->NElements();
@@ -188,7 +184,7 @@ int main(int argc, char *argv[]) {
 
         createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
         createspace.AddInterfaceElements(cmesh_H1Hybrid);
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::map<int,int> matelem;
             int64_t nel = cmesh_H1Hybrid->NElements();
@@ -204,7 +200,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
         cmesh_H1Hybrid->ComputeNodElCon();
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream out("mphysicsmeshBeforeCondense.txt");
             cmesh_H1Hybrid->Print(out);
@@ -215,7 +211,7 @@ int main(int argc, char *argv[]) {
         cmesh_H1Hybrid->InitializeBlock();
         cmesh_H1Hybrid->ComputeNodElCon();
         
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream out("mphysicsmesh.txt");
             cmesh_H1Hybrid->Print(out);
@@ -240,7 +236,7 @@ int main(int argc, char *argv[]) {
 //
 //    }
         
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             
             std::ofstream out2("H1HybridMesh.txt");
@@ -271,22 +267,20 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
 
     cmesh_H1Hybrid->InsertMaterialObject(material);
     if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-        material->SetForcingFunction(
-            config.exact.operator*().ForcingFunction());
-        material->SetExactSol(config.exact.operator*().Exact());
+        material->SetForcingFunction(config.exact->ForceFunc(), material->ForcingFunctionPOrder());
+        material->SetExactSol(config.exact->ExactSolution(), material->PolynomialOrderExact());
     }
     //    TPZMaterial * mat(material);
     //    cmesh->InsertMaterialObject(mat);
 
     // Inserts boundary conditions
-    TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 1.);
-    TPZMaterial *BCond0 =
-        material->CreateBC(material, -1, dirichlet, val1, val2);
+    TPZFMatrix<STATE> val1(1, 1, 0.);
+    TPZManVector<STATE, 2> val2(11, 1.);
+    auto *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
     if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-        BCond0->SetForcingFunction(config.exact.operator*().Exact());
+        BCond0->SetForcingFunctionBC(config.exact->ExactSolution());
     }
-    val2.Zero();
-    TPZMaterial *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
+    auto *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
     cmesh_H1Hybrid->InsertMaterialObject(BCond0);
     cmesh_H1Hybrid->InsertMaterialObject(BCond1);
@@ -329,11 +323,11 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
 
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
 
-    TPZAnalysis an(cmeshH1);
+    TPZLinearAnalysis an(cmeshH1);
 
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmeshH1);
+    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -415,10 +409,10 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
 
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config){
     
-    TPZAnalysis an(cmesh_H1Hybrid);
+    TPZLinearAnalysis an(cmesh_H1Hybrid);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh_H1Hybrid);
+    TPZSSpStructMatrix<STATE> strmat(cmesh_H1Hybrid);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else

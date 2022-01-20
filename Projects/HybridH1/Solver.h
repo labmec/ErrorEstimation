@@ -7,7 +7,7 @@
 
 
 #include <TPZMultiphysicsCompMesh.h>
-#include "pzanalysis.h"
+#include "TPZLinearAnalysis.h"
 #include "DataStructure.h"
 #include "ProblemConfig.h"
 

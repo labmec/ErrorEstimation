@@ -41,7 +41,9 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
 
 int main() {
+#ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
+#endif
     gRefDBase.InitializeAllUniformRefPatterns();
     //RunSmoothProblem();
     //RunHighGradientProblem();
@@ -635,7 +637,7 @@ void RunAdaptivityProblem(){
                 EstimateError(config, mhm);
                 
  //               MHMAdaptivity(mhm,  config.gmesh, config);
-//#ifdef PZDEBUG
+//#ifdef ERRORESTIMATION_DEBUG
 //                {
 //                    std::ofstream out("GmeshAfterAdapty.vtk");
 //                    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);

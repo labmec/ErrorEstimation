@@ -6,7 +6,7 @@
 //
 
 #include "TPZMixedErrorEstimate.h"
-#include "mixedpoisson.h"
+#include "Material/DarcyFlow/TPZMixedDarcyFlow.h"
 #include "pzaxestools.h"
 
 

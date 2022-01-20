@@ -18,9 +18,9 @@ int main(int argc, char *argv[]) {
     TPZLogger::InitializePZLOG();
 #endif
     PreConfig pConfig;
-    pConfig.k = 1;
+    pConfig.k = 2;
     pConfig.n = 2;
-    pConfig.problem = "ESinSin";               //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace"}
+    pConfig.problem = "EBubble2D";               //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace"}
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
 
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
-//#define PZDEBUG
+//#define ERRORESTIMATION_DEBUG
 
     for (int ndiv = 3; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
