@@ -19,9 +19,5 @@ if(BUILD_UNISIM_PROJECT)
     #add_subdirectory(UNISIM)
 endif()
 
-# This project is marked as optional since it requires libInterpolate external library
-option(BUILD_SPE10_PROJECT "Whether to build estimation on SPE10 mesh" OFF)
-if(BUILD_SPE10_PROJECT)
-    add_subdirectory(SPE10)
-endif()
+add_subdirectory(SPE10)
 
