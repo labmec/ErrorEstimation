@@ -286,6 +286,15 @@ void TPZHDivErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> 
             flux_exact(i, 0) = -perm * flux_exact(i, 0);
             flux_error_exact += (fluxfem[i] - flux_exact(i, 0)) * (fluxfem[i] - flux_exact(i, 0)) / perm;
         }
+    } else if (this->fHasReferenceSolution) {
+
+        const auto u_ref = data[5].sol[0][0];
+        const auto &flux_ref = data[4].sol[0];
+
+        pressure_error_exact = (pressurefem - u_ref) * (pressurefem - u_ref);
+        for (int i = 0; i < 3; i++) {
+            flux_error_exact += (fluxfem[i] - flux_ref[i]) * (fluxfem[i] - flux_ref[i]) / perm;
+        }
     }
 
     // Calculate residual component
