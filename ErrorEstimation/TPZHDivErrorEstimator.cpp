@@ -304,6 +304,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
     InsertPostProcMaterials();
 
     auto & meshvec = fPostProcMesh.MeshVector();
+    meshvec.resize(4);
     meshvec[0] = 0;
     meshvec[2] = fOriginal->MeshVector()[0];//flux
     meshvec[3] = fOriginal->MeshVector()[1];//potential
@@ -346,6 +347,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
 #endif
     
     auto & active = fPostProcMesh.GetActiveApproximationSpaces();
+    active.Resize(4, 0);
     active[1] = 1;
     
     if(fPostProcesswithHDiv)
