@@ -298,6 +298,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
     
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
+    fPostProcMesh.ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
     int dim = fOriginal->Dimension();
     // switch the material from mixed to TPZMixedHdivErrorEstimate...
     InsertPostProcMaterials();

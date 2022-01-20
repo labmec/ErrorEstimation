@@ -70,6 +70,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     }
 
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
+    fPostProcMesh.ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
 
     if(fPostProcesswithHDiv) {
