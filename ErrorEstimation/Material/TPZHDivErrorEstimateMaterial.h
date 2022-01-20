@@ -51,7 +51,7 @@ public:
         fNeumannLocalProblem = neumannProblem;
     }
 
-    int NEvalErrors() override { return 5; }
+    [[nodiscard]] int NEvalErrors() const override { return 5; }
 
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure
