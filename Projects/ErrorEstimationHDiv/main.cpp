@@ -13,7 +13,6 @@
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZRefPatternDataBase.h"
 #include "Tools.h"
-#include "pzbndcond.h"
 #include "pzlog.h"
 #include "tpzgeoelrefpattern.h"
 #include <tuple>
@@ -82,7 +81,7 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        ofstream out("MixedMesh.txt");
+        std::ofstream out("MixedMesh.txt");
         cmesh_HDiv->Print(out);
     }
 #endif

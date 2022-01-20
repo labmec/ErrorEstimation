@@ -63,7 +63,6 @@ int main(int argc, char* argv[]) {
         TPZGmshReader gmsh;
         gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
         gmsh.GetDimNamePhysical()[2]["domain"] = 1;
-        gmsh.SetFormatVersion("4.1");
         gmeshOriginal = gmsh.GeometricGmshMesh(meshfilename);
         gmsh.PrintPartitionSummary(std::cout);
         config.materialids.insert(1);
