@@ -93,15 +93,15 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     const std::set<int> nCoarseDiv = {8};
-    const std::set<int> nInternalRef = {1};
+    const std::set<int> nInternalRef = {3};
     const std::set<int> kOrder = {1};
     const std::set<int> nOrder = {2};
 
-    //RunSmoothProblemSuite(nCoarseDiv, nInternalRef, kOrder, nOrder);
+    RunSmoothProblemSuite(nCoarseDiv, nInternalRef, kOrder, nOrder);
 
     //RunInnerSingularityProblemSuite(nCoarseDiv, nInternalRef, kOrder, nOrder);
 
-    RunHighGradientAdaptivityProblem(4);
+    //RunHighGradientAdaptivityProblem(4);
 
     //RunNonConvexProblem();
     //std::ofstream out_latex("LatexGraphs.txt", std::ios::trunc);
@@ -594,7 +594,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     plotname << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
              << "-Results.vtk";
     an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname.str());
-    an.PostProcess(resolution, cmesh->Dimension());
+    //an.PostProcess(resolution, cmesh->Dimension());
 }
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
