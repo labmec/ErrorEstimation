@@ -1081,3 +1081,16 @@ void Tools::PrintErrors(std::ofstream& out, const ProblemConfig& config, const T
     out << ss.str();
     std::cout << ss.str();
 }
+
+void Tools::PrintErrors(std::ostream& out, const TPZVec<REAL>& error_vec) {
+
+    std::stringstream ss;
+    ss << '\n';
+    ss << "Global estimator = " << error_vec[3] << "\n";
+    ss << "|ufem-urec| = " << error_vec[1] << "\n";
+    ss << "Residual Error L2 = " << error_vec[4] << "\n";
+    ss << "[Unknown exact solution and errors]\n";
+
+    out << ss.str();
+    std::cout << ss.str();
+}

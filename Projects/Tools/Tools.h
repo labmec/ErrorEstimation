@@ -94,6 +94,7 @@ namespace Tools {
     TPZGeoMesh* CreateGeoMesh(int nelem, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode);
 
     void PrintErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
+    void PrintErrors(std::ostream& out, const TPZVec<REAL>& error_vec);
 }
 
 #endif
