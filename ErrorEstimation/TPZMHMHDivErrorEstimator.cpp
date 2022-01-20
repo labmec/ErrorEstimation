@@ -27,8 +27,13 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     // Switch the material from mixed to TPZMHMHDivErrorEstimationMaterial
     InsertPostProcMaterials();
 
-    TPZManVector<TPZCompMesh *> meshvec(4);
-    TPZManVector<int,4> active(4,0);
+    auto & meshvec = fPostProcMesh.MeshVector();
+    auto & active = fPostProcMesh.GetActiveApproximationSpaces();
+    if (!fHasReferenceSolution){
+        meshvec.Resize(4, nullptr);
+        active.Resize(4, 0);
+    }
+
     active[1] = 1;
 
     meshvec[0] = 0;

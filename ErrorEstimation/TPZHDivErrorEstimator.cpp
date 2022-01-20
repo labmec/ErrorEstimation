@@ -301,8 +301,8 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
     int dim = fOriginal->Dimension();
     // switch the material from mixed to TPZMixedHdivErrorEstimate...
     InsertPostProcMaterials();
-    
-    TPZManVector<TPZCompMesh *> meshvec(4, 0);
+
+    auto & meshvec = fPostProcMesh.MeshVector();
     meshvec[0] = 0;
     meshvec[2] = fOriginal->MeshVector()[0];//flux
     meshvec[3] = fOriginal->MeshVector()[1];//potential
@@ -344,8 +344,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
     }
 #endif
     
-    
-    TPZManVector<int> active(4, 0);
+    auto & active = fPostProcMesh.GetActiveApproximationSpaces();
     active[1] = 1;
     
     if(fPostProcesswithHDiv)
@@ -1628,7 +1627,7 @@ bool TPZHDivErrorEstimator::IsDirichletCondition(const TPZGeoElSide& gelside) {
 
 void TPZHDivErrorEstimator::PotentialReconstruction() {
     
-    if (fPostProcMesh.MeshVector().size()) {
+    if (fPostProcMesh.MeshVector().size() && !fHasReferenceSolution) {
         DebugStop();
     }
 
@@ -2450,13 +2449,26 @@ std::set<int> TPZHDivErrorEstimator::GetBCMatIDs(const TPZCompMesh* cmesh) {
     return bc_mat_ids;
 }
 
+void TPZHDivErrorEstimator::SetReferenceSolution(bool hasRefSol) {
+    fHasReferenceSolution = hasRefSol;
+
+    auto mat_vec = fPostProcMesh.MaterialVec();
+    for (auto &mat : mat_vec) {
+        auto *material = mat.second;
+        auto *error_mat = dynamic_cast<TPZHDivErrorEstimateMaterial *>(material);
+        if (error_mat) {
+            error_mat->SetReferenceSolution(true);
+        }
+    }
+}
+
 void TPZHDivErrorEstimator::SetReferenceSolutionMeshes(TPZCompMesh* ref_pressure, TPZCompMesh* ref_flux) {
     fHasReferenceSolution = true;
     auto &mesh_vec = fPostProcMesh.MeshVector();
-    auto active_spaces = fPostProcMesh.GetActiveApproximationSpaces();
+    auto &active_spaces = fPostProcMesh.GetActiveApproximationSpaces();
 
-    mesh_vec.resize(6);
-    active_spaces.resize(6);
+    mesh_vec.Resize(6, nullptr);
+    active_spaces.Resize(6, 0);
 
     mesh_vec[4] = ref_pressure;
     mesh_vec[5] = ref_flux;

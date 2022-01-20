@@ -93,6 +93,10 @@ public:
     TPZMultiphysicsCompMesh *PostProcMesh() { return &fPostProcMesh; }
     TPZGeoMesh *GMesh() { return fOriginal->Reference(); }
 
+    void SetReferenceSolution(bool hasRefSol);
+
+    void SetReferenceSolutionMeshes(TPZCompMesh* ref_pressure, TPZCompMesh* ref_flux);
+
 protected:
 
     /// compute the pressure weights and material weights
@@ -187,7 +191,6 @@ protected:
 
     static std::set<int> GetBCMatIDs(const TPZCompMesh* cmesh);
 
-    void SetReferenceSolutionMeshes(TPZCompMesh* ref_pressure, TPZCompMesh* ref_flux);
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
