@@ -3,71 +3,84 @@
 //
 
 #include "Tools.h"
+#include "ToolsSPE10.h"
+#include <DarcyFlow/TPZMixedDarcyFlow.h>
 #include <TPZGenGrid2D.h>
 #include <TPZGenGrid3D.h>
 #include <TPZMFSolutionTransfer.h>
+#include <TPZMHMHDivErrorEstimator.h>
+#include <TPZMHMixedMeshControl.h>
 #include <ToolsMHM.h>
 #include <iostream>
-#include <libInterpolate/Interpolate.hpp>
 #include <memory>
 #include <pzgmesh.h>
 
-typedef _2D::BicubicInterpolator<REAL> Interpolator;
-
 // Global variables
-Interpolator interpolator;
+constexpr int nx = 220;
+constexpr int ny = 60;
+constexpr int n_cells = nx * ny;
+TPZManVector<REAL, n_cells> perm_vec(n_cells, 1);
+
+std::map<int, REAL> neq_error;
 
 // Function declarations
 void ReadSPE10CellPermeabilities(TPZVec<REAL>*perm_vec, int layer);
-TPZGeoMesh *CreateSPE10GeoMesh();
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
+TPZGeoMesh *CreateSPE10CoarseGeoMesh();
+STATE PermeabilityFunction(const TPZVec<REAL> &x);
 void InsertMaterials(TPZCompMesh *cmesh);
-void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm);
-void SolveMHMProblem(TPZMHMixedMeshControl &mhm);
-void EstimateError(TPZMHMixedMeshControl *mhm);
+void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm, const std::vector<int64_t> &skelsToDivide);
+void SolveMHMProblem(TPZMHMixedMeshControl &mhm, int adaptivity_step);
+void EstimateError(TPZMHMixedMeshControl &mhm, TPZMHMHDivErrorEstimator &estimator);
+void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZCompMesh *postProcMesh, std::vector<int64_t> &skelsToRefine);
 
+constexpr int adaptivity_steps = 5;
 int main() {
 
-    constexpr int layer = 36;
-    constexpr int nx = 220;
-    constexpr int ny = 60;
-    constexpr int n_cells = nx * ny;
+    gRefDBase.InitializeAllUniformRefPatterns();
 
-    auto perm_vec = TPZManVector<REAL, n_cells>(n_cells, 1);
+    constexpr int layer = 36;
+
     ReadSPE10CellPermeabilities(&perm_vec, layer);
 
-    TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
-    std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
-    Tools::PrintGeometry(gmesh, "SPE10GeoMesh", false, true);
+    std::vector<int64_t> skelsToRefine;
+    for (int step = 0; step < adaptivity_steps; step++) {
 
-    std::vector<REAL> x, y, perm;
-    for (int i = 0; i < nx; i++) {
-        for (int j = 0; j < ny; j++) {
-            const int cell_id = ny * i + j;
-            const double cell_perm = perm_vec[cell_id];
-            x.push_back(0.5 + i);
-            y.push_back(0.5 + j);
-            perm.push_back(cell_perm);
-        }
+        TPZGeoMesh *gmesh = CreateSPE10CoarseGeoMesh();
+        std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
+
+        TPZMHMixedMeshControl mhm(gmesh);
+        CreateSPE10MHMCompMesh(mhm, skelsToRefine);
+        std::stringstream filename;
+        filename << "FineCroppedSPE10GeoMesh-Step" << step;
+        Tools::PrintGeometry(gmesh, filename.str(), false, true);
+
+        SolveMHMProblem(mhm, step);
+
+        bool postProcWithHDiv = false;
+        TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm.CMesh().operator->());
+        if (!originalMesh) DebugStop();
+        TPZMHMHDivErrorEstimator estimator(*originalMesh, &mhm, postProcWithHDiv);
+        estimator.SetAdaptivityStep(step);
+        EstimateError(mhm, estimator);
+
+        auto *postprocmesh = estimator.PostProcMesh();
+        if (!postprocmesh) DebugStop();
+
+        MHMAdaptivity(&mhm, postprocmesh, skelsToRefine);
     }
-
-    interpolator.setData(x.size(), x.data(), y.data(), perm.data());
-
-    TPZMHMixedMeshControl mhm(gmesh);
-    CreateSPE10MHMCompMesh(mhm);
-
-    SolveMHMProblem(mhm);
-    EstimateError(&mhm);
+    for (auto it: neq_error) {
+        std::cout << "(" << it.first << ", " << it.second << ")\n";
+    }
 
     return 0;
 }
 
-TPZGeoMesh *CreateSPE10GeoMesh() {
+TPZGeoMesh *CreateSPE10CoarseGeoMesh() {
     std::cout << "Creating SPE10 initial grid...\n";
 
     const TPZManVector<REAL, 3> x0 = {0, 0, 0};
-    const TPZManVector<REAL, 3> x1 = {220., 60., 0.};
-    const TPZManVector<int, 3> ndiv = {20, 6, 0};
+    const TPZManVector<REAL, 3> x1 = {208., 48., 0.};
+    const TPZManVector<int, 3> ndiv = {13, 3, 0};
 
     TPZGenGrid2D gen(ndiv, x0, x1);
 
@@ -76,6 +89,9 @@ TPZGeoMesh *CreateSPE10GeoMesh() {
     gen.Read(gmesh);
 
     gen.SetBC(gmesh, 5, -1);
+    gen.SetBC(gmesh, 6, -2);
+    gen.SetBC(gmesh, 7, -2);
+    //gen.SetBC(gmesh, 4, -2);
 
     std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
 
@@ -93,8 +109,8 @@ void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
     }
 
     int cell_id = 0;
-    const int n_cells = perm_vec->size();
-    const int start_line = 1 + n_cells * (layer - 1) / 6;
+    const auto n_cells = perm_vec->size();
+    const auto start_line = 1 + n_cells * (layer - 1) / 6;
 
     int line_num = 0;
     int line_num2 = 0;
@@ -116,32 +132,21 @@ void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
     std::cout << "Finished reading permeability data from input file!\n";
 }
 
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat) {
-
-    for (int i = 0; i < 2; i++) {
-        auto perm = interpolator(x[0], x[1]);
-        if (perm <= 1) {
-            perm = 1;
-        } else {
-            perm += 1;
-        }
-        res_mat(i + 2, i) = 1 / perm;
-        res_mat(i, i) = perm;
-    }
-    //std::cout << "[" << x[0] << ", " << x[1] << "]\n";
-    //std::cout << "[" << res_mat(0, 0) << " " << res_mat(0, 1) << "\n";
-    //std::cout        << res_mat(1, 0) << " " << res_mat(1, 1) << "\n";
-    //std::cout        << res_mat(2, 0) << " " << res_mat(2, 1) << "\n";
-    //std::cout        << res_mat(3, 0) << " " << res_mat(3, 1) << "]\n\n";
+STATE PermeabilityFunction(const TPZVec<REAL> &x) {
+    auto rounded_x = static_cast<int>(x[0]);
+    auto rounded_y = static_cast<int>(x[1]);
+    if (rounded_x == 220) rounded_x = 219;
+    if (rounded_y == 60) rounded_y = 59;
+    return perm_vec[rounded_x * 60 + rounded_y];
 }
 
-void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm) {
+void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm, const std::vector<int64_t> &skelsToDivide) {
 
     TPZGeoMesh *gmesh = mhm.GMesh().operator->();
     TPZManVector<int64_t, 22 * 6> coarse_indexes;
     ComputeCoarseIndices(gmesh, coarse_indexes);
 
-    int nInternalRef = 3;
+    int nInternalRef = adaptivity_steps - 1;
     Tools::UniformRefinement(nInternalRef, 2, gmesh);
     Tools::DivideLowerDimensionalElements(gmesh);
 
@@ -158,34 +163,31 @@ void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm) {
     // General approximation order settings
     mhm.SetInternalPOrder(1);
     mhm.SetSkeletonPOrder(1);
-    mhm.SetHdivmaismaisPOrder(1);
+    mhm.SetHdivmaismaisPOrder(3);
 
     // Refine skeleton elements
-    mhm.DivideSkeletonElements(0);
+    for (auto skelid : skelsToDivide) {
+        mhm.DivideSkeletonElement(skelid);
+    }
     mhm.DivideBoundarySkeletonElements();
 
     // Creates MHM mesh
     bool substructure = true;
     mhm.BuildComputationalMesh(substructure);
-    //{
-    //    std::string fileName = "CompMesh.txt";
-    //    std::ofstream file(fileName);
-    //    mhm.CMesh()->Print(file);
-    //}
 }
 
-void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
+void SolveMHMProblem(TPZMHMixedMeshControl &mhm, const int adaptivity_step) {
 
     TPZAutoPointer<TPZCompMesh> cmesh = mhm.CMesh();
-
+    std::cout << "*** NEQ: ," << mhm.CMesh()->NEquations() << '\n';
     bool should_renumber = true;
-    TPZAnalysis an(cmesh, should_renumber);
+    TPZLinearAnalysis an(cmesh, should_renumber);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
-    strmat.SetNumThreads(8);
+    TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
+    strmat.SetNumThreads(0);
 #else
-    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    TPZSkylineStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(8);
 #endif
 
@@ -217,45 +219,110 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
     vecnames.Push("Flux");
 
     int resolution = 0;
-    std::string plotname = "SPE10-Results.vtk";
-    an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname);
+    std::stringstream plotname;
+    plotname << "FineCroppedSPE10-Results-Step" << adaptivity_step << ".vtk";
+    an.DefineGraphMesh(cmesh->Dimension(), scalnames, vecnames, plotname.str());
     an.PostProcess(resolution, cmesh->Dimension());
 }
 
 void InsertMaterials(TPZCompMesh *cmesh) {
 
-    auto *mix = new TPZMixedPoisson(1, cmesh->Dimension());
-    TPZAutoPointer<TPZFunction<STATE>> perm_function = new TPZDummyFunction<STATE>(&PermeabilityFunction, 3);
-    mix->SetPermeabilityFunction(perm_function);
+    auto *mix = new TPZMixedDarcyFlow(1, cmesh->Dimension());
+    std::function<STATE(const TPZVec<REAL> &coord)> func = PermeabilityFunction;
+    mix->SetPermeabilityFunction(func);
 
-    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+    TPZManVector<REAL, 1> val2(1, 0.);
     constexpr int dirichlet_bc = 0;
+    constexpr int neumann_bc = 1;
 
     // Pressure at reservoir boundary
-    val2(0, 0) = 1;
+    val2[0] = 10;
     TPZBndCond *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
+    val2[0] = 0;
+    TPZBndCond *pressure_general = mix->CreateBC(mix, -2, neumann_bc, val1, val2);
 
     cmesh->InsertMaterialObject(mix);
     cmesh->InsertMaterialObject(pressure_left);
+    cmesh->InsertMaterialObject(pressure_general);
 }
 
-void EstimateError(TPZMHMixedMeshControl *mhm) {
+void EstimateError(TPZMHMixedMeshControl &mhm, TPZMHMHDivErrorEstimator &estimator) {
 
     std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
 
     // Error estimation
-    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm.CMesh().operator->());
     if (!originalMesh) DebugStop();
 
-    bool postProcWithHDiv = true;
-    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
-    ErrorEstimator.PotentialReconstruction();
+    estimator.PotentialReconstruction();
 
     std::string command = "mkdir SPE10";
     system(command.c_str());
 
     TPZManVector<REAL, 6> errors;
     TPZManVector<REAL> elementerrors;
-    std::string outVTK = "SPE10-Errors.vtk";
-    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
+    std::stringstream plotname;
+    plotname << "FineCroppedSPE10-Errors-Step" << estimator.AdaptivityStep() << ".vtk";
+    auto plotname_str = plotname.str();
+    estimator.ComputeErrors(errors, elementerrors, plotname_str);
+    Tools::PrintErrors(std::cout, errors);
+
+    neq_error.insert({mhm.CMesh()->NEquations(), errors[3]});
+
+    std::cout << "Finished computing errors!\n";
+}
+
+void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZCompMesh *postProcMesh, std::vector<int64_t> &skelsToRefine) {
+
+    // Column of the flux error estimate on the element solution matrix
+    const int fluxErrorEstimateCol = 3;
+
+    TPZMultiphysicsCompMesh *cmesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+    if (!cmesh) DebugStop();
+
+    TPZFMatrix<STATE> &sol = postProcMesh->ElementSolution();
+    TPZSolutionMatrix &elsol = postProcMesh->ElementSolution();
+    int64_t nelem = elsol.Rows();
+
+    // Iterates through element errors to get the maximum value
+    STATE maxError = 0.;
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        auto * submesh = dynamic_cast<TPZSubCompMesh*>(postProcMesh->ElementVec()[iel]);
+        if (!submesh) continue;
+
+        STATE submeshError = sol(iel, fluxErrorEstimateCol);
+        if (submeshError > maxError) {
+            maxError = submeshError;
+        }
+    }
+
+
+    // Refines elements which error are bigger than 30% of the maximum error
+    REAL threshold = 0.5 * maxError;
+    const auto geoToMHM = mhm->GetGeoToMHMDomain();
+    const auto interfaces = mhm->GetInterfaces();
+
+    std::set<int64_t> interfacesToRefine;
+    for (int64_t iel = 0; iel < nelem; iel++) {
+        auto * submesh = dynamic_cast<TPZSubCompMesh*>(postProcMesh->ElementVec()[iel]);
+        if (!submesh) continue;
+
+        STATE submeshError = sol(iel, fluxErrorEstimateCol);
+        if (submeshError > threshold) {
+        //if (true) {
+            TPZGeoEl * gel = submesh->Element(0)->Reference();
+            const auto submesh_id = geoToMHM[gel->Index()];
+            //std::cout << "Refining submesh " << submesh_id << " which error is " << submeshError << ".\n";
+            for (auto interface : interfaces) {
+                if (interface.second.first == submesh_id || interface.second.second == submesh_id) {
+                    interfacesToRefine.insert(interface.first);
+                }
+            }
+        }
+    }
+
+    for (auto it : interfacesToRefine) {
+        skelsToRefine.push_back(it);
+    }
 }

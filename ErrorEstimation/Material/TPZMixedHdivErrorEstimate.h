@@ -8,58 +8,43 @@
 #ifndef TPZMixedErrorEstimate_hpp
 #define TPZMixedErrorEstimate_hpp
 
-#include <stdio.h>
+#include <cstdio>
+#include <DarcyFlow/TPZMixedDarcyFlow.h>
+#include <TPZMaterialDataT.h>
 #include "pzreal.h"
 
-template<class TVar>
-class TPZFMatrix;
 
-class TPZMaterial;
-class TPZMaterialData;
+class TPZMixedHDivErrorEstimate :  public TPZMixedDarcyFlow {
 
-template<class TVar>
-class TPZMaterialDataT;
-
-template<class TVar>
-class TPZVec;
-
-template<class MixedMat>
-class TPZMixedHDivErrorEstimate : public MixedMat
-{
-    
-    
 public:
     
     TPZMixedHDivErrorEstimate();
 
     TPZMixedHDivErrorEstimate(int matid, int dim);
     
-    virtual ~TPZMixedHDivErrorEstimate();
+    ~TPZMixedHDivErrorEstimate() override;
     
-    TPZMixedHDivErrorEstimate(const MixedMat &cp);
+    explicit TPZMixedHDivErrorEstimate(const TPZMixedDarcyFlow &cp);
     
-    TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate<MixedMat> &cp);
+    TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp);
     
     TPZMixedHDivErrorEstimate &operator=(const TPZMixedHDivErrorEstimate &copy);
     
-    virtual TPZMaterial * NewMaterial() const override {
+    [[nodiscard]] TPZMaterial * NewMaterial() const override {
         return new TPZMixedHDivErrorEstimate(*this);
     }
     
     
-    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
+    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE>> &datavec) const override;
     
     /// make a contribution to the error computation
-    virtual void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
+    void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
+
+    [[nodiscard]] int NEvalErrors() const override { return 5; }
     
-    virtual int NEvalErrors() const override {
-        return 5;
-        
-    }
+    [[nodiscard]] int VariableIndex(const std::string &name) const override;
     
-    virtual int VariableIndex(const std::string &name) const override;
-    
-    virtual int NSolutionVariables(int var) const override;
+    [[nodiscard]] int NSolutionVariables(int var) const override;
     
     /**
      * @brief It return a solution to multiphysics simulation.
@@ -67,7 +52,7 @@ public:
      * @param var [in] number of solution variables. See  NSolutionVariables() method
      * @param Solout [out] is the solution vector
      */
-    virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
+    void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
 
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = true;

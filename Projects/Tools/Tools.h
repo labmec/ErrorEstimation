@@ -14,8 +14,6 @@
 #include "TPZVTKGeoMesh.h"
 #include "ProblemConfig.h"
 
-#include "DarcyFlow/TPZDarcyFlow.h"
-
 #include "pzintel.h"
 
 #include "pzbuildmultiphysicsmesh.h"
@@ -23,7 +21,6 @@
 #include "TPZMultiphysicsInterfaceEl.h"
 #include "TPZHybridizeHDiv.h"
 
-#include "TPZAnalysis.h"
 #include "pzstepsolver.h"
 #include "TPZSSpStructMatrix.h"
 #include "TPZParFrontStructMatrix.h"
@@ -58,7 +55,7 @@ namespace Tools {
 
     TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
 
-    TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem);
+    TPZMultiphysicsCompMesh *CreateMixedMesh(const ProblemConfig &problem);
 
     void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 
@@ -82,7 +79,7 @@ namespace Tools {
 
     void SolveMixedProblem(TPZCompMesh *cmesh_HDiv, const ProblemConfig &config);
 
-    TPZCompMesh *CMeshH1(ProblemConfig problem);
+    TPZCompMesh *CMeshH1(const ProblemConfig& problem);
 
     void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, ProblemConfig &config);
 
@@ -97,6 +94,7 @@ namespace Tools {
     TPZGeoMesh* CreateGeoMesh(int nelem, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode);
 
     void PrintErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
+    void PrintErrors(std::ostream& out, const TPZVec<REAL>& error_vec);
 }
 
 #endif

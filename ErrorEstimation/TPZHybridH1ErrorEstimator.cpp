@@ -1187,9 +1187,6 @@ void TPZHybridH1ErrorEstimator::RestrainSkeletonSides(TPZCompMesh *pressure_mesh
             if (subLargerNeigh.Element() == subsmall.Element()) DebugStop();
             gel->CenterPoint(iside, xicenter);
             gel->X(xicenter, xcenter);
-            //std::cout << "SubRestriction @ [" << xcenter << "]:"
-            //          << "  Small El: " << small.Element()->Index() << ", Side: " << subsmall.Side()
-             //         << "  Large El: " << largerNeigh.Element()->Index() << ", Side: " << subLargerNeigh.Side() << "\n";
             smallIntel->RestrainSide(subsmall.Side(), largeIntel, subLargerNeigh.Side());
         }
     }

@@ -13,9 +13,12 @@
 #include <tuple>
 #include <memory>
 #include <Pre/TPZGenGrid3D.h>
+#include <DarcyFlow/TPZMixedDarcyFlow.h>
+#include <DarcyFlow/TPZDarcyFlow.h>
+#include <TPZNullMaterial.h>
+#include <TPZNullMaterialCS.h>
 #include "DataStructure.h"
-#include "TPZNullMaterial.h"
-#include "DarcyFlow/TPZMixedDarcyFlow.h"
+
 
 #include "pzelementgroup.h"
 
@@ -36,9 +39,10 @@ void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool 
 
 TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial* mat = 0;
+    TPZNullMaterial<STATE>* mat = nullptr;
     for (auto matid : problem.materialids) {
-        TPZNullMaterial<>* mix = new TPZNullMaterial<>(matid, cmesh->Dimension());
+        auto * mix = new TPZNullMaterial<STATE>(matid);
+        mix->SetDimension(cmesh->Dimension());
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
@@ -57,33 +61,34 @@ TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
         Prefinamento(cmesh, problem.ndivisions, problem.porder);
     }
     
-    
     return cmesh;
 }
 
 TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
     int dim = problem.gmesh->Dimension();
-    TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    TPZNullMaterial<>* mat = NULL;
+    auto* cmesh = new TPZCompMesh(problem.gmesh);
+    TPZNullMaterial<STATE>* mat = nullptr;
     problem.gmesh->ResetReference();
     for (auto matid : problem.materialids) {
-        TPZNullMaterial<>* mix = new TPZNullMaterial<>(matid);
+        auto * mix = new TPZNullMaterial<STATE>(matid);
         mix->SetDimension(dim);
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
     }
-    if(!mat) DebugStop();
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.);
-        TPZVec<REAL> val2(1, 1.);
+        TPZManVector<REAL, 1> val2(1, 1.);
         int bctype;
         if (matid == -1 || matid == 2) {
             bctype = 0;
         } else {
             bctype = 1;
         }
-        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-//        bc->TPZMaterial::SetForcingFunction(problem.exact.operator*().Exact());
+        auto * bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
+            problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_lambda);
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->SetDefaultOrder(problem.porder);
@@ -93,25 +98,22 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
     if (problem.prefine) {
         Prefinamento(cmesh, problem.ndivisions, problem.porder);
     }
-    
-    
+
     cmesh->InitializeBlock();
     return cmesh;
-    
 }
 
-TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
+TPZMultiphysicsCompMesh* Tools::CreateMixedMesh(const ProblemConfig& problem) {
 
-    TPZMultiphysicsCompMesh* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
+    auto* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
+    TPZMixedDarcyFlow *mat = nullptr;
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
     K.Identity();
     invK.Identity();
     
     STATE Km = problem.Km;
 
-    
     if (problem.TensorNonConst && problem.gmesh->Dimension() == 3) {
-        DebugStop();
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 if (i == j) {
@@ -126,19 +128,19 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
         
     }
 
-//    K.Print(std::cout);
-//    invK.Print(std::cout);
-
-    typedef TPZMixedDarcyFlow TPZMixedPoisson;
-    
-    TPZMixedPoisson* mat = NULL;
-
     for (auto matid : problem.materialids) {
-        TPZMixedPoisson *mix = new TPZMixedPoisson(matid, cmesh->Dimension());
-        int porder = 5;
-        mix->SetForcingFunction(problem.exact.operator*().ForceFunc(),porder);
-        mix->SetExactSol(problem.exact.operator*().ExactSolution(),porder);
-        mix->SetConstantPermeability(1.);
+        auto *mix = new TPZMixedDarcyFlow(matid, cmesh->Dimension());
+
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+            problem.exact.operator*().ForcingFunction()->Execute(loc, result);
+        };
+        auto exact_sol_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+            problem.exact.operator*().Exact()->Execute(loc, result, deriv);
+        };
+
+        mix->SetForcingFunction(ff_lambda, 5);
+        mix->SetExactSol(exact_sol_lambda, 5);
+        mix->SetConstantPermeability(K(0,0));
 
         if (!mat) mat = mix;
 
@@ -148,31 +150,33 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
     
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.);
-        TPZManVector<REAL,1> val2(1, 0.);
+        TPZManVector<REAL, 1> val2(1, 0.);
         int bctype;
     
         switch (matid) {
-            case -1 :{
-            bctype = 0;
+            case -1 : {
+                bctype = 0;
                 break;
             }
-                
-                
-            case -2:{
-            bctype = 1;
-    
-            break;
-            }
-            case -3:{
-            bctype = 4;// different from mixed (bctype 2) already implemented on TPZMixedPoisson3d
-            val1(0,0) = Km ;
+            case -2: {
+                bctype = 1;
 
-                
-            break;
+                break;
+            }
+            case -3: {
+                bctype = 4;// different from mixed (bctype 2) already implemented on TPZMixedPoisson3d
+                val1(0, 0) = Km;
+                break;
+            }
+            default: {
+                bctype = -1;
             }
         }
-        TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution());
+        auto * bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
+            problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_lambda);
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -417,14 +421,14 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
     TPZLinearAnalysis an(Hybridmesh);
 
 #ifdef PZ_USING_MKL
-    TPZSSpStructMatrix<> strmat(Hybridmesh);
+    TPZSSpStructMatrix<STATE> strmat(Hybridmesh);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
     //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
     //    strmat.SetNumThreads(2);
     //    strmat.SetDecomposeType(ELDLt);
-    TPZSkylineStructMatrix strmat(Hybridmesh);
+    TPZSkylineStructMatrix<STATE> strmat(Hybridmesh);
     strmat.SetNumThreads(0);
 #endif
 
@@ -464,7 +468,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
         sout << problem.dir_name << "/" << "OriginalHybrid_Order_" << problem.porder << "Nref_" << problem.ndivisions
              << "NAdapStep_" << problem.adaptivityStep << ".vtk";
         an.DefineGraphMesh(2, scalnames, vecnames, sout.str());
-        int resolution = 0;
+        int resolution = 2;
         an.PostProcess(resolution, Hybridmesh->Dimension());
 
         if (problem.exact.operator*().Exact()) {
@@ -518,7 +522,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
 }
 
 void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config) {
-#ifdef ERRORESTIMATION_DEBUG
+#ifdef PZDEBUG
     {
         std::ofstream out("gmeshSolve.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, out);
@@ -530,8 +534,8 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
     TPZLinearAnalysis an(cmesh_HDiv, false);
 
 
-    TPZSSpStructMatrix<> strmat(cmesh_HDiv);
-    strmat.SetNumThreads(0);
+    TPZSSpStructMatrix<STATE> strmat(cmesh_HDiv);
+    strmat.SetNumThreads(8);
     an.SetStructuralMatrix(strmat);
 
     std::set<int> matids;
@@ -578,35 +582,35 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
     int resolution = 2;
     an.PostProcess(resolution, dim);
 
-    if (config.exact.operator*().Exact()) {
-        TPZManVector<REAL> errors(4, 0.);
-        an.SetThreadsForError(0);
-        an.SetExact(config.exact.operator*().ExactSolution());
-        an.PostProcessError(errors, false);
+    //if (config.exact.operator*().Exact()) {
+    //    TPZManVector<REAL> errors(4, 0.);
+    //    an.SetThreadsForError(0);
+    //    an.SetExact(config.exact.operator*().ExactSolution());
+    //    an.PostProcessError(errors, false);
 
-        // Erro
-        std::ofstream myfile;
-        /*Error on MixedPoisson
-           [0] L2 for pressure
-           [1] L2 for flux
-           [2] L2 for div(flux)
-           [3] Grad pressure (Semi H1)
-           [4] Hdiv norm
-           */
+    //    // Erro
+    //    std::ofstream myfile;
+    //    /*Error on MixedPoisson
+    //       [0] L2 for pressure
+    //       [1] L2 for flux
+    //       [2] L2 for div(flux)
+    //       [3] Grad pressure (Semi H1)
+    //       [4] Hdiv norm
+    //       */
 
-          // Erro
-          myfile.open("ErrorMixed.txt", std::ios::app);
-          myfile << "\n\n Error for Mixed formulation ";
-          myfile << "\n-------------------------------------------------- \n";
-          myfile << "Ndiv = " << config.ndivisions
-                 << " Order k = " << config.porder << " n "<<config.hdivmais<< " K_R = "<<config.Km<<" Ndofs = "<<cmesh_HDiv->NEquations() <<"\n";
-          myfile << "L2 pressure = " << errors[0] << "\n";
-          myfile << "L2 flux= " << errors[1] << "\n";
-          myfile << "L2 div(flux) = " << errors[2] << "\n";
-        //  myfile << "Semi H1 = " << errors[3] << "\n";
-         // myfile << "Hdiv norm = " << errors[4] << "\n";
-        myfile.close();
-    }
+    //      // Erro
+    //      myfile.open("ErrorMixed.txt", std::ios::app);
+    //      myfile << "\n\n Error for Mixed formulation ";
+    //      myfile << "\n-------------------------------------------------- \n";
+    //      myfile << "Ndiv = " << config.ndivisions
+    //             << " Order k = " << config.porder << " n "<<config.hdivmais<< " K_R = "<<config.Km<<" Ndofs = "<<cmesh_HDiv->NEquations() <<"\n";
+    //      myfile << "L2 pressure = " << errors[0] << "\n";
+    //      myfile << "L2 flux= " << errors[1] << "\n";
+    //      myfile << "L2 div(flux) = " << errors[2] << "\n";
+    //    //  myfile << "Semi H1 = " << errors[3] << "\n";
+    //     // myfile << "Hdiv norm = " << errors[4] << "\n";
+    //    myfile.close();
+    //}
 }
 
 /// Divide lower dimensional elements
@@ -655,18 +659,24 @@ void Tools::DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
 }
 
 
-TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
+TPZCompMesh* Tools::CMeshH1(const ProblemConfig& problem) {
 
-    TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
-    
-    typedef TPZDarcyFlow TPZMatPoisson3d;
-    TPZMatPoisson3d* mat = 0;
+    auto* cmesh = new TPZCompMesh(problem.gmesh);
+    TPZDarcyFlow* mat = nullptr;
 
     for (auto matid : problem.materialids) {
-        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        int porder = 5;
-        mix->SetExactSol(problem.exact.operator*().ExactSolution(),porder);
-        mix->SetForcingFunction(problem.exact.operator*().ForceFunc(),porder);
+        auto *mix = new TPZDarcyFlow(matid, cmesh->Dimension());
+
+
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+            problem.exact.operator*().ForcingFunction()->Execute(loc, result);
+        };
+        auto exact_sol_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+            problem.exact.operator*().Exact()->Execute(loc, result, deriv);
+        };
+
+        mix->SetForcingFunction(ff_lambda, 5);
+        mix->SetExactSol(exact_sol_lambda, 5);
 
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
@@ -674,10 +684,13 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
 
     for (auto matid : problem.bcmaterialids) {
         TPZFNMatrix<1, REAL> val1(1, 1, 0.);
-        TPZManVector<REAL,1> val2(1, 0.);
+        TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
-        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution());
+        auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        auto ff_lambda = [problem](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal) {
+            problem.exact.operator*().Exact()->Execute(loc, rhsVal, matVal);
+        };
+        bc->SetForcingFunctionBC(ff_lambda);
 
         cmesh->InsertMaterialObject(bc);
     }
@@ -709,7 +722,6 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
 
-
         if (elementError > maxError) {
             maxError = elementError;
         }
@@ -726,15 +738,11 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
 
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
-        //prefinement
         if (elementError > threshold) {
-
-            std::cout << "element error " << elementError << "el " << iel << "\n";
             TPZGeoEl* gel = cel->Reference();
-            int iel = gel->Id();
 
             TPZVec<TPZGeoEl*> sons;
-            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
+            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[gel->Id()];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
 #ifdef LOG4CXX2
@@ -753,15 +761,6 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                 }
 #endif
             }
-        } else {
-            std::cout << "como refinar em p? " << "\n";
-//            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
-//            if(!sp) continue;
-//            int level = sp->Reference()->Level();
-//            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
-//            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
-//            sp->PRefine(ordem);
-
         }
     }
     DivideLowerDimensionalElements(gmeshToRefine);
@@ -1022,6 +1021,7 @@ TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, int dim, bool isOr
         return gmesh;
     }
     DebugStop(); // Dim should be 2 or 3
+    return nullptr;
 }
 
 void Tools::DrawGeoMesh(ProblemConfig &config, PreConfig &preConfig) {
@@ -1059,6 +1059,9 @@ void Tools::PrintErrors(std::ofstream& out, const ProblemConfig& config, const T
     if (config.adaptivityStep != -1) {
         ss << ", AdaptivityStep = " << config.adaptivityStep;
     }
+    if (config.cmesh) {
+        ss << ", NEquations = " << config.cmesh->NEquations();
+    }
     ss << '\n';
     ss << "Global estimator = " << error_vec[3] << "\n";
     ss << "|ufem-urec| = " << error_vec[1] << "\n";
@@ -1074,6 +1077,19 @@ void Tools::PrintErrors(std::ofstream& out, const ProblemConfig& config, const T
     } else {
         ss << "[Unknown exact solution and errors]\n";
     }
+
+    out << ss.str();
+    std::cout << ss.str();
+}
+
+void Tools::PrintErrors(std::ostream& out, const TPZVec<REAL>& error_vec) {
+
+    std::stringstream ss;
+    ss << '\n';
+    ss << "Global estimator = " << error_vec[3] << "\n";
+    ss << "|ufem-urec| = " << error_vec[1] << "\n";
+    ss << "Residual Error L2 = " << error_vec[4] << "\n";
+    ss << "[Unknown exact solution and errors]\n";
 
     out << ss.str();
     std::cout << ss.str();

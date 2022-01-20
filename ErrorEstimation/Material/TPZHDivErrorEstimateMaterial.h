@@ -11,12 +11,11 @@
 #ifndef TPZHDivErrorEstimateMaterial_hpp
 #define TPZHDivErrorEstimateMaterial_hpp
 
-#include <stdio.h>
+#include <cstdio>
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "TPZMaterialDataT.h"
 
-typedef TPZMixedDarcyFlow TPZMixedPoisson;
-
-class TPZHDivErrorEstimateMaterial : public TPZMixedPoisson {
+class TPZHDivErrorEstimateMaterial: public TPZMixedDarcyFlow {
 
 public:
     TPZHDivErrorEstimateMaterial(int matid, int dim);
@@ -25,20 +24,23 @@ public:
     
     TPZHDivErrorEstimateMaterial(const TPZHDivErrorEstimateMaterial &copy);
     
-    TPZHDivErrorEstimateMaterial(const TPZMixedPoisson &copy);
+    explicit TPZHDivErrorEstimateMaterial(const TPZMixedDarcyFlow &copy);
     
-    virtual ~TPZHDivErrorEstimateMaterial();
+    ~TPZHDivErrorEstimateMaterial() override;
     
     TPZHDivErrorEstimateMaterial &operator=(const TPZHDivErrorEstimateMaterial &copy);
 
-    virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+    void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
                             TPZFMatrix<STATE> &ef) override;
 
-    virtual void ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
-                              TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) override;
+    void ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+                      TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) override;
 
-    virtual void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE>> &datavec) const override;
-    virtual void FillBoundaryConditionDataRequirements(int type,  TPZVec<TPZMaterialDataT<STATE>> &datavec) const override;
+    // TODO add doc
+    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
+
+    // TODO add doc
+    void FillBoundaryConditionDataRequirements(int type, TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
 
     bool fNeumannLocalProblem = false;
 
@@ -46,25 +48,33 @@ public:
         fNeumannLocalProblem = neumannProblem;
     }
 
-    virtual int NEvalErrors() const override { return 5; } // erro de oscilacao de dados tbem
+    [[nodiscard]] int NEvalErrors() const override { return 5; }
 
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure
     // error[1] - error computed with reconstructed pressure
     // error[2] - energy error computed with exact solution
     // error[3] - energy error computed with reconstructed solution
-    virtual void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
+    void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
 
-    void ErrorsBC(TPZVec<TPZMaterialDataT<STATE>> &data,
-                  TPZVec<REAL> &errors, TPZBndCondT<STATE> &bc);
+    //void ErrorsBC(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact,
+    //              TPZVec<REAL> &errors, TPZBndCond &bc);
 
-    virtual int VariableIndex(const std::string &name) const override;
-    virtual int NSolutionVariables(int var) const override;
-    virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
+    [[nodiscard]] int VariableIndex(const std::string &name) const override;
+    [[nodiscard]] int NSolutionVariables(int var) const override;
+
+    void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
 
     // Returns the first non-null approximation space index, which will be the
     // H1 reconstruction space
-    int FirstNonNullApproxSpaceIndex(const TPZVec<TPZMaterialDataT<STATE>> &datavec) const;
+    static int FirstNonNullApproxSpaceIndex(const TPZVec<TPZMaterialDataT<STATE>> &datavec);
+
+    void SetReferenceSolution(bool hasRefSol) {
+        fHasReferenceSolution = hasRefSol;
+    }
+
+private:
+    bool fHasReferenceSolution{false};
 };
 
 #endif /* TPZHDivErrorEstimateMaterial_hpp */

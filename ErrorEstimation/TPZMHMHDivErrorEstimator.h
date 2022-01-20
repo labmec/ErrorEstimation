@@ -5,8 +5,8 @@
 //  Created by Philippe Devloo on 10/06/18.
 //
 
-#ifndef TPZMHMHDivErrorEstimator_hpp
-#define TPZMHMHDivErrorEstimator_hpp
+#ifndef TPZMHMHDIVERRORESTIMATOR_H
+#define TPZMHMHDIVERRORESTIMATOR_H
 
 #include "TPZHDivErrorEstimator.h"
 #include "TPZMHMixedMeshControl.h"
@@ -85,4 +85,4 @@ private:
     void ComputeConnectsNextToSkeleton(std::set<int64_t>& connectList);
 };
 
-#endif /* TPZHybridHDivErrorEstimator_hpp */
+#endif

@@ -33,8 +33,6 @@ protected:
     TPZVec<REAL> fPressureweights;
     /// weights associated with material ids
     std::map<int,REAL> fMatid_weights;
-    // object to assist in creating a hybridized version of the computational mesh
-    TPZHybridizeHDiv fHybridizer;
 
     // material id of the dim-1 skeleton elements
     int fPressureSkeletonMatId = 0;
@@ -42,6 +40,14 @@ protected:
     TPZAnalyticSolution *fExact;
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = false;
+
+    int fAdaptivityStep{0};
+
+    bool fHasReferenceSolution{false};
+
+private:
+    // object to assist in creating a hybridized version of the computational mesh
+    TPZHybridizeHDiv fHybridizer;
 
 public:
     explicit TPZHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
@@ -57,12 +63,14 @@ public:
 
     ~TPZHDivErrorEstimator();
 
-    //void SetProblemConfig(const ProblemConfig &cfg) { fProblemConfig = cfg; }
-
     /// Set the analytic solution object
     void SetAnalyticSolution(TPZAnalyticSolution &exact) { fExact = &exact; }
 
-    void SetHybridizer(TPZHybridizeHDiv &hybridizer) { fHybridizer = hybridizer; }
+    [[maybe_unused]] void SetHybridizer(TPZHybridizeHDiv &hybridizer) { fHybridizer = hybridizer; }
+
+    void SetAdaptivityStep(int step) { fAdaptivityStep = step; };
+
+    [[nodiscard]] int AdaptivityStep() const { return fAdaptivityStep; };
 
     /// compute the element errors comparing the reconstructed solution based on average pressures
     /// with the original solution
@@ -74,16 +82,20 @@ public:
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an, std::string &out);
 
-    void PlotPressureSkeleton(const std::string &filename, bool reconstructed = true);
-    void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
+    [[maybe_unused]] void PlotPressureSkeleton(const std::string &filename, bool reconstructed = true);
+    [[maybe_unused]] void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
-    static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
+    [[maybe_unused]] static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
 
-    int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
+    [[nodiscard]] int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
 
     TPZMultiphysicsCompMesh *PostProcMesh() { return &fPostProcMesh; }
     TPZGeoMesh *GMesh() { return fOriginal->Reference(); }
+
+    void SetReferenceSolution(bool hasRefSol);
+
+    void SetReferenceSolutionMeshes(TPZCompMesh* ref_pressure, TPZCompMesh* ref_flux);
 
 protected:
 
@@ -137,7 +149,7 @@ protected:
 
     /// adjust the interpolation orders so as to create an H1/2 boundary mesh
     // this method is called by the CreateEdgeSkeletonMesh method
-    void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
+    static void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
 
     /// restrain the edge elements that have larger elements as neighbours
     void RestrainSmallEdges(TPZCompMesh *pressuremesh);
@@ -147,27 +159,25 @@ protected:
 
     /// compute the nodal average of all elements that share a point
     void ComputeNodalAverage(TPZCompElSide &node_celside);
-    //compute the global efectivity index using the CharacteristicSize() of element
-    void GlobalEffectivityIndex();
 
     /// copy the solution from the neighbouring skeleton elements
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
     virtual void CopySolutionFromSkeleton();
 
     /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-    virtual void SwitchMaterialObjects();
+    virtual void InsertPostProcMaterials();
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices();
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
-    void ComputeEffectivityIndices(TPZSubCompMesh *subcmesh);
+    static void ComputeEffectivityIndices(TPZSubCompMesh *subcmesh);
 
     /// returns true if the material associated with the element is a boundary condition
     /// and if the boundary condition is dirichlet type
-    bool IsDirichletCondition(TPZGeoElSide gelside);
+    bool IsDirichletCondition(const TPZGeoElSide& gelside);
 
-    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh);
+    void RestrainSkeletonSides(TPZCompMesh *pressure_mesh) const;
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
@@ -180,6 +190,7 @@ protected:
     bool IsAdjacentToHangingNode(const TPZCompElSide &celside);
 
     static std::set<int> GetBCMatIDs(const TPZCompMesh* cmesh);
+
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */

@@ -2,13 +2,21 @@
 // Created by Gustavo A. Batistela on 06/07/2020.
 //
 
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 #include <Mesh/pzgmesh.h>
 #include <Pre/TPZGenGrid3D.h>
 #include <Pre/TPZMHMixedMeshControl.h>
+#include <ProblemConfig.h>
+#include <TPZGeoCube.h>
 #include <TPZMFSolutionTransfer.h>
-//#include <Tools.h>
+#include <TPZMHMHDivErrorEstimator.h>
+#include <TPZRefPatternDataBase.h>
+#include <TPZVTKGeoMesh.h>
+#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
+#include <pzgeoquad.h>
+#include <tpzgeoelrefpattern.h>
 
 void RunSmoothProblem();
 void RunHighGradientProblem();
@@ -440,7 +448,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(0 /*config.n_threads*/);
 #else
-    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    TPZSkylineStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(0);
 #endif
 
@@ -529,23 +537,28 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     int dim = control.GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+    auto *mat = new TPZMixedDarcyFlow(1, dim);
 
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    invK.Identity();
+    auto exact_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result, TPZFMatrix<STATE> &deriv) {
+        config.exact.operator*().Exact()->Execute(loc, result, deriv);
+    };
 
-    mat->SetExactSol(config.exact.operator*().Exact());
-    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat->SetPermeabilityTensor(K, invK);
+    auto ff_lambda = [config](const TPZVec<REAL> &loc, TPZVec<STATE> &result) {
+        config.exact.operator*().ForcingFunction()->Execute(loc, result);
+    };
+
+    mat->SetConstantPermeability(1);
+    mat->SetExactSol(exact_lambda, 8);
+    mat->SetForcingFunction(ff_lambda, 8);
 
     cmesh.InsertMaterialObject(mat);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL, 1> val2(1, 0.);
         int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(exact_lambda);
         cmesh.InsertMaterialObject(bc);
     }
 }
