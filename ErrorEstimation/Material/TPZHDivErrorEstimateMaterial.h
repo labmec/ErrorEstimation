@@ -15,8 +15,7 @@
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "TPZMaterialDataT.h"
 
-class TPZHDivErrorEstimateMaterial: public virtual TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,
-        TPZMatErrorCombinedSpaces<STATE>, TPZIsotropicPermeability>, public virtual TPZMixedDarcyFlow {
+class TPZHDivErrorEstimateMaterial: public virtual TPZMixedDarcyFlow {
 
     // type alias to improve constructor readability
     using TBase = TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,

@@ -14,8 +14,7 @@
 #include "pzreal.h"
 
 
-class TPZMixedHDivErrorEstimate : public virtual TPZMatBase<STATE, TPZMatCombinedSpacesT<STATE>,
-        TPZMatErrorCombinedSpaces<STATE>, TPZIsotropicPermeability>, public TPZMixedDarcyFlow {
+class TPZMixedHDivErrorEstimate :  public TPZMixedDarcyFlow {
 
 public:
     
@@ -41,7 +40,7 @@ public:
     /// make a contribution to the error computation
     void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
 
-    int NEvalErrors() override { return 5; }
+    [[nodiscard]] int NEvalErrors() const override { return 5; }
     
     [[nodiscard]] int VariableIndex(const std::string &name) const override;
     
