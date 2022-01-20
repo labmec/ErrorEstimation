@@ -87,7 +87,9 @@ void RunInnerSingularityProblemSuite(const std::set<int> &nCoarseDiv, const std:
 
 
 int main() {
+#ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
+#endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
     const std::set<int> nCoarseDiv = {8};

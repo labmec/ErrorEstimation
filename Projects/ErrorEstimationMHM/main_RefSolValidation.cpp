@@ -35,7 +35,9 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 
 int main() {
+#ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
+#endif
     gRefDBase.InitializeAllUniformRefPatterns();
 
     RunReferenceSolutionValidationProblem();
