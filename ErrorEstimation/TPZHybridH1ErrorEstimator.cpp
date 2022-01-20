@@ -450,7 +450,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::CreateFluxMesh()
     }
 #endif
 #ifdef ERRORESTIMATION_DEBUG
-    TPZAnalysis an(&HdivRecMesh, false);
+    TPZLinearAnalysis an(&HdivRecMesh, false);
     TPZStack<std::string> scalnames, vecnames;
     int dim = HdivRecMesh.Reference()->Dimension();
 
