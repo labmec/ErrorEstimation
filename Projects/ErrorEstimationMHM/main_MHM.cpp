@@ -5,6 +5,7 @@
 #include <Mesh/pzgmesh.h>
 #include <Pre/TPZGenGrid3D.h>
 #include <Pre/TPZMHMixedMeshControl.h>
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include <TPZMFSolutionTransfer.h>
 //#include <Tools.h>
 #include <ToolsMHM.h>
@@ -529,23 +530,21 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     int dim = control.GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+    auto *mat = new TPZMixedDarcyFlow(1, dim);
 
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    invK.Identity();
 
-    mat->SetExactSol(config.exact.operator*().Exact());
-    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat->SetPermeabilityTensor(K, invK);
+    mat->SetExactSol(config.exact->ExactSolution(),3);
+    mat->SetForcingFunction(config.exact->ForceFunc(),3);
+    mat->SetConstantPermeability(1.);
 
     cmesh.InsertMaterialObject(mat);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<STATE,1> val2(1, 0.);
         int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(config.exact->ExactSolution());
         cmesh.InsertMaterialObject(bc);
     }
 }

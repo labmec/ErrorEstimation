@@ -9,6 +9,9 @@
 //#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
+#include "TPZLinearAnalysis.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "TPZBndCondT.h"
 
 void RunSmoothProblem(int nCoarseDiv, int nInternalRef);
 void RunNonConvexProblem();
@@ -32,7 +35,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
 
 void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm);
-void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
+STATE PeriodicPermeabilityFunction(const TPZVec<REAL> &coord);
 void PeriodicProblemForcingFunction(const TPZVec <REAL> &pt, TPZVec <STATE> &result);
 
 int main() {
@@ -423,10 +426,10 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
     bool shouldrenumber = true;
-    TPZAnalysis an(cmesh, shouldrenumber);
+    TPZLinearAnalysis an(cmesh, shouldrenumber);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
+    TPZSSpStructMatrix<> strmat(cmesh.operator->());
     strmat.SetNumThreads(8);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
@@ -512,23 +515,21 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     int dim = control.GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+    auto *mat = new TPZMixedDarcyFlow(1, dim);
 
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    invK.Identity();
 
-    mat->SetExactSol(config.exact.operator*().Exact());
-    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat->SetPermeabilityTensor(K, invK);
+    mat->SetExactSol(config.exact->ExactSolution(),5);
+    mat->SetForcingFunction(config.exact->ForceFunc(),5);
+    mat->SetConstantPermeability(1.);
 
     cmesh.InsertMaterialObject(mat);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL> val2(1, 0.);
         int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(config.exact->ExactSolution());
         cmesh.InsertMaterialObject(bc);
     }
 }
@@ -552,39 +553,31 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
     int dim = mhm->GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    TPZMixedPoisson *mat = new TPZMixedPoisson(1, dim);
+    auto *mat = new TPZMixedDarcyFlow(1, dim);
 
-    TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
-    K.Identity();
-    K *= 5.;
-    invK.Identity();
-    invK *= 1./5.;
-
-    mat->SetExactSol(config.exact.operator*().Exact());
-    mat->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat->SetPermeabilityTensor(K, invK);
+\
+    mat->SetExactSol(config.exact->ExactSolution(),3);
+    
+    mat->SetForcingFunction(config.exact->ForceFunc(),3);
+    mat->SetConstantPermeability(15.);
 
     cmesh.InsertMaterialObject(mat);
 
-    TPZMixedPoisson *mat2 = new TPZMixedPoisson(2, dim);
+    auto *mat2 = new TPZMixedDarcyFlow(2, dim);
 
-    TPZFMatrix<REAL> K2(3, 3, 0), invK2(3, 3, 0);
-    K2.Identity();
-    K2 *= 1.;
-    invK2.Identity();
-    invK2 *= 1./1.;
 
-    mat2->SetExactSol(config.exact.operator*().Exact());
-    mat2->SetForcingFunction(config.exact.operator*().ForcingFunction());
-    mat2->SetPermeabilityTensor(K2, invK2);
+    mat2->SetExactSol(config.exact->ExactSolution(),1);
+    mat2->SetForcingFunction(config.exact->ForceFunc(),2);
+    mat2->SetConstantPermeability(1.);
 
     cmesh.InsertMaterialObject(mat2);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, STATE> val1(1, 1, 0.);
+        TPZManVector<STATE,1> val2(1, 0.);
         int bctype = 0;
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(config.exact.operator*().Exact());
+        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(config.exact->ExactSolution());
         cmesh.InsertMaterialObject(bc);
     }
 
@@ -619,14 +612,16 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
 
     // Insert the material objects in the multiphysics mesh
     TPZCompMesh *cmesh = mhm.CMesh().operator->();
-    auto *mix = new TPZMixedPoisson(1, cmesh->Dimension());
-    TPZAutoPointer<TPZFunction<STATE>> perm_function = new TPZDummyFunction<STATE>(&PeriodicPermeabilityFunction, 3);
-    mix->SetPermeabilityFunction(perm_function);
-    mix->SetForcingFunction(PeriodicProblemForcingFunction, 1);
+    auto *mix = new TPZMixedDarcyFlow(1, cmesh->Dimension());
+    PermeabilityFunctionType permfunc;
+    permfunc = PeriodicPermeabilityFunction;
+    mix->SetPermeabilityFunction(permfunc);
+    mix->SetForcingFunction(PeriodicProblemForcingFunction, 3);
 
-    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+    TPZManVector<REAL,1> val2(1, 0.);
     constexpr int dirichlet_bc = 0;
-    TPZBndCond *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
+    TPZBndCondT<STATE> *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
 
     cmesh->InsertMaterialObject(mix);
     cmesh->InsertMaterialObject(pressure_left);
@@ -645,7 +640,7 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
     mhm.BuildComputationalMesh(substructure);
 }
 
-void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat) {
+STATE PeriodicPermeabilityFunction(const TPZVec<REAL> &coord) {
 
     constexpr auto epsilon = 0.04;
     constexpr auto P = 1.8;
@@ -656,11 +651,7 @@ void PeriodicPermeabilityFunction(const TPZVec<REAL> &coord, TPZVec<REAL> &res, 
     REAL term_2 = 2 + P * cos(2 * M_PI * (y - 0.5) / epsilon);
 
     auto perm = 1 / (term_1 * term_2);
-
-    for (int i = 0; i < 2; i++) {
-        res_mat(i, i) = perm;
-        res_mat(i + 2, i) = 1 / perm;
-    }
+    return perm;
 }
 
 void PeriodicProblemForcingFunction(const TPZVec<REAL> &pt, TPZVec<STATE> &result) { result[0] = -1; }

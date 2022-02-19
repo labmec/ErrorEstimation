@@ -234,8 +234,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
             {
                 // load the element reference so that the created element will share the connects
                 cel->LoadElementReference();
-                int64_t index;
-                TPZCompEl *bc_cel = pressure->ApproxSpace().CreateCompEl(neighbour.Element(), *pressure, index);
+                TPZCompEl *bc_cel = pressure->ApproxSpace().CreateCompEl(neighbour.Element(), *pressure);
                 // reset the references so that future elements will not share connects
 #ifdef LOG4CXX
                 numcreated[neighbour.Element()->MaterialId()]++;
@@ -256,8 +255,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
             TPZGeoEl *gel = fGeoMesh->Element(el);
             int matid = gel->MaterialId();
             if(fBCMaterialIds.find(matid) == fBCMaterialIds.end()) continue;
-            int64_t index;
-            TPZCompEl *cel = pressure->ApproxSpace().CreateCompEl(gel, *pressure, index);
+            TPZCompEl *cel = pressure->ApproxSpace().CreateCompEl(gel, *pressure);
 #ifdef LOG4CXX
             numcreated[matid]++;
 #endif
@@ -482,14 +480,13 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
             }
             // determine if the interface should be positive or negative...
             int interfacematid = neighmat;
-            int64_t index;
             TPZCompElSide celwrap(cel,gel->NSides()-1);
             TPZGeoElSide fluxgelside(fluxgel);
             TPZCompElSide fluxside = fluxgelside.Reference();
 //            std::cout << "Creating interface from wrap element " << gel->Index() << " using neighbour " << neighbour.Element()->Index() <<
 //             " and flux element " << fluxgel->Index() << std::endl;
             if(neighbour.Element()->Reference()) DebugStop();
-            new TPZMultiphysicsInterfaceElement(*mphys,neighbour.Element(),index,celwrap,fluxside);
+            new TPZMultiphysicsInterfaceElement(*mphys,neighbour.Element(),celwrap,fluxside);
 #ifdef LOG4CXX
             numcreated[neighmat]++;
 #endif
@@ -535,9 +532,8 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
                     TPZCompElSide celflux = fluxcandidate.Reference();
                     TPZCompElSide pressure = pressureinterface.Reference();
                     if(!celflux || !pressure) DebugStop();
-                    int64_t index;
                     if(secondlagrange.Element()->Reference()) DebugStop();
-                    new TPZMultiphysicsInterfaceElement(*mphys,secondlagrange.Element(),index,celflux,pressure);
+                    new TPZMultiphysicsInterfaceElement(*mphys,secondlagrange.Element(),celflux,pressure);
 #ifdef LOG4CXX
                     numcreated[secondlagrange.Element()->MaterialId()]++;
 #endif
@@ -547,12 +543,11 @@ void TPZCreateMultiphysicsSpace::AddInterfaceElements(TPZMultiphysicsCompMesh *m
                 TPZCompElSide celflux = gelsideflux.Reference();
                 TPZCompElSide pressure = pressureinterface.Reference();
                 if(!celflux || !pressure) DebugStop();
-                int64_t index;
 #ifdef LOG4CXX
                 numcreated[firstlagrange.Element()->MaterialId()]++;
 #endif
                 if(firstlagrange.Element()->Reference()) DebugStop();
-                new TPZMultiphysicsInterfaceElement(*mphys,firstlagrange.Element(),index,celflux,pressure);
+                new TPZMultiphysicsInterfaceElement(*mphys,firstlagrange.Element(),celflux,pressure);
             }
         }
     }
@@ -582,8 +577,7 @@ void TPZCreateMultiphysicsSpace::GroupandCondenseElements(TPZMultiphysicsCompMes
         if(groupnum == -1) continue;
         auto iter = groupmap.find(groupnum);
         if (groupmap.find(groupnum) == groupmap.end()) {
-            int64_t index;
-            TPZElementGroup *elgr = new TPZElementGroup(*cmesh,index);
+            TPZElementGroup *elgr = new TPZElementGroup(*cmesh);
             groupmap[groupnum] = elgr;
             elgr->AddElement(cmesh->Element(el));
         }

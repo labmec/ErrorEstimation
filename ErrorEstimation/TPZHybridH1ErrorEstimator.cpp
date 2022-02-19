@@ -596,8 +596,7 @@ void TPZHybridH1ErrorEstimator::AddBC2PressureMesh(TPZCompMesh *pressureMesh){
         int order = intel->Connect(iside).Order();
         pressureMesh->SetDefaultOrder(order);
 
-        int64_t id;
-        TPZCompEl *bcCel = pressureMesh->CreateCompEl(bcGeoEl, id);
+        TPZCompEl *bcCel = pressureMesh->CreateCompEl(bcGeoEl);
         // Reset references so that future elements will not share connects with these two elements
         bcCel->Reference()->ResetReference();
         neighCel->Reference()->ResetReference();
@@ -1113,9 +1112,8 @@ void TPZHybridH1ErrorEstimator::CreateEdgeSkeletonMesh(TPZCompMesh *pressuremesh
         TPZGeoEl *gel = gmesh->Element(index);
         if (!gel) DebugStop();
         TPZCompEl *cel = 0;
-        int64_t celindex = -1;
         pressuremesh->SetDefaultOrder(polynomialorder);
-        cel = pressuremesh->ApproxSpace().CreateCompEl(gel, *pressuremesh, celindex);
+        cel = pressuremesh->ApproxSpace().CreateCompEl(gel, *pressuremesh);
 #ifdef ERRORESTIMATION_DEBUG
         {
             TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
@@ -3572,8 +3570,7 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
         }
 
         if (elementsToGroup.size()) {
-            int64_t index;
-            TPZElementGroup *elGroup = new TPZElementGroup(fPostProcMesh, index);
+            TPZElementGroup *elGroup = new TPZElementGroup(fPostProcMesh);
             for (const auto &it : elementsToGroup) {
                 elGroup->AddElement(fPostProcMesh.Element(it));
             }

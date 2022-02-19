@@ -149,8 +149,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         if(!submesh_orig) continue;
         auto iter = submeshmap.find(submesh_orig);
         if (iter == submeshmap.end()) {
-            int64_t index;
-            TPZSubCompMesh *new_submesh = new TPZSubCompMesh(fPostProcMesh,index);
+            TPZSubCompMesh *new_submesh = new TPZSubCompMesh(fPostProcMesh);
             submeshmap[submesh_orig] = new_submesh;
             new_submesh_per_cel[el] = new_submesh;
         } else {
@@ -311,9 +310,8 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 }
                 int numthreads = 0;
                 int preconditioned = 0;
-                TPZAutoPointer<TPZGuiInterface> guiInterface;
 
-                sub->SetAnalysisSkyline(numthreads, preconditioned, guiInterface);
+                sub->SetAnalysisSkyline(numthreads, preconditioned);
             }
         }
     }
@@ -513,8 +511,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
         TPZGeoEl *gel = gmesh->Element(elIndex);
         if (!gel || gel->HasSubElement()) continue;
 
-        int64_t index;
-        TPZCompEl *new_cel = reconstruction_pressure->CreateCompEl(gel, index);
+        TPZCompEl *new_cel = reconstruction_pressure->CreateCompEl(gel);
         TPZInterpolatedElement *new_intel = dynamic_cast<TPZInterpolatedElement *>(new_cel);
 
         TPZCompEl * orig_cel = std::get<2>(MHMOfEachGeoEl[i]);
@@ -1095,8 +1092,7 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
             neighGel->SetReference(neighCel);
 
             TPZGeoElBC gbc(neighbour, fHDivWrapMatId);
-            int64_t index;
-            TPZCompEl * wrap = flux_mesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *flux_mesh, index);
+            TPZCompEl * wrap = flux_mesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *flux_mesh);
             TPZInterpolatedElement *wrapintel = dynamic_cast<TPZInterpolatedElement *>(wrap);
             neighIntel->SetSideOrient(neighbour.Side(), 1);
             wrapintel->SetSideOrient(gbc.CreatedElement()->NSides()-1,1);
@@ -1151,8 +1147,7 @@ void TPZMHMHDivErrorEstimator::CreateMultiphysicsInterfaces() {
             TPZCompElSide neighSide = neigh.Reference();
             if (!neighSide) DebugStop();
 
-            int64_t index;
-            auto *interface = new TPZMultiphysicsInterfaceElement(fPostProcMesh, gbc.CreatedElement(), index, skelCelSide, neighSide);
+            auto *interface = new TPZMultiphysicsInterfaceElement(fPostProcMesh, gbc.CreatedElement(), skelCelSide, neighSide);
         }
         if (count != 2) DebugStop();
     }
