@@ -2,7 +2,7 @@
 add_subdirectory(Tools)
 
 # Created executable targets
-#add_subdirectory(ErrorEstimationH1)
+add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(HybridH1)
 add_subdirectory(ErrorEstimationMHM)

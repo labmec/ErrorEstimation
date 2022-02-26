@@ -9,10 +9,10 @@
 #include "TPZPostProcessError.h"
 #include "pzcompel.h"
 #include "pzintel.h"
-#include "tpzcompmeshreferred.h"
+//#include "tpzcompmeshreferred.h"
 
 
-#include "pzanalysis.h"
+#include "TPZLinearAnalysis.h"
 #include "pzskylstrmatrix.h"
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
@@ -21,11 +21,11 @@
 #include "pzbuildmultiphysicsmesh.h"
 
 #include "TPZMaterial.h"
-#include "pzbndcond.h"
-#include "TPZVecL2.h"
-#include "pzl2projection.h"
+#include "TPZBndCondT.h"
+#include "Projection/TPZL2Projection.h"
 #include "TPZMixedErrorEstimate.h"
-#include "mixedpoisson.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "TPZNullMaterial.h"
 
 TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin) : fMeshVector(5,0)
 {
@@ -267,19 +267,20 @@ void TPZPostProcessError::ComputeHDivSolution()
     TPZCompMesh *meshmixed = fMeshVector[1];
     
     int64_t nval = fMeshVector[4]->Solution().Rows();
+    TPZFMatrix<STATE> &mesh4sol = fMeshVector[4]->Solution();
     for (int64_t i=0; i<nval; i++) {
-        fMeshVector[4]->Solution()(i,0) = 1.;
+        mesh4sol(i,0) = 1.;
     }
     
     int ModelDimension = meshmixed->Dimension();
-    TPZAnalysis an(meshmixed);
+    TPZLinearAnalysis an(meshmixed);
 #ifdef ERRORESTIMATION_DEBUG
     int numthreads = 0;
 #else
     int numthreads = 8;
 #endif
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(meshmixed);
+    TPZSSpStructMatrix<STATE> strmat(meshmixed);
     strmat.SetNumThreads(numthreads);
     an.SetStructuralMatrix(strmat);
 #else
@@ -371,11 +372,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             }
         }
         int64_t extseqcount = numintconnects;
+        TPZFMatrix<STATE> &weightsol = meshweight->Solution();
         for (int64_t patch=0; patch<npatch; patch++) {
             {
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
                 int64_t seqnum = meshweight->ConnectVec()[partitionindex].SequenceNumber();
-                meshweight->Block()(seqnum,0,0,0) = 1.;
+                weightsol.at(meshweight->Block().at(seqnum,0,0,0)) = 1.;
             }
             {
                 int64_t nel = fVecVecPatches[color][patch].fElIndices.size();
@@ -471,10 +473,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         nequations = meshmixed->NEquations();
         
         std::cout<<"Solving mixed problem"<<std::endl;
-        TPZAnalysis an(meshmixed,false);
+        TPZLinearAnalysis an(meshmixed,false);
 
         
-        TPZSkylineStructMatrix strmat(meshmixed);
+        TPZSkylineStructMatrix<STATE> strmat(meshmixed);
         int numthreads = 0;
         strmat.SetNumThreads(numthreads);
 //        strmat.SetEquationRange(0, nequations);
@@ -491,8 +493,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         direct = 0;
         
         an.Assemble();
-        
-        TPZAutoPointer<TPZMatrix<STATE> > globmat = an.Solver().Matrix();
+        TPZMatrixSolver<STATE> &matsolver = an.MatrixSolver<STATE>();
+        TPZAutoPointer<TPZMatrix<STATE> > globmat = matsolver.Matrix();
         for (int64_t p=0; p<npatch; p++) {
             TPZPatch &patch = fVecVecPatches[color][p];
             if (!PatchHasBoundary(patch))
@@ -506,7 +508,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 
         an.Solve();
         
-        TPZStepSolver<STATE> &step = dynamic_cast<TPZStepSolver<STATE> &>(an.Solver());
+        TPZStepSolver<STATE> &step = dynamic_cast<TPZStepSolver<STATE> &>(an.MatrixSolver<STATE>());
         std::list<int64_t> singular = step.Singular();
         
         if (singular.size())
@@ -569,7 +571,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         an.Solution().Zero();
 
     }
-    TPZAnalysis an(meshmixed,false);
+    TPZLinearAnalysis an(meshmixed,false);
     an.Solution() = fSolution;
     an.LoadSolution();
     TPZManVector<TPZCompMesh *,2> mixed(2);
@@ -714,7 +716,8 @@ void TPZPostProcessError::TransferAndSumSolution(TPZCompMesh *cmesh)
         
         for (int eq=0; eq<neq; eq++) {
             // tototototo
-            fSolution(targetpos+eq,0) += cmesh->Solution()(pos+eq,0);
+            TPZFMatrix<STATE> &sol = cmesh->Solution();
+            fSolution(targetpos+eq,0) += sol(pos+eq,0);
         }
     }
     cmesh->Solution().Zero();
@@ -777,11 +780,11 @@ void TPZPostProcessError::CreateFluxMesh()
     for (auto it:cmeshroot->MaterialVec()) {
         int matid = it.first;
         TPZMaterial *mat = it.second;
-        TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if (!bnd) {
             int matId = mat->Id();
             int nstate = mat->NStateVariables();
-            TPZVecL2 *material = new TPZVecL2(matId);
+            TPZNullMaterial<STATE> *material = new TPZNullMaterial<STATE>(matId);
             material->SetDimension(dim);
             material->SetNStateVariables(nstate);
             cmesh->InsertMaterialObject(material);
@@ -789,13 +792,13 @@ void TPZPostProcessError::CreateFluxMesh()
     }
     for (auto it:cmeshroot->MaterialVec()) {
         TPZMaterial *mat = it.second;
-        TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if(bnd)
         {
-            TPZMaterial *matorig = bnd->Material();
+            TPZMaterialT<STATE> *matorig = dynamic_cast<TPZMaterialT<STATE> *>(bnd->Material());
             int matid = matorig->Id();
-            TPZMaterial *matl2 = cmesh->FindMaterial(matid);
-            TPZBndCond *bc = matl2->CreateBC(matl2, bnd->Id(), bnd->Type(), bnd->Val1(), bnd->Val2());
+            TPZMaterialT<STATE> *matl2 = dynamic_cast<TPZMaterialT<STATE> *>(cmesh->FindMaterial(matid));
+            TPZBndCondT<STATE> *bc = matl2->CreateBC(matl2, bnd->Id(), bnd->Type(), bnd->Val1(), bnd->Val2());
             cmesh->InsertMaterialObject(bc);
         }
     }
@@ -851,8 +854,12 @@ void TPZPostProcessError::CreatePressureMesh()
     TPZGeoMesh *gmesh = fluxmesh->Reference();
     int dim = fluxmesh->Dimension();
     
-    TPZCompMeshReferred *cmesh = new TPZCompMeshReferred(gmesh);
-    cmesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
+    // go stepwise here. this is a big change
+    DebugStop();
+    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
+    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+//    TPZCompMeshReferred *cmesh = new TPZCompMeshReferred(gmesh);
+//    cmesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
     for (auto it:fluxmesh->MaterialVec()) {
         TPZMaterial *mat = it.second;
         int matdim = mat->Dimension();
@@ -861,7 +868,8 @@ void TPZPostProcessError::CreatePressureMesh()
             int matId = mat->Id();
             int nstate = mat->NStateVariables();
             TPZVec<STATE> sol(nstate,0.);
-            TPZL2Projection *material = new TPZL2Projection(matId,dim,nstate,sol);
+            TPZNullMaterial<> *material = new TPZNullMaterial<>(matId,dim,nstate);
+//            TPZL2Projection *material = new TPZL2Projection(matId,dim,nstate,sol);
             cmesh->InsertMaterialObject(material);
         }
     }
@@ -881,11 +889,10 @@ void TPZPostProcessError::CreatePressureMesh()
         int nconnects = intel->NConnects();
         TPZConnect &c = intel->Connect(nconnects-1);
         cmesh->SetDefaultOrder(c.Order());
-        int64_t index;
-        TPZCompEl *cel = cmesh->ApproxSpace().CreateCompEl(gel, *cmesh, index);
+        TPZCompEl *cel = cmesh->ApproxSpace().CreateCompEl(gel, *cmesh);
         cel->Reference()->ResetReference();
     }
-    cmesh->LoadReferred(fMeshVector[0]);
+//    cmesh->LoadReferred(fMeshVector[0]);
     cmesh->InitializeBlock();
     for (auto &c:cmesh->ConnectVec()) {
         c.SetLagrangeMultiplier(1);
@@ -897,12 +904,15 @@ void TPZPostProcessError::CreatePressureMesh()
 /// create the partition of unity mesh
 void TPZPostProcessError::CreatePartitionofUnityMesh()
 {
-    TPZCompMeshReferred *pressuremesh = dynamic_cast<TPZCompMeshReferred *> (fMeshVector[3]);
+//    TPZCompMeshReferred *pressuremesh = dynamic_cast<TPZCompMeshReferred *> (fMeshVector[3]);
+    TPZCompMesh *pressuremesh = fMeshVector[3];
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     int dim = pressuremesh->Dimension();
     
-    TPZCompMeshReferred *cmesh = new TPZCompMeshReferred(gmesh);
-    cmesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
+//    TPZCompMeshReferred *cmesh = new TPZCompMeshReferred(gmesh);
+    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
+    cmesh->SetAllCreateFunctionsContinuous();
+//    cmesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
     cmesh->SetDefaultOrder(1);
     
     for (auto it:pressuremesh->MaterialVec()) {
@@ -912,8 +922,7 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
         if (!bnd && matdim == dim) {
             int matId = mat->Id();
             int nstate = 1;
-            TPZVec<STATE> sol(nstate,0.);
-            TPZL2Projection *material = new TPZL2Projection(matId,dim,nstate,sol);
+            TPZNullMaterial<> *material = new TPZNullMaterial<>(matId,dim,nstate);
             cmesh->InsertMaterialObject(material);
         }
     }
@@ -930,11 +939,10 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
         if (!gel || gel->Dimension() != dim) {
             continue;
         }
-        int64_t index;
-        cmesh->ApproxSpace().CreateCompEl(gel, *cmesh, index);
+        cmesh->ApproxSpace().CreateCompEl(gel, *cmesh);
     }
-    cmesh->LoadReferred(fMeshVector[0]);
-    pressuremesh->LoadReferred(cmesh);
+//    cmesh->LoadReferred(fMeshVector[0]);
+//    pressuremesh->LoadReferred(cmesh);
     cmesh->InitializeBlock();
     fMeshVector[4] = cmesh;
 
@@ -953,38 +961,35 @@ void TPZPostProcessError::CreateMixedMesh()
     
     //criando material
     int dim = gmesh->Dimension();
+    typedef TPZMixedDarcyFlow TPZMixedPoisson;
     
     for (auto it:cmeshroot->MaterialVec()) {
-        TPZMaterial *mat = it.second;
+        TPZMaterialT<STATE> *mat = dynamic_cast<TPZMaterialT<STATE> *>(it.second);
         TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
         if (!bnd) {
             int matId = mat->Id();
             int nstate = mat->NStateVariables();
-            TPZMaterial *material = 0;
+            TPZMaterialT<STATE> *material = 0;
             if (nstate == 1) {
                 TPZMixedErrorEstimate<TPZMixedPoisson> *locmat = new TPZMixedErrorEstimate<TPZMixedPoisson>(matId,dim);
                 locmat->SetSignConvention(-1);
                 material = locmat;
-                locmat->SetForcingFunction(mat->ForcingFunction());
+                locmat->SetForcingFunction(mat->ForcingFunction(),mat->ForcingFunctionPOrder());
                 //incluindo os dados do problema
-                TPZFNMatrix<9,REAL> PermTensor(3,3,0.);
-                TPZFNMatrix<9,REAL> InvPermTensor(3,3,0.);
-                PermTensor.Identity();
-                InvPermTensor.Identity();
                 
-                locmat->SetPermeabilityTensor(PermTensor, InvPermTensor);
+                locmat->SetConstantPermeability(1.);
             }
             mphysics->InsertMaterialObject(material);
         }
     }
     for (auto it:cmeshroot->MaterialVec()) {
-        TPZMaterial *mat = it.second;
-        TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
+        TPZMaterialT<STATE> *mat = dynamic_cast<TPZMaterialT<STATE>*>(it.second);
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if(bnd)
         {
-            TPZMaterial *matorig = bnd->Material();
+            TPZMaterialT<STATE> *matorig = dynamic_cast<TPZMaterialT<STATE> *>(bnd->Material());
             int matid = matorig->Id();
-            TPZMaterial *matmixed = mphysics->FindMaterial(matid);
+            TPZMaterialT<STATE> *matmixed = dynamic_cast<TPZMaterialT<STATE> *>(mphysics->FindMaterial(matid));
             TPZBndCond *bc = matmixed->CreateBC(matmixed, bnd->Id(), bnd->Type(), bnd->Val1(), bnd->Val2());
             mphysics->InsertMaterialObject(bc);
         }

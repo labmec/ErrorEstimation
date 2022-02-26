@@ -3,10 +3,10 @@
  */
 
 #include "pzlog.h"
-#include "pzanalysis.h"
+#include "TPZLinearAnalysis.h"
 #include "pzstepsolver.h"
-#include "pzbndcond.h"
-#include "pzpoisson3d.h"
+#include "TPZBndCondT.h"
+#include "DarcyFlow/TPZDarcyFlow.h"
 #include "pzgeoelbc.h"
 #include "TPZSSpStructMatrix.h"
 #include "pzskylstrmatrix.h"
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
         gmsh.GetDimNamePhysical()[1]["neuman"] = -2;
         gmsh.GetDimNamePhysical()[2]["domain"] = 1;
         
-        gmsh.SetFormatVersion("4.0"); 
+//        gmsh.SetFormatVersion("4.0"); 
 #ifdef MACOSX
         gmesh = gmsh.GeometricGmshMesh(meshfilename);
 #else
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
         
         SolveH1Problem(cmeshH1,Case1);
         
-        TPZAnalysis an(cmeshH1);
+        TPZLinearAnalysis an(cmeshH1);
         an.SetExact(Case1.exact.ExactSolution());
         
         // Reconstruct Process
@@ -328,18 +328,18 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
 
     {
         for (auto it:pressuremesh->MaterialVec()) {
-            TPZMaterial *mat = it.second;
-            TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            TPZMaterialT<STATE> *mat = dynamic_cast<TPZMaterialT<STATE> *>(it.second);
+            TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
             if (!bc) {
-                mat->SetForcingFunction(example.ForcingFunction());
+                mat->SetForcingFunction(example.ForceFunc(),3);
             }
             else {
-                bc->SetForcingFunction(0, example.Exact());
+                bc->SetForcingFunctionBC(example.ExactSolution());
             }
         }
     }
 
-    TPZAnalysis an(pressuremesh, true);
+    TPZLinearAnalysis an(pressuremesh, true);
     an.SetExact(example.ExactSolution());
 
 //    {
@@ -363,7 +363,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
 #ifdef PZ_USING_MKL
     // Solves using a symmetric matrix then using Cholesky decomposition (direct method)
 //    TPZSymetricSpStructMatrix strmat(pressuremesh);
-    TPZSkylineStructMatrix strmat(pressuremesh);
+    TPZSkylineStructMatrix<STATE> strmat(pressuremesh);
     strmat.SetNumThreads(sim_case.nthreads);
     an.SetStructuralMatrix(strmat);
 #else
@@ -474,9 +474,9 @@ TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case) {
     int neumann = 1;
 
     // Creates Poisson material
-    TPZMatPoisson3d *material = new TPZMatPoisson3d(matID, dim);
-    material->SetForcingFunction(sim_case.exact.Exact());
-    material->SetForcingFunction(sim_case.exact.ForcingFunction());
+    TPZDarcyFlow *material = new TPZDarcyFlow(matID, dim);
+    material->SetExactSol(sim_case.exact.ExactSolution(), 3);
+    material->SetForcingFunction(sim_case.exact.ForceFunc(), 3);
 
     TPZCompMesh * cmesh = new TPZCompMesh(sim_case.gmesh);
     cmesh->SetDimModel(dim);
@@ -484,13 +484,14 @@ TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case) {
 
     
     for (auto matid : sim_case.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL> val2(1, 0.);
         int bctype = 0;
         if (matid == -2) {
             bctype = 1;
         }
-        TPZBndCond *bc = material->CreateBC(material, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(sim_case.exact.Exact());
+        TPZBndCondT<STATE> *bc = material->CreateBC(material, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(sim_case.exact.ExactSolution());
         cmesh->InsertMaterialObject(bc);
     }
     
@@ -506,12 +507,12 @@ TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case) {
 
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct SimulationCase &config){
     
-    TPZAnalysis an(cmeshH1);
+    TPZLinearAnalysis an(cmeshH1);
      an.SetExact(config.exact.ExactSolution());
     
     
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmeshH1);
+    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -594,13 +595,13 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct SimulationCase &config){
 TPZCompMesh *CompMeshH1(struct SimulationCase &problem) {
     
     TPZCompMesh *cmesh = new TPZCompMesh(problem.gmesh);
-    TPZMaterial *mat = 0;
+    TPZDarcyFlow *mat = 0;
     
     
     for (auto matid : problem.materialids) {
-        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        mix->SetExactSol(problem.exact.Exact());
-        mix->SetForcingFunction(problem.exact.ForcingFunction());
+        TPZDarcyFlow *mix = new TPZDarcyFlow(matid, cmesh->Dimension());
+        mix->SetExactSol(problem.exact.ExactSolution(),3);
+        mix->SetForcingFunction(problem.exact.ForceFunc(),3);
         
         if (!mat) mat = mix;
         cmesh->InsertMaterialObject(mix);
@@ -608,11 +609,12 @@ TPZCompMesh *CompMeshH1(struct SimulationCase &problem) {
     }
     
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+        TPZManVector<REAL> val2(1, 0.);
         int bctype = 0;
-        val2.Zero();
-        TPZBndCond *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->TPZMaterial::SetForcingFunction(problem.exact.Exact());
+        val2.Fill(0.);
+        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        bc->SetForcingFunctionBC(problem.exact.ExactSolution());
         
         cmesh->InsertMaterialObject(bc);
     }
@@ -651,7 +653,7 @@ TPZGeoMesh *GeometricMesh(int nel, TPZVec<int> &bcids) {
 
 bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror) {
     
-    TPZAnalysis an(pressuremesh);
+    TPZLinearAnalysis an(pressuremesh);
     
     int64_t nels = pressuremesh->ElementVec().NElements();
     pressuremesh->ElementSolution().Redim(nels, 6);
@@ -710,7 +712,6 @@ TPZGeoMesh *CreateGeoCircleMesh() {
         gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
         gmsh.GetDimNamePhysical()[2]["domain"] = 1;
         
-        gmsh.SetFormatVersion("4.1");
         gmsh.PrintPartitionSummary(std::cout);
         
         gmesh = gmsh.GeometricGmshMesh(meshfilename);
