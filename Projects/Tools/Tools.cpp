@@ -172,7 +172,7 @@ TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
             }
         }
         TPZBndCondT<STATE>* bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution());
+        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution(),4);
         cmesh->InsertMaterialObject(bc);
     }
     cmesh->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
@@ -677,7 +677,7 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
         TPZManVector<REAL,1> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution());
+        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution(),4);
 
         cmesh->InsertMaterialObject(bc);
     }

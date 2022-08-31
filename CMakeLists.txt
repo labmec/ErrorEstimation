@@ -12,6 +12,12 @@ include(cmake/StandardProjectSettings.cmake)
 # Enables NeoPZ library
 find_package(NeoPZ REQUIRED)
 
+# Mac OS X specific code
+if (APPLE)
+  add_definitions(-DMACOSX)
+endif()
+
+
 #TODO: Define this using modern CMake standards. @Gustavo, do you know how to do this?
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DERRORESTIMATION_DEBUG)

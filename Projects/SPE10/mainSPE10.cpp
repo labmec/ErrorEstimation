@@ -9,6 +9,7 @@
 #include <ToolsMHM.h>
 #include <iostream>
 #include <libInterpolate/Interpolate.hpp>
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include <memory>
 #include <pzgmesh.h>
 
@@ -20,7 +21,7 @@ Interpolator interpolator;
 // Function declarations
 void ReadSPE10CellPermeabilities(TPZVec<REAL>*perm_vec, int layer);
 TPZGeoMesh *CreateSPE10GeoMesh();
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat);
+STATE PermeabilityFunction(const TPZVec<REAL> &x);
 void InsertMaterials(TPZCompMesh *cmesh);
 void CreateSPE10MHMCompMesh(TPZMHMixedMeshControl &mhm);
 void SolveMHMProblem(TPZMHMixedMeshControl &mhm);
@@ -116,18 +117,20 @@ void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
     std::cout << "Finished reading permeability data from input file!\n";
 }
 
-void PermeabilityFunction(const TPZVec<REAL> &x, TPZVec<REAL> &res, TPZFMatrix<REAL> &res_mat) {
+STATE PermeabilityFunction(const TPZVec<REAL> &x) {
 
+    STATE perm;
     for (int i = 0; i < 2; i++) {
-        auto perm = interpolator(x[0], x[1]);
+        perm = interpolator(x[0], x[1]);
         if (perm <= 1) {
             perm = 1;
         } else {
             perm += 1;
         }
-        res_mat(i + 2, i) = 1 / perm;
-        res_mat(i, i) = perm;
     }
+    std::cout << "[" << x[0] << ", " << x[1] << "]\n";
+    std::cout << " perm = " << perm << std::endl;
+    return perm;
     //std::cout << "[" << x[0] << ", " << x[1] << "]\n";
     //std::cout << "[" << res_mat(0, 0) << " " << res_mat(0, 1) << "\n";
     //std::cout        << res_mat(1, 0) << " " << res_mat(1, 1) << "\n";
@@ -179,10 +182,10 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
     TPZAutoPointer<TPZCompMesh> cmesh = mhm.CMesh();
 
     bool should_renumber = true;
-    TPZAnalysis an(cmesh, should_renumber);
+    TPZLinearAnalysis an(cmesh, should_renumber);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmesh.operator->());
+    TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(8);
 #else
     TPZSkylineStructMatrix strmat(cmesh.operator->());
@@ -224,15 +227,17 @@ void SolveMHMProblem(TPZMHMixedMeshControl &mhm) {
 
 void InsertMaterials(TPZCompMesh *cmesh) {
 
+    typedef TPZMixedDarcyFlow TPZMixedPoisson;
     auto *mix = new TPZMixedPoisson(1, cmesh->Dimension());
-    TPZAutoPointer<TPZFunction<STATE>> perm_function = new TPZDummyFunction<STATE>(&PermeabilityFunction, 3);
-    mix->SetPermeabilityFunction(perm_function);
+    PermeabilityFunctionType a = PermeabilityFunction;
+    mix->SetPermeabilityFunction(a);
 
-    TPZFNMatrix<1, REAL> val1(1, 1, 0.), val2(1, 1, 0.);
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+    TPZManVector<REAL> val2(1, 0.);
     constexpr int dirichlet_bc = 0;
 
     // Pressure at reservoir boundary
-    val2(0, 0) = 1;
+    val2[0] = 1;
     TPZBndCond *pressure_left = mix->CreateBC(mix, -1, dirichlet_bc, val1, val2);
 
     cmesh->InsertMaterialObject(mix);

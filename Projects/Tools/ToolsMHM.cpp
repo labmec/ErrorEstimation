@@ -136,6 +136,11 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
 
 std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *cmesh){
     
+    {
+        std::ofstream out("fluxmesh.txt");
+        cmesh->Print(out);
+    }
+    cmesh->LoadReferences();
     int nelements = cmesh->NElements();
     TPZGeoElSide first_gelside;
     for(int iel=0; iel<=nelements; iel++){
@@ -162,7 +167,7 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
         TPZGeoElSide exit_test = first_gelside;
         exit_test.SetSide(6);
         TPZGeoElSide candidate_exist =exit_test.Neighbour();
-        if(candidate_exist.Element()->MaterialId()==-6){
+        if(candidate_exist && candidate_exist.Element()->MaterialId()==-6){
             std::cout<<"Cadena encontrada con exito";
             exit = true;
             break;
@@ -207,9 +212,20 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyChanel(TPZCompMesh *c
                 chain[count].first= first_gelside;
                 chain[count].second =candidate;
             }
+            if(Flux_Max == 0.)
+            {
+                std::cout << "Mesh solution norm " << Norm(cmesh->Solution()) << std::endl;
+                int nc = cel->NConnects();
+                for (int ic=0; ic<nc; ic++) {
+                    TPZConnect &c = cel->Connect(ic);
+                    c.Print(*cmesh);
+                }
+                DebugStop();
+            }
         }
         Flux_Max=0.0;
         first_gelside =chain[count].second;
+        if(!first_gelside) DebugStop();
         count++;
     }
     

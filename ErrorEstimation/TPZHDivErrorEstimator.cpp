@@ -206,7 +206,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
             TPZBndCondT<STATE> *newbc = press->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (bc->HasForcingFunctionBC()) {
                 
-                newbc->SetForcingFunctionBC(bc->ForcingFunctionBC());
+                newbc->SetForcingFunctionBC(bc->ForcingFunctionBC(),4);
             }
             pressureMesh->InsertMaterialObject(newbc);
         }
