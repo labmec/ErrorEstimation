@@ -33,6 +33,7 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf, int nx, int ny){
     TPZVTKGeoMesh::PrintCMeshVTK(MixedMesh, file);
     
     std::ofstream out("MixedCMesh.txt");
+    MixedMesh->Print(out);
     std::cout << "number of equations = " << MixedMesh->NEquations() << std::endl;
 
     //Solving the system:
@@ -50,11 +51,13 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf, int nx, int ny){
     TPZLinearAnalysis *an = new TPZLinearAnalysis(MixedMesh,must_opt_band_width_Q);
     
     //
+    TPZSkylineStructMatrix<> skyl_mat(MixedMesh);
     TPZSSpStructMatrix<> sparse_matrix(MixedMesh);
     TPZStepSolver<STATE> step;
     sparse_matrix.SetNumThreads(number_threads);
     step.SetDirect(ELDLt);
-    an->SetStructuralMatrix(sparse_matrix);
+//    an->SetStructuralMatrix(sparse_matrix);
+    an->SetStructuralMatrix(skyl_mat);
     an->SetSolver(step);
     an->Assemble();
     std::cout << "Norm of rhs " << Norm(an->Rhs()) << std::endl;
@@ -143,9 +146,9 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
 
 
 #ifdef MACOSX
-    Mat image = imread("../Mazes/maze128x128.png",IMREAD_GRAYSCALE);
+    Mat image = imread(name,IMREAD_GRAYSCALE);
 #else
-    Mat image = imread("../Mazes/maze128x128.png",IMREAD_GRAYSCALE);
+    Mat image = imread(name,IMREAD_GRAYSCALE);
 #endif
 
     int k=0;
