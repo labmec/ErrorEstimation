@@ -210,7 +210,7 @@ int MHMTest(ConfigCasesMaze &Conf){
     return 0;
 }
 
-void AnalyseSteklov(TPZSubCompMesh *sub, int count);
+void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat);
 
 // add geometric elements between macro domains with material ids determined by wrapids
 void AddDomainWrapElements(TPZMHMeshControl &mhm, std::map<int,int> &wrapids);
@@ -287,7 +287,8 @@ int SteklovTest(ConfigCasesMaze &Conf){
         meshcontrol.SetInternalPOrder(1);
         meshcontrol.SetSkeletonPOrder(1);
 
-//        meshcontrol.DivideSkeletonElements(2);
+        meshcontrol.DivideSkeletonElements(2);
+        OpenChannel = false;
         meshcontrol.DivideBoundarySkeletonElements();
 
         bool substructure = true;
@@ -328,7 +329,7 @@ int SteklovTest(ConfigCasesMaze &Conf){
         TPZCompEl *cel = MixedMesh->Element(el);
         auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
         if(sub) {
-            AnalyseSteklov(sub,count);
+            AnalyseSteklov(sub,count,MHMixed->fSkeletonMatId);
             count++;
         }
     }
@@ -359,12 +360,23 @@ int SteklovTest(ConfigCasesMaze &Conf){
     return 0;
 }
 
-void AnalyseSteklov(TPZSubCompMesh *sub, int count){
+void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
     // Identify element/sides that belong to a different mesh
     int64_t nel = sub->NElements();
     TPZCompMesh *father = sub->Mesh();
     father->LoadReferences();
     TPZGeoMesh *gmesh = father->Reference();
+    int dim = gmesh->Dimension();
+    std::map<int64_t,TPZCompEl *> connectToSkel;
+    TPZCompEl *subcel = sub;
+    int64_t ncon = subcel->NConnects();
+    std::set<int64_t> activecon;
+    TPZManVector<int64_t,50> connectindexes(ncon);
+    for (int64_t ic = 0; ic<ncon; ic++) {
+        int64_t cindex = subcel->ConnectIndex(ic);
+        activecon.insert(cindex);
+        connectindexes[ic] = cindex;
+    }
     // plot the geometric elements
     {
         std::set<int64_t> elindices;
@@ -377,7 +389,19 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count){
             for(auto el : celstack) {
                 auto gel = el->Reference();
                 if(!gel) DebugStop();
-                elindices.insert(gel->Index());
+                if(gel->Dimension() == dim-1)
+                {
+                    TPZGeoElSide gelside(gel);
+                    elindices.insert(gel->Index());
+                    auto neigh = gelside.HasNeighbour(skelmat);
+                    if(!neigh) continue;
+                    TPZCompEl *celskel = neigh.Element()->Reference();
+                    if(celskel->Mesh() != father) continue;
+                    if(!celskel) DebugStop();
+                    int64_t celskelcindex = celskel->ConnectIndex(0);
+                    if(activecon.find(celskelcindex) == activecon.end()) DebugStop();
+                    connectToSkel[celskelcindex] = celskel;
+                }
             }
         }
         std::stringstream sout;
@@ -385,14 +409,26 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count){
         std::ofstream out(sout.str());
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh,elindices,out);
     }
-    // compute the stiffness matrix
-    TPZElementMatrixT<STATE> ek,ef;
-    sub->CalcStiff(ek, ef);
     {
         std::stringstream sout;
         sout << "SubMesh_matrix_" << count << ".txt";
         std::ofstream out(sout.str());
-        ek.Print(out);
+        {
+            // compute the stiffness matrix
+            TPZElementMatrixT<STATE> ek,ef;
+            sub->CalcStiff(ek, ef);
+            ek.Print(out);
+        }
+        {
+            TPZElementGroup *celgr = new TPZElementGroup(*father);
+            for(auto it : connectToSkel) celgr->AddElement(it.second);
+            celgr->ReorderConnects(connectindexes);
+            // compute the stiffness matrix
+            TPZElementMatrixT<STATE> ek,ef;
+            celgr->CalcStiff(ek, ef);
+            ek.Print(out);
+            celgr->Unwrap();
+        }
     }
     // compute the mass matrix (how?)
     // solve the eigenvalue problem
