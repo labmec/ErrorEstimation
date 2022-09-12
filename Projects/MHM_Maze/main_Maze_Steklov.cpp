@@ -278,9 +278,9 @@ int SteklovTest(ConfigCasesMaze &Conf){
             auto *mat = dynamic_cast<TPZMixedDarcyFlow *>(cmesh.FindMaterial(1));
             TPZFNMatrix<2,REAL> val1(1,1,0.);
             TPZManVector<REAL> val2(1,0.);
-            auto *bnd1 = mat->CreateBC(mat, matid1BC, 2, val1, val2);
+            auto *bnd1 = mat->CreateBC(mat, matid1BC, 0, val1, val2);
             cmesh.InsertMaterialObject(bnd1);
-            auto *bnd2 = mat->CreateBC(mat, matid2BC, 2, val1, val2);
+            auto *bnd2 = mat->CreateBC(mat, matid2BC, 0, val1, val2);
             cmesh.InsertMaterialObject(bnd2);
         }
 
@@ -388,6 +388,12 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count){
     // compute the stiffness matrix
     TPZElementMatrixT<STATE> ek,ef;
     sub->CalcStiff(ek, ef);
+    {
+        std::stringstream sout;
+        sout << "SubMesh_matrix_" << count << ".txt";
+        std::ofstream out(sout.str());
+        ek.Print(out);
+    }
     // compute the mass matrix (how?)
     // solve the eigenvalue problem
     // plot the eigenvectors
