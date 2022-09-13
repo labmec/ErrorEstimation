@@ -365,6 +365,13 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
     int64_t nel = sub->NElements();
     TPZCompMesh *father = sub->Mesh();
     father->LoadReferences();
+    auto &matvec = father->MaterialVec();
+    auto *matorig = matvec[skelmat];
+    auto *mat8 = matvec[8];
+    auto *mat9 = matvec[9];
+    TPZMixedDarcyFlow *darcy = dynamic_cast<TPZMixedDarcyFlow *> (matvec[1]);
+    TPZFNMatrix<2,REAL> val1(1,1,1.);
+    TPZManVector<REAL> val2(1,0.);
     TPZGeoMesh *gmesh = father->Reference();
     int dim = gmesh->Dimension();
     std::map<int64_t,TPZCompEl *> connectToSkel;
@@ -414,12 +421,37 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
         sout << "SubMesh_matrix_" << count << ".txt";
         std::ofstream out(sout.str());
         {
+            int addlayer = 1;
+            
+            // 9 permeable, 8 impermeable
+            val1(0,0) = 1;
+            auto *bnd8 = darcy->CreateBC(darcy, 8, 2, val1, val2);
+            val1(0,0) = 250000.;
+            auto *bnd9 = darcy->CreateBC(darcy, 9, 2, val1, val2);
+            if(addlayer) {
+                matvec.erase(8);
+                matvec.erase(9);
+                father->InsertMaterialObject(bnd8);
+                father->InsertMaterialObject(bnd9);
+            }
             // compute the stiffness matrix
             TPZElementMatrixT<STATE> ek,ef;
             sub->CalcStiff(ek, ef);
             ek.Print(out);
+            if(addlayer) {
+                matvec.erase(8);
+                matvec.erase(9);
+                father->InsertMaterialObject(mat8);
+                father->InsertMaterialObject(mat9);
+                delete bnd8;
+                delete bnd9;
+            }
         }
         {
+            matvec.erase(skelmat);
+            val1(0,0) = 1.;
+            auto *bnd = darcy->CreateBC(darcy, skelmat, 2, val1, val2);
+            father->InsertMaterialObject(bnd);
             TPZElementGroup *celgr = new TPZElementGroup(*father);
             for(auto it : connectToSkel) celgr->AddElement(it.second);
             celgr->ReorderConnects(connectindexes);
@@ -428,6 +460,9 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
             celgr->CalcStiff(ek, ef);
             ek.Print(out);
             celgr->Unwrap();
+            matvec.erase(skelmat);
+            father->InsertMaterialObject(matorig);
+            delete bnd;
         }
     }
     // compute the mass matrix (how?)
