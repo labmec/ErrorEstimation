@@ -32,6 +32,7 @@
 #include "TPZMHMixedMeshChannelControl.h"
 #include "TPZHybridizeHDiv.h"
 #include "ConfigCasesMaze.h"
+#include "TPZVTKGenerator.h"
 #include <ToolsMHM.h>
 #include <cmath>
 #include <opencv2/opencv.hpp>
@@ -108,7 +109,7 @@ int MHMTest(ConfigCasesMaze &Conf){
 
     TRunConfig Configuration;
 
-    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), 32, 32);
+    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), 2, 2);
     {
         std::ofstream file(Conf.GetVTKName());
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
@@ -164,7 +165,7 @@ int MHMTest(ConfigCasesMaze &Conf){
         bool substructure = true;
         std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
         if (OpenChannel) {
-            TPZCompMesh *flux_temp = MixedTest(Conf,32,32);
+            TPZCompMesh *flux_temp = MixedTest(Conf,2,2);
             std::cout << "flux_temp norm of solution " << Norm(flux_temp->Solution()) << std::endl;
             test = IdentifyChanel(flux_temp);
             flux_temp->Reference()->ResetReference();
@@ -303,12 +304,10 @@ int SteklovTest(ConfigCasesMaze &Conf){
 
         meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
 
-#ifdef ERRORESTIMATION_DEBUG
         if (1) {
             std::ofstream file("GMeshControlHDiv.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
         }
-#endif
 
         std::cout << "MHM Hdiv Computational meshes created\n";
 
@@ -323,6 +322,17 @@ int SteklovTest(ConfigCasesMaze &Conf){
         MixedMesh->Print(out);
     }
     
+    
+    // we have to zero the Neumann condition in order to identify the eigenvectors
+    TPZBndCondT<STATE> *bc4 = dynamic_cast<TPZBndCondT<STATE> *>(MixedMesh->FindMaterial(-4));
+    TPZVec<REAL> val2(1,0.),val24;
+    val24 = bc4->Val2();
+    bc4->SetVal2(val2);
+    TPZBndCondT<STATE> *bc5 = dynamic_cast<TPZBndCondT<STATE> *>(MixedMesh->FindMaterial(-5));
+    TPZVec<REAL> val25;
+    val25 = bc5->Val2();
+    bc5->SetVal2(val2);
+
     int64_t nelem = MixedMesh->NElements();
     int64_t count = 0;
     for (int64_t el = 0; el < nelem; el++) {
@@ -334,28 +344,12 @@ int SteklovTest(ConfigCasesMaze &Conf){
         }
     }
     
-
+    // reset the original values of the boundary conditions
+    bc4->SetVal2(val24);
+    bc5->SetVal2(val25);
 
 
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
-    ProblemConfig config;
-    config.dimension = 2;
-    config.exact = nullptr;
-    config.problemname = "MazeHdiv128x128";
-    config.dir_name = "Results128x128";
-    config.porder = 3;
-    config.hdivmais = 3;
-    config.materialids = {1, 2};
-    config.bcmaterialids = {-1, -2, -3, -4, -5, -6};
-    config.makepressurecontinuous = true;
-    config.ndivisions = 0;
-    config.gmesh = MixedMesh->Reference();
-
-    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
-    bool postProcWithHdiv = false;
-//    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
-//    EstimateError(ErrorEstimator, config);
-    //LocateElementsToAdapt(ErrorEstimator, config);
 
     return 0;
 }
@@ -363,24 +357,33 @@ int SteklovTest(ConfigCasesMaze &Conf){
 void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
     // Identify element/sides that belong to a different mesh
     int64_t nel = sub->NElements();
-    TPZCompMesh *father = sub->Mesh();
+    TPZMultiphysicsCompMesh *father = dynamic_cast<TPZMultiphysicsCompMesh *>(sub->Mesh());
     father->LoadReferences();
     auto &matvec = father->MaterialVec();
-    auto *matorig = matvec[skelmat];
-    auto *mat8 = matvec[8];
-    auto *mat9 = matvec[9];
+    auto &matvecsub = sub->MaterialVec();
+        // pointers to the original materials
+    auto matvecorig = matvec;
+    auto *mat8 = matvecsub[8];
+    auto *mat9 = matvecsub[9];
+    std::set<int> bndmat = {skelmat};
+    std::set<int64_t> permeableconnects;
     TPZMixedDarcyFlow *darcy = dynamic_cast<TPZMixedDarcyFlow *> (matvec[1]);
     TPZFNMatrix<2,REAL> val1(1,1,1.);
     TPZManVector<REAL> val2(1,0.);
     TPZGeoMesh *gmesh = father->Reference();
     int dim = gmesh->Dimension();
+    // create a connection between the connects of the submesh and the skeleton elements
     std::map<int64_t,TPZCompEl *> connectToSkel;
     TPZCompEl *subcel = sub;
     int64_t ncon = subcel->NConnects();
     std::set<int64_t> activecon;
+    // keep track of the connects of the submesh
+    int64_t neq = 0;
     TPZManVector<int64_t,50> connectindexes(ncon);
     for (int64_t ic = 0; ic<ncon; ic++) {
         int64_t cindex = subcel->ConnectIndex(ic);
+        TPZConnect &c = subcel->Connect(ic);
+        neq += c.NShape()*c.NState();
         activecon.insert(cindex);
         connectindexes[ic] = cindex;
     }
@@ -393,6 +396,21 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
             if(!cel) continue;
             TPZStack<TPZCompEl *> celstack;
             cel->GetCompElList(celstack);
+            // identify the domain of the volumetric element
+            // matid 2 = permeable
+            // matid 1 = impermeable
+            // matid 9 = permeable
+            // matid 8 = impermeable
+            int dommainmat = -1;
+            for(auto el : celstack) {
+                auto gel = el->Reference();
+                if(!gel) DebugStop();
+                if(gel->Dimension() == dim) {
+                    dommainmat = gel->MaterialId();
+                    break;
+                }
+            }
+            if(dommainmat == -1) DebugStop();
             for(auto el : celstack) {
                 auto gel = el->Reference();
                 if(!gel) DebugStop();
@@ -400,15 +418,42 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
                 {
                     TPZGeoElSide gelside(gel);
                     elindices.insert(gel->Index());
-                    auto neigh = gelside.HasNeighbour(skelmat);
+                    auto neigh = gelside.HasNeighbour(bndmat);
                     if(!neigh) continue;
                     TPZCompEl *celskel = neigh.Element()->Reference();
-                    if(celskel->Mesh() != father) continue;
                     if(!celskel) DebugStop();
+                    if(celskel->Mesh() != father) continue;
                     int64_t celskelcindex = celskel->ConnectIndex(0);
                     if(activecon.find(celskelcindex) == activecon.end()) DebugStop();
                     connectToSkel[celskelcindex] = celskel;
+                    
+                    if(dommainmat == 2) {
+                        if(gelside.HasNeighbour(9)) {
+                            permeableconnects.insert(celskelcindex);
+                        } else if(gelside.HasNeighbour(8)) {
+                            
+                        }
+                        else
+                        {
+                            DebugStop();
+                        }
+                    }
                 }
+            }
+        }
+        int64_t nelfather = father->NElements();
+        for(int64_t el = 0; el<nelfather; el++)
+        {
+            TPZCompEl *cel = father->Element(el);
+            if(!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            if(!gel) continue;
+            if(gel->Dimension() != dim-1) DebugStop();
+            if(gel->MaterialId() == skelmat) continue;
+            int cindex = cel->ConnectIndex(0);
+            if(activecon.find(cindex) != activecon.end()) {
+                if(connectToSkel.find(cindex) != connectToSkel.end()) DebugStop();
+                connectToSkel[cindex] = cel;
             }
         }
         std::stringstream sout;
@@ -417,53 +462,138 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh,elindices,out);
     }
     {
+        TPZFMatrix GK,GM;
         std::stringstream sout;
         sout << "SubMesh_matrix_" << count << ".txt";
         std::ofstream out(sout.str());
         {
             int addlayer = 1;
             
+            // switch the material objects
             // 9 permeable, 8 impermeable
-            val1(0,0) = 1;
+            val1(0,0) = 1.;
             auto *bnd8 = darcy->CreateBC(darcy, 8, 2, val1, val2);
             val1(0,0) = 250000.;
             auto *bnd9 = darcy->CreateBC(darcy, 9, 2, val1, val2);
             if(addlayer) {
-                matvec.erase(8);
-                matvec.erase(9);
-                father->InsertMaterialObject(bnd8);
-                father->InsertMaterialObject(bnd9);
+                matvecsub.erase(8);
+                matvecsub.erase(9);
+                sub->InsertMaterialObject(bnd8);
+                sub->InsertMaterialObject(bnd9);
             }
             // compute the stiffness matrix
             TPZElementMatrixT<STATE> ek,ef;
             sub->CalcStiff(ek, ef);
+            GK = ek.fMat;
             ek.Print(out);
+            // switch the material objects back
             if(addlayer) {
-                matvec.erase(8);
-                matvec.erase(9);
-                father->InsertMaterialObject(mat8);
-                father->InsertMaterialObject(mat9);
+                matvecsub.erase(8);
+                matvecsub.erase(9);
+                sub->InsertMaterialObject(mat8);
+                sub->InsertMaterialObject(mat9);
                 delete bnd8;
                 delete bnd9;
             }
         }
         {
+            // change the material of the skeleton to represent an L2 projection
             matvec.erase(skelmat);
+            for(auto it : matvecorig) {
+                if(it.first < 0) matvec.erase(it.first);
+            }
             val1(0,0) = 1.;
             auto *bnd = darcy->CreateBC(darcy, skelmat, 2, val1, val2);
             father->InsertMaterialObject(bnd);
+            for(auto it : matvecorig) {
+                if(it.first < 0) {
+                    auto *bnd = darcy->CreateBC(darcy, it.first, 2, val1, val2);
+                    father->InsertMaterialObject(bnd);
+                }
+            }
             TPZElementGroup *celgr = new TPZElementGroup(*father);
             for(auto it : connectToSkel) celgr->AddElement(it.second);
             celgr->ReorderConnects(connectindexes);
             // compute the stiffness matrix
             TPZElementMatrixT<STATE> ek,ef;
             celgr->CalcStiff(ek, ef);
+            GM = ek.fMat;
             ek.Print(out);
             celgr->Unwrap();
+            // switch the material object back
             matvec.erase(skelmat);
-            father->InsertMaterialObject(matorig);
+            father->InsertMaterialObject(matvecorig[skelmat]);
+            for(auto it : matvecorig) {
+                if(it.first < 0) {
+                    matvec.erase(it.first);
+                    father->InsertMaterialObject(it.second);
+                }
+            }
             delete bnd;
         }
+        int neq = GK.Rows();
+        TPZVec<std::complex<double>> Lambda;
+        TPZFMatrix<std::complex<double>> EigenVector;
+        TPZFMatrix<STATE> GKcopy(GK),GMcopy(GM);
+        GKcopy.SolveGeneralisedEigenProblem(GMcopy, Lambda, EigenVector);
+        std::cout << Lambda << std::endl;
+        EigenVector.Print(std::cout);
+        {
+            TPZFMatrix<STATE> Q(neq,neq);
+            TPZFMatrix<STATE> eigvals(neq,1);
+            for(int i=0; i<neq; i++) for(int j=0; j<neq; j++) Q(i,j) = EigenVector(i,j).real();
+            for(int i=0; i<neq; i++) eigvals(i,0) = Lambda[i].real();
+            Q.Print("Q = ",out,EMathematicaInput);
+            eigvals.Print("Lambda = ",out,EMathematicaInput);
+        }
+        int neig = Lambda.size();
+        std::stringstream filename;
+        filename << "EigSub." << count;
+        TPZVTKGenerator gen(sub, {"Flux","Pressure","DivFlux"}, filename.str(), 0);
+        for (int i = 0; i<neig; i++) {
+            std::cout << "Plot sequence " << i << " eigenvalue " << Lambda[i].real() << std::endl;
+            TPZFMatrix<STATE> sol(neq,1);
+            for(int ieq = 0; ieq<neq; ieq++) sol(ieq,0) = EigenVector(ieq,i).real();
+            auto &block = father->Block();
+            TPZFMatrix<STATE> &solmesh = father->Solution();
+            solmesh.Zero();
+            int loccount = 0;
+            for(int ic = 0; ic < connectindexes.size(); ic++)
+            {
+                int64_t cindex = connectindexes[ic];
+                if(permeableconnects.find(cindex) != permeableconnects.end())
+                {
+                    std::cout << "permeable connect " << cindex << " sol ";
+                }
+                else {
+                    std::cout << "impermeable connect " << cindex << " sol ";
+                }
+                TPZConnect &c = father->ConnectVec()[cindex];
+                int64_t seqnum = c.SequenceNumber();
+                int blsize = c.NShape()*c.NState();
+                for (int i = 0; i<blsize; i++) {
+                    int64_t pos = block.Index(seqnum, i);
+                    solmesh(pos,0) = sol(loccount,0);
+                    cout << sol(loccount) << " ";
+                    loccount++;
+                }
+                std::cout << endl;
+            }
+            
+            TPZFMatrix<STATE> residual;
+            auto a = GK*sol;
+            auto b = GM*sol;
+//            a.Print("GK * sol",std::cout);
+//            b.Print("GM * sol",std::cout);
+            residual = a-Lambda[i].real()*b;
+            std::cout << "Residual of eigenvector " << Norm(residual) << std::endl;
+//            solmesh.Print(std::cout);
+            father->TPZCompMesh::LoadSolution(solmesh);
+            father->TransferMultiphysicsSolution();
+            
+            gen.Do();
+        }
+        
     }
     // compute the mass matrix (how?)
     // solve the eigenvalue problem
