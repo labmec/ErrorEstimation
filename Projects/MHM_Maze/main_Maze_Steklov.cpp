@@ -273,7 +273,6 @@ int SteklovTest(ConfigCasesMaze &Conf){
         }
 
         InsertMaterialObjects(*mhm);
-        
         {
             TPZCompMesh &cmesh = mhm->CMesh();
             auto *mat = dynamic_cast<TPZMixedDarcyFlow *>(cmesh.FindMaterial(1));
@@ -322,16 +321,17 @@ int SteklovTest(ConfigCasesMaze &Conf){
         MixedMesh->Print(out);
     }
     
-    
+    TPZCompMesh &cmesh = MHMixed->CMesh();
     // we have to zero the Neumann condition in order to identify the eigenvectors
-    TPZBndCondT<STATE> *bc4 = dynamic_cast<TPZBndCondT<STATE> *>(MixedMesh->FindMaterial(-4));
-    TPZVec<REAL> val2(1,0.),val24;
-    val24 = bc4->Val2();
-    bc4->SetVal2(val2);
-    TPZBndCondT<STATE> *bc5 = dynamic_cast<TPZBndCondT<STATE> *>(MixedMesh->FindMaterial(-5));
-    TPZVec<REAL> val25;
+    TPZBndCondT<STATE> *bc5 = dynamic_cast<TPZBndCondT<STATE> *>(cmesh.FindMaterial(-5));
+    TPZVec<REAL> val2(1,0.),val25;
     val25 = bc5->Val2();
     bc5->SetVal2(val2);
+    TPZBndCondT<STATE> *bc6 = dynamic_cast<TPZBndCondT<STATE> *>(cmesh.FindMaterial(-6));
+    TPZVec<REAL> val26;
+    val26 = bc5->Val2();
+    bc6->SetVal2(val2);
+    
 
     int64_t nelem = MixedMesh->NElements();
     int64_t count = 0;
@@ -343,10 +343,9 @@ int SteklovTest(ConfigCasesMaze &Conf){
             count++;
         }
     }
-    
-    // reset the original values of the boundary conditions
-    bc4->SetVal2(val24);
+
     bc5->SetVal2(val25);
+    bc6->SetVal2(val26);
 
 
     SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
