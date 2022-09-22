@@ -48,7 +48,7 @@ using namespace cv;
 TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder);
 
 // Creating the computational pressure mesh
-TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder,ConfigCasesMaze Conf);
+TPZCompMesh *CMeshPressure(TPZGeoMesh * gmesh, int pOrder, ConfigCasesMaze Conf);
 
 // Creating the computational multphysics mesh
 TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,ConfigCasesMaze &Conf);
@@ -65,19 +65,16 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices);
 // Insert the necessary objects material in the computational mesh
 void InsertMaterialObjects(TPZMHMixedMeshControl &control);
 
-/// Select the eigenvectors of interest
-void SelectEigenvectors();
-
 // Solve the mixed problem with "Conf" configuration
 // Conf contains the maze information and the problem boundary conditions
 TPZCompMesh* MixedTest(ConfigCasesMaze &Conf, int nx, int ny);
 
 // Solve the maze using MHM. By default (2x2 coarse elements)
 // Conf contains the maze information and the problem boundary conditions
-int MHMTest(ConfigCasesMaze &Conf);
+int MHMTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide);
 
 // compute the eigenvalues/eigenvectors of the Steklov problems associated with the subdomains
-int SteklovTest(ConfigCasesMaze &Conf);
+int SteklovTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide);
 
 std::map<int,int> matextend;
 int matid1BC = 8;
@@ -88,31 +85,51 @@ void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &conf
 
 void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
-int main(){
-    TPZLogger::InitializePZLOG();
-    
-    ConfigCasesMaze ConfCasesMeze;
-//    ConfCasesMeze.SetImageName("⁨../Mazes/maze128x128.png");
-    ConfCasesMeze.SetImageName("Mazes/maze8x8.png");
-    ConfCasesMeze.SetImperviousMatPermeability(1);//pouco permeavel
-    ConfCasesMeze.SetPermeableMatPermeability(100000);//dentro do labirinto
-    ConfCasesMeze.SetFluxOrder(1);
-    ConfCasesMeze.SetPressureOrder(0);
-    ConfCasesMeze.SetCCPressureIn(100);//pressao na entrada
-    ConfCasesMeze.SetCCPressureOut(1);//pressao na saida
-    ConfCasesMeze.SetMHMOpenChannel(false);
-    ConfCasesMeze.SetVTKName("maze128x128.vtk");
+void AssociateGeoElSides(TPZVec<std::set<TPZGeoElSide>> &eigGeoElSides, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide);
 
-    SteklovTest(ConfCasesMeze);
+std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyIntersections(TPZCompMesh *cmesh, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide);
+
+int main(){
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
+#endif
+    
+    ConfigCasesMaze ConfCasesMaze;
+//    ConfCasesMeze.SetImageName("⁨../Mazes/maze128x128.png");
+    ConfCasesMaze.SetImageName("Mazes/maze128x128.png");
+    ConfCasesMaze.SetImperviousMatPermeability(1);//pouco permeavel
+    ConfCasesMaze.SetPermeableMatPermeability(100000);//dentro do labirinto
+    ConfCasesMaze.SetFluxOrder(1);
+    ConfCasesMaze.SetPressureOrder(0);
+    ConfCasesMaze.SetCCPressureIn(100);//pressao na entrada
+    ConfCasesMaze.SetCCPressureOut(1);//pressao na saida
+    ConfCasesMaze.SetMHMOpenChannel(false);
+    ConfCasesMaze.SetVTKName("maze8x8.vtk");
+    ConfCasesMaze.SetNumberOfSubdomains(2);
+    ConfCasesMaze.SetSkeletonDivision(6);
+
+    std::map<int,std::pair<int64_t,int64_t>> intersectGeoElIndex;
+    std::map<int64_t,int> indexToSide;
+    SteklovTest(ConfCasesMaze, intersectGeoElIndex, indexToSide);
+
+    std::cout << "intersectGeoElIndex = ";
+    for (const auto &it:intersectGeoElIndex)
+    {
+        std::cout << it.second.first << " ";
+    }
+
+    ConfCasesMaze.SetMHMOpenChannel(true);
+    MHMTest(ConfCasesMaze, intersectGeoElIndex, indexToSide);
+
     return 0;
 }
 
 
-int MHMTest(ConfigCasesMaze &Conf){
+int MHMTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide){
 
     TRunConfig Configuration;
     
-    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), 2, 2);
+    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), Conf.GetNumberOfSubdomains(), Conf.GetNumberOfSubdomains());
     {
         std::ofstream file(Conf.GetVTKName());
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
@@ -166,16 +183,33 @@ int MHMTest(ConfigCasesMaze &Conf){
         meshcontrol.DivideBoundarySkeletonElements();
 
         bool substructure = true;
-        std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
-        if (OpenChannel) {
-            TPZCompMesh *flux_temp = MixedTest(Conf,2,2);
-            std::cout << "flux_temp norm of solution " << Norm(flux_temp->Solution()) << std::endl;
-            test = IdentifyChanel(flux_temp);
-            flux_temp->Reference()->ResetReference();
-//            delete flux_temp;
-        }
+        // std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
+//         if (OpenChannel) {
+//             TPZCompMesh *flux_temp = MixedTest(Conf,2,2);
+//             std::cout << "flux_temp norm of solution " << Norm(flux_temp->Solution()) << std::endl;
+//             test = IdentifyChanel(flux_temp);
+//             flux_temp->Reference()->ResetReference();
+// //            delete flux_temp;
+//         }
+        std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> intersectGeoElSide;
+        intersectGeoElSide = IdentifyIntersections(meshcontrol.FluxMesh().operator->(),intersectGeoElIndex,indexToSide);
 
-        meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
+        std::cout << "intersectGeoElIndex = ";
+        for (const auto &it:intersectGeoElIndex)
+        {
+            std::cout << it.second.first << " ";
+        }
+        std::cout << std::endl;
+        std::cout << "intersectGeoElSide = ";
+        for (const auto &it:intersectGeoElSide)
+        {
+            std::cout << it.second.first.Element()->Index() << " ";
+        }
+        std::cout << std::endl;
+        
+
+        // meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
+        meshcontrol.BuildComputationalMesh(substructure, OpenChannel, intersectGeoElSide);
 
 #ifdef ERRORESTIMATION_DEBUG
         if (1) {
@@ -216,17 +250,16 @@ int MHMTest(ConfigCasesMaze &Conf){
     return 0;
 }
 
-void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat);
+void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat, TPZVec<std::set<TPZGeoElSide>> &eigGeoElSides);
 
 // add geometric elements between macro domains with material ids determined by wrapids
 void AddDomainWrapElements(TPZMHMeshControl &mhm, std::map<int,int> &wrapids);
 
-int SteklovTest(ConfigCasesMaze &Conf){
+int SteklovTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide){
 
     TRunConfig Configuration;
 
-    int nSubdomains = 2;
-    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), nSubdomains, nSubdomains);
+    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), Conf.GetNumberOfSubdomains(), Conf.GetNumberOfSubdomains());
     {
         std::ofstream file(Conf.GetVTKName());
         TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
@@ -290,10 +323,10 @@ int SteklovTest(ConfigCasesMaze &Conf){
             cmesh.InsertMaterialObject(bnd2);
         }
 
-        meshcontrol.SetInternalPOrder(1);
-        meshcontrol.SetSkeletonPOrder(1);
+        meshcontrol.SetInternalPOrder(Conf.GetFluxOrder());
+        meshcontrol.SetSkeletonPOrder(Conf.GetFluxOrder());
 
-        meshcontrol.DivideSkeletonElements(2);
+        meshcontrol.DivideSkeletonElements(Conf.GetSkeletonDivision());
         OpenChannel = false;
         meshcontrol.DivideBoundarySkeletonElements();
 
@@ -343,27 +376,117 @@ int SteklovTest(ConfigCasesMaze &Conf){
     
     int64_t nelem = MixedMesh->NElements();
     int64_t count = 0;
+
+    // TPZCompMesh *MHMCopy = MixedMesh;
+
+    auto nsub = Conf.GetNumberOfSubdomains();
+    TPZVec<std::set<TPZGeoElSide>> eigGeoElSides(nsub*nsub);
+
     for (int64_t el = 0; el < nelem; el++) {
         TPZCompEl *cel = MixedMesh->Element(el);
         auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
         if(sub) {
-            AnalyseSteklov(sub,count,MHMixed->fSkeletonMatId);
+            AnalyseSteklov(sub,count,MHMixed->fSkeletonMatId,eigGeoElSides);
             count++;
         }
     }
 
+    for (int i = 0; i < eigGeoElSides.size(); i++)
+    {
+        std::cout << "eigGeoElSides[" << i<< "]= " ;
+        for (auto it:eigGeoElSides[i])
+        {
+            std::cout << it.Element()->Index() << " ";
+        }
+        std::cout << std::endl;
+    }
+
+
+    // for (int i = 0; i < eigGeoElSides.size(); i++)
+    // {
+    //     std::cout << "eigGeoElSides[" << i << "] = " ;
+    //     for (auto it:eigGeoElSides[i])
+    //     {
+    //         std::cout << it << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    count = 0;
+    for (int64_t el = 0; el < nelem; el++) {
+        TPZCompEl *cel = MixedMesh->Element(el);
+        auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        if (!sub) continue;
+        TPZMultiphysicsCompMesh *father = dynamic_cast<TPZMultiphysicsCompMesh *>(sub->Mesh());
+        father->LoadReferences();
+        TPZGeoMesh *gmesh = father->Reference();
+        int64_t nel = gmesh->NElements();
+        for (int i = 0; i < nel; i++){
+            TPZGeoEl *gel = gmesh->ElementVec()[i];
+            if (!gel) continue;
+            int nSides = gel->NSides();
+            int nCorder = gel->NCornerNodes();
+            for (int iside = nCorder; iside < nSides; iside++){
+                TPZGeoElSide gelside(gel,iside);
+                if (eigGeoElSides[count].find(gelside) != eigGeoElSides[count].end()){
+                    TPZGeoElBC gbc(gelside,100*(count+2));
+                }
+            }
+        }
+        count++;
+        
+    }
+    std::ofstream file("GMeshAux.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(MixedMesh->Reference(), file); 
+
+    AssociateGeoElSides(eigGeoElSides,intersectGeoElIndex,indexToSide);
+    
+    std::cout << "intersectGeoElIndex = ";
+    for (const auto &it:intersectGeoElIndex)
+    {
+        std::cout << it.second.first << " ";
+    }
+    std::cout << std::endl;
+    
+    
+    count = 0;
+    for (int64_t el = 0; el < nelem; el++) {
+        TPZCompEl *cel = MixedMesh->Element(el);
+        auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
+        if (!sub) continue;
+        TPZMultiphysicsCompMesh *father = dynamic_cast<TPZMultiphysicsCompMesh *>(sub->Mesh());
+        father->LoadReferences();
+        TPZGeoMesh *gmesh = father->Reference();
+        int64_t nel = gmesh->NElements();
+        for (int i = 0; i < nel; i++){
+            TPZGeoEl *gel = gmesh->ElementVec()[i];
+            if (!gel) continue;
+            
+            for (const auto &gelind : intersectGeoElIndex){
+                if (gel->Index() != gelind.second.first) continue;
+
+                TPZGeoElSide gelside(gel,indexToSide[gel->Index()]);
+                TPZGeoElBC gbc(gelside,100*(count+6));
+            }
+        }
+        count++;
+        
+    }
+    std::ofstream file2("GMeshAuxNew.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(MixedMesh->Reference(), file2); 
+
+
     bc5->SetVal2(val25);
     bc6->SetVal2(val26);
 
-    
-
-
-    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
+    // SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
 
     return 0;
 }
 
-void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
+void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat, TPZVec<std::set<TPZGeoElSide>> &eigGeoElSides){
+    
+
     // Identify element/sides that belong to a different mesh
     int64_t nel = sub->NElements();
     TPZMultiphysicsCompMesh *father = dynamic_cast<TPZMultiphysicsCompMesh *>(sub->Mesh());
@@ -375,7 +498,7 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
     auto *mat8 = matvecsub[8];
     auto *mat9 = matvecsub[9];
     std::set<int> bndmat = {skelmat};
-    std::set<int64_t> permeableconnects;
+    std::map<int64_t,TPZGeoElSide> permeableconnects;
     TPZMixedDarcyFlow *darcy = dynamic_cast<TPZMixedDarcyFlow *> (matvec[1]);
     TPZFNMatrix<2,REAL> val1(1,1,1.);
     TPZManVector<REAL> val2(1,0.);
@@ -438,7 +561,8 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
                     
                     if(dommainmat == 2) {
                         if(gelside.HasNeighbour(9)) {
-                            permeableconnects.insert(celskelcindex);
+                            TPZGeoElSide neigh = gelside.HasNeighbour(dommainmat);
+                            permeableconnects[celskelcindex] = neigh;
                         } else if(gelside.HasNeighbour(8)) {
                             
                         }
@@ -562,7 +686,7 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
 
         REAL tol = 1.e-2;
         for (int i = 0; i<neig; i++) {
-            if (Lambda[i].real() > tol) continue;
+            if (Lambda[i].real() > tol || Lambda[i].real()==0) continue;
             std::cout << "Plot sequence " << i << " eigenvalue " << Lambda[i].real() << std::endl;
             TPZFMatrix<STATE> sol(neq,1);
             for(int ieq = 0; ieq<neq; ieq++) sol(ieq,0) = EigenVector(ieq,i).real();
@@ -573,9 +697,12 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
             for(int ic = 0; ic < connectindexes.size(); ic++)
             {
                 int64_t cindex = connectindexes[ic];
-                if(permeableconnects.find(cindex) != permeableconnects.end())
+                bool isPermeable = false;
+                // if(permeableconnects.find(cindex) != permeableconnects.end())
+                if(permeableconnects[cindex])
                 {
                     std::cout << "permeable connect " << cindex << " sol ";
+                    isPermeable = true;
                 }
                 else {
                     std::cout << "impermeable connect " << cindex << " sol ";
@@ -583,10 +710,13 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat){
                 TPZConnect &c = father->ConnectVec()[cindex];
                 int64_t seqnum = c.SequenceNumber();
                 int blsize = c.NShape()*c.NState();
-                for (int i = 0; i<blsize; i++) {
-                    int64_t pos = block.Index(seqnum, i);
+                for (int ibl = 0; ibl<blsize; ibl++) {
+                    int64_t pos = block.Index(seqnum, ibl);
                     solmesh(pos,0) = sol(loccount,0);
                     cout << sol(loccount) << " ";
+                    if(isPermeable && fabs(sol(loccount)) >= 1.e-5) {
+                        eigGeoElSides[count].insert(permeableconnects[cindex]);
+                    }
                     loccount++;
                 }
                 std::cout << endl;
@@ -667,10 +797,88 @@ void AddDomainWrapElements(TPZMHMeshControl &mhm, std::map<int,int> &wrapids)
 }
 
 
+void AssociateGeoElSides(TPZVec<std::set<TPZGeoElSide>> &eigGeoElSides, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide){
+    
+    int nsub = eigGeoElSides.size();
+    int count = 0;
+    for (int isub = 0; isub < nsub; isub++)
+    {  
+        for (TPZGeoElSide gelside:eigGeoElSides[isub])
+        {
+            int thisMatId = gelside.Element()->MaterialId();
+            for (int jsub = 0; jsub < nsub; jsub++)
+            {  
+                if (isub == jsub) continue;
+                for (auto neighsides : eigGeoElSides[jsub])
+                {
+                    auto isNeigh = gelside.IsNeighbour(neighsides);
+                    if (isNeigh){
+                        //Check if the gelside already exists in the map
+                        bool intersectExists = false;
+                        for (const auto &gside:intersectGeoElIndex)
+                        {
+                            if(gside.second.first == neighsides.Element()->Index()){
+                                intersectExists = true;
+                                break;
+                            }
+                        }
+                        if (!intersectExists){
+                            intersectGeoElIndex[count]=std::make_pair(gelside.Element()->Index(),neighsides.Element()->Index());
+                            indexToSide[gelside.Element()->Index()] = gelside.Side();
+                            indexToSide[neighsides.Element()->Index()] = neighsides.Side();
+                            count++;
+                            break;
+                        }
+                    }    
+                }
+            }
+        }
+    }    
+}
 
-void SelectEigenvectors(){
 
+std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyIntersections(TPZCompMesh *cmesh, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide){
 
+    std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> intersectGeoElSide;
+    int count = 0;
+    int64_t nel = cmesh->Reference()->NElements();
+    for (int iel = 0; iel < nel; iel++)
+    {
+        TPZGeoEl *gel = cmesh->Reference()->ElementVec()[iel];
+        if (!gel) continue;
 
+        for (const auto &intIndex:intersectGeoElIndex)
+        {
+            if (gel->Index() == intIndex.second.first){
+                TPZGeoElSide gelside(gel,indexToSide[intIndex.second.first]);
+                TPZStack<TPZGeoElSide> allneigh;
+                gelside.AllNeighbours(allneigh);
+                for (const auto &ineigh : allneigh)
+                {
+                    if (ineigh.Element()->Index() == intIndex.second.second){
+                        intersectGeoElSide[count] = std::make_pair(gelside,ineigh);
+                        count++;
+                        break;
+                    }
+                }
+            }
+            // if (gel->Index() == intIndex.second.second){
+            //     TPZGeoElSide gelside(gel,indexToSide[intIndex.second.second]);
+            //     TPZStack<TPZGeoElSide> allneigh;
+            //     gelside.AllNeighbours(allneigh);
+            //     for (const auto &ineigh : allneigh)
+            //     {
+            //         if (ineigh.Element()->Index() == intIndex.second.first){
+            //             intersectGeoElSide[count] = std::make_pair(gelside,ineigh);
+            //             count++;
+            //             break;
+            //         }
+            //     }
+            // }
+        }
+        
+    }
+    
 
+    return intersectGeoElSide;
 }
