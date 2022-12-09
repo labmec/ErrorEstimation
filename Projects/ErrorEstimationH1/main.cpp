@@ -117,15 +117,15 @@ int main(int argc, char *argv[]) {
     Case1.dir_name = "QuadCase1";
     Case1.gmesh = gmesh;
     Case1.materialids.insert(1);
-   // Case1.bcmaterialids.insert(-1);
-  //  Case1.bcmaterialids.insert(-2);
-    Case1.bcmaterialids.insert(2);//para sinmark
+    Case1.bcmaterialids.insert(-1);
+//    Case1.bcmaterialids.insert(-2);
+//    Case1.bcmaterialids.insert(2);//para sinmark
 
     TLaplaceExample1 example;
          Case1.exact.fExact = example.EConst;//ESinMark;//ESinSinDirNonHom;//ESinSinDirNonHom;
 
-    Case1.problemname = "ESinMark";
-    Case1.dir_name= "ESinMark";
+    Case1.problemname = "EConst";
+    Case1.dir_name= "Const";
     std::string command = "mkdir -p " + Case1.dir_name;
     system(command.c_str());
     
@@ -160,7 +160,8 @@ int main(int argc, char *argv[]) {
         
         TPZFMatrix<STATE> true_elerror(cmeshH1->ElementSolution());
         TPZFMatrix<STATE> estimate_elerror(error.MultiPhysicsMesh()->ElementSolution());
-        
+        true_elerror.Print("true error", std::cout);
+        estimate_elerror.Print("estimate error", std::cout);
         
         PostProcessing(cmeshH1,true_elerror, estimate_elerror);
         
@@ -334,7 +335,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
                 mat->SetForcingFunction(example.ForceFunc(),3);
             }
             else {
-                bc->SetForcingFunctionBC(example.ExactSolution());
+                bc->SetForcingFunctionBC(example.ExactSolution(),3);
             }
         }
     }
@@ -436,7 +437,7 @@ bool PostProcessProblem(TPZAnalysis &an, TPZGeoMesh * gmesh, TPZCompMesh * press
     {
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
-        scalnames.Push("Error");
+        scalnames.Push("EstimatedError");
         scalnames.Push("TrueError");
         scalnames.Push("EffectivityIndex");
         an.DefineGraphMesh(pressuremesh->Dimension(), scalnames, vecnames, "ErrorEstimationH1.vtk");
@@ -491,7 +492,7 @@ TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case) {
             bctype = 1;
         }
         TPZBndCondT<STATE> *bc = material->CreateBC(material, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(sim_case.exact.ExactSolution());
+        bc->SetForcingFunctionBC(sim_case.exact.ExactSolution(),3);
         cmesh->InsertMaterialObject(bc);
     }
     
@@ -614,7 +615,7 @@ TPZCompMesh *CompMeshH1(struct SimulationCase &problem) {
         int bctype = 0;
         val2.Fill(0.);
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(problem.exact.ExactSolution());
+        bc->SetForcingFunctionBC(problem.exact.ExactSolution(),3);
         
         cmesh->InsertMaterialObject(bc);
     }
@@ -683,7 +684,7 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
     {
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
-        scalnames.Push("Error");
+        scalnames.Push("EstimatedError");
         scalnames.Push("TrueError");
         scalnames.Push("EffectivityIndex");
         std::string plotname;

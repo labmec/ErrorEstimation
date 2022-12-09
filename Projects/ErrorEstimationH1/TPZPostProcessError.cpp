@@ -324,8 +324,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 //    {
 //        std::ofstream out5("../CMeshH1.txt");
 //        fMeshVector[0]->Print(out5);
-//        std::ofstream out("../CMeshError.txt");
-//        meshmixed->Print(out);
+        std::ofstream out("../CMeshError.txt");
+        meshmixed->Print(out);
 //        std::ofstream out2("../PressureCMesh.txt");
 //        fMeshVector[3]->Print(out2);
 //        std::ofstream out3("../FluxCMesh.txt");
@@ -579,10 +579,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     mixed[1] = fMeshVector[3];
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, meshmixed);
 
-    TPZManVector<REAL,3> errors(3,0.);
+    TPZManVector<REAL,6> errors(6,0.);
     {
         int64_t nels = meshmixed->ElementVec().NElements();
-        meshmixed->ElementSolution().Redim(nels, 3);
+        meshmixed->ElementSolution().Redim(nels, 6);
     }
     an.PostProcessError(errors);
     std::cout << "Estimated error " << errors << std::endl;
@@ -855,9 +855,10 @@ void TPZPostProcessError::CreatePressureMesh()
     int dim = fluxmesh->Dimension();
     
     // go stepwise here. this is a big change
-    DebugStop();
+//    DebugStop();
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    cmesh->ApproxSpace().CreateDisconnectedElements(true);
 //    TPZCompMeshReferred *cmesh = new TPZCompMeshReferred(gmesh);
 //    cmesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
     for (auto it:fluxmesh->MaterialVec()) {
