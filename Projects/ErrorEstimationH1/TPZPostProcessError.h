@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <iterator>
 
+#include <TPZMultiphysicsCompMesh.h>
 #include "pzmanvector.h"
 #include "pzcmesh.h"
 #include "pzfmatrix.h"
@@ -71,8 +72,9 @@ struct TPZPatch
     // return the first equation associated with a lagrange multiplier
     int64_t FirstLagrangeEquation(TPZCompMesh *cmesh) const;
     
-
 };
+ 
+enum MMeshPositions {Eorigin = 4, Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3};
 
 class TPZPostProcessError
 {
@@ -101,7 +103,7 @@ private:
     TPZVec<int64_t> fConnectSeqNumbers;
     
     // multiplying coefficients of the reconstructed fluxes and pressures
-    TPZFMatrix<STATE> fSolution;
+    TPZFMatrix<STATE> fSolution;// contain the global flux recovery
     
     // block corresponding to the original connect sequence numbers
     TPZBlock fBlock;
@@ -113,20 +115,20 @@ private:
     void PlotFluxes(const std::string &filename);
     
     // solve for the reconstructed fluxes of a given color. Add the flux coefficients
-    void ComputePatchFluxes();
+    void ComputePatchFluxes();// TODO: wich color is been process?
     
     // determine if a given patch is boundary or not
     bool PatchHasBoundary(TPZPatch &patch) const;
     
     // Sum the solution stored in fSolution of the second mesh to the fSolution vector
-    void TransferAndSumSolution(TPZCompMesh *cmesh);
-    
+    void TransferAndSumSolution(TPZCompMesh *cmesh); // what is second mesh?
+
     // Reset the state of the HDiv mesh to its original structure
     void ResetState();
-    
+
     // check whether the connectsizes have changed
     void CheckConnectSizes();
-    
+
     // create the meshes that allow us to compute the error estimate
     void CreateAuxiliaryMeshes();
 
@@ -155,7 +157,7 @@ public:
     TPZPatch BuildPatch(TPZCompElSide &seed);
 
     // compute the estimated H1 seminorm errors
-    void ComputeHDivSolution();
+    void ComputeHDivSolution();//???
     
     // compute the estimated H1 seminorm errors
     void ComputeElementErrors(TPZVec<STATE> &elementerrors);
@@ -166,9 +168,9 @@ public:
         DebugStop();
     }
     
-    TPZCompMesh *MultiPhysicsMesh()
+    TPZMultiphysicsCompMesh *MultiPhysicsMesh()
     {
-        return fMeshVector[1];
+        return dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]) ;
     }
     
     void SetAnalyticSolution(TPZAnalyticSolution &exact)
