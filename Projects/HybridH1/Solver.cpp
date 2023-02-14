@@ -19,6 +19,7 @@
 #include "MeshInit.h"
 #include "TPZHybridH1ErrorEstimator.h"
 #include "InputTreatment.h"
+#include "ForcingFunction.h"
 
 using namespace std;
 void Solve(ProblemConfig &config, PreConfig &preConfig){
@@ -449,7 +450,12 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
     if(pConfig.debugger) {
         std::cout << "Computing Error HYBRID_H1 " << std::endl;
-        an.SetExact(config.exact.operator*().ExactSolution());
+        if(pConfig.type == 9){
+            an.SetExact(SingularityExact,100);
+        }
+        else{
+            an.SetExact(config.exact.operator*().ExactSolution());
+        }
         ////Calculo do erro
         StockErrors(an,cmesh_H1Hybrid,pConfig.Erro,pConfig.Log,pConfig);
         std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
@@ -458,6 +464,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
         vecnames.Push("Flux");
+        vecnames.Push("ExactFlux");
 
         int dim = pConfig.dim;
         std::string plotname;
@@ -490,7 +497,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<STATE> strmat(cmesh_Mixed);
     //strmat.SetNumThreads(8);
-    strmat.SetNumThreads(0);
+    strmat.SetNumThreads(8);
 #else
     TPZSkylineStructMatrix strmat(cmesh_Mixed);
     strmat.SetNumThreads(0);

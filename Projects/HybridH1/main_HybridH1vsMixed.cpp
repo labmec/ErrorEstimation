@@ -18,21 +18,20 @@ int main(int argc, char *argv[]) {
     TPZLogger::InitializePZLOG();
 #endif
     PreConfig pConfig;
-    pConfig.k = 2;
+    pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "EBubble2D";               //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace"}
+    pConfig.problem = "EProb";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
-    pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
+    pConfig.topology = "LQuad";                //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
     pConfig.refLevel = 3;                      //// How many refinements
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
-    pConfig.debugger = true;                  //// Print geometric and computational mesh
+    pConfig.debugger = false;                   //// Print geometric and computational mesh
 
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
-//#define ERRORESTIMATION_DEBUG
 
-    for (int ndiv = 3; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+    for (int ndiv = pConfig.refLevel; ndiv < pConfig.refLevel+1; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
         ProblemConfig config;
         Configure(config,ndiv,pConfig,argv);

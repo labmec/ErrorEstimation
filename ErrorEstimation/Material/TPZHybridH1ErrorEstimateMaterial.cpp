@@ -207,7 +207,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
         TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix; //(2xnphiuk)
         TPZFNMatrix<9, REAL> dphiuk(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes); //(3xnphiuk)
-        TPZFMatrix<STATE> &dsolaxes = datavec[H1functionposition].dsol[0];
+        TPZFMatrix<STATE> &dsolaxes = datavec[3].dsol[0];
         TPZFNMatrix<9, REAL> dsol(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
 
@@ -229,7 +229,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
 
 
         //potetial fem
-        /*solukfem(0, 0) = datavec[3].sol[0][0];
+        solukfem(0, 0) = datavec[3].sol[0][0];
         for (int ip = 0; ip < dim; ip++) {
            gradSol(ip, 0) = dsol.Get(ip, 0);
         }
@@ -237,7 +237,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
             for (int jd = 0; jd < dim; jd++) {
                 kGradSol(id, 0) += PermTensor(id, jd) * gradSol(jd, 0);
             }
-        }*/
+        }
 
         TPZFMatrix<STATE> kgraduk(dim, nphiuk, 0.);
 
@@ -250,10 +250,10 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
                     kgraduk(id, irow) += PermTensor(id, jd) * dphiuk(jd, irow);
                 }
                 /// ... = (grad u_h, grad v_h)
-                //ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
+                ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
             }
             ///... = (f , v_h)
-            ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
+            //ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
 
             //matrix Sk= int_{K} K graduk.gradv
             for (int jcol = 0; jcol < nphiuk; jcol++) {
@@ -445,6 +445,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STAT
     TPZVec<STATE> u_exact(1);
     TPZFMatrix<STATE> du_exact(3,1,0.);
     ExactSol()(data[1].x,u_exact,du_exact);
+
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
 
@@ -554,6 +555,7 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STAT
     errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
     errors[4] = residual; //||f - Proj_divsigma||
     errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
+    //errors[5] = npz;
     errors[6] = altResidual*altResidual;
 }
 
@@ -576,6 +578,7 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name) con
     if(name == "NFIndex") return 105;
     if(name == "PressureEffectivityIndex") return 107;
     if(name == "EnergyEffectivityIndex") return 108;
+    if(name == "EnergyErrorEstimated") return 109;
     if(name == "POrder") return 46;
 
     return -1;
@@ -604,6 +607,7 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var) const
         case 106:
         case 107:
         case 108:
+        case 109:
             return 1;
             break;
         default:
