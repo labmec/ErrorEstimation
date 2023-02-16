@@ -185,9 +185,15 @@ protected:
 
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses(TPZCompMesh &cmesh);
-    
+
+    TPZMultiphysicsCompMesh *CreateFluxReconstructionMesh();
+
+    TPZCompMesh *CreateFluxReconstructionL2Mesh();
+
+    TPZCompMesh *CreateFluxReconstructionConstantMesh();
+
     // a method for generating the HDiv mesh
-    virtual TPZCompMesh *CreateFluxMesh();
+    TPZCompMesh *CreateFluxReconstructionHDivMesh();
     // a method for creating the pressure mesh
     virtual TPZCompMesh *CreatePressureMesh();
 

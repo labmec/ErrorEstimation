@@ -285,7 +285,8 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
             config.exact.operator*().fExact = TLaplaceExample1::E10SinSin;
             break;
         case 7:
-            config.exact.operator*().fExact = TLaplaceExample1::ESing2D;
+            DebugStop();
+            //config.exact.operator*().fExact = TLaplaceExample1::ESing2D;
             break;
         case 8:
             config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
