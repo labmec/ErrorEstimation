@@ -29,7 +29,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     int interfaceMatID = -10;
     int fluxMatID = -10;
     int hybridLevel = 1;
-
+    std::ofstream mamesh("checking mMesh");
     const clock_t start = clock();
 
     switch(preConfig.mode){
@@ -38,7 +38,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
             SolveH1Problem(cmesh, config, preConfig);
             break;
         case 1: //Hybrid
-            CreateHybridH1ComputationalMesh(multiCmesh, interfaceMatID, fluxMatID,preConfig, config,hybridLevel);
+            CreateHybridH1ComputationalMesh(multiCmesh, interfaceMatID, fluxMatID,preConfig, config,hybridLevel); multiCmesh->Print(mamesh); mamesh.flush();
             SolveHybridH1Problem(multiCmesh, interfaceMatID, config, preConfig,hybridLevel);
             if (preConfig.estimateError) EstimateError(config, preConfig, fluxMatID, multiCmesh);
             break;
@@ -298,6 +298,7 @@ void CreateCondensedMixedElements(TPZMultiphysicsCompMesh *cmesh_Mixed){
 
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID,int &fluxMatID , PreConfig &pConfig, ProblemConfig &config,int hybridLevel){
     auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
+    cmesh_H1Hybrid->SetAllCreateFunctionsMultiphysicElem();
     if(hybridLevel == 2) {
         spaceType = TPZCreateMultiphysicsSpace::EH1HybridSquared;
     }

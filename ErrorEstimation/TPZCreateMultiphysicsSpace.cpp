@@ -18,6 +18,7 @@
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZMultiphysicsInterfaceEl.h"
 #include "TPZHybridizeHDiv.h"
+#include "TPZNullMaterialCS.h"
 
 #include "pzlog.h"
 
@@ -74,7 +75,7 @@ void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshv
     TPZCompMesh *fluxmesh = CreateBoundaryFluxMesh();
     TPZCompMesh *gspace = new TPZCompMesh(fGeoMesh);
     {
-        InsertNullSpaceMaterialIds(gspace);
+        InsertNullSpaceMaterialIds(gspace,fGeoMesh->Dimension()-1);
         gspace->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
         gspace->SetDefaultOrder(0);//sao espacos de pressao media 
         gspace->AutoBuild();
@@ -85,7 +86,7 @@ void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshv
     }
     TPZCompMesh *average = new TPZCompMesh(fGeoMesh);
     {
-        InsertNullSpaceMaterialIds(average);
+        InsertNullSpaceMaterialIds(average,fGeoMesh->Dimension()-1);
         average->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
         average->SetDefaultOrder(0);
         average->AutoBuild();
@@ -357,7 +358,7 @@ void TPZCreateMultiphysicsSpace::InsertFluxMaterialIds(TPZCompMesh *fluxmesh)
     {
         for (auto matid:fBCMaterialIds) {
             TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
-            nullmat->SetDimension(fDimension);
+            nullmat->SetDimension(fDimension-1);
             nullmat->SetNStateVariables(1);
             fluxmesh->InsertMaterialObject(nullmat);
         }
@@ -365,11 +366,11 @@ void TPZCreateMultiphysicsSpace::InsertFluxMaterialIds(TPZCompMesh *fluxmesh)
 }
 
 /// insert materialids for the null space
-void TPZCreateMultiphysicsSpace::InsertNullSpaceMaterialIds(TPZCompMesh *nullspace)
+void TPZCreateMultiphysicsSpace::InsertNullSpaceMaterialIds(TPZCompMesh *nullspace,int eldim)
 {
     for (auto matid:fMaterialIds) {
-        TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
-        nullmat->SetDimension(fDimension);
+        auto nullmat = new TPZNullMaterial(matid);
+        nullmat->SetDimension(eldim);
         nullmat->SetNStateVariables(1);
         nullspace->InsertMaterialObject(nullmat);
     }
@@ -685,7 +686,7 @@ static void InsertNullMaterial(int matid, int dim, int nstate, TPZCompMesh *cmes
 {
     TPZMaterial *mat = cmesh->FindMaterial(matid);
     if(mat) return;
-    TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
+    TPZNullMaterialCS<> *nullmat = new TPZNullMaterialCS<>(matid);
     nullmat->SetDimension(dim);
     nullmat->SetNStateVariables(nstate);
     cmesh->InsertMaterialObject(nullmat);
