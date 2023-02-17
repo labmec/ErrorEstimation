@@ -39,7 +39,6 @@ const bool readGMeshFromFile = false;
 
 const int matID = 1;
 
-
 // Functions declarations
 TPZGeoMesh *CreateGeoMesh();
 TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case);
@@ -106,8 +105,8 @@ int main(int argc, char *argv[]) {
         struct SimulationCase Case1;
         
         Case1.nthreads = 0;
-        Case1.numinitialrefine = 0;//ndiv;
-        Case1.porder = 2;
+        Case1.numinitialrefine = 4;//ndiv;
+        Case1.porder = 1;
         Case1.dir_name = "QuadCase1";
         Case1.gmesh = gmesh;
         Case1.materialids.insert(1);
@@ -156,8 +155,7 @@ int main(int argc, char *argv[]) {
             estimate_elerror.Print("estimate error", std::cout);
             
             PostProcessing(cmeshH1,true_elerror, estimate_elerror);
-            
-            
+                        
         }
     }
     

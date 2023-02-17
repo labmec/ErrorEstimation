@@ -21,7 +21,7 @@ TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate() : MixedMat()
 template<class MixedMat>
 TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate(int matid, int dim) : MixedMat(matid,dim)
 {
-    
+    //DebugStop();
 }
 
 template<class MixedMat>
@@ -64,13 +64,21 @@ void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMaterialDat
  * @param ef [out] is the load vector
  */
 template<class MixedMat>
-void TPZMixedErrorEstimate<MixedMat>::Contribute(TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
-    if (datavec[1].sol[0].size() != 3)
+    if (datavec.size() != 4  )
     {
         DebugStop();
     }
+    
     TPZFNMatrix<100,STATE> efkeep(ef);
+    if(datavec[2].fNeedsSol == false || datavec[3].fNeedsSol == false){
+        DebugStop();
+    }
+    
+    REAL solpatch = datavec[3].sol[0][0];
+    
+    TPZFMatrix<STATE> &gradH1 = datavec[2].dsol[0];
     MixedMat::Contribute(datavec,weight,ek,ef);
     ef = efkeep;
     TPZFMatrix<REAL> &phip = datavec[1].phi;

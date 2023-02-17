@@ -340,10 +340,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     
     TPZCompMesh *meshpatch = fMeshVector[Epatch];
     
-    //Vector of pointers to the computational elements
+    //Vector of pointers to the computational elements of meshmixed will be used to activate elements
     TPZVec<TPZCompEl *> elpointers(meshmixed->NElements());
     int64_t nelem = meshmixed->NElements();
-    for (int64_t i=0; i< nelem; i++) {
+    for (int64_t i = 0; i < nelem; i++) {
         elpointers[i] = meshmixed->Element(i);
     }
     
@@ -360,11 +360,11 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     for (int color = 0; color < ncolors; color++)
     {
         meshmixed->Solution().Zero();
-        for (int64_t el=0; el<nelem; el++) {
-            meshmixed->ElementVec()[el] = elpointers[el];//MARK: I think this is redundant
+        for (int64_t el = 0; el < nelem; el++) {
+            meshmixed->ElementVec()[el] = elpointers[el];
         }
         
-        TPZVec<TPZCompEl *> activel(nelem,0); // Pointers to active elements
+        TPZVec<TPZCompEl *> activel(nelem,0); //to activate/deactivate elements
         TPZManVector<int64_t> permute(nblocks,-1);
         
         meshpatch->Solution().Zero();
@@ -386,13 +386,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         int64_t extseqcount = numintconnects;
         TPZFMatrix<STATE> &weightsol = meshpatch->Solution();
         for (int64_t patch = 0; patch < npatch; patch++) {
-            {//Modifies the solution coeficients corresponding to hat functions of a color. It's for satisfy the unity partition property?
+            {//Modifies the solution coeficients corresponding to hat functions of a color. They satisfy the unity partition property
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
                 int64_t seqnum = meshpatch->ConnectVec()[partitionindex].SequenceNumber();
                 weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
             }
             
-            {//To define the activ comp. elements of the meshmixed
+            {//Define the activ comp. elements of the meshmixed
                 int64_t nel = fVecVecPatches[color][patch].fElIndices.size();
                 for (int64_t el = 0; el < nel; el++) {
                     int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
@@ -447,7 +447,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 }
             }
             
-        }
+        }//end patch loop
+        
 #ifdef ERRORESTIMATION_DEBUG
         {
             std::set<int64_t> permval;
@@ -474,7 +475,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         meshmixed->Permute(permute);//Renumbering the equations
         int64_t nactiveel = 0;
         
-        //Activates meshmixed comp. elements, and counts them
+        //Activates meshmixed comp. elements of a color, and counts them
         for (int64_t el = 0; el < nelem; el++) {
             meshmixed->ElementVec()[el] = activel[el];
             if (activel[el]) {
@@ -484,20 +485,27 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         meshmixed->ComputeNodElCon();
         
-        int neqloc =0;
-        for (int i=0; i<ncon; i++ ){
-            TPZConnect &c = meshmixed->ConnectVec()[i];
-            if (c.NElConnected()==0){
-                std::cout << " i: "<< c.NShape()*c.NState() <<"\n";
-            }
-            else {
-                if (!c.HasDependency()||!c.IsCondensed()){
-                    neqloc += c.NDof();
+        {
+            std::ofstream out("../meshmixedcolor.txt");
+            meshmixed->Print(out);
+        }
+        
+        if(0){//TODO: must be deleted
+            int neqloc = 0;
+            for (int i = 0; i < ncon; i++ ){
+                TPZConnect &c = meshmixed->ConnectVec()[i];
+                if (c.NElConnected() == 0){
+                    std::cout << "c.NShape()*c.NState(): "<< c.NShape()*c.NState() <<"\n";
+                }
+                else {
+                    if (!c.HasDependency() || !c.IsCondensed()){
+                        neqloc += c.NDof();
+                    }
                 }
             }
+            std::cout << "neqloc: " << neqloc << std::endl;
         }
-        std::cout << "neqloc: " << neqloc << std::endl;
-
+            
         int64_t nequations = meshmixed->NEquations();
         std::cout << "nequations: " << nequations << std::endl;
         std::cout << "totalequations: " << totalequations << std::endl;
@@ -518,10 +526,9 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         std::cout<<"Solving mixed problem"<<std::endl;
         TPZLinearAnalysis an(meshmixed,false);
-        
-        
+                
         TPZSkylineStructMatrix<STATE> strmat(meshmixed);
-        int numthreads = 0;
+        int numthreads = 0; //TODO: I think must be use Case1.nthreads
         strmat.SetNumThreads(numthreads);
         //        strmat.SetEquationRange(0, nequations);
         
@@ -534,12 +541,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         direct->SetDirect(ELDLt);
         an.SetSolver(*direct);
         delete direct;
-        direct = 0;
+        direct = 0; //It's necessary?
         
         an.Assemble();
+        
         TPZMatrixSolver<STATE> &matsolver = an.MatrixSolver<STATE>();
         TPZAutoPointer<TPZMatrix<STATE> > globmat = matsolver.Matrix();
-        for (int64_t p=0; p<npatch; p++) {
+        for (int64_t p = 0; p < npatch; p++) {
             TPZPatch &patch = fVecVecPatches[color][p];
             if (!PatchHasBoundary(patch))
             {
@@ -568,10 +576,6 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             std::cout << "The matrix has no singularity\n";
         }
         an.LoadSolution();
-        {
-            std::ofstream out("../meshmixed.txt");
-            meshmixed->Print(out);
-        }
         
         // now we have a partial solution
         /** Variable names for post processing */
@@ -579,7 +583,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         scalnames.Push("POrder");
         scalnames.Push("Pressure");
         vecnames.Push("Flux");
-        an.SetStep(color);
+        an.SetStep(color); //TODO: I need to explore it
         
         //        {
         //            int ModelDimension = meshmixed->Dimension();
@@ -590,15 +594,16 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         //        }
         
         
-        
-        for (int64_t el=0; el<nelem; el++) {
+        for (int64_t el = 0; el < nelem; el++) {
             meshmixed->ElementVec()[el] = elpointers[el];
         }
-        meshmixed->ComputeNodElCon();
-        TransferAndSumSolution(meshmixed);
-        ResetState();
         
-        an.SetStep(color);
+        meshmixed->ComputeNodElCon();
+        
+        TransferAndSumSolution(meshmixed);
+        ResetState();//TODO: I  need to understand it
+        
+        an.SetStep(color);//TODO:: again, because?
         
         // now draw the full mesh with the summed flux
         //        {
@@ -609,12 +614,11 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         //            an.PostProcess(1,meshmixed->Dimension());
         //        }
         
-        
         fMeshVector[Epressure]->Solution().Zero();
         fMeshVector[Epatch]->Solution().Zero();
         an.Solution().Zero();
         
-    }
+    }//end color loop
     
     TPZLinearAnalysis an(meshmixed,false);
     an.Solution() = fSolution;
@@ -623,14 +627,16 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     mixed[0] = fMeshVector[Epressure];
     mixed[1] = fMeshVector[Epatch];
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, meshmixed);
-    
+
     TPZManVector<REAL,6> errors(6,0.);
+    
     {
         int64_t nels = meshmixed->ElementVec().NElements();
         meshmixed->ElementSolution().Redim(nels, 6);
     }
+    
     an.PostProcessError(errors);
-    std::cout << "Estimated error " << errors << std::endl;
+    cout << "Estimated error " << errors << std::endl;
     ofstream myfile;
     myfile.open("ArquivosErros_estimate.txt", ios::app);
     myfile << "\n\n Estimator errors  \n";
@@ -971,7 +977,6 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
     
     gmesh->ResetReference();
     
-    
     int64_t nel = pressuremesh->NElements();
     for (int64_t el=0; el<nel; el++) {
         TPZCompEl *pressure = pressuremesh->Element(el);
@@ -990,7 +995,6 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
     
 }
 
-
 /// create the multiphysics mesh that will compute the projection matrix
 void TPZPostProcessError::CreateMixedMesh()
 {
@@ -1001,7 +1005,7 @@ void TPZPostProcessError::CreateMixedMesh()
     gmesh->ResetReference();
     TPZMultiphysicsCompMesh *mphysics = new TPZMultiphysicsCompMesh(gmesh);
     
-    //criando material
+    //create material
     int dim = gmesh->Dimension();
     typedef TPZMixedDarcyFlow TPZMixedPoisson;
     
@@ -1044,8 +1048,8 @@ void TPZPostProcessError::CreateMixedMesh()
     meshvec[3] = fMeshVector[Eorigin];
     
     mphysics->SetAllCreateFunctionsMultiphysicElem();
-    //Fazendo auto build
     
+    //Fazendo auto build
     TPZManVector<int> activ = {1,1,0,0};
     mphysics->BuildMultiphysicsSpace(activ, meshvec);
     
@@ -1068,11 +1072,12 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
     int64_t ncon = compmeshmulti->NConnects();
     fConnectSeqNumbers.resize(ncon); //Resize the vector of the original connect sequence numbers
     fConnectSizes.resize(ncon); //Resize the vector of connects sizes in the multiphysics mesh
+    
     for (int64_t i = 0; i < ncon; i++) {
         fConnectSeqNumbers[i] = compmeshmulti->ConnectVec()[i].SequenceNumber();
         int64_t seqnum = fConnectSeqNumbers[i];
         TPZConnect &con = compmeshmulti->ConnectVec()[i];
-        con.SetSequenceNumber(seqnum);// I thing this is redundant
+        //con.SetSequenceNumber(seqnum);//TODO: I thing this is redundant
         int blsize = this->fBlock.Size(seqnum);
         int neq = con.NShape()*con.NState();
         fConnectSizes[i] = neq;
@@ -1080,6 +1085,7 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
             DebugStop();
         }
     }
+    
     BuildPatchStructures();
     
 #ifdef ERRORESTIMATION_DEBUG
