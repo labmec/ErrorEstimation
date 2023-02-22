@@ -449,12 +449,11 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
     if(pConfig.debugger) {
         std::cout << "Computing Error HYBRID_H1 " << std::endl;
-        if(pConfig.type == 9){
-            an.SetExact(SingularityExact,100);
-        }
-        else{
-            an.SetExact(config.exact.operator*().ExactSolution());
-        }
+        an.SetExact(config.exact.operator*().ExactSolution());
+
+
+        std::ofstream hybridH1mesh("hybridH1mesh.txt"); cmesh_H1Hybrid->Print(hybridH1mesh);
+        std::ofstream lambdamesh("lambdamesh.txt"); cmesh_H1Hybrid->MeshVector()[0]->Print(lambdamesh);
         ////Calculo do erro
         StockErrors(an,cmesh_H1Hybrid,pConfig.Erro,pConfig.Log,pConfig);
         std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
@@ -584,6 +583,8 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
     bool store_errors = false;
 
     an.PostProcessError(Errors, store_errors, Erro);
+
+    std::cout << "Erro[0]:\t" <<Errors[0] << "\nErro[1]:\t" << Errors[1]<< "\nErro[2]:\t"<< Errors[2]<<"\n";
 
     if ((*Log)[0] != -1) {
         for (int j = 0; j < 3; j++) {

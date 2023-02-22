@@ -92,32 +92,6 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(TPZVec<TPZMaterialData> &datav
         TPZFMatrix<REAL> &phiuk = datavec[0].phi;
         TPZFMatrix<REAL> &dphiukaxes = datavec[0].dphix;
         TPZFNMatrix<9,REAL> dphiuk(3,dphiukaxes.Cols());
-        {
-            std::cout << "datavec[0].phi.Rows()= " << datavec[0].phi.Rows() << "\tdatavec[0].phi.Cols()= " << datavec[0].phi.Cols() << std::endl;
-            for(int i =0; i< datavec[0].phi.Rows(); i++){
-                 for(int j =0; j < datavec[0].phi.Cols();j++)
-                     std::cout << datavec[0].phi.Get(i,j) << "\t";
-            }
-            std::cout << std::endl;
-            std::cout << "datavec[0].dphix.Rows()= " << datavec[0].dphix.Rows() << "\tdatavec[0].dphix.Cols()= " << datavec[0].dphix.Cols() << std::endl;
-            for(int i =0; i< datavec[0].dphix.Rows(); i++){
-                 for(int j =0; j < datavec[0].dphix.Cols();j++)
-                     std::cout << datavec[0].dphix.Get(i,j) << "\t";
-            }
-            std::cout << std::endl;
-            std::cout << "dphiukaxes.Rows()= " << dphiukaxes.Rows() << "\tdphiukaxes.Cols()= " << dphiukaxes.Cols() << std::endl;
-            for(int i =0; i< dphiukaxes.Rows(); i++){
-                 for(int j =0; j < dphiukaxes.Cols();j++)
-                     std::cout << dphiukaxes.Get(i,j) << "\t";
-            }
-            std::cout << std::endl;
-            std::cout << "datavec[0].axes.Rows()= " << datavec[0].axes.Rows() << "\tdatavec[0].axes.Cols()= " << datavec[0].axes.Cols() << std::endl;
-            for(int i =0; i< datavec[0].axes.Rows(); i++){
-                 for(int j =0; j < datavec[0].axes.Cols();j++)
-                     std::cout << datavec[0].axes.Get(i,j) << "\t";
-            }
-            std::cout << std::endl << std::flush;
-        }
         TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[0].axes);
 
         int phrq,phrp;

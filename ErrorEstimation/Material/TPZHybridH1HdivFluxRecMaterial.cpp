@@ -188,14 +188,15 @@ void TPZHybridH1HdivFluxRecMaterial::FillDataRequirements(TPZVec<TPZMaterialData
         datavec[3].fNeedsSol = true;
         datavec[3].fNeedsNormal = true;
 
+        datavec[4].SetAllRequirements(false);
+        datavec[4].fNeedsSol = true;
+        //datavec[4].fNeedsNormal = true;
+
 }
 
 void TPZHybridH1HdivFluxRecMaterial::FillBoundaryConditionDataRequirements(int type, TPZVec<TPZMaterialDataT<STATE> > &datavec) const{
 
-        datavec[3].SetAllRequirements(false);
-        datavec[3].fNeedsSol = true;
-        datavec[3].fNeedsNormal = true;
-
+        datavec[4].SetAllRequirements(false);
 }
 
 void TPZHybridH1HdivFluxRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors)
@@ -220,10 +221,11 @@ void TPZHybridH1HdivFluxRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
     errors.Fill(0.0);
 
     STATE divsigmarec;
-    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1), gradreconstructed(3,1);
-    TPZFMatrix<REAL> gradfem,fluxfem(3,1);
+    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), gradreconstructed(3,1);
+    TPZFMatrix<REAL> gradfemaxes(3,1),gradfem(3,1),fluxfem(3,1);
 
-    gradfem=data[3].dsol[0];
+    gradfemaxes=data[4].dsol[0];
+    TPZAxesTools<REAL>::Axes2XYZ(gradfemaxes,gradfem,data[4].axes);
 
     gradfem.Resize(3,1);
 
@@ -237,67 +239,28 @@ void TPZHybridH1HdivFluxRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
     divsigmarec= data[0].divsol[0][0];
     residual = (divsigma[0] - divsigmarec)*(divsigma[0] - divsigmarec);
 
-    TPZFNMatrix<9,REAL> PermTensor(3,3);
-    TPZFNMatrix<9,REAL> InvPermTensor(3,3);
     auto perm = GetPermeability(data[1].x);
+    auto invperm = 1./perm;
 
-    PermTensor.Diagonal(perm);
-    InvPermTensor.Diagonal(1./perm);
-
-
-    TPZFNMatrix<3,REAL> fluxexactneg;
-
-    {
-        TPZFNMatrix<9,REAL> gradpressure(3,1);
-        for (int i=0; i<3; i++) {
-            gradpressure(i,0) = (-1.)*du_exact[i];
-            gradfem(i,0) = (-1.)* gradfem(i,0);
-        }
-        PermTensor.Multiply(gradpressure,fluxexactneg);
+    TPZFNMatrix<3,REAL> fluxexact(3,1);
+    TPZFNMatrix<9,REAL> gradpressure(3,1);
+    for (int i=0; i<3; i++) {
+        fluxexact(i,0) = (-1.)* perm *du_exact[i];
+        fluxfem(i,0) = (-1.)* perm * gradfem(i,0);
+        fluxreconstructed(i,0) = data[0].sol[0][i];
     }
-    PermTensor.Multiply(gradfem,fluxfem);
-
-    TPZFMatrix<REAL> &dsolaxes = data[1].dsol[0];
-    TPZFNMatrix<9,REAL> fluxrec(dsolaxes.Rows(),0);
-
-
-    for(int ip = 0 ; ip < 3 ; ip++){
-        fluxreconstructed(ip,0) = data[0].sol[0][ip];
-    }
-
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[1].axes);
-    for(int id=0 ; id<3; id++) {
-        fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
-    }
-    PermTensor.Multiply(fluxreconstructed2,gradreconstructed);
-
 
     REAL fluxFEMenergyError = 0.;
     REAL fluxFEMrecEstimate = 0.;
 
-#ifdef ERRORESTIMATION_DEBUG2
-    std::cout<<"flux fem "<<fluxfem<<std::endl;
-    std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
-
-
-
     for (int i=0; i<3; i++) {
-        for (int j=0; j<3; j++) {
-            fluxFEMenergyError += (fluxfem[i]-fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]-fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
-            fluxFEMrecEstimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
-        }
+            fluxFEMenergyError += (fluxfem[i]-fluxexact(i,0))*invperm*(fluxfem[i]-fluxexact(i,0));//Pq esta somando: o fluxo fem esta + e o exato -
+            fluxFEMrecEstimate += (fluxfem[i]-fluxreconstructed[i])*invperm*(fluxfem[i]-fluxreconstructed[i]);
     }
 
-#ifdef ERRORESTIMATION_DEBUG2
-    std::cout<<"potential fem "<<pressurefem<<std::endl;
-    std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
-    errors[0] = fluxFEMenergyError;//error flux exact
-    errors[1] = residual; //||f - Proj_divsigma||
-    errors[2] = fluxFEMrecEstimate;//NF: ||grad(u_h)+sigma_h)||
+    errors[0] = fluxFEMenergyError;// ||grad(u_h)-grad(u)||
+    errors[1] = fluxFEMrecEstimate;//NF: ||grad(u_h)+sigma_h)||
+    errors[2] = residual; //||f - Proj_divsigma||
 }
 
 
@@ -308,9 +271,12 @@ int TPZHybridH1HdivFluxRecMaterial::VariableIndex(const std::string &name) const
     if(name == "FluxExact") return 42;
     if(name == "PressureFem") return 43;
     if(name == "FluxSigmaReconstructed") return 39;
-    if(name == "FluxReconstructed") return 41;
-    if(name == "EnergyErrorExact") return 102;
     if(name == "POrder") return 46;
+
+    if(name == "EnergyErrorExact") return 100;
+    if(name == "NFIndex") return 101;
+    if(name == "NRIndex") return 102;
+
 
     return -1;
 }
@@ -321,12 +287,13 @@ int TPZHybridH1HdivFluxRecMaterial::NSolutionVariables(int var) const
     switch (var) {
     case 39:
     case 40:
-    case 41:
     case 42:
         return 3;
         break;
     case 43:
     case 46:
+    case 100:
+    case 101:
     case 102:
         return 1;
         break;
@@ -380,37 +347,21 @@ void TPZHybridH1HdivFluxRecMaterial::Solution(const TPZVec<TPZMaterialDataT<STAT
     {
     case 40://FluxFem
     {
-        TPZFMatrix<REAL> &dsolaxes = datavec[3].dsol[0];
+        TPZFMatrix<REAL> &dsolaxes = datavec[4].dsol[0];
         TPZFNMatrix<9, REAL> dsol(3, 0);
         TPZFNMatrix<9, REAL> KGradsol(3, 0);
-        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[3].axes);
+        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[4].axes);
 
         PermTensor.Multiply(dsol, KGradsol);
-
 
         for (int i = 0; i < 3; i++) Solout[i]  = -KGradsol(i,0);
     }
     break;
     //Flux reconstrucion
     case 39: // sigma_h
-    case 41:{// grad s_h
-        TPZFMatrix<REAL> &dsolaxes = datavec[H1functionposition].dsol[0];
-        TPZFNMatrix<9,REAL> dsol(3,0);
-        TPZFNMatrix<9,REAL> KGradsol(3,0);
-        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
-
-        PermTensor.Multiply(dsol,KGradsol);
-
-        if(var == 39){
-            for(int id=0 ; id<3; id++) {
-                Solout[id] = datavec[0].sol[0][id];
-            }
-        }else{
-            for(int id=0 ; id<3; id++) {
-                Solout[id] = -KGradsol(id,0);
-            }
+        for(int id=0 ; id<3; id++) {
+            Solout[id] = datavec[0].sol[0][id];
         }
-    }
     break;
     case 42://flux exact
         for(int i=0; i<dim; i++) Solout[i] = -fluxinv(i);

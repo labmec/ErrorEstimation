@@ -76,7 +76,7 @@ public:
     virtual void Write(TPZStream &buf, int withclassid) const override;
     
     virtual void Read(TPZStream &buf, void *context) override;
-    
+
     /** @brief Creates an associated boundary condition.
      @param[in] reference The volumetric material associated with the BC.
      @param[in] id Boundary condition identifier.
@@ -89,11 +89,12 @@ public:
                                         const TPZFMatrix<STATE> &val1,
                                         const TPZVec<STATE> &val2) override
     {
-        return new  TPZBndCondBase<STATE,TPZMatCombinedSpacesBC<STATE> >
+        return new  TPZBndCondBase<STATE,TPZMatCombinedSpacesBC<STATE> , TPZMatErrorCombinedSpacesBC<STATE>  >
         (reference,id, type,val1,val2);
     }
 
-    
+
+
 };
 
 #endif /* TPZMatLaplacianHybrid_hpp */

@@ -8,14 +8,15 @@
 #ifndef TPZHybridH1ErrorEstimator_hpp
 #define TPZHybridH1ErrorEstimator_hpp
 
-#include <stdio.h>
-#include "pzmanvector.h"
-#include "TPZHybridizeHDiv.h"
-#include "TPZCreateMultiphysicsSpace.h"
-#include "TPZMultiphysicsCompMesh.h"
-#include "TPZAnalyticSolution.h"
 #include "ProblemConfig.h"
 #include "TPZAnalysis.h"
+#include "TPZAnalyticSolution.h"
+#include "TPZCreateMultiphysicsSpace.h"
+#include "TPZHybridizeHDiv.h"
+#include "TPZMultiphysicsCompMesh.h"
+#include "pzmanvector.h"
+#include <stdio.h>
+// #include "../Projects/Tools/LoadCases.h"
 
 
 class TPZCompMesh;
@@ -179,21 +180,7 @@ protected:
 
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
-    
-    /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
-    void ComputeElementStiffnesses();
 
-    /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
-    void ComputeElementStiffnesses(TPZCompMesh &cmesh);
-
-    TPZMultiphysicsCompMesh *CreateFluxReconstructionMesh();
-
-    TPZCompMesh *CreateFluxReconstructionL2Mesh();
-
-    TPZCompMesh *CreateFluxReconstructionConstantMesh();
-
-    // a method for generating the HDiv mesh
-    TPZCompMesh *CreateFluxReconstructionHDivMesh();
     // a method for creating the pressure mesh
     virtual TPZCompMesh *CreatePressureMesh();
 
@@ -298,12 +285,12 @@ protected:
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
 
-    // Checks if lagrange coefficients are continuous
-    virtual void VerifyBoundaryFluxConsistency(TPZCompMesh* cmesh);
 
     // Verify if average were well executed
     void VerifyAverage(int target_dim);
   //  int FirstNonNullApproxSpaceIndex(TPZVec<TPZMaterialData> &datavec);
+
+    friend class TPZHybridH1CreateRecMeshes;
 
 protected:
 

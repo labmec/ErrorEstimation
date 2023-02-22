@@ -291,9 +291,6 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
         case 8:
             config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
             break;
-        case 9:
-            config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
-            break;
         default:
             DebugStop();
             break;
