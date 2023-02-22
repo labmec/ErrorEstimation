@@ -6,6 +6,7 @@
 //
 
 #include "TPZMatLaplacianHybrid.h"
+#include "DarcyFlow/TPZHybridDarcyFlow.h"
 #include "pzaxestools.h"
 
 TPZMatLaplacianHybrid::TPZMatLaplacianHybrid(int matid, int dim)
@@ -64,8 +65,8 @@ int TPZMatLaplacianHybrid::VariableIndex(const std::string &name) const
     if(name == "Pressure") return 44;
     if(name == "PressureExact") return 45;
     
-    if(name == "Flux") return 10;
-    if(name == "ExactFlux") return 13;
+    if(name == "Flux") return 7;
+    if(name == "ExactFlux") return 10;
     
     if(name == "ExactFluxShiftedOrigin") return 23;
     
@@ -74,7 +75,7 @@ int TPZMatLaplacianHybrid::VariableIndex(const std::string &name) const
 
 int TPZMatLaplacianHybrid::NSolutionVariables(int var) const {
     if(var == 44 || var==45) return 1;
-    if(var == 10 || var==13 || var == 23) return fDim;
+    if(var == 7 || var==10 || var == 23) return fDim;
     
     else{
         
@@ -355,45 +356,27 @@ void TPZMatLaplacianHybrid::Solution(const TPZVec<TPZMaterialDataT<STATE>> &data
         TPZMatLaplacian::Solution(datavec[1],var,Solout);
         return;
     }
-    
-    TPZFNMatrix<9,REAL> PermTensor(3,3);
-    TPZFNMatrix<9,REAL> InvPermTensor(3,3);
-    
+
     STATE perm = GetPermeability(datavec[1].x);
-    PermTensor.Diagonal(perm);
-    InvPermTensor.Diagonal(1./perm);
-    
-    
+
     TPZManVector<STATE,2> pressexact(1,0.);
-    TPZFNMatrix<9,STATE> grad(fDim,1,0.), fluxinv(fDim,1),gradu(fDim,1,0);//no TPZAnalytic solution grad é 3x1
-    
+    TPZFNMatrix<9,STATE> grad(fDim,1,0.);
+
     if(TPZMatErrorCombinedSpaces<STATE>::HasExactSol())
     {
         TPZMatErrorCombinedSpaces<STATE>::ExactSol()(datavec[1].x, pressexact,grad);
-        
-        for(int i = 1; i<fDim ; i++){
-            
-            gradu(i,0)=grad(i,0);
-        }
-        
-        
     }
-    
-    PermTensor.Multiply(gradu, fluxinv);
-    
-    
+
     switch (var)
     {
-            
-            
         case 44://PressureFem
             Solout[0] = datavec[1].sol[0][0];
             break;
         case 45://Pressure Exact
             Solout[0] = pressexact[0];
             break;
+        case 7:
         case 10:
-        case 13:
         case 23:
             TPZMatLaplacian::Solution(datavec[1],var,Solout);
             break;

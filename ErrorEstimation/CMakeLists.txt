@@ -6,6 +6,8 @@ add_library(ErrorEstimationLib
     TPZHDivErrorEstimator.h
     TPZHybridH1ErrorEstimator.cpp
     TPZHybridH1ErrorEstimator.h
+    TPZHybridH1CreateRecMeshes.cpp
+    TPZHybridH1CreateRecMeshes.cpp
     TPZMHMHDivErrorEstimator.cpp
     TPZMHMHDivErrorEstimator.h
     # Related tools
