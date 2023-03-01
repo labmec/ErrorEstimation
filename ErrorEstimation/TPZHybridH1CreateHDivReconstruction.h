@@ -2,24 +2,26 @@
 // Created by victor on 16/02/23.
 //
 
-#ifndef ERRORESTIMATION_TPZHYBRIDH1CREATERECMESHES_H
-#define ERRORESTIMATION_TPZHYBRIDH1CREATERECMESHES_H
+#ifndef ERRORESTIMATION_TPZHYBRIDH1CREATEHDIVRECONSTRUCTION_H
+#define ERRORESTIMATION_TPZHYBRIDH1CREATEHDIVRECONSTRUCTION_H
 
 #include "TPZMultiphysicsCompMesh.h"
+#include "TPZHybridH1ErrorEstimator.h"
 
 class TPZHybridH1ErrorEstimator;
 class TPZAnalysis;
 
-class TPZHybridH1CreateRecMeshes {
+class TPZHybridH1CreateHDivReconstruction {
 public:
-
-    TPZHybridH1CreateRecMeshes() {
+    TPZHybridH1CreateHDivReconstruction() {
         DebugStop();
     }
 
-    TPZHybridH1CreateRecMeshes(TPZHybridH1ErrorEstimator *pEstimator) : fHybridH1EE(pEstimator){};
+    TPZHybridH1CreateHDivReconstruction(TPZHybridH1ErrorEstimator *pEstimator) : fHybridH1EE(pEstimator){
+         fOriginal = pEstimator->fOriginal;
+     };
 
-    ~TPZHybridH1CreateRecMeshes();
+    ~TPZHybridH1CreateHDivReconstruction();
 
     TPZMultiphysicsCompMesh *CreateFluxReconstructionMesh();
 
@@ -36,9 +38,6 @@ public: // redundant description separates a subset of methods by functionality
     virtual void VerifyBoundaryFluxConsistency(TPZCompMesh* cmesh);
 
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
-    void ComputeElementStiffnesses();
-
-    /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses(TPZCompMesh &cmesh);
 
     void PrintSolutionVTK(TPZAnalysis &an);
@@ -47,6 +46,8 @@ public: // redundant description separates a subset of methods by functionality
 
 private:
     TPZHybridH1ErrorEstimator *fHybridH1EE;
+
+    TPZMultiphysicsCompMesh *fOriginal;
 };
 
-#endif // ERRORESTIMATION_TPZHYBRIDH1CREATERECMESHES_H
+#endif // ERRORESTIMATION_TPZHYBRIDH1CREATEHDIVRECONSTRUCTION_H

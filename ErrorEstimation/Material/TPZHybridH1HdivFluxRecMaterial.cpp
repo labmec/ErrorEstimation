@@ -74,112 +74,110 @@ void TPZHybridH1HdivFluxRecMaterial::Contribute(const TPZVec<TPZMaterialDataT<ST
     for all (v_h,w_h,t_h)
      **/
 
-    if(datavec[0].fActiveApproxSpace){
-        TPZFNMatrix<9,REAL> PermTensor(3,3);
-        TPZFNMatrix<9,REAL> InvPermTensor(3,3);
-        int dim = datavec[0].axes.Rows();
+    TPZFNMatrix<9,REAL> PermTensor(3,3);
+    TPZFNMatrix<9,REAL> InvPermTensor(3,3);
+    int dim = datavec[0].axes.Rows();
 
-        auto perm = GetPermeability(datavec[0].x);
-        PermTensor.Diagonal(perm);
-        InvPermTensor.Diagonal(1./perm);
+    auto perm = GetPermeability(datavec[0].x);
+    PermTensor.Diagonal(perm);
+    InvPermTensor.Diagonal(1./perm);
 
-        // Setting the phis
-        TPZFMatrix<REAL> &phiQ = datavec[0].phi;
-        //TPZFMatrix<REAL> &dphiQ = datavec[0].dphix;
-        TPZFMatrix<REAL> &phip = datavec[1].phi;
+    // Setting the phis
+    TPZFMatrix<REAL> &phiQ = datavec[0].phi;
+    //TPZFMatrix<REAL> &dphiQ = datavec[0].dphix;
+    TPZFMatrix<REAL> &phip = datavec[1].phi;
 
-        STATE force = 0.;
-        if(fForcingFunction) {
-            TPZManVector<STATE> res(1);
-            fForcingFunction(datavec[1].x,res);
-            force = res[0];
-        }
-
-
-        TPZFMatrix<REAL> &phiuk = datavec[0].phi;
-
-        int phrq,phrp;
-        phrq = datavec[0].fVecShapeIndex.NElements();
-        phrp = phip.Rows();
-
-        for(int iq=0; iq<phrq; iq++)
-        {
-            //ef(iq, 0) += 0.;
-            int ivecind = datavec[0].fVecShapeIndex[iq].first;
-            int ishapeind = datavec[0].fVecShapeIndex[iq].second;
-            TPZFNMatrix<3,REAL> ivec(3,1,0.);
-            for(int id=0; id<3; id++){
-                ivec(id,0) = datavec[0].fDeformedDirections(id,ivecind);
-            }
-
-            TPZFNMatrix<3,REAL> ivecZ(3,1,0.);
-            TPZFNMatrix<3,REAL> jvecZ(3,1,0.);
-            for (int jq=0; jq<phrq; jq++)
-            {
-
-                TPZFNMatrix<3,REAL> jvec(3,1,0.);
-                int jvecind = datavec[0].fVecShapeIndex[jq].first;
-                int jshapeind = datavec[0].fVecShapeIndex[jq].second;
-
-                for(int id=0; id<3; id++){
-                    jvec(id,0) = datavec[0].fDeformedDirections(id,jvecind);
-                }
-
-                //dot product between Kinv[u]v
-                jvecZ.Zero();
-                for(int id=0; id<3; id++){
-                    for(int jd=0; jd<3; jd++){
-                        jvecZ(id,0) += InvPermTensor(id,jd)*jvec(jd,0);
-                    }
-                }
-                /// (invK.sigma_h,v)_K
-                REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
-                ek(iq,jq) += 1.*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
-            }
-        }
-
-        // Coupling terms between flux and pressure. Matrix B
-        for(int iq=0; iq<phrq; iq++)
-        {
-            int ivecind = datavec[0].fVecShapeIndex[iq].first;
-            int ishapeind = datavec[0].fVecShapeIndex[iq].second;
-
-            TPZFNMatrix<3,REAL> ivec(3,1,0.);
-            for(int id=0; id<3; id++){
-                ivec(id,0) = datavec[0].fDeformedDirections(id,ivecind);
-                //ivec(1,0) = datavec[0].fDeformedDirections(1,ivecind);
-                //ivec(2,0) = datavec[0].fDeformedDirections(2,ivecind);
-            }
-            TPZFNMatrix<3,REAL> axesvec(3,1,0.);
-            datavec[0].axes.Multiply(ivec,axesvec);
-
-            REAL divwq = 0.;
-            divwq = datavec[0].divphi(ivecind);
-
-            for (int jp=0; jp<phrp; jp++) {
-                /// - (p_h,div v_h)
-                REAL fact = (-1.)*weight*phip(jp,0)*divwq;
-                // Matrix B
-                ek(iq, phrq+jp) += fact;
-
-                // Matrix B^T
-                ek(phrq+jp,iq) += fact;
-
-            }
-        }
-        //termo fonte referente a equacao da pressao
-        for(int ip=0; ip<phrp; ip++){
-            /// (f,v)
-            ef(phrq+ip,0) += (-1.)*weight*force*phip(ip,0);
-        }
-
-        for(int ip=0; ip<phrp; ip++){
-            /// (g_h,w_h)
-            ek(phrq+ip,phrq+phrp) += phip(ip,0)*weight;
-            ek(phrq+phrp,phrq+ip) += phip(ip,0)*weight;
-        }
-        ef(phrq+phrp,0) += weight*datavec[3].sol[0][0];
+    STATE force = 0.;
+    if(fForcingFunction) {
+        TPZManVector<STATE> res(1);
+        fForcingFunction(datavec[1].x,res);
+        force = res[0];
     }
+
+
+    TPZFMatrix<REAL> &phiuk = datavec[0].phi;
+
+    int phrq,phrp;
+    phrq = datavec[0].fVecShapeIndex.NElements();
+    phrp = phip.Rows();
+
+    for(int iq=0; iq<phrq; iq++)
+    {
+        //ef(iq, 0) += 0.;
+        int ivecind = datavec[0].fVecShapeIndex[iq].first;
+        int ishapeind = datavec[0].fVecShapeIndex[iq].second;
+        TPZFNMatrix<3,REAL> ivec(3,1,0.);
+        for(int id=0; id<3; id++){
+            ivec(id,0) = datavec[0].fDeformedDirections(id,ivecind);
+        }
+
+        TPZFNMatrix<3,REAL> ivecZ(3,1,0.);
+        TPZFNMatrix<3,REAL> jvecZ(3,1,0.);
+        for (int jq=0; jq<phrq; jq++)
+        {
+
+            TPZFNMatrix<3,REAL> jvec(3,1,0.);
+            int jvecind = datavec[0].fVecShapeIndex[jq].first;
+            int jshapeind = datavec[0].fVecShapeIndex[jq].second;
+
+            for(int id=0; id<3; id++){
+                jvec(id,0) = datavec[0].fDeformedDirections(id,jvecind);
+            }
+
+            //dot product between Kinv[u]v
+            jvecZ.Zero();
+            for(int id=0; id<3; id++){
+                for(int jd=0; jd<3; jd++){
+                    jvecZ(id,0) += InvPermTensor(id,jd)*jvec(jd,0);
+                }
+            }
+            /// (invK.sigma_h,v)_K
+            REAL prod1 = ivec(0,0)*jvecZ(0,0) + ivec(1,0)*jvecZ(1,0) + ivec(2,0)*jvecZ(2,0);
+            ek(iq,jq) += 1.*weight*phiQ(ishapeind,0)*phiQ(jshapeind,0)*prod1;
+        }
+    }
+
+    // Coupling terms between flux and pressure. Matrix B
+    for(int iq=0; iq<phrq; iq++)
+    {
+        int ivecind = datavec[0].fVecShapeIndex[iq].first;
+        int ishapeind = datavec[0].fVecShapeIndex[iq].second;
+
+        TPZFNMatrix<3,REAL> ivec(3,1,0.);
+        for(int id=0; id<3; id++){
+            ivec(id,0) = datavec[0].fDeformedDirections(id,ivecind);
+            //ivec(1,0) = datavec[0].fDeformedDirections(1,ivecind);
+            //ivec(2,0) = datavec[0].fDeformedDirections(2,ivecind);
+        }
+        TPZFNMatrix<3,REAL> axesvec(3,1,0.);
+        datavec[0].axes.Multiply(ivec,axesvec);
+
+        REAL divwq = 0.;
+        divwq = datavec[0].divphi(ivecind);
+
+        for (int jp=0; jp<phrp; jp++) {
+            /// - (p_h,div v_h)
+            REAL fact = (-1.)*weight*phip(jp,0)*divwq;
+            // Matrix B
+            ek(iq, phrq+jp) += fact;
+
+            // Matrix B^T
+            ek(phrq+jp,iq) += fact;
+
+        }
+    }
+    //termo fonte referente a equacao da pressao
+    for(int ip=0; ip<phrp; ip++){
+        /// (f,v)
+        ef(phrq+ip,0) += (-1.)*weight*force*phip(ip,0);
+    }
+
+    for(int ip=0; ip<phrp; ip++){
+        /// (g_h,w_h)
+        ek(phrq+ip,phrq+phrp) += phip(ip,0)*weight;
+        ek(phrq+phrp,phrq+ip) += phip(ip,0)*weight;
+    }
+    ef(phrq+phrp,0) += weight*datavec[3].sol[0][0];
 }
 
 void TPZHybridH1HdivFluxRecMaterial::FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const {

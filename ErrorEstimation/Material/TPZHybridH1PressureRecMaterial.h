@@ -8,8 +8,25 @@
 #include <stdio.h>
 #include "TPZMatLaplacianHybrid.h"
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "DarcyFlow/TPZDarcyFlow.h"
+#include "TPZNullMaterial.h"
 
 typedef TPZMixedDarcyFlow TPZMixedPoisson;
+
+
+class TPZHybridH1PressureSingleSpace : public TPZDarcyFlow{
+    public:
+    TPZHybridH1PressureSingleSpace() : TPZDarcyFlow() {}
+
+    TPZHybridH1PressureSingleSpace(int matid, int dim): TPZDarcyFlow(matid,dim) {}
+
+    virtual ~TPZHybridH1PressureSingleSpace() = default;
+
+    [[nodiscard]] int NSolutionVariables(int var) const override;
+
+    void Solution(const TPZMaterialDataT<STATE> &data, int var, TPZVec<STATE> &sol) override;
+
+};
 
 class TPZHybridH1PressureRecMaterial : public TPZMixedPoisson
 {
@@ -30,8 +47,7 @@ public:
 
     virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
 
-    virtual void ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,TPZFMatrix<STATE> &ef,TPZBndCondT<STATE> &bc) override;
-
+    void ContributeBC( const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) override;
 
     virtual void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
 
@@ -43,7 +59,7 @@ public:
 
     bool fNeumannLocalProblem = true;
 
-    virtual int NEvalErrors() const override {return 7;}
+    virtual int NEvalErrors() const override {return 4;}
 
     /// Compute the error and error estimate
     // error[0] - error computed with exact pressure
@@ -58,6 +74,11 @@ public:
 
     virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var,
                           TPZVec<STATE> &Solout) override;
+
+private:
+    int fLagrangeCoeffPosition = 0;
+    int fH1ReconstructionPosition = 1;
+    int fFEMbrokenH1Position = 2;
 };
 
 #endif // ERRORESTIMATION_TPZHYBRIDH1PRESSURERECMATERIAL_H

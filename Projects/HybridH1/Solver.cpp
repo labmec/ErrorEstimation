@@ -167,7 +167,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         TPZHybridH1ErrorEstimator HybridH1Estimate(*multiCmesh);
         HybridH1Estimate.fProblemConfig = config;
         HybridH1Estimate.SetAnalyticSolution(config.exact);
-        HybridH1Estimate.SetHybridizer(fluxMatID, 1, false);
+        HybridH1Estimate.SetLagrangeMatID(fluxMatID);
         HybridH1Estimate.CreateReconstructionSpaces();
 
         TPZManVector<REAL> elementerrors;
