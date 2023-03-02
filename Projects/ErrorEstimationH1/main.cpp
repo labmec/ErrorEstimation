@@ -664,7 +664,7 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
     
     {
         TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("State");
+        scalnames.Push("Solution");
         scalnames.Push("EstimatedError");
         scalnames.Push("TrueError");
         scalnames.Push("EffectivityIndex");

@@ -593,7 +593,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         //            an.PostProcess(1,meshmixed->Dimension());
         //        }
         
-        
+        //Recovery the initial comp. elements
         for (int64_t el = 0; el < nelem; el++) {
             meshmixed->ElementVec()[el] = elpointers[el];
         }
@@ -601,7 +601,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         meshmixed->ComputeNodElCon();
         
         TransferAndSumSolution(meshmixed);
-        ResetState();//TODO: I  need to understand it
+        ResetState(); //TODO: I  need to understand it
         
         an.SetStep(color);//TODO:: again, because?
         
@@ -618,11 +618,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         fMeshVector[Epatch]->Solution().Zero();
         an.Solution().Zero();
         
-    }//end color loop
+    }// color loop
     
     TPZLinearAnalysis an(meshmixed,false);
     an.Solution() = fSolution;
     an.LoadSolution();
+    
     TPZManVector<TPZCompMesh *,2> mixed(2);
     mixed[0] = fMeshVector[Epressure];
     mixed[1] = fMeshVector[Epatch];
@@ -1021,10 +1022,12 @@ void TPZPostProcessError::CreateMixedMesh()
                 locmat->SetSignConvention(-1);
                 material = locmat;
                 locmat->SetForcingFunction(mat->ForcingFunction(),mat->ForcingFunctionPOrder());
-                //incluindo os dados do problema
                 
+                
+                //incluindo os dados do problema
                 locmat->SetConstantPermeability(1.);
             }
+            
             mphysics->InsertMaterialObject(material);
         }
     }
@@ -1054,6 +1057,7 @@ void TPZPostProcessError::CreateMixedMesh()
     mphysics->BuildMultiphysicsSpace(activ, meshvec);
     
     mphysics->CleanUpUnconnectedNodes();
+    
     //------- Create and add group elements -------
     fMeshVector[Emulti] = mphysics;
 }

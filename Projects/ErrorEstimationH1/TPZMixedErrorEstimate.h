@@ -53,7 +53,7 @@ public:
     {
         fSignConvention = sign;
     }
-    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec);
+    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec)const override;
 
     /**
      * @brief It computes a contribution to the stiffness matrix and load vector at one integration point to multiphysics simulation.

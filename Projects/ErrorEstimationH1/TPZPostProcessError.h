@@ -74,7 +74,7 @@ struct TPZPatch
     
 };
  
-enum MMeshPositions {Eorigin = 4, Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3};
+enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
 
 class TPZPostProcessError
 {
