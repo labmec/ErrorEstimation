@@ -51,7 +51,7 @@ TPZHybridH1CreateH1Reconstruction::TPZHybridH1CreateH1Reconstruction(TPZHybridH1
        system(command.c_str());
 }
 
-TPZCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1ReconstructionMesh(){
+TPZMultiphysicsCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1ReconstructionMesh(){
 
     // Delete wrap comp-elements, and associate bc and create skeleton elements to H1 reconstruction atomic mesh.
     PrepareGeometricElements();
@@ -123,10 +123,11 @@ TPZCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1ReconstructionMesh(){
             //fMultiphysicsH1reconstructionMesh->MeshVector()[0]->Print(out2);
 
         }
-        VerifySolutionConsistency(PressureMesh());
+        VerifySolutionConsistency(fPressureMesh);
 #endif
     }
-    return fPressureMesh;
+
+    return fMultiphysicsH1reconstructionMesh;
 }
 
 void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
@@ -2690,101 +2691,236 @@ void TPZHybridH1CreateH1Reconstruction::VerifyAverage(int target_dim) {
     }
 }
 
+void TPZHybridH1CreateH1Reconstruction::PostProcess(TPZMultiphysicsCompMesh *postProcMesh){
+    TPZLinearAnalysis an(postProcMesh, false);
 
-/// compute the average pressures of the hybridized form of the H(div) mesh
-void TPZHybridH1CreateH1Reconstruction::ComputeAverageFacePressures() {
-    DebugStop();
-    /*TPZCompMesh *pressure = MeshVector()[1];
-    TPZCompMesh *pressure_mesh = fMultiphysicsH1reconstructionMesh->MeshVector()[1];
-    int fInterfaceMatid = fHybridizer.fLagrangeInterface;
-    TPZGeoMesh *gmesh = pressure->Reference();
-    gmesh->ResetReference();
-    int dim = gmesh->Dimension();
-    pressure->LoadReferences();
-    int64_t nel = pressure_mesh->NElements();
-    for (int64_t el = 0; el < nel; el++) {
-        TPZCompEl *cel = pressure_mesh->Element(el);
-        if (!cel || !cel->Reference() || cel->Reference()->Dimension() != dim - 1) {
-            continue;
-        }
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
-        TPZGeoEl *gel = cel->Reference();
-        if (gel->MaterialId() != fInterfaceMatid) {
-            continue;
-        }
-        if (!intel || gel->Dimension() != dim - 1) {
-            DebugStop();
-        }
-        int nc = cel->NConnects();
-        int order = cel->Connect(nc - 1).Order();
-        TPZGeoElSide gelside(gel, gel->NSides() - 1);
-        TPZStack<TPZCompElSide> celstack;
-        gelside.EqualLevelCompElementList(celstack, 1, 0);
-        TPZManVector<TPZTransform<REAL>, 2> tr(2);
-        tr[0] = gelside.NeighbourSideTransform(celstack[0].Reference());
-        {
-            TPZGeoEl *right = celstack[0].Element()->Reference();
-            TPZTransform<REAL> tmp = right->SideToSideTransform(celstack[0].Side(), right->NSides() - 1);
-            tr[0] = tmp.Multiply(tr[0]);
-        }
-        if (celstack.size() == 1) {
-            TPZCompElSide lowlevel = gelside.LowerLevelCompElementList2(1);
-            if (!lowlevel) {
-                DebugStop();
-            }
-            celstack.Push(lowlevel);
-            tr[1] = TPZTransform<REAL>(gelside.Dimension());
-            gelside.SideTransform3(lowlevel.Reference(), tr[1]);
-        } else if (celstack.size() == 2) {
-            tr[1] = gelside.NeighbourSideTransform(celstack[1].Reference());
-        } else {
-            DebugStop();
-        }
-        {
-            TPZGeoEl *right = celstack[1].Element()->Reference();
-            TPZTransform<REAL> tmp = right->SideToSideTransform(celstack[1].Side(), right->NSides() - 1);
-            tr[1] = tmp.Multiply(tr[1]);
-        }
+    if (fHybridH1EE->fExact) {
+        an.SetExact(fHybridH1EE->fExact->ExactSolution());
+    }
 
-        std::unique_ptr<TPZIntPoints> intp(gel->CreateSideIntegrationRule(gel->NSides() - 1, 2 * order));
-        int nshape = intel->NShapeF();
-        TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
-        TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dshape(dim, nshape);
-        int64_t npoints = intp->NPoints();
-        for (int64_t ip = 0; ip < npoints; ip++) {
-            TPZManVector<REAL, 3> pt(dim - 1, 0.), pt1(dim, 0.), pt2(dim, 0.), sol1(1), sol2(1);
-            REAL weight;
-            intp->Point(ip, pt, weight);
-            intel->Shape(pt, phi, dshape);
-            tr[0].Apply(pt, pt1);
-            tr[1].Apply(pt, pt2);
-            celstack[0].Element()->Solution(pt1, 0, sol1);//solucao a esquerda
-            celstack[1].Element()->Solution(pt2, 0, sol2);//solucao a direita
-                                                          //           std::cout << "Values " << sol1 << " " << sol2 << std::endl;
-                                                          //projecao L2 da media das soluceos no espaco Lh, do esqueleto da malha
-            for (int ishape = 0; ishape < nshape; ishape++) {
-                L2Rhs(ishape, 0) += weight * phi(ishape, 0) * (sol1[0] + sol2[0]) / 2.;
-                for (int jshape = 0; jshape < nshape; jshape++) {
-                    L2Mat(ishape, jshape) += weight * phi(ishape, 0) * phi(jshape, 0);
-                }
-            }
-        }
-        L2Mat.SolveDirect(L2Rhs, ECholesky);
-        //apos este passo temos uma pressao que é continua ao longo das interfaces dos elementos, nos esqueletos. Falta suavizar nos vértices
-        // L2Rhs.Print("Average pressure");
-        int count = 0;
-        for (int ic = 0; ic < nc; ic++) {
-            TPZConnect &c = cel->Connect(ic);
-            int64_t seqnum = c.SequenceNumber();
-            int64_t pos = pressure_mesh->Block().Position(seqnum);
-            int ndof = c.NShape() * c.NState();
-            for (int idf = 0; idf < ndof; idf++) {
-                pressure_mesh->Solution()(pos + idf, 0) = L2Rhs(count++);
-            }
+
+    auto errorVec = new TPZVec<REAL>;
+    int64_t nErrorCols = 4;
+    errorVec->resize(nErrorCols);
+    errorVec->Fill(0);
+    for (int64_t i = 0; i < nErrorCols; i++) {
+        (*errorVec)[i] = 0;
+    }
+
+    int64_t nelem = postProcMesh->NElements();
+    postProcMesh->LoadSolution(postProcMesh->Solution());
+    postProcMesh->ExpandSolution();
+    postProcMesh->ElementSolution().Redim(nelem, nErrorCols-1);
+    for(int64_t el = 0; el<nelem; el++)
+    {
+        TPZCompEl *cel = postProcMesh->Element(el);
+        TPZSubCompMesh *subc = dynamic_cast<TPZSubCompMesh *>(cel);
+        if(subc)
+        {
+            int64_t nelsub = subc->NElements();
+            subc->ElementSolution().Redim(nelsub, 6);
         }
     }
-    TPZManVector<TPZCompMesh *, 2> meshvec(2);
-    meshvec[0] = fMultiphysicsH1reconstructionMesh->MeshVector()[0];
-    meshvec[1] = fMultiphysicsH1reconstructionMesh->MeshVector()[1];
-    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, fMultiphysicsH1reconstructionMesh);
-*/}
+
+    bool store=true;
+    std::ofstream myDummyOfs;
+    an.PostProcessError(*errorVec, store, myDummyOfs);//calculo do erro com sol exata e aprox e armazena no elementsolution
+
+    std::cout << "\n############\n";
+    std::cout << "Computing Error H1 reconstruction\n";
+    std::cout <<        "||Grad(u_h)-Grad(u)||:  \t" << 
+    (*errorVec)[0] << "\n||Grad(s_h)-Grad(u)||:  \t" <<
+    (*errorVec)[1]<<  "\n||Grad(u_h)-Grad(s_h)||:\t"<< (*errorVec)[2]<<"\n\n";
+
+    TPZCompMeshTools::UnCondensedElements(postProcMesh);
+    TPZCompMeshTools::UnGroupElements(postProcMesh);
+
+    //Erro global
+    std::ofstream myfile;
+    myfile.open(fPressureReconstructionFolderOutput + "PressureReconstructionErrors.txt", std::ios::app);
+    myfile << "\n\n Estimator errors for H1 reconstruction " << fHybridH1EE->fProblemConfig.problemname;
+    myfile << "\n-------------------------------------------------- \n";
+    myfile << "Ndiv = " << fHybridH1EE->fProblemConfig.ndivisions <<" Order k= " << fHybridH1EE->fProblemConfig.k << " Order n= "<< fHybridH1EE->fProblemConfig.n<<"\n";
+    myfile << "||K^{0.5}.grad(u_h-u)|| = " << (*errorVec)[0] << "\n";
+    myfile << "||K^{0.5}.grad(s_h-u)|| = " << (*errorVec)[1] << "\n";
+    myfile << "||K^{0.5}.grad(u_h-s_h)|| = " << (*errorVec)[2] << "\n";
+    
+    myfile.close();
+
+    PrintSolutionVTK(an);
+}
+
+
+// Supposed to check if space is indeed H1-conform;
+// Function should break otherwise...
+void TPZHybridH1CreateH1Reconstruction::VerifySolutionConsistency(TPZCompMesh *cmesh) {
+    {
+        std::ofstream outvtk("MeshToVerifyConsistency.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
+
+        std::ofstream mamesh("thisismymash.txt");
+        fPressureMesh->Print(mamesh);
+
+        std::ofstream mygeomesh("thismygeomesh.txt");
+        fPressureMesh->Reference()->Print(mygeomesh);
+
+    }
+
+    cmesh->Reference()->ResetReference();    
+    cmesh->LoadReferences();
+
+    int64_t nel = cmesh->NElements();
+    int dim = cmesh->Reference()->Dimension();
+    
+    // Iterates through all elements of the mesh
+    for (int64_t iel = 0; iel < nel; iel++) {
+        TPZCompEl *cel = cmesh->Element(iel);
+        if (!cel) continue;
+        
+        // Filters elements of highest dimension (2 or 3)
+        TPZGeoEl *gel = cel->Reference();
+        if (gel->Dimension() != dim) continue;
+        
+        // Iterates through the sides of the element
+        int nsides = gel->NSides();
+        for (int iside = 0; iside < nsides; iside++) {
+            TPZGeoElSide gelside(gel, iside);
+            
+            // Filters sides of lower dimension
+            if (gelside.Dimension() == dim) continue;
+            
+            // Gets compel sides of equal and lower (if existing) level linked to the gelside
+            TPZStack<TPZCompElSide> celstack;
+            gelside.EqualLevelCompElementList(celstack, 1, 0);
+            
+            TPZCompElSide large = gelside.LowerLevelCompElementList2(1);
+            if (large) celstack.Push(large);
+            
+            if (celstack.size() == 0) continue;
+            
+            int intOrder = 3;
+            
+            TPZIntPoints *intRule = gelside.CreateIntegrationRule(intOrder);
+            
+            // Iterates through the comp sides connected to the reference gelside
+            int nstack = celstack.size();
+            for (int ist = 0; ist < nstack; ist++) {
+                TPZCompElSide cneighbour = celstack[ist];
+                if (!cneighbour) continue;
+                TPZGeoElSide neighbour = cneighbour.Reference();
+                
+                // Filters comp sides in elements of highest dimension (2 or 3)
+                if (neighbour.Element()->Dimension() != dim) continue;
+                
+                // Verifies if coordinates on neighbours are the same
+                TPZTransform<REAL> transform(gelside.Dimension());
+                gelside.SideTransform3(neighbour, transform);
+                
+                TPZManVector<REAL> pt0(gelside.Dimension(), 0);
+                TPZManVector<REAL> pt1(neighbour.Dimension(), 0);
+                
+                int npoints = intRule->NPoints();
+                for (int ipt = 0; ipt < npoints; ipt++) {
+                    REAL weight;
+                    // Gets point in side parametric space from integration rule
+                    intRule->Point(ipt, pt0, weight);
+                    // Gets point in neighbour parametric space
+                    transform.Apply(pt0, pt1);
+                    
+                    // Transform from parametric to global coordinates
+                    TPZManVector<REAL> x0(3);
+                    TPZManVector<REAL> x1(3);
+                    
+                    gelside.X(pt0, x0);
+                    neighbour.X(pt1, x1);
+                    
+                    // Maps pt0 and pt1 to volume and gets solution on this points
+                    TPZTransform<REAL> sideToVolume(dim, dim);
+                    sideToVolume = gelside.Element()->SideToSideTransform(iside, nsides - 1);
+                    
+                    TPZManVector<REAL> pt0_vol(dim, 0);
+                    sideToVolume.Apply(pt0, pt0_vol);
+                    TPZManVector<STATE> sol0(1);
+                    cel->Solution(pt0_vol, 0, sol0);
+                    
+                    TPZTransform<REAL> neighSideToVolume(dim, dim);
+                    neighSideToVolume = neighbour.Element()->SideToSideTransform(cneighbour.Side(), neighbour.Element()->NSides() - 1);
+                    
+                    TPZManVector<REAL> pt1_vol(dim, 0);
+                    neighSideToVolume.Apply(pt1, pt1_vol);
+                    TPZManVector<STATE> sol1(1);
+                    cneighbour.Element()->Solution(pt1_vol, 0, sol1);
+
+//#ifdef LOG4CXX
+ //                   if (logger->isDebugEnabled()) {
+                        if (!IsZero(sol1[0] - sol0[0])) {
+                            std::stringstream sout;
+                            sout << "\ngel/side =  " << gelside.Id() <<"/" << gelside.Side() << "\n";
+                            sout << "neigh/side =  " << neighbour.Id() <<"/" << neighbour.Side() << "\n";
+                            sout << "Side solution =  " << sol0[0] << "\n";
+                            sout << "Neigh solution = " << sol1[0] << "\n";
+                            sout << "Diff = " << sol1[0] - sol0[0] << "\n";
+                            sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+                            sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+                            std::cout << sout.str(); // TODO remove
+                            DebugStop();
+                            //LOGPZ_DEBUG(logger, sout.str())
+                        }
+                    //}
+//#endif
+                    
+                    // Checks pressure value on these nodes
+                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
+                    if (!intel) DebugStop();
+                }
+            }
+            delete intRule;
+        }
+    }
+}
+
+void TPZHybridH1CreateH1Reconstruction::PrintSolutionVTK(TPZAnalysis &an){
+
+    TPZMaterial *mat = fMultiphysicsH1reconstructionMesh->FindMaterial(*fHybridH1EE->fProblemConfig.materialids.begin());
+    int varindex = -1;
+    if (mat) varindex = mat->VariableIndex("PressureFem");
+    if (varindex != -1) {
+        TPZStack<std::string> scalnames, vecnames;
+        if (fHybridH1EE->fExact) {
+            scalnames.Push("PressureExact");
+            scalnames.Push("GradFEMerror");
+            scalnames.Push("GradReconstructionH1Error");
+            vecnames.Push("FluxExact");
+        }
+        vecnames.Push("FluxFem");
+        vecnames.Push("GradReconstructed");
+        scalnames.Push("PressureFem");
+        scalnames.Push("PressureReconstructed");
+        scalnames.Push("GradFEMreconstructionsH1Error");
+        scalnames.Push("POrder");
+
+        int dim = fMultiphysicsH1reconstructionMesh->Reference()->Dimension();
+
+        std::stringstream out;
+        out << fPressureReconstructionFolderOutput << fHybridH1EE->fProblemConfig.problemname
+            << "_k_" << fHybridH1EE->fProblemConfig.k << "_n_"
+            << fHybridH1EE->fProblemConfig.n;
+        if (fHybridH1EE->fProblemConfig.ndivisions != -1) {
+            out << "_Ndiv_" << fHybridH1EE->fProblemConfig.ndivisions;
+        }
+        if (fHybridH1EE->fProblemConfig.adaptivityStep != -1) {
+            out << "_AdaptivityStep_" << fHybridH1EE->fProblemConfig.adaptivityStep;
+        }
+        out << ".vtk";
+
+        int res =2;
+        if(fOriginal->NEquations()<100){
+            res=6;
+        }
+        an.DefineGraphMesh(dim, scalnames, vecnames, out.str());
+        an.PostProcess(res, dim);
+    }
+    else {
+        std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
+    }
+}

@@ -176,24 +176,6 @@ void TPZHybridH1PressureRecMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<
         u_D = res[0];
         g = normalsigma;
 
-
-        /*TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
-        GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
-
-
-        for(int i=0; i<3; i++)
-        {
-            for(int j=0; j<3; j++)
-            {
-
-                normflux += datavec[2].normal[i]*PermTensor(i,j)*gradu(j,0);
-            }
-        }*/
-
-
-
-
-
     } else {
         // usualmente updatebc coloca o valor exato no val2
         u_D = bc.Val2()[0];
@@ -278,25 +260,24 @@ void TPZHybridH1PressureRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
 
-
-    STATE divsigmarec, pressurefem, pressurereconstructed, forceProj;
+    STATE divsigmarec, u_h, s_h, forceProj;
 
     TPZFNMatrix<3,REAL> fluxreconstructed(3,1), KGradSh(3,1), gradreconstructed(3,1);
-    TPZFMatrix<REAL> gradfem,KGradUh(3,1);
+    TPZFMatrix<REAL> gradfemaxes(3,1),gradfem(3,1),KGradUh(3,1);
 
-    gradfem=data[fFEMbrokenH1Position].dsol[0];
-    gradfem.Resize(3,1);
+    gradfemaxes=data[fFEMbrokenH1Position].dsol[0];
+    TPZAxesTools<REAL>::Axes2XYZ(gradfemaxes,gradfem,data[fFEMbrokenH1Position].axes);
 
-    pressurereconstructed = data[fH1ReconstructionPosition].sol[0][0];
-    pressurefem = data[fFEMbrokenH1Position].sol[0][0];
+    s_h = data[fH1ReconstructionPosition].sol[0][0];
+    u_h = data[fFEMbrokenH1Position].sol[0][0];
 
     auto perm = GetPermeability(data[fH1ReconstructionPosition].x);
     auto invperm = 1./perm;
 
-    TPZFNMatrix<3,REAL> KGradU;
+    TPZFNMatrix<3,REAL> KGradU(3,1);
     {
         for (int i=0; i<3; i++) {
-            KGradU(i,0) = (-1.)*perm*du_exact[i];
+            KGradU(i,0) = perm*du_exact[i];
             KGradUh(i,0) = perm*gradfem(i,0);
         }
     }
@@ -310,6 +291,7 @@ void TPZHybridH1PressureRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
 
     REAL FEMexactError = 0.;
     REAL FEMreconstructionError = 0.;
+    REAL reconstructionExactError =0.;
 
 #ifdef ERRORESTIMATION_DEBUG2
     std::cout<<"flux fem "<<fluxfem<<std::endl;
@@ -319,6 +301,7 @@ void TPZHybridH1PressureRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
 
     for (int i=0; i<3; i++) {
         FEMexactError += (KGradUh[i]-KGradU(i,0))*invperm*(KGradUh[i]-KGradU(i,0));
+        reconstructionExactError += (KGradSh[i]-KGradU[i])*invperm*(KGradSh[i]-KGradU[i]);
         FEMreconstructionError += (KGradUh[i]-KGradSh[i])*invperm*(KGradUh[i]-KGradSh[i]);
     }
 
@@ -327,10 +310,10 @@ void TPZHybridH1PressureRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
     std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
     std::cout<<"-------"<<std::endl;
 #endif
-    errors[0] = (pressurefem-u_exact[0])*(pressurefem-u_exact[0]);//exact error pressure
-    errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
-    errors[2] = FEMexactError; //          ||grad(u_h-u)||
-    errors[3] = FEMreconstructionError; // NFC: ||grad(u_h-s_h)||
+    
+    errors[0] = FEMexactError;             // ||grad(u_h-u)||
+    errors[1] = reconstructionExactError;  // ||grad(s_h-u)||
+    errors[2] = FEMreconstructionError;    // ||grad(u_h-s_h)||
 }
 
 
@@ -341,12 +324,11 @@ int TPZHybridH1PressureRecMaterial::VariableIndex(const std::string &name) const
     if(name == "FluxExact") return 42;
     if(name == "PressureFem") return 43;
     if(name == "PressureReconstructed") return 44;
-    if(name == "FluxReconstructed") return 41;
+    if(name == "GradReconstructed") return 41;
     if(name == "PressureExact") return 45;
-    if(name == "PressureErrorExact") return 100;
-    if(name == "PressureErrorEstimate") return 101;
-    if(name == "EnergyErrorExact") return 102;
-    if(name == "NCIndex") return 103;
+    if(name == "GradFEMerror") return 100;
+    if(name == "GradReconstructionH1Error") return 101;
+    if(name == "GradFEMreconstructionsH1Error") return 102;
     if(name == "POrder") return 46;
 
     return -1;
@@ -364,10 +346,10 @@ int TPZHybridH1PressureRecMaterial::NSolutionVariables(int var) const
     case 43:
     case 44:
     case 45:
+    case 46:
     case 100:
     case 101:
     case 102:
-    case 103:
         return 1;
         break;
     default:
@@ -413,10 +395,10 @@ void TPZHybridH1PressureRecMaterial::Solution(const TPZVec<TPZMaterialDataT<STAT
     {
     case 40://FluxFem
     {
-        TPZFMatrix<REAL> &dsolaxes = datavec[3].dsol[0];
+        TPZFMatrix<REAL> &dsolaxes = datavec[fFEMbrokenH1Position].dsol[0];
         TPZFNMatrix<9, REAL> dsol(3, 0);
         TPZFNMatrix<9, REAL> KGradsol(3, 0);
-        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[3].axes);
+        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[fFEMbrokenH1Position].axes);
 
         for(int i=0;i<3;i++)
             KGradsol = perm*dsol;

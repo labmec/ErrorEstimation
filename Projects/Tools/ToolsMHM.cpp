@@ -449,7 +449,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
     TPZSSpStructMatrix<> strmat(cmesh.operator->());
     strmat.SetNumThreads(0/*config.n_threads*/);
 #else
-    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    TPZSkylineStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(config.n_threads);
 #endif
 
