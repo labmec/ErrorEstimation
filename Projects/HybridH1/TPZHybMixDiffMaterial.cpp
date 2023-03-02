@@ -29,7 +29,7 @@ TPZHybMixDiffMaterial::TPZHybMixDiffMaterial(TPZMatLaplacianHybrid &matlaplacian
     this->SetDimension(matlaplacian.Dimension());
     
     STATE Ks;
-    matlaplacian.GetPermeability(Ks);
+    Ks = matlaplacian.GetPermeability({0,0,0});
     this->SetConstantPermeability(Ks);
     
     if (matlaplacian.HasForcingFunction()) {

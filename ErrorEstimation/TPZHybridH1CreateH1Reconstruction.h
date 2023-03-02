@@ -23,7 +23,7 @@ public:
 
     ~TPZHybridH1CreateH1Reconstruction();
 
-    TPZCompMesh *CreateH1ReconstructionMesh();
+    TPZMultiphysicsCompMesh *CreateH1ReconstructionMesh();
 
     ///  Insert BC material into the pressure mesh material vector,
     ///  Create computational element on BC elements
@@ -83,9 +83,6 @@ public:
     /// compute the nodal average of all elements that share a point
     void ComputeNodalAverage(TPZCompElSide &node_celside);
 
-    /// compute the average pressures of across faces of the H(div) mesh
-    void ComputeAverageFacePressures();
-
     ///Legacy code. Is this required?
     void NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
     void BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim);
@@ -95,6 +92,9 @@ public:
 
     void ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
 
+    void PostProcess(TPZMultiphysicsCompMesh *postProcMesh);
+
+    void PrintSolutionVTK(TPZAnalysis &an);
 
     // Verify if average were well executed
     void VerifyAverage(int target_dim);
@@ -118,6 +118,9 @@ public:
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 
     void GetPressureMatIDs(std::set<int> &matIDs);
+
+    // Checks if the solution is in fact continuous
+    virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
 
 private:
     TPZHybridH1ErrorEstimator *fHybridH1EE;

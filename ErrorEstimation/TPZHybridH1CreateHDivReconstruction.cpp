@@ -335,7 +335,9 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(TPZMultiphysicsCompMesh *p
     bool store=true;
     an.PostProcessError(*errorVec, store);//calculo do erro com sol exata e aprox e armazena no elementsolution
 
-    std::cout << "\n\n############\n\n";
+    std::cout << "\n############\n";
+    std::cout << "Computing Error H1 reconstruction\n";
+    std::cout << "||Grad(u_h)-Grad(u)||:\t" << (*errorVec)[0] << "\n||Grad(u_h)+t_h||:\t" << (*errorVec)[1]<< "\n||div(t_h)-f||:\t"<< (*errorVec)[2]<<"\n\n";
 
     TPZCompMeshTools::UnCondensedElements(postProcMesh);
     TPZCompMeshTools::UnGroupElements(postProcMesh);
@@ -353,7 +355,6 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(TPZMultiphysicsCompMesh *p
     myfile.close();
 
     PrintSolutionVTK(an);
-
 }
 
 void TPZHybridH1CreateHDivReconstruction::PrintSolutionVTK(TPZAnalysis &an){
