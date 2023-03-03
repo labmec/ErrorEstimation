@@ -166,6 +166,7 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
                         DebugStop(); // this should not be evoked unless multiple volumetric ids are invoked.
                     }
                     bc->SetMaterial(EEMat);
+                    fMultiphysicsReconstructionMesh->InsertMaterialObject(bc);
                 }
             }
         }
@@ -207,14 +208,14 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::ofstream outFCon(dirPath + "HdivFluxAfterLoadSolConnects.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outFCon, {}, false, true);
-        std::ofstream outF(dirPath + "HdivFluxAfterLoadSol.txt");
-        cmeshHdiv->Print(outF);
-        std::ofstream outMultF(dirPath + "HdivMultFluxAfterLoadSol.txt");
-        HdivRecMesh.Print(outMultF);
-        std::ofstream outvtk(dirPath + "fluxmesh.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(cmeshHdiv, outvtk);
+        //std::ofstream outFCon(fFolderOutput + "HdivFluxAfterLoadSolConnects.txt");
+        //TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outFCon, {}, false, true);
+        std::ofstream outF(fFolderOutput + "HdivRecAtomic.txt");
+        fMultiphysicsReconstructionMesh->MeshVector()[0]->Print(outF);
+        std::ofstream outMultF(fFolderOutput + "HDivRecMulti.txt");
+        fMultiphysicsReconstructionMesh->Print(outMultF);
+        std::ofstream outvtk(fFolderOutput + "HDivRecAtomicGeoMesh.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(fMultiphysicsReconstructionMesh->MeshVector()[0], outvtk);
     }
 #endif
 
