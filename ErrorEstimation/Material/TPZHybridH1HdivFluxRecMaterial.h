@@ -39,8 +39,6 @@ public:
         return new TPZHybridH1HdivFluxRecMaterial(*this);
     }
 
-    bool fNeumannLocalProblem = true;
-
     virtual int NEvalErrors() const override {return 3;}
 
     /// Compute the error and error estimate
@@ -57,6 +55,14 @@ public:
 
     virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var,
                           TPZVec<STATE> &Solout) override;
+
+    private:
+    
+    int fHDivReconstructionMeshIndex = 0;
+    int fL2MeshIndex =                 1;
+    int fGspaceMeshIndex =             2;
+    int fAvgSpaceMeshIndex =           3;
+    int fFEMPotentialMeshIndex =       4;
 };
 
 #endif // ERRORESTIMATION_TPZHYBRIDH1HDIVFLUXRECMATERIAL_H
