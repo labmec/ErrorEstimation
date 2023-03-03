@@ -123,7 +123,7 @@ void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
 
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
     int varindex = -1;
-    if (mat) varindex = mat->VariableIndex("PressureFem");
+    if (mat) varindex = mat->VariableIndex("PressureFEM");
     if (varindex != -1) {
         TPZStack<std::string> scalnames, vecnames;
         if (fExact) {
@@ -134,7 +134,7 @@ void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
             scalnames.Push("EnergyEffectivityIndex");
             vecnames.Push("FluxExact");
         }
-        scalnames.Push("PressureFem");
+        scalnames.Push("PressureFEM");
         scalnames.Push("PressureReconstructed");
         scalnames.Push("PressureErrorEstimate");
         scalnames.Push("EnergyErrorEstimate");

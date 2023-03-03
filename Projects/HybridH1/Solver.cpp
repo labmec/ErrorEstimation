@@ -19,6 +19,7 @@
 #include "MeshInit.h"
 #include "TPZHybridH1ErrorEstimator.h"
 #include "TPZHybridH1CreateHDivReconstruction.h"
+#include "TPZHybridH1CreateH1Reconstruction.h"
 #include "InputTreatment.h"
 #include "ForcingFunction.h"
 #include "TPZFrontSym.h"
@@ -170,9 +171,14 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
     //if(preConfig.topologyMode != 2) DebugStop();
     if(preConfig.mode == 1){
         auto estimatorConfig = new EstimatorConfig(multiCmesh,config,fluxMatID);
+
         auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction(estimatorConfig);
         auto myHdivMesh = myHdivMeshCreator->CreateFluxReconstructionMesh();
         myHdivMeshCreator->PostProcess(myHdivMesh);
+
+        auto myH1MeshCreator = new TPZHybridH1CreateH1Reconstruction(estimatorConfig);
+        TPZMultiphysicsCompMesh* myH1Mesh = myH1MeshCreator->CreateH1ReconstructionMesh();
+        myH1MeshCreator->PostProcess(myH1Mesh);
 
         TPZHybridH1ErrorEstimator HybridH1Estimate(*multiCmesh);
         HybridH1Estimate.fProblemConfig = config;
@@ -438,9 +444,6 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         std::cout << "Computing Error HYBRID_H1" << std::endl;
         an.SetExact(config.exact.operator*().ExactSolution());
 
-
-        std::ofstream hybridH1mesh("hybridH1mesh.txt"); cmesh_H1Hybrid->Print(hybridH1mesh);
-        std::ofstream lambdamesh("lambdamesh.txt"); cmesh_H1Hybrid->MeshVector()[0]->Print(lambdamesh);
         ////Calculo do erro
         StockErrors(an,cmesh_H1Hybrid,pConfig.Erro,pConfig.Log,pConfig);
         std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
@@ -571,7 +574,9 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
 
     an.PostProcessError(Errors, store_errors, Erro);
 
-    std::cout << "||u_h-u||:\t" <<Errors[0] << "\n||Grad(u_h)-Grad(u)||:\t" << Errors[1]<< "\nEnergy:\t"<< Errors[2]<<"\n\n";
+    std::cout << "||u_h-u||:            \t" <<Errors[0] << 
+               "\n||Grad(u_h)-Grad(u)||:\t" << Errors[1]<< 
+               "\nEnergy:               \t"<< Errors[2]<<"\n\n";
 
     if ((*Log)[0] != -1) {
         for (int j = 0; j < 3; j++) {

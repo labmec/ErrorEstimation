@@ -8,24 +8,98 @@
 #include "pzerror.h"
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZHybridH1ErrorEstimator.h"
+#include "TPZHybridH1ReconstructionBase.h"
+#include "ProblemConfig.h"
+#include "TPZMaterial.h"
+#include "TPZBndCond.h"
+#include "TPZHybridH1PressureRecMaterial.h"
 
 class TPZHybridH1ErrorEstimator;
 class TPZAnalysis;
 
 
-class TPZHybridH1CreateH1Reconstruction{
+class TPZHybridH1CreateH1Reconstruction: public TPZHybridH1ReconstructionBase {
 public:
     TPZHybridH1CreateH1Reconstruction() {
         DebugStop();
     }
 
-    TPZHybridH1CreateH1Reconstruction(TPZHybridH1ErrorEstimator *pEstimator);
+    TPZHybridH1CreateH1Reconstruction(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
+       
+        fFolderOutput = "H1RecDebug/"; 
 
-    ~TPZHybridH1CreateH1Reconstruction();
+        InitializeFolderOutput();
+
+        FindFreeMatID(fPressureSkeletonMatId);
+
+        fPressureMesh = pEstimator->fOriginal->MeshVector()[1]->Clone();
+        auto &matvec = fPressureMesh->MaterialVec();
+        for(auto mat : matvec){
+            int matdim = mat.second->Dimension();
+            if(matdim == fPressureMesh->Dimension()){
+                auto isbc = dynamic_cast<TPZBndCond *> (mat.second);
+                if (isbc) continue;
+                auto singleSpaceMat = new TPZHybridH1PressureSingleSpace(mat.first,matdim);
+                matvec[mat.first] = singleSpaceMat;
+            }
+        }
+     };
+
+    ~TPZHybridH1CreateH1Reconstruction(){
+
+    };
 
     TPZMultiphysicsCompMesh *CreateH1ReconstructionMesh();
 
-    ///  Insert BC material into the pressure mesh material vector,
+    void PostProcess(TPZMultiphysicsCompMesh *postProcMesh);
+
+    // Checks if the solution is in fact continuous
+    virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
+
+    inline TPZCompMesh* GetReconstructionMesh(){
+        return fPressureMesh;
+    }
+
+
+protected:
+
+    void FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames) override;
+
+private:
+ 
+     /// Find free matID number
+    void FindFreeMatID(int &matID);
+
+    void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
+
+    // If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side.
+    bool LiesOnHangingSide(TPZCompElSide &node_celside);
+
+    // Impose the solution on a hanging side
+    void ImposeHangingNodeSolution(TPZCompElSide &node_celside);
+
+    /// compute the nodal average of all elements that share a point
+    void ComputeNodalAverage(TPZCompElSide &node_celside);
+
+    ///Legacy code. Is this required?
+    void NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
+    void BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim);
+
+    // compute the average of an element iel in the pressure mesh looking at its neighbours
+    void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
+
+    void ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
+
+    /// compute the average pressures of across edges of the H(div) mesh
+    virtual void ComputeAveragePressures(int target_dim);
+
+    /// transfer the solution of the edge functions to the face functions
+    void TransferEdgeSolution();
+
+    /// set the cornernode values equal to the averages
+    virtual void ComputeNodalAverages();
+
+     ///  Insert BC material into the pressure mesh material vector,
     ///  Create computational element on BC elements
     void AddBC2PressureMesh();
 
@@ -62,40 +136,6 @@ public:
     // Checks if the skeleton is continuous
     void VerifySkeletonContinuity();
 
-    /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
-    void ComputeElementStiffnesses();
-
-    /// compute the average pressures of across edges of the H(div) mesh
-    virtual void ComputeAveragePressures(int target_dim);
-
-    /// transfer the solution of the edge functions to the face functions
-    void TransferEdgeSolution();
-
-    /// set the cornernode values equal to the averages
-    virtual void ComputeNodalAverages();
-
-    // If all nodal (0-dimensional) connects linked to this node have dependency, it lies* on a hanging side.
-    bool LiesOnHangingSide(TPZCompElSide &node_celside);
-
-    // Impose the solution on a hanging side
-    void ImposeHangingNodeSolution(TPZCompElSide &node_celside);
-
-    /// compute the nodal average of all elements that share a point
-    void ComputeNodalAverage(TPZCompElSide &node_celside);
-
-    ///Legacy code. Is this required?
-    void NewComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
-    void BoundaryPressureProjection(TPZCompMesh *pressuremesh, int target_dim);
-
-    // compute the average of an element iel in the pressure mesh looking at its neighbours
-    void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
-
-    void ComputeBoundaryL2Projection(TPZCompMesh *pressuremesh,int target_dim);
-
-    void PostProcess(TPZMultiphysicsCompMesh *postProcMesh);
-
-    void PrintSolutionVTK(TPZAnalysis &an);
-
     // Verify if average were well executed
     void VerifyAverage(int target_dim);
 
@@ -115,29 +155,22 @@ public:
 
     static TPZGeoElSide HasNeighbour(const TPZGeoElSide &gelside, int matid);
 
-    void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
-
     void GetPressureMatIDs(std::set<int> &matIDs);
 
-    // Checks if the solution is in fact continuous
-    virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
+
 
 private:
-    TPZHybridH1ErrorEstimator *fHybridH1EE;
 
     TPZCompMesh* fPressureMesh = NULL;
 
-    TPZMultiphysicsCompMesh *fMultiphysicsH1reconstructionMesh = NULL;
-
-    TPZMultiphysicsCompMesh *fOriginal;
+    // material id of the dim-1 skeleton elements
+    int fPressureSkeletonMatId;
 
     /// weights associated with the dim-1 pressure elements to compute the averages
     TPZVec<REAL> fPressureweights;
 
     /// weights associated with material ids
     std::map<int,REAL> fMatid_weights;
-
-    std::string fPressureReconstructionFolderOutput = "H1RecDebug/";
 
     /// Compute average pressure between skeletons on hanging nodes mode;
     /// 1 : average between both skeletons; 2 : Just small skeleton; 3 : weighted average w~1/h^(p+1)

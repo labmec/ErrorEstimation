@@ -34,9 +34,6 @@ struct TPZHybridH1ErrorEstimator
     /// Computational mesh with pressure and flux reconstructions
     TPZMultiphysicsCompMesh fPostProcMesh;
 
-    // material id of the dim-1 skeleton elements
-    int fPressureSkeletonMatId;
-
     int fLagrangeMatId = -999;
     
     TPZAnalyticSolution *fExact;
@@ -48,18 +45,17 @@ struct TPZHybridH1ErrorEstimator
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh) : fOriginal(&InputMesh),
     fPostProcMesh(0),fExact(NULL)
     {
-        FindFreeMatID(fPressureSkeletonMatId);
+        
     }
 
     TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
-                                                                    fPostProcMesh(0),fExact(NULL),
-                                                                    fPressureSkeletonMatId(fPressureSkeletonMatId)
+                                                                    fPostProcMesh(0),fExact(NULL)
     {
 
     }
     
     TPZHybridH1ErrorEstimator(const TPZHybridH1ErrorEstimator &copy) : fOriginal(copy.fOriginal),
-        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig),fPressureSkeletonMatId(copy.fPressureSkeletonMatId)
+        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig)
     {
         // this method wont work because multiphysics meshes have no copy constructor (yet)
         DebugStop();
@@ -74,7 +70,6 @@ struct TPZHybridH1ErrorEstimator
         fPostProcMesh = cp.fPostProcMesh;
         fExact = cp.fExact;
         fProblemConfig = cp.fProblemConfig;
-        fPressureSkeletonMatId = cp.fPressureSkeletonMatId;
         return *this;
     }
     
@@ -117,9 +112,6 @@ protected:
     /// Insert material for HDiv reconstruction
     /// Switch H1 material for H1 reconstruction material
     virtual void SwitchMaterialObjects();
-
-    /// Find free matID number
-    void FindFreeMatID(int &matID);
     
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices(double &globalIndex);

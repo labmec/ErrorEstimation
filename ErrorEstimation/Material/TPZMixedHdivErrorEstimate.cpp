@@ -68,7 +68,7 @@ int TPZMixedHDivErrorEstimate<MixedMat>::VariableIndex(const std::string &name) 
     if(name == "FluxFem") return 40;
     if(name == "FluxReconstructed") return 41;
     if(name == "FluxExact") return 42;
-    if(name == "PressureFem") return 43;
+    if(name == "PressureFEM") return 43;
     if(name == "PressureReconstructed") return 44;
     if(name == "PressureExact") return 45;
     if(name == "PressureErrorExact") return 100;
