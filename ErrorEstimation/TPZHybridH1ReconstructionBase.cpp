@@ -15,6 +15,8 @@ TPZHybridH1ReconstructionBase::TPZHybridH1ReconstructionBase(EstimatorConfig *pE
        fproblemname = pEstimator->fproblemname;
        fnDivisions = pEstimator->fnDivisions;
        fAdaptivityStep = pEstimator->fAdaptivityStep;
+
+       fMultiphysicsReconstructionMesh = new TPZMultiphysicsCompMesh(fOriginal->Reference());
 };
 
 void TPZHybridH1ReconstructionBase::InitializeFolderOutput(){
@@ -58,7 +60,7 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
 
     TPZMaterial *mat = fMultiphysicsReconstructionMesh->FindMaterial(*fmaterialids.begin());
     int varindex = -1;
-    if (mat) varindex = mat->VariableIndex("PressureFem");
+    if (mat) varindex = mat->VariableIndex("PressureFEM");
     if (varindex != -1) {
         TPZStack<std::string> scalnames, vecnames;
         
@@ -81,7 +83,7 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
         int res =2;
 
         if(fOriginal->NEquations()<100){
-            res=6;
+            res=4;
         }
         an.DefineGraphMesh(dim, scalnames, vecnames, out.str());
         an.PostProcess(res, dim);
@@ -123,7 +125,9 @@ TPZVec<REAL>* TPZHybridH1ReconstructionBase::ComputeErrors(TPZLinearAnalysis *an
     }
 
     bool store=true;
-    an->PostProcessError(*errorVec, store);//calculo do erro com sol exata e aprox e armazena no elementsolution
+    std::ofstream myDummyOfs;
+    an->PostProcessError(*errorVec, store, myDummyOfs);//calculo do erro com sol exata e aprox e armazena no elementsolution
 
     return errorVec;
 }
+

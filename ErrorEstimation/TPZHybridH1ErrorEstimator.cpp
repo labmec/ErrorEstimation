@@ -170,7 +170,7 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
     
     TPZMaterial *mat = fPostProcMesh.FindMaterial(*fProblemConfig.materialids.begin());
     int varindex = -1;
-    if (mat) varindex = mat->VariableIndex("PressureFem");
+    if (mat) varindex = mat->VariableIndex("PressureFEM");
     if (varindex != -1) {
         TPZStack<std::string> scalnames, vecnames;
         if (fExact) {
@@ -182,7 +182,7 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
             scalnames.Push("EnergyErrorEstimated");
             vecnames.Push("FluxExact");
         }
-        scalnames.Push("PressureFem");
+        scalnames.Push("PressureFEM");
         scalnames.Push("PressureReconstructed");
         scalnames.Push("PressureErrorEstimate");
         scalnames.Push("NCIndex");
@@ -251,7 +251,7 @@ if (fPostProcMesh.MeshVector().size()) {
     mesh_vectors[0] = myHdivMesh->MeshVector()[0]; //CreateFluxReconstructionMesh()->MeshVector()[0];
     //myHdivMeshCreator->PostProcess(myHdivMesh);
 
-    auto myH1MeshCreator = new TPZHybridH1CreateH1Reconstruction(this);
+    auto myH1MeshCreator = new TPZHybridH1CreateH1Reconstruction();
     TPZMultiphysicsCompMesh* myH1Mesh = myH1MeshCreator->CreateH1ReconstructionMesh();
     myH1MeshCreator->PostProcess(myH1Mesh);
 
@@ -422,27 +422,6 @@ void TPZHybridH1ErrorEstimator::IncreaseSideOrders(TPZCompMesh *mesh) {
     }
     mesh->InitializeBlock();
 }
-
-/// Find free matID number
-void TPZHybridH1ErrorEstimator::FindFreeMatID(int &matID){
-    TPZGeoMesh* gmesh = fOriginal->Reference();
-
-    int maxMatId = std::numeric_limits<int>::min();
-    const int nel = gmesh->NElements();
-
-    for (int iel = 0; iel < nel; iel++) {
-        TPZGeoEl *gel = gmesh->Element(iel);
-        if(gel) maxMatId = std::max(maxMatId, gel->MaterialId());
-    }
-
-    if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
-
-    matID = maxMatId + 1;
-}
-
-
-
-
 
 /// return a pointer to the pressure mesh
 TPZCompMesh *TPZHybridH1ErrorEstimator::PressureMesh() {

@@ -267,7 +267,7 @@ int TPZHybridH1HdivFluxRecMaterial::VariableIndex(const std::string &name) const
 {
     if(name == "FluxFem") return 40;
     if(name == "FluxExact") return 42;
-    if(name == "PressureFem") return 43;
+    if(name == "PressureFEM") return 43;
     if(name == "FluxSigmaReconstructed") return 39;
     if(name == "POrder") return 46;
 
@@ -363,6 +363,10 @@ void TPZHybridH1HdivFluxRecMaterial::Solution(const TPZVec<TPZMaterialDataT<STAT
     break;
     case 42://flux exact
         for(int i=0; i<dim; i++) Solout[i] = -fluxinv(i);
+        break;
+
+    case 43://Pressure fem
+        Solout[0] = datavec[fFEMPotentialMeshIndex].sol[0][0];
         break;
     case 46://order p
         Solout[0] = datavec[1].p;

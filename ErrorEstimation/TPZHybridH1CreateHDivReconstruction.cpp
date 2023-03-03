@@ -130,16 +130,14 @@ TPZCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionConsta
 
 TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionMesh()
 {
-    TPZCompMesh *HDivAtomicMesh = CreateFluxReconstructionHDivMesh();
+    fHDivReconstructionAtomicMesh = CreateFluxReconstructionHDivMesh();
     TPZCompMesh *L2AtomicMesh = CreateFluxReconstructionL2Mesh();
     TPZCompMesh *gspace = CreateFluxReconstructionConstantMesh();
-
-    fMultiphysicsReconstructionMesh = new TPZMultiphysicsCompMesh(fOriginal->Reference());
 
     TPZManVector<TPZCompMesh *> mesh_vectors(5, 0);
     TPZManVector<int> active(5, 0);
 
-    mesh_vectors[0] = HDivAtomicMesh;
+    mesh_vectors[0] = fHDivReconstructionAtomicMesh;
     mesh_vectors[1] = L2AtomicMesh;
     mesh_vectors[2] = gspace;
     mesh_vectors[3] = fOriginal->MeshVector()[3]->Clone(); // avg-space
@@ -260,8 +258,10 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(TPZMultiphysicsCompMesh *p
     TPZVec<REAL> *errorVec = ComputeErrors(&an,4); 
 
     std::cout << "\n############\n";
-    std::cout << "Computing Error H1 reconstruction\n";
-    std::cout << "||Grad(u_h)-Grad(u)||:\t" << (*errorVec)[0] << "\n||Grad(u_h)+t_h||:\t" << (*errorVec)[1]<< "\n||div(t_h)-f||:\t"<< (*errorVec)[2]<<"\n\n";
+    std::cout << "Computing Error HDiv reconstruction\n";
+    std::cout << "||Grad(u_h)-Grad(u)||:\t" << (*errorVec)[0] << 
+               "\n||Grad(u_h)+t_h||:    \t" << (*errorVec)[1]<< 
+               "\n||div(t_h)-f||:       \t"<< (*errorVec)[2]<<"\n";
 
     TPZCompMeshTools::UnCondensedElements(postProcMesh);
     TPZCompMeshTools::UnGroupElements(postProcMesh);

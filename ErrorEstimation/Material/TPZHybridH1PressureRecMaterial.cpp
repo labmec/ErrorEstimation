@@ -322,7 +322,7 @@ int TPZHybridH1PressureRecMaterial::VariableIndex(const std::string &name) const
 {
     if(name == "FluxFem") return 40;
     if(name == "FluxExact") return 42;
-    if(name == "PressureFem") return 43;
+    if(name == "PressureFEM") return 43;
     if(name == "PressureReconstructed") return 44;
     if(name == "GradReconstructed") return 41;
     if(name == "PressureExact") return 45;

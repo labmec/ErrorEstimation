@@ -46,6 +46,10 @@ public: // redundant description separates a subset of methods by functionality
 
     void PostProcess(TPZMultiphysicsCompMesh *postProcMesh);
 
+    inline TPZCompMesh* GetReconstructionMesh(){
+        return fHDivReconstructionAtomicMesh;
+    }
+
 protected:
 
     void FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames) override;
@@ -53,6 +57,10 @@ protected:
 private:
 
     int fLagrangeMatId;
+
+protected:
+ 
+    TPZCompMesh* fHDivReconstructionAtomicMesh = NULL;
 };
 
 #endif // ERRORESTIMATION_TPZHYBRIDH1CREATEHDIVRECONSTRUCTION_H

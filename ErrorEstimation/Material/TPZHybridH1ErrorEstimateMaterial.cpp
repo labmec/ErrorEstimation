@@ -701,7 +701,7 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name)
 {
     if(name == "FluxFem") return 40;
     if(name == "FluxExact") return 42;
-    if(name == "PressureFem") return 43;
+    if(name == "PressureFEM") return 43;
     if(name == "PressureReconstructed") return 44;
     if(name == "FluxSigmaReconstructed") return 39;
     if(name == "FluxReconstructed") return 41;
