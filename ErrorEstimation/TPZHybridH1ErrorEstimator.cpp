@@ -162,6 +162,10 @@ void TPZHybridH1ErrorEstimator::ComputeErrors(TPZVec<REAL>& errorVec, TPZVec<REA
     
 }
 
+void TPZHybridH1ErrorEstimator::FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames){
+    DebugStop();
+}
+
 void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
     
     TPZMaterial *mat = fPostProcMesh.FindMaterial(*fProblemConfig.materialids.begin());
@@ -215,6 +219,10 @@ void TPZHybridH1ErrorEstimator::PostProcessing(TPZAnalysis &an) {
 /// hybridized)
 void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
 
+if (fPostProcMesh.MeshVector().size()) {
+        DebugStop();
+}
+
 #ifdef ERRORESTIMATION_DEBUG666
     {
         std::ofstream out("OriginalFlux.txt");
@@ -238,7 +246,7 @@ void TPZHybridH1ErrorEstimator::CreatePostProcessingMesh() {
     TPZManVector<TPZCompMesh *> mesh_vectors(5, 0);
     TPZManVector<int> active(5, 0);
 
-    auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction(this);
+    auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction();
     auto myHdivMesh = myHdivMeshCreator->CreateFluxReconstructionMesh();
     mesh_vectors[0] = myHdivMesh->MeshVector()[0]; //CreateFluxReconstructionMesh()->MeshVector()[0];
     //myHdivMeshCreator->PostProcess(myHdivMesh);
@@ -685,46 +693,6 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
 
 
 }
-
-void TPZHybridH1ErrorEstimator::CreateReconstructionSpaces() {
-    if (fPostProcMesh.MeshVector().size()) {
-        DebugStop();
-    }
-
-#ifdef ERRORESTIMATION_DEBUG
-    std::string command = "mkdir -p " + fDebugDirName;
-    std::string dirPath = fDebugDirName + "/";
-    system(command.c_str());
-    {
-        std::ofstream outCon(dirPath + "OriginalPressureConnects.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fOriginal->MeshVector()[1], outCon, {1,2,3}, false, true);
-        std::ofstream outMultCon(dirPath + "OriginalConnects.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fOriginal, outMultCon, {-9,-8,-6,-5,1,2,3}, false, true);
-        std::ofstream outOriginalP(dirPath + "OriginalPressure.txt");
-        fOriginal->MeshVector()[1]->Print(outOriginalP);
-        std::ofstream outGOriginalVTK(dirPath + "gOriginal.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(fOriginal->Reference(), outGOriginalVTK);
-        std::ofstream outGOriginalTXT(dirPath + "gOriginal.txt");
-        fOriginal->Reference()->Print(outGOriginalTXT);
-    }
-#endif
-
-    CreatePostProcessingMesh();
-
-#ifdef ERRORESTIMATION_DEBUG
-    {
-        std::ofstream out(dirPath + "MultiphysicsMeshInPotentialReconstruction.txt");
-        fPostProcMesh.Print(out);
-        std::ofstream outOrig(dirPath + "PressureConnectsBeforeReconstruction.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], outOrig, {1,2,3,fPressureSkeletonMatId}, false, true);
-        std::ofstream outGReconstVTK(dirPath + "gReconstruct.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(fPostProcMesh.Reference(), outGReconstVTK);
-        std::ofstream outGReconstTXT(dirPath + "gReconstruct.txt");
-        fOriginal->Reference()->Print(outGReconstTXT);
-    }
-#endif
-};
-
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)
 {
