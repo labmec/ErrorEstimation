@@ -7,21 +7,28 @@
 
 #include "TPZMultiphysicsCompMesh.h"
 #include "TPZHybridH1ErrorEstimator.h"
+#include "ProblemConfig.h"
+#include "TPZHybridH1ReconstructionBase.h"
 
 class TPZHybridH1ErrorEstimator;
 class TPZAnalysis;
 
-class TPZHybridH1CreateHDivReconstruction {
+class TPZHybridH1CreateHDivReconstruction : public TPZHybridH1ReconstructionBase {
 public:
     TPZHybridH1CreateHDivReconstruction() {
         DebugStop();
     }
 
-    TPZHybridH1CreateHDivReconstruction(TPZHybridH1ErrorEstimator *pEstimator) : fHybridH1EE(pEstimator){
-         fOriginal = pEstimator->fOriginal;
+    TPZHybridH1CreateHDivReconstruction(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
+       
+       fFolderOutput = "HDivRecDebug/";
+
+       InitializeFolderOutput();
+
+       fLagrangeMatId = pEstimator->fLagrangeMatId;
      };
 
-    ~TPZHybridH1CreateHDivReconstruction();
+    ~TPZHybridH1CreateHDivReconstruction(){}
 
     TPZMultiphysicsCompMesh *CreateFluxReconstructionMesh();
 
@@ -37,17 +44,15 @@ public: // redundant description separates a subset of methods by functionality
     // Checks if lagrange coefficients are continuous
     virtual void VerifyBoundaryFluxConsistency(TPZCompMesh* cmesh);
 
-    /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
-    void ComputeElementStiffnesses(TPZCompMesh &cmesh);
-
-    void PrintSolutionVTK(TPZAnalysis &an);
-
     void PostProcess(TPZMultiphysicsCompMesh *postProcMesh);
 
-private:
-    TPZHybridH1ErrorEstimator *fHybridH1EE;
+protected:
 
-    TPZMultiphysicsCompMesh *fOriginal;
+    void FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames) override;
+
+private:
+
+    int fLagrangeMatId;
 };
 
 #endif // ERRORESTIMATION_TPZHYBRIDH1CREATEHDIVRECONSTRUCTION_H

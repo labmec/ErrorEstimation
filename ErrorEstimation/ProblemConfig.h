@@ -10,6 +10,7 @@
 
 #include <set>
 #include "TPZAnalyticSolution.h"
+#include "TPZMultiphysicsCompMesh.h"
 
 /// class to guide the error estimator
 struct ProblemConfig
@@ -63,5 +64,45 @@ struct ProblemConfig
 
     ProblemConfig &operator=(const ProblemConfig &cp) = default;
 };
+
+struct EstimatorConfig{
+   TPZMultiphysicsCompMesh *fOriginal =NULL;
+
+   /// name identifying the problem
+   std::string *fproblemname;
+   /// set of materialids in the mesh
+   std::set<int> fmaterialids;
+   /// set of boundary condition material ids
+   std::set<int> fbcmaterialids;
+   /// Material id of lagrange coefficents
+   int fLagrangeMatId =-666;
+   /// Polynomial orders of original problem
+   int fk = -666;
+   int fn = -666;
+   /// Number of divisions of uniformly refined meshes
+   int fnDivisions = -666;
+
+   int fAdaptivityStep = -1;
+   /// exact solution
+   TPZAutoPointer<TLaplaceExample1> fExact;
+
+   EstimatorConfig(TPZMultiphysicsCompMesh *multimesh,ProblemConfig pConfig,int lagrangeMatId){
+       fOriginal = multimesh;
+        fproblemname = &(pConfig.problemname);
+        fmaterialids = pConfig.materialids;
+        fbcmaterialids=pConfig.bcmaterialids;
+        fnDivisions = pConfig.ndivisions;
+        fExact = pConfig.exact;
+        fAdaptivityStep = pConfig.adaptivityStep;
+        fk = pConfig.k;
+        fn = pConfig.n;
+
+        fLagrangeMatId = lagrangeMatId;
+   }
+};
+
+//EstimatorConfig::EstimatorConfig(TPZMultiphysicsCompMesh *multimesh,ProblemConfig pConfig,int lagrangeMatId){
+//    
+//}
 
 #endif /* ProblemConfig_h */

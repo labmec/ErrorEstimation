@@ -18,9 +18,11 @@
 #include "pzvisualmatrix.h"
 #include "MeshInit.h"
 #include "TPZHybridH1ErrorEstimator.h"
+#include "TPZHybridH1CreateHDivReconstruction.h"
 #include "InputTreatment.h"
 #include "ForcingFunction.h"
 #include "TPZFrontSym.h"
+#include "DataStructure.h"
 
 using namespace std;
 void Solve(ProblemConfig &config, PreConfig &preConfig){
@@ -167,11 +169,16 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
 
     //if(preConfig.topologyMode != 2) DebugStop();
     if(preConfig.mode == 1){
+        auto estimatorConfig = new EstimatorConfig(multiCmesh,config,fluxMatID);
+        auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction(estimatorConfig);
+        auto myHdivMesh = myHdivMeshCreator->CreateFluxReconstructionMesh();
+        myHdivMeshCreator->PostProcess(myHdivMesh);
+
         TPZHybridH1ErrorEstimator HybridH1Estimate(*multiCmesh);
         HybridH1Estimate.fProblemConfig = config;
         HybridH1Estimate.SetAnalyticSolution(config.exact);
         HybridH1Estimate.SetLagrangeMatID(fluxMatID);
-        HybridH1Estimate.CreateReconstructionSpaces();
+        HybridH1Estimate.CreatePostProcessingMesh();
 
         TPZManVector<REAL> elementerrors;
         TPZVec<REAL> errorVec;

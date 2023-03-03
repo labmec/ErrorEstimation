@@ -94,19 +94,16 @@ struct TPZHybridH1ErrorEstimator
     /// with the original solution
     virtual void ComputeErrors(TPZVec<REAL> &errorVec, TPZVec<REAL> &elementerrors, bool store);
 
-    /// Create pos processing mesh, call H1 and HDiv reconstructions
-    void CreateReconstructionSpaces();
-
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an);
 
     // Plots State solution of elements of target dimension
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
-protected:
-
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
+
+protected:
 
     // a method for generating the HDiv mesh
     virtual TPZCompMesh *ForceProjectionMesh();
@@ -130,14 +127,14 @@ protected:
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
 
-
     /// identify the peripheral material objects and store the information in fHybridizer
     void IdentifyPeripheralMaterialIds();
 
-
-
     friend class TPZHybridH1CreateH1Reconstruction;
+
     friend class TPZHybridH1CreateHDivReconstruction;
+
+    void FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames);
 
 };
 
