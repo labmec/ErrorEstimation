@@ -298,15 +298,15 @@ void TPZHybridH1PressureRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
 
 int TPZHybridH1PressureRecMaterial::VariableIndex(const std::string &name) const
 {
-    if(name == "FluxFem") return 40;
-    if(name == "FluxExact") return 42;
-    if(name == "PressureFEM") return 43;
-    if(name == "PressureReconstructed") return 44;
-    if(name == "GradReconstructed") return 41;
-    if(name == "PressureExact") return 45;
-    if(name == "GradFEMerror") return 100;
-    if(name == "GradReconstructionH1Error") return 101;
-    if(name == "GradFEMreconstructionsH1Error") return 102;
+    if(name == "minus_KGradUh") return 40;
+    if(name == "minus_KGradU") return 42;
+    if(name == "uh") return 43;
+    if(name == "sh") return 44;
+    if(name == "minus_KGradSh") return 41;
+    if(name == "u") return 45;
+    if(name == "KGradUh_minus_KGradU") return 100;
+    if(name == "KGradSh_minus_KGradU") return 101;
+    if(name == "KGradSh_minus_KGradUh") return 102;
     if(name == "POrder") return 46;
 
     return -1;

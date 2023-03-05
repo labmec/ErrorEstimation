@@ -268,15 +268,15 @@ void TPZHybridH1HdivFluxRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>
 
 int TPZHybridH1HdivFluxRecMaterial::VariableIndex(const std::string &name) const
 {
-    if(name == "FluxFem") return 40;
-    if(name == "FluxExact") return 42;
-    if(name == "PressureFEM") return 43;
-    if(name == "FluxSigmaReconstructed") return 39;
+    if(name == "minus_KGradUh") return 40;
+    if(name == "minus_KGradU") return 42;
+    if(name == "uh") return 43;
+    if(name == "th") return 39;
     if(name == "POrder") return 46;
 
-    if(name == "EnergyErrorExact") return 100;
-    if(name == "NFIndex") return 101;
-    if(name == "NRIndex") return 102;
+    if(name == "KGradUh_minus_KGradU") return 100;
+    if(name == "th_plus_KGradUh") return 101;
+    if(name == "residual") return 102;
 
 
     return -1;
