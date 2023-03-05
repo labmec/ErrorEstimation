@@ -6,11 +6,9 @@
 #define ERRORESTIMATION_TPZHYBRIDH1CREATEHDIVRECONSTRUCTION_H
 
 #include "TPZMultiphysicsCompMesh.h"
-#include "TPZHybridH1ErrorEstimator.h"
 #include "ProblemConfig.h"
 #include "TPZHybridH1ReconstructionBase.h"
 
-class TPZHybridH1ErrorEstimator;
 class TPZAnalysis;
 
 class TPZHybridH1CreateHDivReconstruction : public TPZHybridH1ReconstructionBase {
@@ -21,7 +19,7 @@ public:
 
     TPZHybridH1CreateHDivReconstruction(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
        
-       fFolderOutput = "HDivRecDebug/";
+       fFolderOutput = "HybridH1_HDivReconstruction_Output/";
 
        InitializeFolderOutput();
 
@@ -44,7 +42,7 @@ public: // redundant description separates a subset of methods by functionality
     // Checks if lagrange coefficients are continuous
     virtual void VerifyBoundaryFluxConsistency(TPZCompMesh* cmesh);
 
-    void PostProcess(TPZMultiphysicsCompMesh *postProcMesh);
+    void PostProcess() override;
 
     inline TPZCompMesh* GetReconstructionMesh(){
         return fHDivReconstructionAtomicMesh;

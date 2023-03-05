@@ -101,7 +101,7 @@ TPZVec<REAL>* TPZHybridH1ReconstructionBase::ComputeErrors(TPZLinearAnalysis *an
 
 
     auto errorVec = new TPZVec<REAL>;
-    int64_t nErrorCols = 4;
+    int64_t nErrorCols = numberErrors;
     errorVec->resize(nErrorCols);
     errorVec->Fill(0);
     for (int64_t i = 0; i < nErrorCols; i++) {

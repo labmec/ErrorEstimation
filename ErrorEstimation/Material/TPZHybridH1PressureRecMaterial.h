@@ -76,9 +76,11 @@ public:
                           TPZVec<STATE> &Solout) override;
 
 private:
+
     int fLagrangeCoeffPosition = 0;
-    int fH1ReconstructionPosition = 1;
+    int fH1conformPosition = 1;
     int fFEMbrokenH1Position = 2;
+
 };
 
 #endif // ERRORESTIMATION_TPZHYBRIDH1PRESSURERECMATERIAL_H

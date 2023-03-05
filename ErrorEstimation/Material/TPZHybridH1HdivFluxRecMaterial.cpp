@@ -200,65 +200,68 @@ void TPZHybridH1HdivFluxRecMaterial::FillBoundaryConditionDataRequirements(int t
 void TPZHybridH1HdivFluxRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors)
 {
     /**
-     datavec[0] HDiv reconstructed mesh
-     datavec[1] L2 mesh,
-     datavec[2] gMesh
-     datavec[3] avg u_h from simulation
-     datavec[4] H1 mesh from FEM
-
       error[0] - error computed with exact pressure
       error[1] - error computed with reconstructed pressure
       error[2] - energy error computed with exact solution
      **/
     if(!ExactSol()) DebugStop();
-    TPZVec<STATE> u_exact(1);
-    TPZFMatrix<STATE> du_exact(3,1,0.);
-    ExactSol()(data[1].x,u_exact,du_exact);
-
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
 
-    STATE divsigmarec;
-    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), gradreconstructed(3,1);
-    TPZFMatrix<REAL> gradfemaxes(3,1),gradfem(3,1),fluxfem(3,1);
+    auto x = data[fHDivConformPosition].x;
 
-    gradfemaxes=data[4].dsol[0];
-    TPZAxesTools<REAL>::Axes2XYZ(gradfemaxes,gradfem,data[4].axes);
+    /// Permeability data
+    auto perm = GetPermeability(x);
+    auto invPerm = 1./perm;
 
-    gradfem.Resize(3,1);
+    /// Potential, velocity and source term from analytical data
+    TPZVec<STATE> u(1);
+    TPZFNMatrix<3,REAL> gradU(3,1),KGradU(3,1);
+    ExactSol()(x, u, gradU);
 
-    TPZVec<STATE> divsigma(1);
+    for (int i=0; i<3; i++) 
+        KGradU(i,0) = perm*gradU(i,0);
+
+    TPZVec<STATE> source(1);
+
     if(this->fForcingFunction){
 
-        this->fForcingFunction(data[1].x,divsigma);
+        this->fForcingFunction(x,source);
+    } 
+
+    /// Broken H1 data from FEM simulation
+    STATE u_h;
+    TPZFMatrix<REAL> gradUhAxes(3,1),gradUh(3,1),KGradUh(3,1);
+
+    u_h = data[fFEMbrokenH1Position].sol[0][0];
+
+    gradUhAxes = data[fFEMbrokenH1Position].dsol[0];
+    TPZAxesTools<REAL>::Axes2XYZ(gradUhAxes,gradUh,data[fFEMbrokenH1Position].axes);
+
+    for (int i=0; i<3; i++) 
+        KGradUh(i,0) = perm*gradUh(i,0);
+
+    /// HDiv-conform data from reconstruction
+    TPZFNMatrix<3,REAL> t_h(3,1);
+    for(int ip = 0 ; ip < 3 ; ip++){
+        t_h(ip,0) = data[0].sol[0][ip];
     }
 
-    REAL residual = 0.;
-    divsigmarec= data[0].divsol[0][0];
-    residual = (divsigma[0] - divsigmarec)*(divsigma[0] - divsigmarec);
+    STATE divTh;
+    divTh= data[fHDivConformPosition].divsol[0][0];
 
-    auto perm = GetPermeability(data[1].x);
-    auto invperm = 1./perm;
+    REAL FEMsemiH1Error = 0.;
+    REAL thFEMerrorEstimate = 0.;
+    REAL residualFromHDivSpace = (source[0] - divTh)*(source[0] - divTh);
 
-    TPZFNMatrix<3,REAL> fluxexact(3,1);
-    TPZFNMatrix<9,REAL> gradpressure(3,1);
     for (int i=0; i<3; i++) {
-        fluxexact(i,0) = (-1.)* perm *du_exact[i];
-        fluxfem(i,0) = (-1.)* perm * gradfem(i,0);
-        fluxreconstructed(i,0) = data[0].sol[0][i];
+            FEMsemiH1Error     += (KGradUh[i]-KGradU(i,0))*invPerm*(KGradUh[i]-KGradU(i,0));//Pq esta somando: o fluxo fem esta + e o exato -
+            thFEMerrorEstimate += (KGradUh[i]+t_h[i])*invPerm*(KGradUh[i]+t_h[i]);
     }
 
-    REAL fluxFEMenergyError = 0.;
-    REAL fluxFEMrecEstimate = 0.;
-
-    for (int i=0; i<3; i++) {
-            fluxFEMenergyError += (fluxfem[i]-fluxexact(i,0))*invperm*(fluxfem[i]-fluxexact(i,0));//Pq esta somando: o fluxo fem esta + e o exato -
-            fluxFEMrecEstimate += (fluxfem[i]-fluxreconstructed[i])*invperm*(fluxfem[i]-fluxreconstructed[i]);
-    }
-
-    errors[0] = fluxFEMenergyError;// ||grad(u_h)-grad(u)||
-    errors[1] = fluxFEMrecEstimate;//NF: ||grad(u_h)+sigma_h)||
-    errors[2] = residual; //||f - Proj_divsigma||
+    errors[0] = FEMsemiH1Error;          // ||grad(u_h)-grad(u)||
+    errors[1] = thFEMerrorEstimate;      // ||grad(u_h)+sigma_h)||
+    errors[2] = residualFromHDivSpace;   // ||f - Proj_divsigma||
 }
 
 
@@ -366,7 +369,7 @@ void TPZHybridH1HdivFluxRecMaterial::Solution(const TPZVec<TPZMaterialDataT<STAT
         break;
 
     case 43://Pressure fem
-        Solout[0] = datavec[fFEMPotentialMeshIndex].sol[0][0];
+        Solout[0] = datavec[fFEMbrokenH1Position].sol[0][0];
         break;
     case 46://order p
         Solout[0] = datavec[1].p;

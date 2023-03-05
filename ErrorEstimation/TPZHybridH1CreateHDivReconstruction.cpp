@@ -252,10 +252,14 @@ void TPZHybridH1CreateHDivReconstruction::VerifyBoundaryFluxConsistency(TPZCompM
     if(nEffectiveFluxes == 0) DebugStop();
 }
 
-void TPZHybridH1CreateHDivReconstruction::PostProcess(TPZMultiphysicsCompMesh *postProcMesh){
-    TPZLinearAnalysis an(postProcMesh, false);
+void TPZHybridH1CreateHDivReconstruction::PostProcess(){
+    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
 
-    TPZVec<REAL> *errorVec = ComputeErrors(&an,4); 
+    // The solution is expanded to store errors,
+    // Therefore it is required to account for the original solution and the errors.
+    int numErrors = 3;
+    numErrors++;
+    TPZVec<REAL> *errorVec = ComputeErrors(&an,numErrors); 
 
     std::cout << "\n############\n";
     std::cout << "Computing Error HDiv reconstruction\n";
@@ -263,8 +267,8 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(TPZMultiphysicsCompMesh *p
                "\n||Grad(u_h)+t_h||:    \t" << (*errorVec)[1]<< 
                "\n||div(t_h)-f||:       \t"<< (*errorVec)[2]<<"\n";
 
-    TPZCompMeshTools::UnCondensedElements(postProcMesh);
-    TPZCompMeshTools::UnGroupElements(postProcMesh);
+    TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
+    TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
 
     //Erro global
     std::ofstream myfile;

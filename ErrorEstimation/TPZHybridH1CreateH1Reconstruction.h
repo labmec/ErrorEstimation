@@ -7,14 +7,12 @@
 
 #include "pzerror.h"
 #include "TPZMultiphysicsCompMesh.h"
-#include "TPZHybridH1ErrorEstimator.h"
 #include "TPZHybridH1ReconstructionBase.h"
 #include "ProblemConfig.h"
 #include "TPZMaterial.h"
 #include "TPZBndCond.h"
 #include "TPZHybridH1PressureRecMaterial.h"
 
-class TPZHybridH1ErrorEstimator;
 class TPZAnalysis;
 
 
@@ -26,7 +24,7 @@ public:
 
     TPZHybridH1CreateH1Reconstruction(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
        
-        fFolderOutput = "H1RecDebug/"; 
+        fFolderOutput = "HybridH1_H1-conformReconstruction_Output/"; 
 
         InitializeFolderOutput();
 
@@ -51,7 +49,7 @@ public:
 
     TPZMultiphysicsCompMesh *CreateH1ReconstructionMesh();
 
-    void PostProcess(TPZMultiphysicsCompMesh *postProcMesh);
+    void PostProcess() override;
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
