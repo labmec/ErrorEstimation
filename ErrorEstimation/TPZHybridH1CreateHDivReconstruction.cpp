@@ -287,12 +287,14 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(){
 
 void TPZHybridH1CreateHDivReconstruction::FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames){
     if (fExact) {
-        scalnames.Push("EnergyErrorExact");
-        vecnames.Push("FluxExact");
+        scalnames.Push("KGradUh_minus_KGradU");
+        vecnames.Push("minus_KGradU");
     }
-    scalnames.Push("PressureFEM");
-    vecnames.Push("FluxFem");
-    vecnames.Push("FluxSigmaReconstructed");
+    scalnames.Push("uh");
+    scalnames.Push("residual");
+    scalnames.Push("th_plus_KGradUh");
+    vecnames.Push("minus_KGradUh");
+    vecnames.Push("th");
     scalnames.Push("POrder");
 }
 

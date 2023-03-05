@@ -60,7 +60,7 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
 
     TPZMaterial *mat = fMultiphysicsReconstructionMesh->FindMaterial(*fmaterialids.begin());
     int varindex = -1;
-    if (mat) varindex = mat->VariableIndex("PressureFEM");
+    if (mat) varindex = mat->VariableIndex("uh");
     if (varindex != -1) {
         TPZStack<std::string> scalnames, vecnames;
         

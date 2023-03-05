@@ -527,22 +527,22 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STAT
 
 int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name) const
 {
-    if(name == "FluxFem") return 40;
-    if(name == "FluxExact") return 42;
-    if(name == "PressureFEM") return 43;
-    if(name == "PressureReconstructed") return 44;
-    if(name == "FluxSigmaReconstructed") return 39;
-    if(name == "FluxReconstructed") return 41;
-    if(name == "PressureExact") return 45;
-    if(name == "PressureErrorExact") return 100;
-    if(name == "PressureErrorEstimate") return 101;
-    if(name == "EnergyErrorExact") return 102;
-    if(name == "NCIndex") return 103;
-    if(name == "NRIndex") return 104;
-    if(name == "NFIndex") return 105;
-    if(name == "PressureEffectivityIndex") return 106;
-    if(name == "EnergyEffectivityIndex") return 107;
-    if(name == "EnergyErrorEstimated") return 108;
+    if(name == "minus_KGradUh") return 40;
+    if(name == "minus_KGradSh") return 41;
+    if(name == "minus_KGradU") return 42;
+    if(name == "uh") return 43;
+    if(name == "sh") return 44;
+    if(name == "th") return 39;
+    if(name == "u") return 45;
+    if(name == "uh_minus_u") return 100;
+    if(name == "uh_minus_sh") return 101;
+    if(name == "KGradUh_minus_KGradU") return 102;
+    if(name == "KGradSh_minus_KGradUh") return 103;
+    if(name == "th_plus_KGradUh") return 104;
+    if(name == "residual") return 105;
+    if(name == "L2EffectivityIndex") return 106;
+    if(name == "EffectivityIndex") return 107;
+    if(name == "EstimatedError") return 108;
     if(name == "POrder") return 46;
 
     return -1;

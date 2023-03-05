@@ -127,23 +127,23 @@ void TPZHybridH1ErrorEstimator::PostProcess() {
 
 void TPZHybridH1ErrorEstimator::FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames){
      if (fExact) {
-            scalnames.Push("PressureExact");
-            scalnames.Push("PressureErrorExact");
-            scalnames.Push("EnergyErrorExact");
-            scalnames.Push("PressureEffectivityIndex");
-            scalnames.Push("EnergyEffectivityIndex");
-            scalnames.Push("EnergyErrorEstimated");
-            vecnames.Push("FluxExact");
+            scalnames.Push("u");
+            scalnames.Push("uh_minus_u");
+            scalnames.Push("KGradUh_minus_KGradU");
+            scalnames.Push("L2EffectivityIndex");
+            scalnames.Push("EffectivityIndex");
+            vecnames.Push("minus_KGradU");
         }
-        scalnames.Push("PressureFEM");
-        scalnames.Push("PressureReconstructed");
-        scalnames.Push("PressureErrorEstimate");
-        scalnames.Push("NCIndex");
-        scalnames.Push("NRIndex");
-        scalnames.Push("NFIndex");
-        vecnames.Push("FluxFem");
-        vecnames.Push("FluxSigmaReconstructed");
-        vecnames.Push("FluxReconstructed");
+        scalnames.Push("uh");
+        scalnames.Push("sh");
+        scalnames.Push("uh_minus_sh");
+        scalnames.Push("KGradSh_minus_KGradUh");
+        scalnames.Push("residual");
+        scalnames.Push("th_plus_KGradUh");
+        vecnames.Push("minus_KGradUh");
+        vecnames.Push("th");
+        vecnames.Push("minus_KGradSh");
+        scalnames.Push("EstimatedError");
         scalnames.Push("POrder");
 }
 
@@ -507,7 +507,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
             }
         }
     }
-    REAL globalResidual =0., globalProjResidual =0.;;
+    REAL globalResidual =0., globalProjResidual =0.;
     REAL n1 = 0.,n2n3 = 0.,ex = 0.;
     for (int64_t el = 0; el < nrows; el++) {
         
@@ -558,7 +558,6 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
             if (abs(ErrorEstimate) < tol) {
                 elsol(el, ncols + i / 2) = 1.;
                 dataIeff(el,0)=1.;
-                
             }
             else {
                 REAL EfIndex = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator))/ErrorExact;
@@ -576,29 +575,22 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     globalResidual = sqrt(globalResidual);
     globalProjResidual = sqrt(globalProjResidual);
     globalIndex = sqrt((n1+n2n3)/ex);
-    std::cout << "\n\n";
-    std::cout << "Residual = " << globalResidual << "\n";
-    std::cout << "ProjResidual = " << globalProjResidual << "\n";
-    std::cout << "I_{EF} = " << globalIndex << "\n";
-    std::cout << "Est. Error = " << sqrt(n1+n2n3) << "\n";
-    std::cout << "\n\n";
+
+    std::stringstream ss;
+    ss << "\n\n";
+    ss << "frac{hk}{pi}||f-Div(T_h)|| =\t" << globalResidual << "\n";
+    ss << "frac{hk}{pi}||f-Proj(f)||  =\t" << globalProjResidual << "\n";
+    ss << "I_{EF}                       =\t" << globalIndex << "\n";
+    ss << "Estimated Error              =\t" << sqrt(n1+n2n3) << "\n";
+    ss << "\n\n";
+    std::cout << ss.str();
 
     {
         std::ofstream myfile;
-        myfile.open("ErrorsReconstruction.txt", std::ios::app);
-        myfile << "||f-Proj(f)|| = " << globalProjResidual << "\n";
-        myfile << "||f-Div(T_h)|| = " << globalResidual << "\n";
-        myfile << "I_{EF} = " << globalIndex << "\n";
-        myfile << "Est. Error = " << sqrt(n1+n2n3) << "\n";
+        myfile.open(fFolderOutput + "ErrorsReconstruction.txt", std::ios::app);
+        myfile << ss.str();
         myfile.close();
     }
-
-
-    //  cmesh->ElementSolution().Print("ElSolution",std::cout);
-    //    ofstream out("IeffPerElement3DEx.nb");
-    //    dataIeff.Print("Ieff = ",out,EMathematicaInput);
-
-
 }
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)

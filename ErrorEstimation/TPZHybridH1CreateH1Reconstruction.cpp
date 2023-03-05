@@ -2790,16 +2790,16 @@ void TPZHybridH1CreateH1Reconstruction::VerifySolutionConsistency(TPZCompMesh *c
 
 void TPZHybridH1CreateH1Reconstruction::FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames){
     if (fExact) {
-            scalnames.Push("PressureExact");
-            scalnames.Push("GradFEMerror");
-            scalnames.Push("GradReconstructionH1Error");
-            vecnames.Push("FluxExact");
+            scalnames.Push("u");
+            scalnames.Push("KGradUh_minus_KGradU");
+            scalnames.Push("KGradSh_minus_KGradU");
+            vecnames.Push("minus_KGradU");
         }
-        vecnames.Push("FluxFem");
-        vecnames.Push("GradReconstructed");
-        scalnames.Push("PressureFEM");
-        scalnames.Push("PressureReconstructed");
-        scalnames.Push("GradFEMreconstructionsH1Error");
+        vecnames.Push("minus_KGradUh");
+        vecnames.Push("minus_KGradSh");
+        scalnames.Push("uh");
+        scalnames.Push("sh");
+        scalnames.Push("KGradSh_minus_KGradUh");
         scalnames.Push("POrder");
 }
 
