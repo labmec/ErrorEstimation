@@ -978,10 +978,6 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
 
     for (auto matit : fMultiphysicsReconstructionMesh->MaterialVec()) {
         TPZMaterial *mat = matit.second;
-        TPZHybridH1ErrorEstimateMaterial *errormat = dynamic_cast<TPZHybridH1ErrorEstimateMaterial *>(mat);
-        if (errormat) {
-            errormat->fNeumannLocalProblem = false;
-        }
     }
 
     fMultiphysicsReconstructionMesh->CleanUpUnconnectedNodes();
@@ -2630,10 +2626,14 @@ void TPZHybridH1CreateH1Reconstruction::VerifyAverage(int target_dim) {
     }
 }
 
-void TPZHybridH1CreateH1Reconstruction::PostProcess(TPZMultiphysicsCompMesh *postProcMesh){
-    TPZLinearAnalysis an(postProcMesh, false);
+void TPZHybridH1CreateH1Reconstruction::PostProcess(){
+    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
 
-    TPZVec<REAL> *errorVec = ComputeErrors(&an,4); 
+    // The solution is expanded to store errors,
+    // Therefore it is required to account for the original solution and the errors.
+    int numErrors = 3;
+    numErrors++;
+    TPZVec<REAL> *errorVec = ComputeErrors(&an,numErrors); 
 
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
@@ -2641,8 +2641,8 @@ void TPZHybridH1CreateH1Reconstruction::PostProcess(TPZMultiphysicsCompMesh *pos
     (*errorVec)[0] << "\n||Grad(s_h)-Grad(u)||:  \t" <<
     (*errorVec)[1]<<  "\n||Grad(u_h)-Grad(s_h)||:\t"<< (*errorVec)[2]<<"\n\n";
 
-    TPZCompMeshTools::UnCondensedElements(postProcMesh);
-    TPZCompMeshTools::UnGroupElements(postProcMesh);
+    TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
+    TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
 
     //Erro global
     std::ofstream myfile;

@@ -15,47 +15,33 @@
 #include "TPZHybridizeHDiv.h"
 #include "TPZMultiphysicsCompMesh.h"
 #include "pzmanvector.h"
+#include "TPZHybridH1ReconstructionBase.h"
 #include <stdio.h>
-// #include "../Projects/Tools/LoadCases.h"
 
 
 class TPZCompMesh;
 class TPZSubCompMesh;
 
 /// this class will compute the estimated value of the energy error of the input mesh
-// the class should work for any HybridSquared mesh
-// first create the post processing mesh
-// then compute the errors
-struct TPZHybridH1ErrorEstimator
-{
-    /// The HybridSquared approximation mesh for which we will compute the error
-    TPZMultiphysicsCompMesh *fOriginal;
+//  The error is estimated from a H1-conform and HDiv conform meshes
+//  These meshes must be provided.
+class TPZHybridH1ErrorEstimator : public TPZHybridH1ReconstructionBase {
 
-    /// Computational mesh with pressure and flux reconstructions
-    TPZMultiphysicsCompMesh fPostProcMesh;
+public:
 
-    int fLagrangeMatId = -999;
-    
-    TPZAnalyticSolution *fExact;
-    
-    ProblemConfig fProblemConfig;
-
-    std::string fDebugDirName = "HybridH1_ReconstructionDebug";
-
-    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh) : fOriginal(&InputMesh),
-    fPostProcMesh(0),fExact(NULL)
-    {
-        
+    TPZHybridH1ErrorEstimator() {
+        DebugStop();
     }
 
-    TPZHybridH1ErrorEstimator(TPZMultiphysicsCompMesh &InputMesh, int skeletonMatId, int HDivMatId) : fOriginal(&InputMesh),
-                                                                    fPostProcMesh(0),fExact(NULL)
-    {
+    TPZHybridH1ErrorEstimator(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
+       
+        fFolderOutput = "HybridH1_ErrorEstimate_Output/"; 
 
-    }
+        InitializeFolderOutput();
+     };
+
     
-    TPZHybridH1ErrorEstimator(const TPZHybridH1ErrorEstimator &copy) : fOriginal(copy.fOriginal),
-        fPostProcMesh(copy.fPostProcMesh), fExact(copy.fExact), fProblemConfig(copy.fProblemConfig)
+    TPZHybridH1ErrorEstimator(const TPZHybridH1ErrorEstimator &copy) :  TPZHybridH1ReconstructionBase(copy) 
     {
         // this method wont work because multiphysics meshes have no copy constructor (yet)
         DebugStop();
@@ -63,40 +49,32 @@ struct TPZHybridH1ErrorEstimator
     
     TPZHybridH1ErrorEstimator &operator=(const TPZHybridH1ErrorEstimator &cp)
     {
-        fOriginal = cp.fOriginal;
         // this method wont work because multiphysics meshes have no operator= (yet)
         DebugStop();
-
-        fPostProcMesh = cp.fPostProcMesh;
-        fExact = cp.fExact;
-        fProblemConfig = cp.fProblemConfig;
         return *this;
     }
     
     ~TPZHybridH1ErrorEstimator();
 
-    void SetLagrangeMatID(int lagrangeID){
-        fLagrangeMatId = lagrangeID;
-    }
-    
-    /// Set the analytic solution object
-    void SetAnalyticSolution(TPZAnalyticSolution &exact)
-    {
-        fExact = &exact;
-    }
-
-    /// compute the element errors comparing the reconstructed solution based on average pressures
-    /// with the original solution
-    virtual void ComputeErrors(TPZVec<REAL> &errorVec, TPZVec<REAL> &elementerrors, bool store);
-
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an);
+
+    // Compute approximation error and generate VTK outputs
+    void PostProcess() override;
 
     // Plots State solution of elements of target dimension
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);
 
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
+
+    inline void SetH1conformMesh(TPZCompMesh*cmesh){
+        fH1conformMesh = cmesh;
+    }
+
+    inline void SetHDivConformMesh(TPZCompMesh* cmesh){
+        fHDivconformMesh = cmesh;
+    }
 
 protected:
 
@@ -119,14 +97,13 @@ protected:
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
 
-    /// identify the peripheral material objects and store the information in fHybridizer
-    void IdentifyPeripheralMaterialIds();
+    void FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames) override;
 
-    friend class TPZHybridH1CreateH1Reconstruction;
+private:
 
-    friend class TPZHybridH1CreateHDivReconstruction;
+    TPZCompMesh* fH1conformMesh = NULL;
 
-    void FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames);
+    TPZCompMesh* fHDivconformMesh = NULL;
 
 };
 

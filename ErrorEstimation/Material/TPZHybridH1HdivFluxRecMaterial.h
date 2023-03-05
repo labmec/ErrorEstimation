@@ -58,11 +58,11 @@ public:
 
     private:
     
-    int fHDivReconstructionMeshIndex = 0;
-    int fL2MeshIndex =                 1;
-    int fGspaceMeshIndex =             2;
-    int fAvgSpaceMeshIndex =           3;
-    int fFEMPotentialMeshIndex =       4;
+    int fHDivConformPosition =         0;
+    int fL2DummyPosition =             1;
+    int fGspacePosition  =             2;
+    int fAvgSpacePosition  =           3;
+    int fFEMbrokenH1Position   =       4;
 };
 
 #endif // ERRORESTIMATION_TPZHYBRIDH1HDIVFLUXRECMATERIAL_H

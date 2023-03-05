@@ -6,11 +6,9 @@
 #define ERRORESTIMATION_TPZHYBRIDH1RECONSTRUCTIONBASE_H
 
 #include "TPZMultiphysicsCompMesh.h"
-#include "TPZHybridH1ErrorEstimator.h"
 #include "ProblemConfig.h"
 #include "TPZLinearAnalysis.h"
 
-class TPZHybridH1ErrorEstimator;
 class TPZAnalysis;
 
 class TPZHybridH1ReconstructionBase {
@@ -50,8 +48,17 @@ protected:
    /// name identifying the problem
    std::string *fproblemname;
 
+public:
+
+    virtual void PostProcess() =0;
+
 protected:
 
+   TPZHybridH1ReconstructionBase(const TPZHybridH1ReconstructionBase &copy) 
+    {
+        // this method wont work because multiphysics meshes have no copy constructor (yet)
+        DebugStop();
+    }
 
     /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
     void ComputeElementStiffnesses();
@@ -63,6 +70,8 @@ protected:
     void PrintSolutionVTK(TPZAnalysis &an);
 
     TPZVec<REAL>* ComputeErrors(TPZLinearAnalysis *an, int numberErrors);
+
+
 };
 
 #endif // ERRORESTIMATION_TPZHYBRIDH1RECONSTRUCTIONBASE_H

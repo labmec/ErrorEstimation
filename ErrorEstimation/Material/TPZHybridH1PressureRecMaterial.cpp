@@ -74,16 +74,16 @@ void TPZHybridH1PressureRecMaterial::Contribute(const TPZVec<TPZMaterialDataT<ST
             int_K phi_i.phi_j dx = int_K f phi_i  dx;
      **/
 
-        int dim = datavec[fH1ReconstructionPosition].axes.Rows();
+        int dim = datavec[fH1conformPosition].axes.Rows();
         //defining test functions
         // Setting the phis
-        TPZFMatrix<REAL> &phiuk = datavec[fH1ReconstructionPosition].phi;
-        TPZFMatrix<REAL> &dphiukaxes = datavec[fH1ReconstructionPosition].dphix; //(2xnphiuk)
+        TPZFMatrix<REAL> &phiuk = datavec[fH1conformPosition].phi;
+        TPZFMatrix<REAL> &dphiukaxes = datavec[fH1conformPosition].dphix; //(2xnphiuk)
         TPZFNMatrix<9, REAL> dphiuk(2, dphiukaxes.Cols());
-        TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[fH1ReconstructionPosition].axes); //(3xnphiuk)
+        TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[fH1conformPosition].axes); //(3xnphiuk)
         TPZFMatrix<STATE> &dsolaxes = datavec[fFEMbrokenH1Position].dsol[0];
         TPZFNMatrix<9, REAL> dsol(2, dphiukaxes.Cols());
-        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[fH1ReconstructionPosition].axes);
+        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[fH1conformPosition].axes);
 
         int nphiuk = phiuk.Rows();
 
@@ -91,7 +91,7 @@ void TPZHybridH1PressureRecMaterial::Contribute(const TPZVec<TPZMaterialDataT<ST
 
         TPZFNMatrix<9, REAL> PermTensor(3,3);
         TPZFNMatrix<9, REAL> InvPermTensor(3,3);
-        auto perm = GetPermeability(datavec[fH1ReconstructionPosition].x);
+        auto perm = GetPermeability(datavec[fH1conformPosition].x);
         PermTensor.Diagonal(perm);
         InvPermTensor.Diagonal(1./perm);
 
@@ -150,9 +150,9 @@ void TPZHybridH1PressureRecMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<
      ef+= <w,Km*u_d - g + sigma_i.n>
      */
 
-    int dim = datavec[fH1ReconstructionPosition].axes.Rows();
+    int dim = datavec[fH1conformPosition].axes.Rows();
 
-    TPZFMatrix<REAL> &phi_i = datavec[fH1ReconstructionPosition].phi;
+    TPZFMatrix<REAL> &phi_i = datavec[fH1conformPosition].phi;
     int nphi_i = phi_i.Rows();
 
     TPZFMatrix<STATE> solsigmafem(3, 1);
@@ -172,7 +172,7 @@ void TPZHybridH1PressureRecMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<
     if (bc.HasForcingFunctionBC()) {
         TPZManVector<STATE> res(3);
         TPZFNMatrix<9, STATE> gradu(dim, 1);
-        bc.ForcingFunctionBC()(datavec[fH1ReconstructionPosition].x, res, gradu);
+        bc.ForcingFunctionBC()(datavec[fH1conformPosition].x, res, gradu);
         u_D = res[0];
         g = normalsigma;
 
@@ -238,82 +238,60 @@ void TPZHybridH1PressureRecMaterial::FillBoundaryConditionDataRequirements(int t
 void TPZHybridH1PressureRecMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors)
 {
     /**
-     datavec[0] H1 mesh, uh_reconstructed
-     datavec[1] L2 mesh,
-     datavec[2] Hdiv fem mesh, sigma_h
-     datavec[3] L2 mesh fem, u_h
-     datavec[4] L2 projection
-
-      error[0] - error computed with exact pressure
-      error[1] - error computed with reconstructed pressure
-      error[2] - energy error computed with exact solution
-      error[3] - energy error computed with reconstructed flux
-      error[4] - energy error computed with reconstructed potential
-      error[5] - oscilatory data error
-
+      error[0] -  ||grad(u_h-u)||
+      error[1] -  ||grad(s_h-u)||
+      error[2] -  ||grad(u_h-s_h)||
      **/
     if(!ExactSol()) DebugStop();
-    TPZVec<STATE> u_exact(1);
-    TPZFMatrix<STATE> du_exact(3,1,0.);
-    ExactSol()(data[fH1ReconstructionPosition].x,u_exact,du_exact);
 
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
 
-    STATE divsigmarec, u_h, s_h, forceProj;
+    auto x = data[fH1conformPosition].x;
 
-    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), KGradSh(3,1), gradreconstructed(3,1);
-    TPZFMatrix<REAL> gradfemaxes(3,1),gradfem(3,1),KGradUh(3,1);
+    /// Permeability data
+    auto perm = GetPermeability(x);
+    auto invPerm = 1./perm;
 
-    gradfemaxes=data[fFEMbrokenH1Position].dsol[0];
-    TPZAxesTools<REAL>::Axes2XYZ(gradfemaxes,gradfem,data[fFEMbrokenH1Position].axes);
+    /// Potential, velocity and source term from analytical data
+    TPZVec<STATE> u(1);
+    TPZFNMatrix<3,REAL> gradU(3,1),KGradU(3,1);
+    ExactSol()(x, u, gradU);
 
-    s_h = data[fH1ReconstructionPosition].sol[0][0];
-    u_h = data[fFEMbrokenH1Position].sol[0][0];
+    for (int i=0; i<3; i++) 
+        KGradU(i,0) = perm*gradU(i,0);
 
-    auto perm = GetPermeability(data[fH1ReconstructionPosition].x);
-    auto invperm = 1./perm;
+    /// Broken H1 data from FEM simulation
+    STATE u_h;
+    TPZFMatrix<REAL> gradUhAxes(3,1),gradUh(3,1),KGradUh(3,1);
 
-    TPZFNMatrix<3,REAL> KGradU(3,1);
-    {
-        for (int i=0; i<3; i++) {
-            KGradU(i,0) = perm*du_exact[i];
-            KGradUh(i,0) = perm*gradfem(i,0);
-        }
-    }
+    gradUhAxes = data[fFEMbrokenH1Position].dsol[0];
+    TPZAxesTools<REAL>::Axes2XYZ(gradUhAxes,gradUh,data[fFEMbrokenH1Position].axes);
 
-    TPZFMatrix<REAL> &gradshaxes = data[fH1ReconstructionPosition].dsol[0];
-    TPZFNMatrix<9,REAL> gradsh(gradshaxes.Rows(),0);
-    TPZAxesTools<REAL>::Axes2XYZ(gradshaxes, gradsh, data[fH1ReconstructionPosition].axes);
-    for(int id=0 ; id<3; id++) {
-        KGradSh(id,0) = perm*gradsh(id,0);
-    }
+    for (int i=0; i<3; i++) 
+        KGradUh(i,0) = perm*gradUh(i,0);
 
-    REAL FEMexactError = 0.;
-    REAL FEMreconstructionError = 0.;
-    REAL reconstructionExactError =0.;
+    /// H1-conform data from reconstruction
+    TPZFMatrix<REAL> gradShAxes(3,1), gradSh(3,1), KGradSh(3,1);
+    gradShAxes = data[fH1conformPosition].dsol[0];
 
-#ifdef ERRORESTIMATION_DEBUG2
-    std::cout<<"flux fem "<<fluxfem<<std::endl;
-    std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
+    TPZAxesTools<REAL>::Axes2XYZ(gradShAxes, gradSh, data[fH1conformPosition].axes);
+    for(int id=0 ; id<3; id++) 
+        KGradSh(id,0) = perm*gradSh(id,0);
+
+    REAL FEMsemiH1Error = 0.;
+    REAL shFEMsemiH1ErrorEstimate = 0.;
+    REAL shSemiH1Error =0.;
 
     for (int i=0; i<3; i++) {
-        FEMexactError += (KGradUh[i]-KGradU(i,0))*invperm*(KGradUh[i]-KGradU(i,0));
-        reconstructionExactError += (KGradSh[i]-KGradU[i])*invperm*(KGradSh[i]-KGradU[i]);
-        FEMreconstructionError += (KGradUh[i]-KGradSh[i])*invperm*(KGradUh[i]-KGradSh[i]);
+        FEMsemiH1Error           += (KGradUh[i]-KGradU(i,0))*invPerm*(KGradUh[i]-KGradU(i,0));
+        shSemiH1Error            += (KGradSh[i]-KGradU[i])*invPerm*(KGradSh[i]-KGradU[i]);
+        shFEMsemiH1ErrorEstimate += (KGradUh[i]-KGradSh[i])*invPerm*(KGradUh[i]-KGradSh[i]);
     }
-
-#ifdef ERRORESTIMATION_DEBUG2
-    std::cout<<"potential fem "<<pressurefem<<std::endl;
-    std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
     
-    errors[0] = FEMexactError;             // ||grad(u_h-u)||
-    errors[1] = reconstructionExactError;  // ||grad(s_h-u)||
-    errors[2] = FEMreconstructionError;    // ||grad(u_h-s_h)||
+    errors[0] = FEMsemiH1Error;            // ||grad(u_h-u)||
+    errors[1] = shFEMsemiH1ErrorEstimate;  // ||grad(s_h-u)||
+    errors[2] = shSemiH1Error;             // ||grad(u_h-s_h)||
 }
 
 
@@ -383,7 +361,7 @@ void TPZHybridH1PressureRecMaterial::Solution(const TPZVec<TPZMaterialDataT<STAT
 
     if(fExactSol)
     {
-        this->fExactSol(datavec[fH1ReconstructionPosition].x, pressexact,gradu);
+        this->fExactSol(datavec[fH1conformPosition].x, pressexact,gradu);
 
     }
 
@@ -409,10 +387,10 @@ void TPZHybridH1PressureRecMaterial::Solution(const TPZVec<TPZMaterialDataT<STAT
     //Flux reconstrucion
     case 41:// grad s_h
     {
-        TPZFMatrix<REAL> &dsolaxes = datavec[fH1ReconstructionPosition].dsol[0];
+        TPZFMatrix<REAL> &dsolaxes = datavec[fH1conformPosition].dsol[0];
         TPZFNMatrix<9, REAL> dsol(3, 0);
         TPZFNMatrix<9, REAL> KGradsol(3, 0);
-        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[fH1ReconstructionPosition].axes);
+        TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[fH1conformPosition].axes);
 
         for (int i = 0; i < 3; i++)
             KGradsol = dsol * perm;
@@ -430,7 +408,7 @@ void TPZHybridH1PressureRecMaterial::Solution(const TPZVec<TPZMaterialDataT<STAT
 
         break;
     case 44://PressureReconstructed
-        Solout[0] = datavec[fH1ReconstructionPosition].sol[0][0];
+        Solout[0] = datavec[fH1conformPosition].sol[0][0];
 
         break;
     case 45://pressureexact
