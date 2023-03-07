@@ -446,3 +446,19 @@ void TPZHybridH1PressureSingleSpace::Solution(const TPZMaterialDataT<STATE> &dat
         DebugStop();
     }
 }
+
+int TPZHybridH1PressureSingleSpace::IntegrationRuleOrder(const int elPMaxOrder) const {
+    int order = 0;
+    if (fForcingFunction) {
+        order = fForcingFunctionPOrder;
+    }
+
+    int pmax = elPMaxOrder;
+    
+    int integrationorder = 2 * pmax;
+    if (pmax < order) {
+        integrationorder = order + pmax;
+    }
+
+    return integrationorder;
+}

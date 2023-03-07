@@ -24,6 +24,8 @@ public:
 
     TPZHybridH1HdivFluxRecMaterial(const TPZMixedPoisson &copy);
 
+    [[nodiscard]] std::string Name() const override { return "TPZHybridH1HdivFluxRecMaterial"; }
+
     virtual ~TPZHybridH1HdivFluxRecMaterial();
 
     TPZHybridH1HdivFluxRecMaterial &operator=(const TPZHybridH1HdivFluxRecMaterial &copy);

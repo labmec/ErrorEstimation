@@ -35,9 +35,10 @@ public:
         for(auto mat : matvec){
             int matdim = mat.second->Dimension();
             if(matdim == fPressureMesh->Dimension()){
-                auto isbc = dynamic_cast<TPZBndCond *> (mat.second);
-                if (isbc) continue;
                 auto singleSpaceMat = new TPZHybridH1PressureSingleSpace(mat.first,matdim);
+                int pOrder = 5;
+                singleSpaceMat->SetForcingFunction(fExact->ForceFunc(),pOrder);
+                singleSpaceMat->SetExactSol(fExact->ExactSolution(),pOrder);
                 matvec[mat.first] = singleSpaceMat;
             }
         }

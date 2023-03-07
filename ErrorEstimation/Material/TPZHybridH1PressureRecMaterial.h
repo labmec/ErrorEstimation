@@ -22,9 +22,13 @@ class TPZHybridH1PressureSingleSpace : public TPZDarcyFlow{
 
     virtual ~TPZHybridH1PressureSingleSpace() = default;
 
+    [[nodiscard]] std::string Name() const override { return "TPZHybridH1PressureSingleSpace"; }
+
     [[nodiscard]] int NSolutionVariables(int var) const override;
 
     void Solution(const TPZMaterialDataT<STATE> &data, int var, TPZVec<STATE> &sol) override;
+
+    [[nodiscard]] int IntegrationRuleOrder(const int elPMaxOrder) const override;
 
 };
 
@@ -43,6 +47,8 @@ public:
 
     virtual ~TPZHybridH1PressureRecMaterial();
 
+    [[nodiscard]] std::string Name() const override { return "TPZHybridH1PressureRecMaterial"; }
+
     TPZHybridH1PressureRecMaterial &operator=(const TPZHybridH1PressureRecMaterial &copy);
 
     virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
@@ -56,8 +62,6 @@ public:
     virtual TPZMaterial * NewMaterial() const override{
         return new TPZHybridH1PressureRecMaterial(*this);
     }
-
-    bool fNeumannLocalProblem = true;
 
     virtual int NEvalErrors() const override {return 3;}
 
