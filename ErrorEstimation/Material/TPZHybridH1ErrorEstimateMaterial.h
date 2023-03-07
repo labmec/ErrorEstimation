@@ -31,6 +31,8 @@ public:
 
     virtual ~TPZHybridH1ErrorEstimateMaterial();
 
+    [[nodiscard]] std::string Name() const override { return "TPZHybridH1ErrorEstimateMaterial"; }
+
     TPZHybridH1ErrorEstimateMaterial &operator=(const TPZHybridH1ErrorEstimateMaterial &copy);
 
     virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;

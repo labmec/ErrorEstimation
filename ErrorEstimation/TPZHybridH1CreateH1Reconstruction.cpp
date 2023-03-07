@@ -137,6 +137,7 @@ void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
             TPZHybridH1PressureRecMaterial *newmat = new TPZHybridH1PressureRecMaterial(*matlaplacian);
+            newmat->SetForcingFunction(newmat->ForcingFunction(),5);
 
             for (auto bcmat : fMultiphysicsReconstructionMesh->MaterialVec()) {
                 TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(bcmat.second);
@@ -147,6 +148,15 @@ void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
             fMultiphysicsReconstructionMesh->DeleteMaterial(mat.first);
             fMultiphysicsReconstructionMesh->InsertMaterialObject(newmat);
         }
+    }
+
+    for(int iel=0; iel < fPressureMesh->ElementVec().NElements(); iel++){
+         TPZCompEl *cel = fPressureMesh->ElementVec()[iel];
+         if(!cel) continue;
+         auto intel = dynamic_cast<TPZInterpolationSpace*>(cel);
+         if(!intel) DebugStop();
+         auto mat = intel->Material();
+         intel->AdjustIntegrationRule();
     }
 
     fMultiphysicsReconstructionMesh->SetAllCreateFunctionsMultiphysicElem();
@@ -827,13 +837,13 @@ void TPZHybridH1CreateH1Reconstruction::MakeSkeletonContinuous(){
     // transfer the continuous pressures to the multiphysics space
     {
         fMultiphysicsReconstructionMesh->CleanUpUnconnectedNodes();
-
-#ifdef ERRORESTIMATION_DEBUG
+#define ERRORESTIMATION_DEBUG4
+#ifdef ERRORESTIMATION_DEBUG4
         {
             std::ofstream out(fFolderOutput + "PressureBeforeTransferFromMeshes.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fPressureMesh, out);
 
-            std::ofstream outMultiphysics(dirPath + "MultiphysicsBeforeTransferFromMeshes.txt");
+            std::ofstream outMultiphysics(fFolderOutput + "MultiphysicsBeforeTransferFromMeshes.txt");
             std::set<int> matIDs;
             GetPressureMatIDs(matIDs);
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh, outMultiphysics,matIDs);
@@ -842,14 +852,16 @@ void TPZHybridH1CreateH1Reconstruction::MakeSkeletonContinuous(){
 
         fMultiphysicsReconstructionMesh->LoadSolutionFromMeshes();
 
-#ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG4
         {
             std::ofstream out(fFolderOutput + "PressureAfterTransferFromMeshes.txt");
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh->MeshVector()[1], out);
             std::ofstream outMultiphysics(fFolderOutput + "MultiphysicsAfterTransferFromMeshes.txt");
+            std::ofstream outMultiphysics2(fFolderOutput + "MultiphysicsAfterTransferFromMeshes2.txt");
             std::set<int> matIDs;
             GetPressureMatIDs(matIDs);
             TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh, outMultiphysics,matIDs);
+            fMultiphysicsReconstructionMesh->Print(outMultiphysics2);
         }
 #endif
     }
@@ -862,6 +874,7 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
     // so we are later incrementing the number of elements connected to them.
     // Then we compute the stiffness matrix and load the solution of the
     // internal degrees of freedom.
+    fMultiphysicsReconstructionMesh->Reference()->ResetReference();
     TPZManVector<int64_t> connectsToIncrement(fMultiphysicsReconstructionMesh->NConnects(), -1);
     fMultiphysicsReconstructionMesh->ComputeNodElCon();
 
@@ -906,9 +919,23 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
                 connectsToIncrement[conindex] = 1;
             }
         }
+    }  
+#ifdef ERRORESTIMATION_DEBUG
+    std::vector<std::pair<int,int>> incrementedConnectIndex;
+    for(int i=0; i< connectsToIncrement.size() ; i++){
+        if(connectsToIncrement[i]==1){
+            std::pair<int,int> conPair;
+            conPair.first = i;
+            conPair.second = connectsToIncrement[i];
+            incrementedConnectIndex.push_back(conPair);
+        }
     }
+    for(int i=0; i< incrementedConnectIndex.size() ; i++){
+        std::cout << "connect:\t" <<i<< "\tIncrementeded?\t"<< incrementedConnectIndex[i] << std::endl;
+    }
+#endif
 
-    // Create TPZElementGroup, grouping volumetric and boundry elements
+    // Create TPZElementGroup, grouping volumetric and boundery elements
     fMultiphysicsReconstructionMesh->LoadReferences();
     int64_t nel = fMultiphysicsReconstructionMesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
@@ -950,8 +977,25 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
         }
     }
 
+    // Increments NElConnected of connects that should not be condensed
+    // Only connects belonging to elements in the reconstruction mesh should be incremented,
+    // Therefore, the first and last connect index of this mesh should be known
     fMultiphysicsReconstructionMesh->ComputeNodElCon();
-#define ERRORESTIMATION_DEBUG33
+    TPZCompMesh *fluxMesh = fMultiphysicsReconstructionMesh->MeshVector()[0];
+    bool isFluxActive = fMultiphysicsReconstructionMesh->GetActiveApproximationSpaces()[0];
+
+    int numberHDivConnects = 0, numberConnects;
+    if(fluxMesh && isFluxActive){
+        numberHDivConnects = fluxMesh->NConnects();
+    }
+    numberConnects = fMultiphysicsReconstructionMesh->NConnects();
+    
+    for (int64_t i = 0; i < numberConnects; i++) {
+        if (connectsToIncrement[i] == 1) {
+            fMultiphysicsReconstructionMesh->ConnectVec()[numberHDivConnects + i].IncrementElConnected();
+        }
+    }
+
 #ifdef ERRORESTIMATION_DEBUG33
     {
         std::ofstream fileVTK(fFolderOutput + "GeoMeshBeforeCondensedCompel.vtk");
@@ -2020,6 +2064,9 @@ void TPZHybridH1CreateH1Reconstruction::ComputeBoundaryL2Projection(TPZCompMesh 
         if (!bc || (bc->Type() != 0)) continue;
 
         cel->CalcStiff(ekbc, efbc);
+
+        ekbc.Print(std::cout);
+        efbc.Print(std::cout);
 
         ekbc.fMat.SolveDirect(efbc.fMat, ELU);
 

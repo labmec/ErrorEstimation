@@ -32,6 +32,8 @@ public:
     TPZMatLaplacianHybrid &operator=(const TPZMatLaplacianHybrid &copy);
     
     virtual TPZMaterial *NewMaterial() const override;
+
+    [[nodiscard]] std::string Name() const override { return "TPZMatLaplacianHybrid"; }
     
     virtual int VariableIndex(const std::string &name) const override;
     int NSolutionVariables(int var) const override;
