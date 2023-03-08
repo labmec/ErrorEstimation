@@ -320,21 +320,21 @@ void TPZCreateMultiphysicsSpace::InsertPressureMaterialIds(TPZCompMesh *pressure
     {
         for (auto matid:fBCMaterialIds) {
             TPZNullMaterial<STATE> *nullmat = new TPZNullMaterial<>(matid);
-            nullmat->SetDimension(fDimension);
+            nullmat->SetDimension(fDimension-1);
             nullmat->SetNStateVariables(1);
             pressure->InsertMaterialObject(nullmat);
         }
     }
     {
         TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(fH1Hybrid.fMatWrapId);
-        nullmat->SetDimension(fDimension);
+        nullmat->SetDimension(fDimension-1);
         nullmat->SetNStateVariables(1);
         pressure->InsertMaterialObject(nullmat);
     }
     if(fSpaceType == EH1HybridSquared)
     {
         TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(fH1Hybrid.fInterfacePressure);
-        nullmat->SetDimension(fDimension);
+        nullmat->SetDimension(fDimension-1);
         nullmat->SetNStateVariables(1);
         pressure->InsertMaterialObject(nullmat);
 
