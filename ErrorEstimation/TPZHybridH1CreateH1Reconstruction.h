@@ -31,17 +31,9 @@ public:
         FindFreeMatID(fPressureSkeletonMatId);
 
         fPressureMesh = pEstimator->fOriginal->MeshVector()[1]->Clone();
-        auto &matvec = fPressureMesh->MaterialVec();
-        for(auto mat : matvec){
-            int matdim = mat.second->Dimension();
-            if(matdim == fPressureMesh->Dimension()){
-                auto singleSpaceMat = new TPZHybridH1PressureSingleSpace(mat.first,matdim);
-                int pOrder = 5;
-                singleSpaceMat->SetForcingFunction(fExact->ForceFunc(),pOrder);
-                singleSpaceMat->SetExactSol(fExact->ExactSolution(),pOrder);
-                matvec[mat.first] = singleSpaceMat;
-            }
-        }
+        ReplaceAtomicVolumetricMaterial();
+
+        IdentifyFEMWrapId();
      };
 
     ~TPZHybridH1CreateH1Reconstruction(){
@@ -68,6 +60,11 @@ private:
  
      /// Find free matID number
     void FindFreeMatID(int &matID);
+
+    /// Find free matID number
+    void IdentifyFEMWrapId();
+
+    void ReplaceAtomicVolumetricMaterial();
 
     void PlotLagrangeMultiplier(const std::string &filename, bool reconstructed = true);
 
@@ -164,6 +161,9 @@ private:
 
     // material id of the dim-1 skeleton elements
     int fPressureSkeletonMatId;
+
+    // Wrap Id used to hybridize the mesh;
+    int fFEMWrapMatId;
 
     /// weights associated with the dim-1 pressure elements to compute the averages
     TPZVec<REAL> fPressureweights;

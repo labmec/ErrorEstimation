@@ -39,6 +39,8 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1Reconstructi
     {
         std::ofstream filecmeshTXT(fFolderOutput + "toto.txt");
         fMultiphysicsReconstructionMesh->Print(filecmeshTXT);
+        std::ofstream filecmeshTXT2(fFolderOutput + "totoAtomic.txt");
+        fMultiphysicsReconstructionMesh->MeshVector()[1]->Print(filecmeshTXT2);
     }
     CreateGroupedAndCondensedElements();
 
@@ -47,7 +49,8 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1Reconstructi
 
     VerifySkeletonContinuity();
 
-#ifdef ERRORESTIMATION_DEBUG
+#define ERRORESTIMATION_DEBUG88
+#ifdef ERRORESTIMATION_DEBUG88
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
         fMultiphysicsReconstructionMesh->Print(out);
@@ -58,51 +61,58 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1Reconstructi
 
     ComputeElementStiffnesses();
 
-#ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG88
     {
-        std::string command = "mkdir -p " + fDebugDirName +  "/DebuggingLoadSol";
-        system(command.c_str());
-        std::string dirPath = fDebugDirName + "/DebuggingLoadSol/";
-        std::ofstream out(dirPath + "MeshBeforeLoadSol.txt");
+        std::ofstream out(fFolderOutput + "MeshBeforeLoadSol.txt");
         fMultiphysicsReconstructionMesh->Print(out);
-        std::ofstream out2(dirPath + "SolBeforeLoadSolution.nb");
+        std::ofstream out2(fFolderOutput + "SolBeforeLoadSolution.nb");
         fMultiphysicsReconstructionMesh->Solution().Print("SolBeforeLoadSolution=",out2,EMathematicaInput);
-        std::ofstream out3(dirPath + "PressureWithAverage.txt");
+        std::ofstream out3(fFolderOutput + "PressureWithAverage.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh->MeshVector()[1], out3, {1,2,3}, false, true);
-        std::ofstream out4(dirPath + "PressureWithAverage.txt");
+        std::ofstream outP(fFolderOutput + "PotentialBeforeLoadSol.txt");
+        fMultiphysicsReconstructionMesh->MeshVector()[1]->Print(outP);
     }
 #endif
      fMultiphysicsReconstructionMesh->LoadSolution(fMultiphysicsReconstructionMesh->Solution());
 
-#ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG88
     {
-        std::string dirPath = fDebugDirName + "/DebuggingLoadSol/";
-        std::ofstream out(dirPath + "MeshAfterLoadSol.txt");
+        std::ofstream out(fFolderOutput + "MeshAfterLoadSol.txt");
         fMultiphysicsReconstructionMesh->Print(out);
-        std::ofstream outP(dirPath + "PotentialAfterLoadSol.txt");
+        std::ofstream outP(fFolderOutput + "PotentialAfterLoadSol.txt");
         fMultiphysicsReconstructionMesh->MeshVector()[1]->Print(outP);
         //fMultiphysicsReconstructionMesh->Solution().Print("SolAfterLoadSolution");
-        std::ofstream out2(dirPath + "SolAfterLoadSolution.nb");
+        std::ofstream out2(fFolderOutput + "SolAfterLoadSolution.nb");
         fMultiphysicsReconstructionMesh->Solution().Print("SolAfterLoadSolution=",out2,EMathematicaInput);
-        std::ofstream out3(dirPath + "PressureAfterLoadSolution.txt");
+        std::ofstream out3(fFolderOutput + "PressureAfterLoadSolution.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh->MeshVector()[1], out3, {1,2,3}, false, true);
     }
 #endif
 
-    {
-        fMultiphysicsReconstructionMesh->LoadSolutionFromMultiPhysics();
-
-#ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG88
         {
-            std::string dirPath = fDebugDirName + "/";
-            std::ofstream outCon(dirPath + "PressureConnectsAfterLoadSolution.txt");
-            TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh->MeshVector()[1], outCon, {1,2,3}, false, true);
-            //fMultiphysicsReconstructionMesh->MeshVector()[0]->Print(out2);
-
+            std::ofstream outCon(fFolderOutput + "PressureConnectsBeforeLoadSolution.txt"); 
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh->MeshVector()[1], outCon, {1,2,3}, false, true); outCon.flush();
+            std::ofstream outConMult(fFolderOutput + "MultConnectsBeforeLoadSolution.txt"); 
+            TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh->MeshVector()[1], outConMult, {1,2,3}, false, true); outConMult.flush();
         }
         VerifySolutionConsistency(fPressureMesh);
 #endif
+    
+    fMultiphysicsReconstructionMesh->LoadSolutionFromMultiPhysics();
+
+#ifdef ERRORESTIMATION_DEBUG88
+    {
+        std::ofstream outCon(fFolderOutput + "PressureConnectsAfterLoadSolution.txt");  
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(fMultiphysicsReconstructionMesh->MeshVector()[1], outCon, {1,2,3}, false, true); outCon.flush();
+        std::ofstream out(fFolderOutput + "MeshAfterLoadFromMultiphysics.txt");
+        fMultiphysicsReconstructionMesh->Print(out);
+        std::ofstream outP(fFolderOutput + "PotentialAfterLoadLoadFromMultiphysics.txt");
+        fMultiphysicsReconstructionMesh->MeshVector()[1]->Print(outP);
     }
+    VerifySolutionConsistency(fPressureMesh);
+#endif
+    
 
     return fMultiphysicsReconstructionMesh;
 }
@@ -156,6 +166,8 @@ void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
          auto intel = dynamic_cast<TPZInterpolationSpace*>(cel);
          if(!intel) DebugStop();
          auto mat = intel->Material();
+         bool isbc = dynamic_cast<TPZBndCond*>(mat) ? 1 : 0;
+         if(!isbc) continue;
          intel->AdjustIntegrationRule();
     }
 
@@ -183,7 +195,7 @@ void TPZHybridH1CreateH1Reconstruction::AddBC2PressureMesh(){
         TPZHybridH1PressureSingleSpace *press = dynamic_cast<TPZHybridH1PressureSingleSpace *>(pressuremat);
         TPZBndCondT<STATE> *newbc = press->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
         if (bc->HasForcingFunctionBC()) {
-            newbc->SetForcingFunctionBC(bc->ForcingFunctionBC(),5);
+            newbc->SetForcingFunctionBC(bc->ForcingFunctionBC(),6);
         } else DebugStop();
         fPressureMesh->InsertMaterialObject(newbc);
     }
@@ -743,7 +755,7 @@ void TPZHybridH1CreateH1Reconstruction::PrepareGeometricElements(){
             delete cel;
         }
     }
-    //RemoveNullCompEl(pressureMesh);
+    fPressureMesh->DeleteMaterial(fFEMWrapMatId);
 
     fPressureMesh->ComputeNodElCon();
     fPressureMesh->CleanUpUnconnectedNodes();
@@ -880,12 +892,10 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
 
     fPressureMesh->LoadReferences();
 
-#ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG33
     {
-        std::ofstream txtPostProcMesh(fFolderOutput + "PostProcMeshB4IncrementingConnects.txt");
-        fMultiphysicsReconstructionMesh->ShortPrint(txtPostProcMesh);
-        std::ofstream txtPressureMesh(dirPath + "PressureMeshB4IncrementingConnects.txt");
-        pressureMesh->Print(txtPressureMesh);
+        std::ofstream filecmeshTXT1(fFolderOutput + "MultMeshAfterResetReference.txt");
+        fMultiphysicsReconstructionMesh->Print(filecmeshTXT1);
     }
 #endif
 
@@ -920,6 +930,11 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
             }
         }
     }  
+
+#ifdef ERRORESTIMATION_DEBUG33
+       std::ofstream filecmeshTXT2(fFolderOutput + "MultMeshAfterConnectsToIncremenent.txt");
+       fMultiphysicsReconstructionMesh->Print(filecmeshTXT2);
+#endif
 #ifdef ERRORESTIMATION_DEBUG
     std::vector<std::pair<int,int>> incrementedConnectIndex;
     for(int i=0; i< connectsToIncrement.size() ; i++){
@@ -977,10 +992,19 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
         }
     }
 
+#ifdef ERRORESTIMATION_DEBUG33
+       std::ofstream filecmeshTXT3(fFolderOutput + "MultMeshAfterAddElement.txt");
+       fMultiphysicsReconstructionMesh->Print(filecmeshTXT3);
+#endif
+
     // Increments NElConnected of connects that should not be condensed
     // Only connects belonging to elements in the reconstruction mesh should be incremented,
     // Therefore, the first and last connect index of this mesh should be known
     fMultiphysicsReconstructionMesh->ComputeNodElCon();
+
+    std::ofstream filecmeshTXT6(fFolderOutput + "MultMeshAfterComputeNodElCon.txt");
+    fMultiphysicsReconstructionMesh->Print(filecmeshTXT6);
+
     TPZCompMesh *fluxMesh = fMultiphysicsReconstructionMesh->MeshVector()[0];
     bool isFluxActive = fMultiphysicsReconstructionMesh->GetActiveApproximationSpaces()[0];
 
@@ -1003,8 +1027,8 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
         std::ofstream fileTXT(fFolderOutput + "GeoMeshBeforeCondensedCompel.txt");
         gmesh->Print(fileTXT);
-        std::ofstream filecmeshTXT(fFolderOutput + "CompMeshBeforeCondensedCompel.txt");
-        fMultiphysicsReconstructionMesh->Print(filecmeshTXT);
+        std::ofstream filecmeshTXT4(fFolderOutput + "MultMeshAfterIncrementElConnected.txt");
+        fMultiphysicsReconstructionMesh->Print(filecmeshTXT4);
     }
 #endif
 
@@ -1033,10 +1057,10 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
     std::ofstream fileTXT(fFolderOutput + "GeoMeshAfterCondensedCompel.txt");
     gmesh->Print(fileTXT);
-    std::ofstream filecmeshTXT(fFolderOutput + "CompMeshAfterCondensedCompel.txt");
-    fMultiphysicsReconstructionMesh->Print(filecmeshTXT);
+    std::ofstream filecmeshTXT5(fFolderOutput + "MultMeshAfterCondensedCompEl.txt");
+        fMultiphysicsReconstructionMesh->Print(filecmeshTXT5);
 #endif
-}
+ }
 
 void TPZHybridH1CreateH1Reconstruction::VerifySkeletonContinuity(){
     TPZGeoMesh *gmesh = fPressureMesh->Reference();
@@ -2865,4 +2889,34 @@ void TPZHybridH1CreateH1Reconstruction::FindFreeMatID(int &matID){
     if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
 
     matID = maxMatId + 1;
+}
+
+/// Find free matID number
+void TPZHybridH1CreateH1Reconstruction::IdentifyFEMWrapId(){
+    auto &matvec = fPressureMesh->MaterialVec();
+    for(auto mat : matvec){
+        auto material = mat.second;
+        int matdim = material->Dimension();
+        if(matdim == fPressureMesh->Dimension()-1){
+                if (dynamic_cast<TPZBndCond*>(material)){
+                DebugStop(); // Pressure mesh should not have bc material at this point, unless its not hybridized
+                }
+                fFEMWrapMatId = mat.first;
+        }
+    }
+}
+
+
+void TPZHybridH1CreateH1Reconstruction::ReplaceAtomicVolumetricMaterial(){
+    auto &matvec = fPressureMesh->MaterialVec();
+        for(auto mat : matvec){
+            int matdim = mat.second->Dimension();
+            if(matdim == fPressureMesh->Dimension()){
+                auto singleSpaceMat = new TPZHybridH1PressureSingleSpace(mat.first,matdim);
+                int pOrder = 5;
+                singleSpaceMat->SetForcingFunction(fExact->ForceFunc(),pOrder);
+                singleSpaceMat->SetExactSol(fExact->ExactSolution(),pOrder);
+                matvec[mat.first] = singleSpaceMat;
+            }
+        }
 }
