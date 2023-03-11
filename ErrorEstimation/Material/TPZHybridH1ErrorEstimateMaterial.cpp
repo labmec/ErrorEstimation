@@ -710,8 +710,6 @@ void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(const TPZVec<TPZMaterialDataT<S
         TPZManVector<STATE,3> fluxrec(fDim);
         this->Solution(data,VariableIndex("FluxReconstructed"), fluxrec);
 
-        std::cout<<"flux_rec "<<fluxrec[0]<<" , "<<fluxrec[1]<<"\n";
-
 
         TPZFNMatrix<9,REAL> PermTensor(3,3), InvPermTensor(3,3);
         auto perm = GetPermeability(data[0].x);
@@ -742,7 +740,6 @@ void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(const TPZVec<TPZMaterialDataT<S
         }
         g = (-1)*normflux;
 
-        std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
 
 
 
@@ -751,7 +748,6 @@ void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(const TPZVec<TPZMaterialDataT<S
 
         REAL Km = bc.Val1()(0, 0);
         REAL InvKm = 1./Km;
-        std::cout<<"Km "<<Km<<" InvKm "<<InvKm<<"\n";
         REAL errorEstimated =0.,errorReal = 0.;
 
         normalsigmarec = Km*(urec-u_D)+g;
