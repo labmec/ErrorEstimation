@@ -19,7 +19,7 @@ public:
 
     TPZHybridH1CreateHDivReconstruction(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
        
-       fFolderOutput = "HybridH1_HDivReconstruction_Output/";
+       fFolderOutput = "HDivReconstruction/";
 
        InitializeFolderOutput();
 

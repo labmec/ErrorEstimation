@@ -24,7 +24,7 @@ public:
 
     TPZHybridH1CreateH1Reconstruction(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
        
-        fFolderOutput = "HybridH1_H1-conformReconstruction_Output/"; 
+        fFolderOutput = "H1-conformReconstruction/"; 
 
         InitializeFolderOutput();
 

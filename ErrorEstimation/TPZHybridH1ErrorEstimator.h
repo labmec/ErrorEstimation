@@ -35,7 +35,7 @@ public:
 
     TPZHybridH1ErrorEstimator(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
        
-        fFolderOutput = "HybridH1_ErrorEstimate_Output/"; 
+        fFolderOutput = "ErrorEstimate/"; 
 
         InitializeFolderOutput();
      };
