@@ -42,14 +42,13 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1Reconstructi
         std::ofstream filecmeshTXT2(fFolderOutput + "totoAtomic.txt");
         fMultiphysicsReconstructionMesh->MeshVector()[1]->Print(filecmeshTXT2);
     }
-    CreateGroupedAndCondensedElements();
+  CreateGroupedAndCondensedElements();
 
     //Compute continuos pressure on the skeleton;
     MakeSkeletonContinuous();
 
     VerifySkeletonContinuity();
 
-#define ERRORESTIMATION_DEBUG88
 #ifdef ERRORESTIMATION_DEBUG88
     {
         std::ofstream out("MeshWithSmoothPressure.txt");
@@ -2089,9 +2088,6 @@ void TPZHybridH1CreateH1Reconstruction::ComputeBoundaryL2Projection(TPZCompMesh 
 
         cel->CalcStiff(ekbc, efbc);
 
-        ekbc.Print(std::cout);
-        efbc.Print(std::cout);
-
         ekbc.fMat.SolveDirect(efbc.fMat, ELU);
 
 #ifdef ERRORESTIMATION_DEBUG43
@@ -2709,8 +2705,8 @@ void TPZHybridH1CreateH1Reconstruction::PostProcess(){
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
     std::cout <<        "||Grad(u_h)-Grad(u)||:  \t" << 
-    (*errorVec)[0] << "\n||Grad(s_h)-Grad(u)||:  \t" <<
-    (*errorVec)[1]<<  "\n||Grad(u_h)-Grad(s_h)||:\t"<< (*errorVec)[2]<<"\n\n";
+    (*errorVec)[0] << "\n||Grad(u_h)-Grad(s_h)||:\t" <<
+    (*errorVec)[1] << "\n||Grad(s_h)-Grad(u)||:  \t" << (*errorVec)[2]<<"\n\n";
 
     TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
     TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
