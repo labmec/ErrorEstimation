@@ -9,7 +9,8 @@
 #include "TPZCompMeshTools.h"
 #include "TPZCreateMultiphysicsSpace.h"
 #include "TPZSSpStructMatrix.h"
-#include "TPZSSpStructMatrix.h"
+#include "TPZSpStructMatrix.h"
+#include "pzfstrmatrix.h"
 #include "TPZParFrontStructMatrix.h"
 #include "pzskylstrmatrix.h"
 #include "pzstepsolver.h"
@@ -28,7 +29,8 @@
 using namespace std;
 void Solve(ProblemConfig &config, PreConfig &preConfig){
 
-    TPZCompMesh *cmesh = InsertCMeshH1(config,preConfig);
+    TPZCompMesh *cmesh = 0;
+//    TPZCompMesh *cmesh = InsertCMeshH1(config,preConfig);
     TPZMultiphysicsCompMesh *multiCmesh = new TPZMultiphysicsCompMesh(config.gmesh);
     int interfaceMatID = -10;
     int fluxMatID = -10;
@@ -38,11 +40,14 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
 
     switch(preConfig.mode){
         case 0: //H1
+            cmesh = InsertCMeshH1(config,preConfig);
             TPZCompMeshTools::CreatedCondensedElements(cmesh, false, false);
             SolveH1Problem(cmesh, config, preConfig);
             break;
         case 1: //Hybrid
-            CreateHybridH1ComputationalMesh(multiCmesh, interfaceMatID, fluxMatID,preConfig, config,hybridLevel); multiCmesh->Print(mamesh); mamesh.flush();
+            CreateHybridH1ComputationalMesh(multiCmesh, interfaceMatID, fluxMatID,preConfig, config,hybridLevel);
+            multiCmesh->Print(mamesh);
+            mamesh.flush();
             SolveHybridH1Problem(multiCmesh, interfaceMatID, config, preConfig,hybridLevel);
             if (preConfig.estimateError) EstimateError(config, preConfig, fluxMatID, multiCmesh);
             break;
@@ -58,6 +63,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     FlushTime(preConfig,start);
 
     if(preConfig.debugger) Tools::DrawCompMesh(config,preConfig,cmesh,multiCmesh);
+    delete multiCmesh;
 }
 
 void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]){
@@ -168,8 +174,9 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
 
     //if(preConfig.topologyMode != 2) DebugStop();
     if(preConfig.mode == 1){
-        auto estimatorConfig = new EstimatorConfig(multiCmesh,config,fluxMatID);
+        EstimatorConfig *estimatorConfig = new EstimatorConfig(multiCmesh,config,fluxMatID);
 
+        // the empty multiphysics mesh is created here
         auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction(estimatorConfig);
         auto myHdivMesh = myHdivMeshCreator->CreateFluxReconstructionMesh();
         myHdivMeshCreator->PostProcess();
@@ -178,11 +185,15 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         TPZMultiphysicsCompMesh* myH1Mesh = myH1MeshCreator->CreateH1ReconstructionMesh();
         myH1MeshCreator->PostProcess();
 
-        auto HybridH1Estimate = new TPZHybridH1ErrorEstimator(estimatorConfig);
+        TPZHybridH1ErrorEstimator *HybridH1Estimate = new TPZHybridH1ErrorEstimator(estimatorConfig);
         HybridH1Estimate->SetH1conformMesh(myH1MeshCreator->GetReconstructionMesh());
         HybridH1Estimate->SetHDivConformMesh(myHdivMeshCreator->GetReconstructionMesh());
         HybridH1Estimate->CreatePostProcessingMesh();
         HybridH1Estimate->PostProcess();
+        
+        delete HybridH1Estimate;
+        delete myH1MeshCreator;
+        delete myHdivMesh;
     }
 
     if (preConfig.mode == 2){
@@ -393,7 +404,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
     std::cout << "FINISHED!" << std::endl;
 }
 
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig config,struct PreConfig &pConfig,int hybridLevel){
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig &config,struct PreConfig &pConfig,int hybridLevel){
 
     config.exact.operator*().fSignConvention = 1;
 
@@ -406,11 +417,15 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
-    //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
-    //    strmat.SetNumThreads(2);
-    //    strmat.SetDecomposeType(ELDLt);
-    TPZSkylineStructMatrix<STATE> strmat(cmesh_H1Hybrid);
-    strmat.SetNumThreads(0);
+    TPZFStructMatrix<STATE> strmat(cmesh_H1Hybrid);
+    
+//    TPZSpStructMatrix<STATE> strmat(cmesh_H1Hybrid);
+//    strmat.SetNumThreads(0);
+//        TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_H1Hybrid);
+//        strmat.SetNumThreads(2);
+//        strmat.SetDecomposeType(ELDLt);
+//    TPZSkylineStructMatrix<STATE> strmat(cmesh_H1Hybrid);
+//    strmat.SetNumThreads(0);
 #endif
     std::set<int> matIds;
     for (auto matid : config.materialids) matIds.insert(matid);

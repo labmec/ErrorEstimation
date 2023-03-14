@@ -27,7 +27,43 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
 
     Tools::UniformRefinement(config.ndivisions, gmesh);
+    
+    {
+        int64_t nel = gmesh->NElements();
+        int dim = gmesh->Dimension();
+        int numeldiv = 5;
+        int neldiv = 0;
+        for (int64_t el = 0; el<nel; el++) {
+            auto gel = gmesh->Element(el);
+            if(gel->Dimension() != dim) continue;
+            if(gel->HasSubElement()) continue;
+            TPZVec<TPZGeoEl *> subels;
+            gel->Divide(subels);
+            neldiv++;
+            if(neldiv >= numeldiv) break;
+        }
+        nel = gmesh->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            auto gel = gmesh->Element(el);
+            if(gel->Dimension() == 0 || gel->HasSubElement()) continue;
+            TPZGeoElSide gelside(gel);
+            bool should_divide = false;
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            while(neighbour != gelside) {
+                if(neighbour.Element()->HasSubElement()) should_divide = true;
+                neighbour = neighbour.Neighbour();
+            }
+            if(should_divide) {
+                TPZVec<TPZGeoEl *> subels;
+                gel->Divide(subels);
+            }
+        }
+    }
 
+    {
+        std::ofstream out("gmesh_divide.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+    }
     config.gmesh = gmesh;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);

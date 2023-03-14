@@ -26,7 +26,7 @@ public:
        fLagrangeMatId = pEstimator->fLagrangeMatId;
      };
 
-    ~TPZHybridH1CreateHDivReconstruction(){}
+    ~TPZHybridH1CreateHDivReconstruction();
 
     TPZMultiphysicsCompMesh *CreateFluxReconstructionMesh();
 

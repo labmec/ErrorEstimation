@@ -24,7 +24,7 @@ void CreateHybMixCompMesh(TPZMultiphysicsCompMesh *multiHyb, TPZMultiphysicsComp
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct PreConfig &eData);
 
 //// Solve Primal Hybrid problem
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig config, struct PreConfig &eData,int hybridLevel);
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int InterfaceMatId, struct ProblemConfig &config, struct PreConfig &eData,int hybridLevel);
 
 //// Solve Mixed problem
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct PreConfig &eData);

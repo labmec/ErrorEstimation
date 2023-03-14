@@ -6,7 +6,7 @@
 //
 
 #include "TPZMatLaplacianHybrid.h"
-#include "DarcyFlow/TPZHybridDarcyFlow.h"
+#include "DarcyFlow/TPZDarcyFlow.h"
 #include "pzaxestools.h"
 
 TPZMatLaplacianHybrid::TPZMatLaplacianHybrid(int matid, int dim)
@@ -21,10 +21,12 @@ TPZRegisterClassId(&TPZMatLaplacianHybrid::ClassId), TPZMatLaplacian()
     
 }
 
-TPZMatLaplacianHybrid::TPZMatLaplacianHybrid(const TPZMatLaplacian &copy) :
-TPZRegisterClassId(&TPZMatLaplacianHybrid::ClassId), TPZMatLaplacian(copy)
-{
-    
+TPZMatLaplacianHybrid::TPZMatLaplacianHybrid(const TPZMatLaplacianHybrid &copy) : TPZDarcyFlow(copy),
+TPZMatCombinedSpacesT<STATE>(copy), TPZMatErrorCombinedSpaces<STATE>(copy), TPZMatError<STATE>(copy) {
+//    TPZMatError<STATE>::operator=(copy);
+//    const TPZMatErrorCombinedSpaces *errcs = &copy;
+    std::cout << "copy porder " << copy.PolynomialOrderExact() << std::endl;
+    std::cout << "exact porder " << this->fExactPOrder << std::endl;
 }
 
 TPZMatLaplacianHybrid::~TPZMatLaplacianHybrid()
@@ -35,6 +37,9 @@ TPZMatLaplacianHybrid::~TPZMatLaplacianHybrid()
 TPZMatLaplacianHybrid &TPZMatLaplacianHybrid::operator=(const TPZMatLaplacianHybrid &copy)
 {
     TPZMatLaplacian::operator=(copy);
+    TPZMatCombinedSpacesT<STATE>::operator=(copy);
+    TPZMatErrorCombinedSpaces<STATE>::operator=(copy);
+//    fDim = copy.fDim;
     return *this;
 }
 
@@ -378,6 +383,7 @@ void TPZMatLaplacianHybrid::Solution(const TPZVec<TPZMaterialDataT<STATE>> &data
         case 7:
         case 10:
         case 23:
+            TPZMatErrorSingleSpace<STATE>::SetExactSol(TPZMatErrorCombinedSpaces<STATE>::ExactSol(), TPZMatErrorCombinedSpaces<STATE>::PolynomialOrderExact());
             TPZMatLaplacian::Solution(datavec[1],var,Solout);
             break;
         default:

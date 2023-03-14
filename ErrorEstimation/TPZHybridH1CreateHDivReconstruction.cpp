@@ -25,11 +25,18 @@
 #include <TPZVTKGeoMesh.h>
 #include "TPZHybridH1ReconstructionBase.h"
 
+
+TPZHybridH1CreateHDivReconstruction::~TPZHybridH1CreateHDivReconstruction()
+{
+    // prevent the base class from deleting a mesh component of the original mesh
+    fMultiphysicsReconstructionMesh->MeshVector()[4] = 0;
+}
+
 // a method for generating the HDiv mesh
 TPZCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionHDivMesh()
 {
     TPZCompMesh *HDivAtomicMesh = fOriginal->MeshVector()[0]->Clone(); // HDIV-BOUND elements: clone might be unnecessary
-
+    HDivAtomicMesh->SetName("Flux Reconstruction");
 #ifdef ERRORESTIMATION_DEBUG
     std::string command = "mkdir -p " + fFolderOutput;
     std::string dirPath = fFolderOutput + "/";
@@ -92,7 +99,7 @@ TPZCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionL2Mesh
 #endif
 
     TPZCompMesh *L2AtomicMesh = new TPZCompMesh(fOriginal->Reference());
-
+    L2AtomicMesh->SetName("L2 mesh for flux reconstruction");
     int dimMesh = fOriginal->Reference()->Dimension();
 
     int potential_order = forderFEM_k + forderFEM_n;
@@ -114,6 +121,7 @@ TPZCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionL2Mesh
 
 TPZCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionConstantMesh(){
     TPZCompMesh *constant = new TPZCompMesh(fOriginal->Reference());
+    constant->SetName("Flux reconstruction constant");
     {
         for (auto matid:fmaterialids) {
             TPZNullMaterial<> *nullmat = new TPZNullMaterial<>(matid);
@@ -141,6 +149,7 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
     mesh_vectors[1] = L2AtomicMesh;
     mesh_vectors[2] = gspace;
     mesh_vectors[3] = fOriginal->MeshVector()[3]->Clone(); // avg-space
+    mesh_vectors[3]->SetName("Flux reconstruction avg pressure");
     mesh_vectors[4] = fOriginal->MeshVector()[1];
 
     active[0] = 1;
@@ -159,6 +168,8 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
             for(auto trybcmat: fOriginal->MaterialVec()) {
                 auto *bc = dynamic_cast<TPZBndCondT<STATE> *>(trybcmat.second);
                 if (bc) {
+                    TPZMaterial *matclone = trybcmat.second->NewMaterial();
+                    bc = dynamic_cast<TPZBndCondT<STATE> *>(matclone);
                     // add bc mtf;
                     if(bc->Material()->Id() != EEMat->Id()){
                         DebugStop(); // this should not be evoked unless multiple volumetric ids are invoked.
@@ -170,7 +181,7 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
         }
         if(mat.first == fLagrangeMatId){
             // add lagrange material
-            fMultiphysicsReconstructionMesh->InsertMaterialObject(mat.second);
+            fMultiphysicsReconstructionMesh->InsertMaterialObject(mat.second->NewMaterial());
         }
     }
 

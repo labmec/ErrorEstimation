@@ -71,9 +71,12 @@ void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshv
     SetPOrder(pressureOrder);
     SetLagrangeOrder(lagrangeorder);
     TPZCompMesh *pressure = CreatePressureMesh();
+    pressure->SetName("Discontinuous pressure mesh");
 //    CreateLagrangeGeometricElements(pressure);
     TPZCompMesh *fluxmesh = CreateBoundaryFluxMesh();
+    fluxmesh->SetName("Flux boundary mesh");
     TPZCompMesh *gspace = new TPZCompMesh(fGeoMesh);
+    gspace->SetName("Constant flux mesh");
     {
         InsertNullSpaceMaterialIds(gspace,fGeoMesh->Dimension()-1);
         gspace->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
@@ -85,6 +88,7 @@ void TPZCreateMultiphysicsSpace::CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshv
         }
     }
     TPZCompMesh *average = new TPZCompMesh(fGeoMesh);
+    average->SetName("Average pressure mesh");
     {
         InsertNullSpaceMaterialIds(average,fGeoMesh->Dimension()-1);
         average->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
@@ -269,6 +273,7 @@ void TPZCreateMultiphysicsSpace::CreatePressureBoundaryElements(TPZCompMesh *pre
         }
         pressure->ExpandSolution();
     }
+#define ERRORESTIMATION_DEBUG
 #ifdef ERRORESTIMATION_DEBUG
     {
         int err = 0;

@@ -116,6 +116,13 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1Reconstructi
     return fMultiphysicsReconstructionMesh;
 }
 
+TPZHybridH1CreateH1Reconstruction::~TPZHybridH1CreateH1Reconstruction()
+{
+    // prevent the base class from deleting a mesh component of the original mesh
+    fMultiphysicsReconstructionMesh->MeshVector()[0] = 0;
+    fMultiphysicsReconstructionMesh->MeshVector()[2] = 0;
+}
+
 void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
 
 #ifdef ERRORESTIMATION_DEBUG
@@ -141,6 +148,7 @@ void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
 
     active[1] = 1;
 
+    std::map<int,TPZMaterial *> newmats;
     for (auto mat : fMultiphysicsReconstructionMesh->MaterialVec()) {
         TPZMatLaplacianHybrid *matlaplacian=
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
@@ -154,9 +162,14 @@ void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
                     bc->SetMaterial(newmat);
                 }
             }
-            fMultiphysicsReconstructionMesh->DeleteMaterial(mat.first);
-            fMultiphysicsReconstructionMesh->InsertMaterialObject(newmat);
+            newmats[mat.first] = newmat;
+//            fMultiphysicsReconstructionMesh->DeleteMaterial(mat.first);
+//            fMultiphysicsReconstructionMesh->InsertMaterialObject(newmat);
         }
+    }
+    for(auto it : newmats) {
+        fMultiphysicsReconstructionMesh->DeleteMaterial(it.first);
+        fMultiphysicsReconstructionMesh->InsertMaterialObject(it.second);
     }
 
     for(int iel=0; iel < fPressureMesh->ElementVec().NElements(); iel++){
@@ -2871,9 +2884,9 @@ void TPZHybridH1CreateH1Reconstruction::FillVTKoutputVariables(TPZStack<std::str
 }
 
 /// Find free matID number
-void TPZHybridH1CreateH1Reconstruction::FindFreeMatID(int &matID){
-    TPZGeoMesh* gmesh = fOriginal->Reference();
-
+int TPZHybridH1CreateH1Reconstruction::FindFreeMatID(TPZGeoMesh *gmesh){
+//    TPZGeoMesh* gmesh = fOriginal->Reference();
+    int matID = 0;
     int maxMatId = std::numeric_limits<int>::min();
     const int nel = gmesh->NElements();
 
@@ -2885,6 +2898,7 @@ void TPZHybridH1CreateH1Reconstruction::FindFreeMatID(int &matID){
     if (maxMatId == std::numeric_limits<int>::min()) maxMatId = 0;
 
     matID = maxMatId + 1;
+    return matID;
 }
 
 /// Find free matID number

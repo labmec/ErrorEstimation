@@ -36,10 +36,11 @@ TPZHybMixDiffMaterial::TPZHybMixDiffMaterial(TPZMatLaplacianHybrid &matlaplacian
         int porder = matlaplacian.ForcingFunctionPOrder();
         this->SetForcingFunction(matlaplacian.ForcingFunction(),porder);
     }
-    if(matlaplacian.HasExactSol())
+    TPZMatErrorCombinedSpaces<STATE> *laperr = &matlaplacian;
+    if(laperr->HasExactSol())
     {
-        int porder = matlaplacian.PolynomialOrderExact();
-        this->SetExactSol(matlaplacian.ExactSol(), porder);
+        int porder = laperr->PolynomialOrderExact();
+        this->SetExactSol(laperr->ExactSol(), porder);
     }
 }
 

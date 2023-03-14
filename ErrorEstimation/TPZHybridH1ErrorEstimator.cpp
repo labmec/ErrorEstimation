@@ -18,6 +18,7 @@
 #include "TPZMixedHdivErrorEstimate.h"
 #include "TPZAnalysis.h"
 #include "TPZNullMaterial.h"
+#include "TPZNullMaterialCS.h"
 #include "TPZInterfaceEl.h"
 
 #include "TPZHybridH1CreateHDivReconstruction.h"
@@ -45,17 +46,17 @@ static LoggerPtr loggerF(Logger::getLogger("DebuggingF"));
 #endif
 
 TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
-    TPZVec<TPZCompMesh *> meshvec = fMultiphysicsReconstructionMesh->MeshVector();
+    TPZVec<TPZCompMesh *> &meshvec = fMultiphysicsReconstructionMesh->MeshVector();
     fMultiphysicsReconstructionMesh->Reference()->ResetReference();
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 4; i++) {
         if (!meshvec[i]) continue;
-        TPZCompMesh *cmesh = meshvec[i];
-        cmesh->SetReference(nullptr);
-        for (int64_t ic = 0; ic < meshvec[i]->NConnects(); ic++) {
-            TPZConnect &c = meshvec[i]->ConnectVec()[ic];
-            c.RemoveDepend();
-        }
-        delete meshvec[i];
+//        TPZCompMesh *cmesh = meshvec[i];
+//        cmesh->SetReference(nullptr);
+//        for (int64_t ic = 0; ic < meshvec[i]->NConnects(); ic++) {
+//            TPZConnect &c = meshvec[i]->ConnectVec()[ic];
+//            c.RemoveDepend();
+//        }
+        meshvec[i] = 0;
     }
     for (int64_t ic = 0; ic < fMultiphysicsReconstructionMesh->NConnects(); ic++) {
         TPZConnect &c = fMultiphysicsReconstructionMesh->ConnectVec()[ic];
@@ -176,6 +177,9 @@ if(fH1conformMesh == NULL || fHDivconformMesh == NULL){
     fMultiphysicsReconstructionMesh->SetReference(fOriginal->Reference());
     int dim = fOriginal->Dimension(); 
     fOriginal->CopyMaterials(*fMultiphysicsReconstructionMesh);
+    
+    auto skelmat = new TPZNullMaterialCS<>(fSkeletonMatId,dim,1);
+    fMultiphysicsReconstructionMesh->InsertMaterialObject(skelmat);
 
     SwitchMaterialObjects();
 

@@ -11,13 +11,32 @@ TPZHybridH1ReconstructionBase::TPZHybridH1ReconstructionBase(EstimatorConfig *pE
        forderFEM_n = pEstimator->fn;
        fmaterialids = pEstimator->fmaterialids;
        fbcmaterialids = pEstimator->fbcmaterialids;
+       fSkeletonMatId = pEstimator->fSkeletonMatId;
        fExact = pEstimator->fExact;
        fproblemname = pEstimator->fproblemname;
        fnDivisions = pEstimator->fnDivisions;
        fAdaptivityStep = pEstimator->fAdaptivityStep;
 
        fMultiphysicsReconstructionMesh = new TPZMultiphysicsCompMesh(fOriginal->Reference());
-};
+}
+
+TPZHybridH1ReconstructionBase::~TPZHybridH1ReconstructionBase(){
+    auto meshvec = fMultiphysicsReconstructionMesh->MeshVector();
+    int64_t nmeshes = meshvec.size();
+    TPZGeoMesh *gmesh = fMultiphysicsReconstructionMesh->Reference();
+    gmesh->ResetReference();
+    for(int64_t im=0; im<nmeshes; im++) {
+        if(meshvec[im]) {
+            int64_t nc = meshvec[im]->ConnectVec().NElements();
+            for (int64_t ic = 0; ic<nc; ic++) {
+                meshvec[im]->ConnectVec()[ic].RemoveDepend();
+            }
+            delete meshvec[im];
+        }
+    }
+    delete fMultiphysicsReconstructionMesh;
+}
+
 
 void TPZHybridH1ReconstructionBase::InitializeFolderOutput(){
        std::string foldername = fFolderOutput;
