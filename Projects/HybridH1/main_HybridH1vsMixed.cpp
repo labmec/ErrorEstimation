@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "LQuad";                //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 0;                      //// How many refinements
+    pConfig.refLevel = 3;                      //// How many refinements
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh
 

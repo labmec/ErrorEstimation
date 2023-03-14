@@ -16,7 +16,7 @@
 
 typedef TPZDarcyFlow TPZMatLaplacian;
 
-class TPZMatLaplacianHybrid : public TPZMatCombinedSpacesT<STATE>, public TPZMatErrorCombinedSpaces<STATE>, public TPZDarcyFlow
+class TPZMatLaplacianHybrid : public TPZDarcyFlow, public TPZMatCombinedSpacesT<STATE>, public TPZMatErrorCombinedSpaces<STATE>
 {
     
 public:
@@ -25,7 +25,7 @@ public:
         
     TPZMatLaplacianHybrid();
     
-    TPZMatLaplacianHybrid(const TPZMatLaplacian &copy);
+    TPZMatLaplacianHybrid(const TPZMatLaplacianHybrid &copy);
     
     virtual ~TPZMatLaplacianHybrid();
     

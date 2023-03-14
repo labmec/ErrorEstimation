@@ -28,17 +28,25 @@ public:
 
         InitializeFolderOutput();
 
-        FindFreeMatID(fPressureSkeletonMatId);
+        fPressureSkeletonMatId = FindFreeMatID(fOriginal->Reference());
+        pEstimator->fSkeletonMatId = fPressureSkeletonMatId;
 
         fPressureMesh = pEstimator->fOriginal->MeshVector()[1]->Clone();
-        ReplaceAtomicVolumetricMaterial();
-
-        IdentifyFEMWrapId();
+        fPressureMesh->SetName("H1 reconstruction pressure mesh");
+        auto &matvec = fPressureMesh->MaterialVec();
+        for(auto mat : matvec){
+            int matdim = mat.second->Dimension();
+            if(matdim == fPressureMesh->Dimension()){
+                auto singleSpaceMat = new TPZHybridH1PressureSingleSpace(mat.first,matdim);
+                int pOrder = 5;
+                singleSpaceMat->SetForcingFunction(fExact->ForceFunc(),pOrder);
+                singleSpaceMat->SetExactSol(fExact->ExactSolution(),pOrder);
+                matvec[mat.first] = singleSpaceMat;
+            }
+        }
      };
 
-    ~TPZHybridH1CreateH1Reconstruction(){
-
-    };
+    ~TPZHybridH1CreateH1Reconstruction();
 
     TPZMultiphysicsCompMesh *CreateH1ReconstructionMesh();
 
@@ -59,7 +67,7 @@ protected:
 private:
  
      /// Find free matID number
-    void FindFreeMatID(int &matID);
+    static int FindFreeMatID(TPZGeoMesh *gmesh);
 
     /// Find free matID number
     void IdentifyFEMWrapId();

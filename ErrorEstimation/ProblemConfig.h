@@ -76,6 +76,8 @@ struct EstimatorConfig{
    std::set<int> fbcmaterialids;
    /// Material id of lagrange coefficents
    int fLagrangeMatId =-666;
+    /// Mateiral for computing the continuous skeleton solution
+    int fSkeletonMatId = -666;
    /// Polynomial orders of original problem
    int fk = -666;
    int fn = -666;

@@ -19,8 +19,7 @@ public:
 
     TPZHybridH1ReconstructionBase(EstimatorConfig *pEstimator);
 
-    ~TPZHybridH1ReconstructionBase(){
-    }
+    ~TPZHybridH1ReconstructionBase();
 
 protected:
 
@@ -42,6 +41,9 @@ protected:
    std::set<int> fmaterialids;
    /// set of boundary condition material ids
    std::set<int> fbcmaterialids;
+    
+    /// material id of the skeleton elements
+    int fSkeletonMatId;
 
    TPZAutoPointer<TLaplaceExample1> fExact;
 

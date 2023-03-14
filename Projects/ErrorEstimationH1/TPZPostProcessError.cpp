@@ -287,9 +287,12 @@ void TPZPostProcessError::ComputeHDivSolution()
     strmat.SetNumThreads(numthreads);
     an.SetStructuralMatrix(strmat);
 #else
-    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(meshmixed);
+    TPZSSpStructMatrix<STATE> strmat(meshmixed);
     strmat.SetNumThreads(numthreads);
-    strmat.SetDecomposeType(ELDLt);
+    an.SetStructuralMatrix(strmat);
+//    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(meshmixed);
+//    strmat.SetNumThreads(numthreads);
+//    strmat.SetDecomposeType(ELDLt);
     //		TPZSkylineStructMatrix strmat3(cmesh);
     //        strmat3.SetNumThreads(8);
 #endif
