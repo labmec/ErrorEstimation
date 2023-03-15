@@ -112,19 +112,19 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
     }
 }
 
-TPZVec<REAL>* TPZHybridH1ReconstructionBase::ComputeErrors(TPZLinearAnalysis *an, int numberErrors){
+TPZVec<REAL> TPZHybridH1ReconstructionBase::ComputeErrors(TPZLinearAnalysis *an, int numberErrors){
     
     if (fExact) {
         an->SetExact(fExact->ExactSolution());
     }
 
 
-    auto errorVec = new TPZVec<REAL>;
+    TPZVec<REAL> errorVec;
     int64_t nErrorCols = numberErrors;
-    errorVec->resize(nErrorCols);
-    errorVec->Fill(0);
+    errorVec.resize(nErrorCols);
+    errorVec.Fill(0);
     for (int64_t i = 0; i < nErrorCols; i++) {
-        (*errorVec)[i] = 0;
+        errorVec[i] = 0;
     }
 
     int64_t nelem = fMultiphysicsReconstructionMesh->NElements();
@@ -145,7 +145,7 @@ TPZVec<REAL>* TPZHybridH1ReconstructionBase::ComputeErrors(TPZLinearAnalysis *an
 
     bool store=true;
     std::ofstream myDummyOfs;
-    an->PostProcessError(*errorVec, store, myDummyOfs);//calculo do erro com sol exata e aprox e armazena no elementsolution
+    an->PostProcessError(errorVec, store, myDummyOfs);//calculo do erro com sol exata e aprox e armazena no elementsolution
 
     return errorVec;
 }

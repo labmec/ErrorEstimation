@@ -270,13 +270,13 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(){
     // Therefore it is required to account for the original solution and the errors.
     int numErrors = 3;
     numErrors++;
-    TPZVec<REAL> *errorVec = ComputeErrors(&an,numErrors); 
+    TPZVec<REAL> errorVec = ComputeErrors(&an,numErrors);
 
     std::cout << "\n############\n";
     std::cout << "Computing Error HDiv reconstruction\n";
-    std::cout << "||Grad(u_h)-Grad(u)||:\t" << (*errorVec)[0] << 
-               "\n||Grad(u_h)+t_h||:    \t" << (*errorVec)[1]<< 
-               "\n||div(t_h)-f||:       \t"<< (*errorVec)[2]<<"\n";
+    std::cout << "||Grad(u_h)-Grad(u)||:\t" << (errorVec)[0] <<
+               "\n||Grad(u_h)+t_h||:    \t" << (errorVec)[1]<<
+               "\n||div(t_h)-f||:       \t"<< (errorVec)[2]<<"\n";
 
     TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
     TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
@@ -287,9 +287,9 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(){
     myfile << "\n\n Estimator errors for HDiv reconstruction " << *fproblemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fnDivisions <<" Order k= " << forderFEM_k << " Order n= "<< forderFEM_n<<"\n";
-    myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << (*errorVec)[0] << "\n";
-    myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << (*errorVec)[1] << "\n";
-    myfile << "||div(HDiv)-f||= "<< (*errorVec)[2] << "\n";
+    myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << (errorVec)[0] << "\n";
+    myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << (errorVec)[1] << "\n";
+    myfile << "||div(HDiv)-f||= "<< (errorVec)[2] << "\n";
 
     myfile.close();
 

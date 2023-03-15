@@ -52,7 +52,9 @@ protected:
 
 public:
 
-    virtual void PostProcess() =0;
+    virtual void PostProcess() {
+        DebugStop();
+    }
 
 protected:
 
@@ -71,7 +73,7 @@ protected:
 
     void PrintSolutionVTK(TPZAnalysis &an);
 
-    TPZVec<REAL>* ComputeErrors(TPZLinearAnalysis *an, int numberErrors);
+    TPZVec<REAL> ComputeErrors(TPZLinearAnalysis *an, int numberErrors);
 
 
 };

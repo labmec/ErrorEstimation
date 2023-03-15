@@ -26,8 +26,16 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
     gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
 
+    if(config.gmesh) delete config.gmesh;
+    config.gmesh = gmesh;
+
     Tools::UniformRefinement(config.ndivisions, gmesh);
     
+    config.ApplyDivision();
+    gmesh = config.gmesh;
+
+    // apply random refinement
+    if(0)
     {
         int64_t nel = gmesh->NElements();
         int dim = gmesh->Dimension();
@@ -42,6 +50,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
             neldiv++;
             if(neldiv >= numeldiv) break;
         }
+        // divide the boundary elements
         nel = gmesh->NElements();
         for (int64_t el = 0; el<nel; el++) {
             auto gel = gmesh->Element(el);
@@ -61,10 +70,11 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
 
     {
-        std::ofstream out("gmesh_divide.vtk");
+        std::stringstream sout;
+        sout << "gmesh_divide." << config.fElIndexDivide.size() << ".vtk";
+        std::ofstream out(sout.str());
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     }
-    config.gmesh = gmesh;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.bcmaterialids.insert(-2);
@@ -295,6 +305,7 @@ void IsInteger(char *argv){
 }
 
 void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
+
 
     config.exact = new TLaplaceExample1;
     switch(preConfig.type){

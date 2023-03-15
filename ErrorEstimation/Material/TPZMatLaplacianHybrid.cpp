@@ -25,8 +25,6 @@ TPZMatLaplacianHybrid::TPZMatLaplacianHybrid(const TPZMatLaplacianHybrid &copy) 
 TPZMatCombinedSpacesT<STATE>(copy), TPZMatErrorCombinedSpaces<STATE>(copy), TPZMatError<STATE>(copy) {
 //    TPZMatError<STATE>::operator=(copy);
 //    const TPZMatErrorCombinedSpaces *errcs = &copy;
-    std::cout << "copy porder " << copy.PolynomialOrderExact() << std::endl;
-    std::cout << "exact porder " << this->fExactPOrder << std::endl;
 }
 
 TPZMatLaplacianHybrid::~TPZMatLaplacianHybrid()

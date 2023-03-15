@@ -66,24 +66,24 @@ TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
 
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
-void TPZHybridH1ErrorEstimator::PostProcess() {
+void TPZHybridH1ErrorEstimator::PostProcess(REAL threshold, std::set<int64_t> &geltodivide) {
     TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
     
     // The solution is expanded to store errors,
     // Therefore it is required to account for the original solution and the errors.
     int numErrors = 7;
     numErrors++; 
-    TPZVec<REAL> *errorVec = ComputeErrors(&an,numErrors); 
+    TPZVec<REAL> errorVec = ComputeErrors(&an,numErrors);
     
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
     std::cout <<       "||u_h-u||:                \t" << 
-    (*errorVec)[0]<< "\n||u_h-s_h||:              \t" <<
-    (*errorVec)[1]<< "\n||Grad(u_h)-Grad(u)||:    \t" << 
-    (*errorVec)[2]<< "\n||Grad(u_h)-Grad(s_h)||:  \t"   <<
-    (*errorVec)[3]<< "\n||Grad(u_h)+t_h||:        \t"   <<
-    (*errorVec)[4]<< "\n||f-div(t_h)||:           \t"   << 
-    (*errorVec)[5]<< "\n||f-projL2(f)||:          \t" << (*errorVec)[6] <<"\n";
+    (errorVec)[0]<< "\n||u_h-s_h||:              \t" <<
+    (errorVec)[1]<< "\n||Grad(u_h)-Grad(u)||:    \t" <<
+    (errorVec)[2]<< "\n||Grad(u_h)-Grad(s_h)||:  \t"   <<
+    (errorVec)[3]<< "\n||Grad(u_h)+t_h||:        \t"   <<
+    (errorVec)[4]<< "\n||f-div(t_h)||:           \t"   <<
+    (errorVec)[5]<< "\n||f-projL2(f)||:          \t" << (errorVec)[6] <<"\n";
 
     
     TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
@@ -96,12 +96,12 @@ void TPZHybridH1ErrorEstimator::PostProcess() {
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fnDivisions <<" Order k= " << forderFEM_k << " Order n= "<< forderFEM_n<<"\n";
     //myfile << "DOF Total = " << fMultiphysicsReconstructionMesh->NEquations() << "\n";
-    myfile << "||u-u_h|| = " << (*errorVec)[0] << "\n";
-    myfile << "||u_h-s_h|| = " << (*errorVec)[1] << "\n";
-    myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << (*errorVec)[2] << "\n";
-    myfile << "n_{NC}: ||K^{0.5}.grad(u_h-s_h)|| = " << (*errorVec)[3] << "\n";
-    myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << (*errorVec)[4] << "\n";
-    myfile <<"Residual ErrorL2= "<< (*errorVec)[5] << "\n";
+    myfile << "||u-u_h|| = " << (errorVec)[0] << "\n";
+    myfile << "||u_h-s_h|| = " << (errorVec)[1] << "\n";
+    myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << (errorVec)[2] << "\n";
+    myfile << "n_{NC}: ||K^{0.5}.grad(u_h-s_h)|| = " << (errorVec)[3] << "\n";
+    myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << (errorVec)[4] << "\n";
+    myfile <<"Residual ErrorL2= "<< (errorVec)[5] << "\n";
     //myfile <<"Global Index = "<< sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
 
     myfile.close();
@@ -111,19 +111,27 @@ void TPZHybridH1ErrorEstimator::PostProcess() {
     
     PrintSolutionVTK(an);
     
-    errorVec->resize(fMultiphysicsReconstructionMesh->Reference()->NElements());
-    for (REAL & elementerror : *errorVec) {
+    errorVec.resize(fMultiphysicsReconstructionMesh->Reference()->NElements());
+    for (REAL & elementerror : errorVec) {
         elementerror = 0;
     }
+    STATE maxerror = 0.;
     for (int64_t i = 0; i < fMultiphysicsReconstructionMesh->NElements(); i++) {
         TPZCompEl *cel = fMultiphysicsReconstructionMesh->Element(i);
         if (!cel) continue;
         TPZGeoEl* gel = fMultiphysicsReconstructionMesh->Element(i)->Reference();
         if (!gel) continue;
         TPZFMatrix<STATE> &elsol = fMultiphysicsReconstructionMesh->ElementSolution();
-        (*errorVec)[gel->Index()] = elsol(i, 3);
+        STATE error = elsol(i,3);
+        (errorVec)[gel->Index()] = error;
+        if(maxerror < error) maxerror = error;
     }
-    
+    geltodivide.clear();
+    for (int64_t i = 0; i<errorVec.size(); i++) {
+        REAL elementerror = errorVec[i];
+        if(elementerror > threshold*maxerror) geltodivide.insert(i);
+    }
+
 }
 
 void TPZHybridH1ErrorEstimator::FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames){
