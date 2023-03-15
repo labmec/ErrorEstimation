@@ -47,6 +47,9 @@ struct ProblemConfig
     STATE Km = 0.;
     STATE coefG = 0.;
     
+    /// the elements with error larger than 0.7*max_error will be divided
+    REAL division_threshold = 0.7;
+    
     /// directory where the files will be stored
     std::string dir_name = ".";
     /// name identifying the problem
@@ -57,12 +60,23 @@ struct ProblemConfig
     std::set<int> bcmaterialids;
     /// exact solution
     TPZAutoPointer<TLaplaceExample1> exact;
+    
+    /// set of elements to be divided after each adaptivity step
+    std::list<std::set<int64_t> > fElIndexDivide;
 
     ProblemConfig() = default;
 
     ProblemConfig(const ProblemConfig &cp) = default;
 
     ProblemConfig &operator=(const ProblemConfig &cp) = default;
+    
+    void ApplyDivision();
+    
+    void ApplyTwoonOneRestraint();
+    
+    void DivideBoundaryElements();
+    
+    
 };
 
 struct EstimatorConfig{

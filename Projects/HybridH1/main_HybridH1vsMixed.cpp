@@ -28,18 +28,21 @@ int main(int argc, char *argv[]) {
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh
 
+    // this is where the type in pConfig is set
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
 
-    for (int ndiv = pConfig.refLevel; ndiv < pConfig.refLevel+1; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+    int numadaptive = 8;
+    ProblemConfig config;
+    for (int adapt = 0; adapt < numadaptive; adapt++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
-        ProblemConfig config;
-        Configure(config,ndiv,pConfig,argv);
+
+        Configure(config,pConfig.refLevel,pConfig,argv);
 
         Solve(config,pConfig);
 
-        pConfig.hLog = pConfig.h;
-        pConfig.exp *=2;
+//        pConfig.hLog = pConfig.h;
+//        pConfig.exp *=2;
     }
     std::string command = "cp Erro.txt " + pConfig.plotfile + "/Erro.txt";
     system(command.c_str());

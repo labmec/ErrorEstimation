@@ -60,7 +60,7 @@ public:
     void PostProcessing(TPZAnalysis &an);
 
     // Compute approximation error and generate VTK outputs
-    void PostProcess() override;
+    void PostProcess(REAL threshold, std::set<int64_t> &geltodivide);
 
     // Plots State solution of elements of target dimension
     void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh);

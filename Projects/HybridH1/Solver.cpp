@@ -189,7 +189,9 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         HybridH1Estimate->SetH1conformMesh(myH1MeshCreator->GetReconstructionMesh());
         HybridH1Estimate->SetHDivConformMesh(myHdivMeshCreator->GetReconstructionMesh());
         HybridH1Estimate->CreatePostProcessingMesh();
-        HybridH1Estimate->PostProcess();
+        std::set<int64_t> geltodivide;
+        HybridH1Estimate->PostProcess(config.division_threshold,geltodivide);
+        config.fElIndexDivide.push_back(geltodivide);
         
         delete HybridH1Estimate;
         delete myH1MeshCreator;
