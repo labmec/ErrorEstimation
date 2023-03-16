@@ -181,11 +181,11 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         // the empty multiphysics mesh is created here
         auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction(estimatorConfig);
         auto myHdivMesh = myHdivMeshCreator->CreateFluxReconstructionMesh();
-        myHdivMeshCreator->PostProcess();
+        //myHdivMeshCreator->PostProcess();
 
         auto myH1MeshCreator = new TPZHybridH1CreateH1Reconstruction(estimatorConfig);
         TPZMultiphysicsCompMesh* myH1Mesh = myH1MeshCreator->CreateH1ReconstructionMesh();
-        myH1MeshCreator->PostProcess();
+        //myH1MeshCreator->PostProcess();
 
         TPZHybridH1ErrorEstimator *HybridH1Estimate = new TPZHybridH1ErrorEstimator(estimatorConfig);
         HybridH1Estimate->SetH1conformMesh(myH1MeshCreator->GetReconstructionMesh());

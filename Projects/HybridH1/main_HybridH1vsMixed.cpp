@@ -20,10 +20,10 @@ int main(int argc, char *argv[]) {
     PreConfig pConfig;
     pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "ESinMark";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
+    pConfig.problem = "ESinSin";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
-    pConfig.topology = "LQuad";                //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
+    pConfig.topology = "Quadrilateral";                //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
     pConfig.refLevel = 3;                      //// How many refinements
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh
