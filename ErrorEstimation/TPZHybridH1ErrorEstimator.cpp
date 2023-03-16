@@ -64,9 +64,7 @@ TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
     }
 }
 
-/// compute the element errors comparing the reconstructed solution based on average pressures
-/// with the original solution
-void TPZHybridH1ErrorEstimator::PostProcess(REAL threshold, std::set<int64_t> &geltodivide) {
+TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
     
     // The solution is expanded to store errors,
@@ -110,6 +108,15 @@ void TPZHybridH1ErrorEstimator::PostProcess(REAL threshold, std::set<int64_t> &g
     ComputeEffectivityIndices(globalIndex);
     
     PrintSolutionVTK(an);
+
+    return errorVec;
+}
+
+/// compute the element errors comparing the reconstructed solution based on average pressures
+/// with the original solution
+void TPZHybridH1ErrorEstimator::PostProcess(REAL threshold, std::set<int64_t> &geltodivide) {
+    
+    TPZVec<REAL> errorVec = PostProcess();
     
     errorVec.resize(fMultiphysicsReconstructionMesh->Reference()->NElements());
     for (REAL & elementerror : errorVec) {

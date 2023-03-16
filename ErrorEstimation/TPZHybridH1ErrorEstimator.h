@@ -56,9 +56,6 @@ public:
     
     ~TPZHybridH1ErrorEstimator();
 
-    /// create graphical output of estimated and true errors using the analysis
-    void PostProcessing(TPZAnalysis &an);
-
     // Compute approximation error and generate VTK outputs
     void PostProcess(REAL threshold, std::set<int64_t> &geltodivide);
 
@@ -98,6 +95,10 @@ protected:
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
 
     void FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames) override;
+
+private:
+    /// create graphical output of estimated and true errors using the analysis
+    [[maybe_unused]] TPZVec<REAL> PostProcess() override;
 
 private:
 

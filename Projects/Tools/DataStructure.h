@@ -28,6 +28,10 @@ struct PreConfig{
     
     std::string topologyFileName;   //Simplified name used for naming files/directories
 
+    int numberAdapativitySteps =-1;
+
+    int vtkResolution = -1;
+
     REAL perm_Q1 = 5;      /// Permeability coefficient of even quadrants (Steklov only)
     REAL perm_Q2 = 1;
 

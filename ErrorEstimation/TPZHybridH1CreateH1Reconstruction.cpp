@@ -2706,7 +2706,7 @@ void TPZHybridH1CreateH1Reconstruction::VerifyAverage(int target_dim) {
     }
 }
 
-void TPZHybridH1CreateH1Reconstruction::PostProcess(){
+TPZVec<REAL> TPZHybridH1CreateH1Reconstruction::PostProcess(){
     TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
 
     // The solution is expanded to store errors,
@@ -2737,6 +2737,8 @@ void TPZHybridH1CreateH1Reconstruction::PostProcess(){
     myfile.close();
 
     PrintSolutionVTK(an);
+
+    return errorVec;
 }
 
 

@@ -35,7 +35,7 @@ struct ProblemConfig
     /// number of uniform refinements applied to the mesh
     int ndivisions = -1;
     int ninternalref = -1;
-    int adaptivityStep = -1;
+    int adaptivityStep = -1; // Keep this variable for compatibility to maintain support for Gustavo's code. Useless for HybridH1 simulations.
     int dimension = 0;
     bool prefine = false;
     bool steklovexample = false;
@@ -58,6 +58,8 @@ struct ProblemConfig
     std::set<int> materialids;
     /// set of boundary condition material ids
     std::set<int> bcmaterialids;
+
+    int vtkResolution = -1;
     /// exact solution
     TPZAutoPointer<TLaplaceExample1> exact;
     
@@ -99,6 +101,8 @@ struct EstimatorConfig{
    int fnDivisions = -666;
 
    int fAdaptivityStep = -1;
+
+    int fvtkResolution = -1;
    /// exact solution
    TPZAutoPointer<TLaplaceExample1> fExact;
 
@@ -110,6 +114,7 @@ struct EstimatorConfig{
         fnDivisions = pConfig.ndivisions;
         fExact = pConfig.exact;
         fAdaptivityStep = pConfig.adaptivityStep;
+        fvtkResolution = pConfig.vtkResolution;
         fk = pConfig.k;
         fn = pConfig.n;
 
