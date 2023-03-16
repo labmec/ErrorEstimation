@@ -204,7 +204,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "E10SinSin") pConfig.type = 6;
         else if (pConfig.problem == "ESing2D") pConfig.type = 7;
         else if (pConfig.problem == "ESinMark") pConfig.type = 8;
-        else if (pConfig.problem == "EProb") pConfig.type = 9;
+        else if (pConfig.problem == "ESteepWave") pConfig.type = 9;
         else DebugStop();
     }
 
@@ -337,6 +337,9 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
             break;
         case 8:
             config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+            break;
+        case 9:
+            config.exact.operator*().fExact = TLaplaceExample1::ESteepWave;
             break;
         default:
             DebugStop();
