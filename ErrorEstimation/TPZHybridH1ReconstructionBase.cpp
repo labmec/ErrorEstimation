@@ -16,6 +16,7 @@ TPZHybridH1ReconstructionBase::TPZHybridH1ReconstructionBase(EstimatorConfig *pE
        fproblemname = pEstimator->fproblemname;
        fnDivisions = pEstimator->fnDivisions;
        fAdaptivityStep = pEstimator->fAdaptivityStep;
+       fvtkResolution = pEstimator->fvtkResolution;
 
        fMultiphysicsReconstructionMesh = new TPZMultiphysicsCompMesh(fOriginal->Reference());
 }
@@ -99,11 +100,8 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
         }
         out << ".vtk";
 
-        int res =2;
+        int res = fvtkResolution;
 
-        if(fOriginal->NEquations()<100){
-            res=4;
-        }
         an.DefineGraphMesh(dim, scalnames, vecnames, out.str());
         an.PostProcess(res, dim);
     }

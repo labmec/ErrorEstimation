@@ -42,7 +42,7 @@ public: // redundant description separates a subset of methods by functionality
     // Checks if lagrange coefficients are continuous
     virtual void VerifyBoundaryFluxConsistency(TPZCompMesh* cmesh);
 
-    void PostProcess() override;
+    [[maybe_unused]] TPZVec<REAL> PostProcess() override;
 
     inline TPZCompMesh* GetReconstructionMesh(){
         return fHDivReconstructionAtomicMesh;

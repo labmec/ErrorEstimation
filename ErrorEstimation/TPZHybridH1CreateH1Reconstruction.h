@@ -50,7 +50,7 @@ public:
 
     TPZMultiphysicsCompMesh *CreateH1ReconstructionMesh();
 
-    void PostProcess() override;
+    [[maybe_unused]] TPZVec<REAL> PostProcess() override;
 
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);

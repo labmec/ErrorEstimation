@@ -263,7 +263,7 @@ void TPZHybridH1CreateHDivReconstruction::VerifyBoundaryFluxConsistency(TPZCompM
     if(nEffectiveFluxes == 0) DebugStop();
 }
 
-void TPZHybridH1CreateHDivReconstruction::PostProcess(){
+TPZVec<REAL>  TPZHybridH1CreateHDivReconstruction::PostProcess(){
     TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
 
     // The solution is expanded to store errors,
@@ -294,6 +294,8 @@ void TPZHybridH1CreateHDivReconstruction::PostProcess(){
     myfile.close();
 
     PrintSolutionVTK(an);
+
+    return errorVec;
 }
 
 void TPZHybridH1CreateHDivReconstruction::FillVTKoutputVariables(TPZStack<std::string> &scalnames,TPZStack<std::string> &vecnames){

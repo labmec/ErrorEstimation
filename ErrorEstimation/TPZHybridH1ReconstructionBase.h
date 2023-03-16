@@ -37,6 +37,8 @@ protected:
 
     int fAdaptivityStep;
 
+    int fvtkResolution = 0;
+
     /// set of materialids in the mesh
    std::set<int> fmaterialids;
    /// set of boundary condition material ids
@@ -52,9 +54,7 @@ protected:
 
 public:
 
-    virtual void PostProcess() {
-        DebugStop();
-    }
+    [[maybe_unused]] virtual TPZVec<REAL> PostProcess() = 0;
 
 protected:
 
