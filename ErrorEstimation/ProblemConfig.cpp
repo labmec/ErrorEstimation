@@ -13,6 +13,7 @@ void ProblemConfig::ApplyDivision()
             gmesh->Element(eleindex)->Divide(subels);
         }
         ApplyTwoonOneRestraint();
+        DivideEncircledElements();
         DivideBoundaryElements();
     }
 }
@@ -69,6 +70,37 @@ void ProblemConfig::ApplyTwoonOneRestraint()
                 }
                 neighbour = neighbour.Neighbour();
             }
+        }
+    }
+}
+
+void ProblemConfig::DivideEncircledElements()
+{
+    int64_t nel = gmesh->NElements();
+    int dim = gmesh->Dimension();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(!gel || gel->Dimension() != dim || gel->HasSubElement()) continue;
+        int firstside = gel->FirstSide(dim-1);
+        int nsides = gel->NSides(dim-1);
+        int numneighdivided = 0;
+        for (int side = firstside; side < gel->NSides()-1; side++) {
+            TPZGeoElSide gelside(gel,side);
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            while(neighbour != gelside)
+            {
+                auto neighel = neighbour.Element();
+                if(neighel->Dimension() == dim && neighel->HasSubElement()) {
+                    numneighdivided++;
+                    break;
+                }
+                neighbour = neighbour.Neighbour();
+            }
+        }
+        if(numneighdivided >= nsides-1) {
+            TPZStack<TPZGeoEl *> subels;
+            std::cout << "Element " << el << " divided because surrounded by divided elements\n";
+            gel->Divide(subels);
         }
     }
 }
