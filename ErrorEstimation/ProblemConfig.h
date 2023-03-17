@@ -76,6 +76,8 @@ struct ProblemConfig
     
     void ApplyTwoonOneRestraint();
     
+    void DivideEncircledElements();
+    
     void DivideBoundaryElements();
     
     
