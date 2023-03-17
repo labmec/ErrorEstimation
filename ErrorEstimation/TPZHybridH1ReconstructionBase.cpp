@@ -101,6 +101,9 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
         out << ".vtk";
 
         int res = fvtkResolution;
+        if(res<0){
+            DebugStop();
+        }
 
         an.DefineGraphMesh(dim, scalnames, vecnames, out.str());
         an.PostProcess(res, dim);

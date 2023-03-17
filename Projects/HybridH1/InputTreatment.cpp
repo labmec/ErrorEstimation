@@ -11,6 +11,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     ReadEntry(config, pConfig);
     config.ndivisions = ndiv;
     config.dimension = pConfig.dim;
+    config.vtkResolution = pConfig.vtkResolution;
     config.prefine = false;
     config.exact.operator*().fSignConvention = 1;
     config.exact->fDimension = config.dimension;
