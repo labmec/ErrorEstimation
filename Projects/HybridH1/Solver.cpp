@@ -35,8 +35,6 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     int interfaceMatID = -10;
     int fluxMatID = -10;
     int hybridLevel = 1;
-    std::ofstream cmeshvtk("checking mMesh");
-    std::ofstream geomeshvtk("Geomesh.vtk");
     const clock_t start = clock();
 
     switch(preConfig.mode){
@@ -48,8 +46,6 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
         case 1: //Hybrid
             CreateHybridH1ComputationalMesh(multiCmesh, interfaceMatID, fluxMatID,preConfig, config,hybridLevel);
             SolveHybridH1Problem(multiCmesh, interfaceMatID, config, preConfig,hybridLevel);
-            multiCmesh->Print(cmeshvtk);
-            TPZVTKGeoMesh::PrintGMeshVTK(multiCmesh->Reference(),geomeshvtk);
             if (preConfig.estimateError) EstimateError(config, preConfig, fluxMatID, multiCmesh);
             break;
         case 2: //Mixed
@@ -593,7 +589,8 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
 
     std::cout << "||u_h-u||:            \t" <<Errors[0] << 
                "\n||Grad(u_h)-Grad(u)||:\t" << Errors[1]<< 
-               "\nEnergy:               \t"<< Errors[2]<<"\n\n";
+               "\nError[0]+Error[1]:    \t"<< Errors[2]<<
+               "\nEnergy:               \t"<< Errors[3]<<"\n\n";
 
     if ((*Log)[0] != -1) {
         for (int j = 0; j < 3; j++) {

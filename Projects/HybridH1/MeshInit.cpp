@@ -112,6 +112,7 @@ void InsertMaterialHybrid_MultiK(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Proble
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
     mat1->fExact = *ChooseAnaliticSolution(pConfig);
+    mat2->fExact = *ChooseAnaliticSolution(pConfig);
 
     TPZFNMatrix<9,REAL> K, invK;
     K.Resize(3,3); invK.Resize(3,3);
@@ -134,13 +135,15 @@ void InsertMaterialHybrid_MultiK(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Proble
 
     int porder = 3;
     if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-        material_Q1->SetForcingFunction(mat1->ForceFunc(), porder);
-        TPZMatErrorCombinedSpaces<STATE> *err1 = material_Q1;
-        err1->SetExactSol(mat1->ExactSolution(), porder);
+        //material_Q1->SetForcingFunction(mat1->ForceFunc(), porder);
+        //TPZMatErrorCombinedSpaces<STATE> *err1 = material_Q1;
+        //err1->SetExactSol(mat1->ExactSolution(), porder);
+        material_Q1->SetExactSol(config.exact->ExactSolution(), porder);
 
-        material_Q2->SetForcingFunction(mat2->ForceFunc(), porder);
-        TPZMatErrorCombinedSpaces<STATE> *err2 = material_Q2;
-        err2->SetExactSol(mat2->ExactSolution(), porder);
+        //material_Q2->SetForcingFunction(mat2->ForceFunc(), porder);
+        //TPZMatErrorCombinedSpaces<STATE> *err2 = material_Q2;
+        //err2->SetExactSol(mat2->ExactSolution(), porder);
+        material_Q1->SetExactSol(config.exact->ExactSolution(), porder);
     }
 
     // Inserts boundary conditions
