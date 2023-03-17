@@ -75,13 +75,13 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
-    std::cout <<       "||u_h-u||:                \t" << 
-    (errorVec)[0]<< "\n||u_h-s_h||:              \t" <<
-    (errorVec)[1]<< "\n||Grad(u_h)-Grad(u)||:    \t" <<
-    (errorVec)[2]<< "\n||Grad(u_h)-Grad(s_h)||:  \t"   <<
-    (errorVec)[3]<< "\n||Grad(u_h)+t_h||:        \t"   <<
-    (errorVec)[4]<< "\n||f-div(t_h)||:           \t"   <<
-    (errorVec)[5]<< "\n||f-projL2(f)||:          \t" << (errorVec)[6] <<"\n";
+    std::cout <<       "||u_h-u||:                    \t" << 
+    (errorVec)[0]<< "\n||u_h-s_h||:                   \t" <<
+    (errorVec)[1]<< "\n||K^0.5(Grad(u_h)-Grad(u))||:  \t" <<
+    (errorVec)[2]<< "\n||K^0.5(Grad(u_h)-Grad(s_h))||:\t"   <<
+    (errorVec)[3]<< "\n||K^-0.5(KGrad(u_h)+t_h)||:    \t"   <<
+    (errorVec)[4]<< "\n||f-div(t_h)||:                \t"   <<
+    (errorVec)[5]<< "\n||f-projL2(f)||:               \t" << (errorVec)[6] <<"\n";
 
     
     TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
@@ -89,7 +89,7 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     
     //Erro global
     std::ofstream myfile;
-    myfile.open("ErrorsReconstruction.txt", std::ios::app);
+    myfile.open(fFolderOutput + "ErrorsReconstruction.txt", std::ios::app);
     myfile << "\n\n Estimator errors for Problem " << *fproblemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fnDivisions <<" Order k= " << forderFEM_k << " Order n= "<< forderFEM_n<<"\n";
@@ -603,13 +603,6 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     ss << "Estimated Error              =\t" << sqrt(n1+n2n3) << "\n";
     ss << "\n\n";
     std::cout << ss.str();
-
-    {
-        std::ofstream myfile;
-        myfile.open(fFolderOutput + "ErrorsReconstruction.txt", std::ios::app);
-        myfile << ss.str();
-        myfile.close();
-    }
 }
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)

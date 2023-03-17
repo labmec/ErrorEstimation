@@ -587,10 +587,10 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
 
     an.PostProcessError(Errors, store_errors, Erro);
 
-    std::cout << "||u_h-u||:            \t" <<Errors[0] << 
-               "\n||Grad(u_h)-Grad(u)||:\t" << Errors[1]<< 
-               "\nError[0]+Error[1]:    \t"<< Errors[2]<<
-               "\nEnergy:               \t"<< Errors[3]<<"\n\n";
+    std::cout << "||u_h-u||:                   \t" <<Errors[0] << 
+               "\n||Grad(u_h)-Grad(u)||:       \t" << Errors[1]<< 
+               "\nError[0]+Error[1]:           \t"<< Errors[2]<<
+               "\n||K^0.5(Grad(u_h)-Grad(u))||:\t"<< Errors[3]<<"\n\n";
 
     if ((*Log)[0] != -1) {
         for (int j = 0; j < 3; j++) {
