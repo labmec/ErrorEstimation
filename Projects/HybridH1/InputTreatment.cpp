@@ -33,9 +33,31 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     
     config.ApplyDivision();
     gmesh = config.gmesh;
+    
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.bcmaterialids.insert(-2);
+
+    if(pConfig.type == 4){
+        config.bcmaterialids.insert(-3);
+    }
+
+    // Assumes Dirichlet Condition
+    if (pConfig.type  == 2) {
+        config.materialids.insert(2);
+        config.materialids.insert(3);
+        config.materialids.erase(1);
+
+        config.bcmaterialids.insert(-5);
+        config.bcmaterialids.insert(-6);
+        config.bcmaterialids.erase(-1);
+        config.bcmaterialids.erase(-2);
+
+        SetMultiPermeMaterials(config.gmesh);
+    }
 
     // apply random refinement
-    if(0)
+    #ifdef ERRORESTIMATOR_NONEXISTENTFLAG
     {
         int64_t nel = gmesh->NElements();
         int dim = gmesh->Dimension();
@@ -75,24 +97,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         std::ofstream out(sout.str());
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     }
-    config.materialids.insert(1);
-    config.bcmaterialids.insert(-1);
-    config.bcmaterialids.insert(-2);
-
-    if(pConfig.type == 4){
-        config.bcmaterialids.insert(-3);
-    }
-
-    if (pConfig.type  == 2) {
-        config.materialids.insert(2);
-        config.materialids.insert(3);
-        config.bcmaterialids.insert(-5);
-        config.bcmaterialids.insert(-6);
-        config.bcmaterialids.insert(-8);
-        config.bcmaterialids.insert(-9);
-
-        SetMultiPermeMaterials(config.gmesh);
-    }
+    #endif
 
     if(pConfig.argc != 1) {
         config.k = atoi(argv[3]);
@@ -308,46 +313,55 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
 
 
     config.exact = new TLaplaceExample1;
+
+    config.exact.operator*().fExact = *ChooseAnaliticSolution(preConfig);
+
+    config.k = preConfig.k;
+    config.n = preConfig.n;
+    config.problemname = preConfig.problem;
+    config.exact->fmaxIter = preConfig.maxIter;
+}
+
+TLaplaceExample1::EExactSol *ChooseAnaliticSolution(PreConfig &preConfig){
+
+    TLaplaceExample1::EExactSol *solutionCase = new TLaplaceExample1::EExactSol;
+    
     switch(preConfig.type){
         case 0:
-            config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+            *solutionCase = TLaplaceExample1::ESinSin;
             break;
         case 1:
-            config.exact.operator*().fExact = TLaplaceExample1::EArcTan;
+            *solutionCase = TLaplaceExample1::EArcTan;
             break;
         case 2:
-            config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
+            *solutionCase = TLaplaceExample1::ESteklovNonConst;
             preConfig.h*=2;
             break;
         case 3:
-            config.exact.operator*().fExact = TLaplaceExample1::EBubble2D;
+            *solutionCase = TLaplaceExample1::EBubble2D;
             break;
         case 4:
-            config.exact.operator*().fExact = TLaplaceExample1::ELaplace2D;
+            *solutionCase = TLaplaceExample1::ELaplace2D;
             break;
         case 5:
-            config.exact.operator*().fExact = TLaplaceExample1::E2SinSin;
+            *solutionCase = TLaplaceExample1::E2SinSin;
             break;
         case 6:
-            config.exact.operator*().fExact = TLaplaceExample1::E10SinSin;
+            *solutionCase = TLaplaceExample1::E10SinSin;
             break;
         case 7:
             DebugStop();
             //config.exact.operator*().fExact = TLaplaceExample1::ESing2D;
             break;
         case 8:
-            config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+            *solutionCase = TLaplaceExample1::ESinMark;
             break;
         case 9:
-            config.exact.operator*().fExact = TLaplaceExample1::ESteepWave;
+            *solutionCase = TLaplaceExample1::ESteepWave;
             break;
         default:
             DebugStop();
             break;
     }
-
-    config.k = preConfig.k;
-    config.n = preConfig.n;
-    config.problemname = preConfig.problem;
-    config.exact->fmaxIter = preConfig.maxIter;
+    return solutionCase;
 }

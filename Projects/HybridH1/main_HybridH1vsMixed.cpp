@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     PreConfig pConfig;
     pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "ESteepWave";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
+    pConfig.problem = "ESteklovNonConst";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
@@ -29,7 +29,6 @@ int main(int argc, char *argv[]) {
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = false;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
     pConfig.vtkResolution = 0;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
-    
 
     // this is where the type in pConfig is set
     EvaluateEntry(argc,argv,pConfig);
