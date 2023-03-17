@@ -172,7 +172,7 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
                     bc = dynamic_cast<TPZBndCondT<STATE> *>(matclone);
                     // add bc mtf;
                     if(bc->Material()->Id() != EEMat->Id()){
-                        DebugStop(); // this should not be evoked unless multiple volumetric ids are invoked.
+                        continue;
                     }
                     bc->SetMaterial(EEMat);
                     fMultiphysicsReconstructionMesh->InsertMaterialObject(bc);

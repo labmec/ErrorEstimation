@@ -35,7 +35,8 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     int interfaceMatID = -10;
     int fluxMatID = -10;
     int hybridLevel = 1;
-    std::ofstream mamesh("checking mMesh");
+    std::ofstream cmeshvtk("checking mMesh");
+    std::ofstream geomeshvtk("Geomesh.vtk");
     const clock_t start = clock();
 
     switch(preConfig.mode){
@@ -46,9 +47,9 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
             break;
         case 1: //Hybrid
             CreateHybridH1ComputationalMesh(multiCmesh, interfaceMatID, fluxMatID,preConfig, config,hybridLevel);
-            multiCmesh->Print(mamesh);
-            mamesh.flush();
             SolveHybridH1Problem(multiCmesh, interfaceMatID, config, preConfig,hybridLevel);
+            multiCmesh->Print(cmeshvtk);
+            TPZVTKGeoMesh::PrintGMeshVTK(multiCmesh->Reference(),geomeshvtk);
             if (preConfig.estimateError) EstimateError(config, preConfig, fluxMatID, multiCmesh);
             break;
         case 2: //Mixed
@@ -298,7 +299,7 @@ void CreateCondensedMixedElements(TPZMultiphysicsCompMesh *cmesh_Mixed){
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID,int &fluxMatID , PreConfig &pConfig, ProblemConfig &config,int hybridLevel){
     auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
     cmesh_H1Hybrid->SetAllCreateFunctionsMultiphysicElem();
-    if(hybridLevel == 2) {
+    if (hybridLevel == 2) {
         spaceType = TPZCreateMultiphysicsSpace::EH1HybridSquared;
     }
     else if(hybridLevel != 1) {
@@ -308,8 +309,10 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     TPZCreateMultiphysicsSpace createspace(config.gmesh, spaceType);
     //TPZCreateMultiphysicsSpace createspace(config.gmesh);
     std::cout << cmesh_H1Hybrid->NEquations();
+    (pConfig.type == 2) ? 
+        createspace.SetMaterialIds({2,3}, {-6,-5}) :
+        createspace.SetMaterialIds({1,}, {-2,-1});
 
-    createspace.SetMaterialIds({1,2,3}, {-6,-5,-3,-2,-1});
     createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
 
@@ -464,6 +467,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
+        scalnames.Push("Kperm");
         vecnames.Push("Flux");
         vecnames.Push("ExactFlux");
 

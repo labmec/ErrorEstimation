@@ -13,6 +13,7 @@
 #include "TPZHybMixDiffMaterial.h"
 #include "ForcingFunction.h"
 #include "DarcyFlow/TPZHybridDarcyFlow.h"
+#include "InputTreatment.h"
 
 void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig &config, PreConfig &pConfig){
     int matID_Q1 = 2;
@@ -22,7 +23,8 @@ void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemCon
     int neumann = 1;
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    SetFExact(mat1,mat2,pConfig);
+    mat1->fExact = *ChooseAnaliticSolution(pConfig);
+    mat2->fExact = *ChooseAnaliticSolution(pConfig);
 
     TPZFNMatrix<9,REAL> K, invK;
     K.Resize(3,3); invK.Resize(3,3);
@@ -36,10 +38,11 @@ void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemCon
 
     TPZMixedPoisson *material_Q1 = new TPZMixedPoisson(matID_Q1,dim); //Using standard PermealityTensor = Identity.
     TPZMixedPoisson *material_Q2 = new TPZMixedPoisson(matID_Q2,dim);
-    material_Q1->SetForcingFunction(config.exact->ForceFunc(), material_Q1->ForcingFunctionPOrder());
-    material_Q1->SetExactSol(config.exact->ExactSolution(), material_Q1->PolynomialOrderExact());
-    material_Q2->SetForcingFunction(config.exact->ForceFunc(), material_Q2->ForcingFunctionPOrder());
-    material_Q2->SetExactSol(config.exact->ExactSolution(), material_Q2->PolynomialOrderExact());
+    int pOrder =5;
+    material_Q1->SetForcingFunction(config.exact->ForceFunc(), pOrder);
+    material_Q1->SetExactSol(config.exact->ExactSolution(), pOrder);
+    material_Q2->SetForcingFunction(config.exact->ForceFunc(), pOrder);
+    material_Q2->SetExactSol(config.exact->ExactSolution(), pOrder);
 
     material_Q1->SetConstantPermeability(pConfig.perm_Q1);
     material_Q2->SetConstantPermeability(pConfig.perm_Q2);
@@ -50,7 +53,6 @@ void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemCon
     //Boundary Conditions
     TPZFMatrix<STATE> val1(2,2,0.);
     TPZManVector<STATE, 2> val2(2, 0.);
-    int pOrder = 5;
 
     TPZBndCondT<STATE>* BCond0_Q1 = material_Q1->CreateBC(material_Q1, -5, dirichlet, val1, val2);
     BCond0_Q1->SetForcingFunctionBC(config.exact.operator*().ExactSolution(),pOrder);
@@ -58,13 +60,13 @@ void InsertMaterialMixed_MultiK(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemCon
     auto *BCond0_Q2 = material_Q2->CreateBC(material_Q2, -6, dirichlet, val1, val2);
     BCond0_Q2->SetForcingFunctionBC(config.exact.operator*().ExactSolution(), pOrder);
 
-    auto *BCond1_Q1 = material_Q1->CreateBC(material_Q1, -8, neumann, val1, val2);
-    auto *BCond1_Q2 = material_Q1->CreateBC(material_Q2, -9, neumann, val1, val2);
+    //auto *BCond1_Q1 = material_Q1->CreateBC(material_Q1, -8, neumann, val1, val2);
+    //auto *BCond1_Q2 = material_Q1->CreateBC(material_Q2, -9, neumann, val1, val2);
 
     cmesh_mixed->InsertMaterialObject(BCond0_Q1);
     cmesh_mixed->InsertMaterialObject(BCond0_Q2);
-    cmesh_mixed->InsertMaterialObject(BCond1_Q1);
-    cmesh_mixed->InsertMaterialObject(BCond1_Q2);
+    //cmesh_mixed->InsertMaterialObject(BCond1_Q1);
+    //cmesh_mixed->InsertMaterialObject(BCond1_Q2);
 }
 
 void InsertMaterialMixed_ELaplace(TPZMultiphysicsCompMesh *cmesh_mixed, ProblemConfig &config, PreConfig &pConfig){
@@ -109,7 +111,7 @@ void InsertMaterialHybrid_MultiK(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Proble
     int neumann = 1;
 
     TLaplaceExample1 *mat1 = new TLaplaceExample1,*mat2 = new TLaplaceExample1;
-    SetFExact(mat1,mat2,pConfig);
+    mat1->fExact = *ChooseAnaliticSolution(pConfig);
 
     TPZFNMatrix<9,REAL> K, invK;
     K.Resize(3,3); invK.Resize(3,3);
