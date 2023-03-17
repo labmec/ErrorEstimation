@@ -2717,9 +2717,9 @@ TPZVec<REAL> TPZHybridH1CreateH1Reconstruction::PostProcess(){
 
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
-    std::cout <<        "||Grad(u_h)-Grad(u)||:  \t" << 
-    (errorVec)[0] << "\n||Grad(u_h)-Grad(s_h)||:\t" <<
-    (errorVec)[1] << "\n||Grad(s_h)-Grad(u)||:  \t" << (errorVec)[2]<<"\n\n";
+    std::cout <<       "||K^0.5(Grad(u_h)-Grad(u))||:  \t" << 
+    (errorVec)[0] << "\n||K^0.5(Grad(u_h)-Grad(s_h))||:\t" <<
+    (errorVec)[1] << "\n||K^0.5(Grad(s_h)-Grad(u))||:  \t" << (errorVec)[2]<<"\n\n";
 
     TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
     TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);

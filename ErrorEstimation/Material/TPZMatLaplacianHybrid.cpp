@@ -427,6 +427,7 @@ void TPZMatLaplacianHybrid::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, 
     TPZManVector<STATE,3> sol(1),dsol(3,0.);
 
     STATE perm = GetPermeability(data[1].x);
+    STATE invperm = 1./perm;;
     TPZFMatrix<REAL> &dsolaxes = data[1].dsol[0];
     TPZFNMatrix<9,REAL> gradUh(3,0),KgradUh(3,0);
     TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, gradUh, data[1].axes);
@@ -444,7 +445,7 @@ void TPZMatLaplacianHybrid::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, 
     
     REAL energy = 0.;
     for (int i=0; i<fDim; i++) {
-            energy += fabs(KgradUh(i,0) - Kgradu(i,0))*fabs(KgradUh(i,0) - Kgradu(i,0));
+            energy += (KgradUh(i,0) - Kgradu(i,0))*invperm*(KgradUh(i,0) - Kgradu(i,0));
     }
     
     errors[3] = energy;

@@ -274,9 +274,9 @@ TPZVec<REAL>  TPZHybridH1CreateHDivReconstruction::PostProcess(){
 
     std::cout << "\n############\n";
     std::cout << "Computing Error HDiv reconstruction\n";
-    std::cout << "||Grad(u_h)-Grad(u)||:\t" << (errorVec)[0] <<
-               "\n||Grad(u_h)+t_h||:    \t" << (errorVec)[1]<<
-               "\n||div(t_h)-f||:       \t"<< (errorVec)[2]<<"\n";
+    std::cout << "||K^0.5(Grad(u_h)-Grad(u))||:  \t" << (errorVec)[0] <<
+               "\n||K^-0.5(KGrad(u_h)+t_h)||:    \t" << (errorVec)[1]<<
+               "\n||div(t_h)-f||:                \t"<< (errorVec)[2]<<"\n";
 
     TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
     TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);

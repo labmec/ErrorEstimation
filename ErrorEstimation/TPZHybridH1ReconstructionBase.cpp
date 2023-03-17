@@ -48,7 +48,7 @@ void TPZHybridH1ReconstructionBase::InitializeFolderOutput(){
 
 /// computing the element stifnesses will "automatically" compute the condensed form of the matrices
 void TPZHybridH1ReconstructionBase::ComputeElementStiffnesses() {
-    std::cout << "Solving local Dirichlet problem " << std::endl;
+
 #ifdef ERRORESTIMATION_DEBUG2
 
     {
