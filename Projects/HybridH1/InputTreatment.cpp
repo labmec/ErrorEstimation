@@ -191,7 +191,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if(std::strcmp(argv[1], "ESteklovNonConst") == 0) {
             pConfig.type = 2;
             if(pConfig.n < 0) DebugStop();
-            pConfig.problem = "ESteklovNonConst";
+            pConfig.problem = "ESteklov";
         }
         else DebugStop();
     }
@@ -203,7 +203,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
 
         if (pConfig.problem== "ESinSin") pConfig.type= 0;
         else if (pConfig.problem=="EArcTan")  pConfig.type = 1;
-        else if (pConfig.problem == "ESteklovNonConst") pConfig.type = 2;
+        else if (pConfig.problem == "ESteklov") pConfig.type = 2;
         else if (pConfig.problem == "EBubble2D") pConfig.type = 3;
         else if (pConfig.problem == "ELaplace") pConfig.type = 4;
         else if (pConfig.problem == "E2SinSin") pConfig.type = 5;

@@ -4,6 +4,9 @@
 #include "pzsubcmesh.h"
 #include "TPZMaterial.h"
 
+#include <iostream>
+#include <filesystem>
+
 
 TPZHybridH1ReconstructionBase::TPZHybridH1ReconstructionBase(EstimatorConfig *pEstimator){
        fOriginal = pEstimator->fOriginal;
@@ -149,5 +152,79 @@ TPZVec<REAL> TPZHybridH1ReconstructionBase::ComputeErrors(TPZLinearAnalysis *an,
     an->PostProcessError(errorVec, store, myDummyOfs);//calculo do erro com sol exata e aprox e armazena no elementsolution
 
     return errorVec;
+}
+
+void TPZHybridH1ReconstructionBase::FlushErrorDataIntoFile(const TPZVec<REAL> &errorVec,const TPZVec<int> &complementaryVec,
+                                    const std::string &filePath,const std::string &filename){
+
+    int numErrors = errorVec.size();
+    int numComplementary = complementaryVec.size();
+    int numTargetLines = numErrors+numComplementary;
+    std::string fullPath = filePath+filename;
+
+    if(!std::filesystem::exists(fullPath)){
+        DebugStop();
+    }
+
+    std::ifstream fin(fullPath); 
+    const int numFileLines = std::count(std::istreambuf_iterator<char>(fin), 
+             std::istreambuf_iterator<char>(), '\n');
+    fin.close();
+
+    // Filling a list with the string content of every line;
+    std::string outFileName = filePath + "ErrorReconstructionTemp.txt";
+    std::ofstream fout(outFileName); 
+    fin.open(fullPath);
+    if(fin.is_open()) {
+        int iLine;
+        std::string line;
+        for(iLine = 0; iLine < numFileLines - numTargetLines; iLine++){
+            std::getline(fin,line);                      // Read the current line
+            line += "\n";
+            fout << line;
+        }
+        //auto read_pos = fin.tellg();
+        int maxLineSize = 0;
+        std::string extraChars = "\t&\t";
+        std::list<std::pair<std::string,std::string>> lineList;
+        std::pair<std::string,std::string> linePair;
+        for(iLine =0; iLine < numTargetLines; iLine++){
+            std::stringstream ss;
+            std::getline(fin,line);                      // Read the current line
+            linePair.first = line;
+            if(iLine < numComplementary){
+                ss << extraChars <<complementaryVec[iLine];
+            }else{
+                ss << extraChars << errorVec[iLine-numComplementary];
+            }
+            linePair.second = ss.str();
+            lineList.push_back(linePair);
+            int lineLength = ss.str().length();
+            if(maxLineSize < lineLength){
+                maxLineSize = lineLength;
+            }
+        }
+         for(iLine =0; iLine < numTargetLines; iLine++){
+            linePair = lineList.front();
+            lineList.pop_front();
+            int lineSize = linePair.second.length();
+            line = linePair.first;
+            if(lineSize < maxLineSize){
+                int sizediff = maxLineSize-lineSize;
+                for(int iWhiteSpace = 0; iWhiteSpace < sizediff;iWhiteSpace++){
+                    line += " ";
+                }
+            }
+            line += linePair.second+"\n";
+            fout << line;
+         }
+    }
+    fin.close();
+    if(std::rename(outFileName.c_str(),fullPath.c_str())){
+        std::cout << "outFileName: " << outFileName.c_str()<<std::endl;
+        std::cout << "fullPath: " << fullPath.c_str() <<std::endl;
+        std::cout << "Adaptivity step: " << complementaryVec[1]<<std::endl;
+        DebugStop();
+    }
 }
 

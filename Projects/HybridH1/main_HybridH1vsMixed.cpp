@@ -20,15 +20,15 @@ int main(int argc, char *argv[]) {
     PreConfig pConfig;
     pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "ESteklovNonConst";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
-    pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
-    pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
+    pConfig.problem  = "ESteklov";             //// {"ESinSin","EArcTan",ESteklov", "ESteepWave"}
+    pConfig.maxIter  = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
+    pConfig.approx   = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
     pConfig.refLevel = 3;                      //// How many uniform refinements
-    pConfig.numberAdapativitySteps = 9;        //// Maximum number of adapativity refinement steps.
+    pConfig.numberAdapativitySteps = 3;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = false;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
-    pConfig.vtkResolution = 0;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
+    pConfig.vtkResolution = 1;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
 
     // this is where the type in pConfig is set
     EvaluateEntry(argc,argv,pConfig);
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 
     ProblemConfig config;
     config.division_threshold = 0.5;
-    for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps; config.adaptivityStep++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+    for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps+1; config.adaptivityStep++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
         
         Configure(config,pConfig.refLevel,pConfig,argv);
