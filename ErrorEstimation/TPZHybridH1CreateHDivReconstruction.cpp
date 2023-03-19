@@ -57,7 +57,11 @@ TPZCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionHDivMe
 
     // Verify neighbouring information of the HDiv-bound mesh (works only for 2D meshes)
     VerifyBoundaryFluxConsistency(HDivAtomicMesh);
-    std::ofstream myoutput("chekckingfOriginalMesh.txt"); fOriginal->Print(myoutput); myoutput.flush();
+    {
+        std::ofstream myoutput("checkingfOriginalMesh.txt");
+        fOriginal->Print(myoutput);
+        myoutput.flush();
+    }
     int meshdim = HDivAtomicMesh->Dimension();
     for (auto mat : fOriginal->MaterialVec()) {
         if (!dynamic_cast<TPZBndCondT<STATE> *>(mat.second)) {
@@ -164,6 +168,7 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
         if (matlaplacian) {
             TPZHybridH1HdivFluxRecMaterial *EEMat = new TPZHybridH1HdivFluxRecMaterial(*matlaplacian);
             fMultiphysicsReconstructionMesh->InsertMaterialObject(EEMat);
+            EEMat->SetForcingFunction(matlaplacian->ForcingFunction(), matlaplacian->ForcingFunctionPOrder());
 
             for(auto trybcmat: fOriginal->MaterialVec()) {
                 auto *bc = dynamic_cast<TPZBndCondT<STATE> *>(trybcmat.second);
@@ -189,6 +194,22 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
 
     fMultiphysicsReconstructionMesh->BuildMultiphysicsSpace(active,mesh_vectors);
 
+    // copy the integration rule order
+    {
+        auto gmesh = fOriginal->Reference();
+        gmesh->ResetReference();
+        fOriginal->LoadReferences();
+        int64_t nel = fMultiphysicsReconstructionMesh->NElements();
+        for(int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = fMultiphysicsReconstructionMesh->Element(el);
+            auto mfcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
+            auto gel = cel->Reference();
+            auto mfcelorig = dynamic_cast<TPZMultiphysicsElement *>(gel->Reference());
+            TPZVec<int> order(gel->Dimension());
+            mfcelorig->GetIntegrationRule().GetOrder(order);
+            mfcel->SetIntegrationRule(order[0]);
+        }
+    }
     bool keeponelagrangian = true, keepmatrix = false;
     TPZCompMeshTools::CreatedCondensedElements(fMultiphysicsReconstructionMesh, keeponelagrangian, keepmatrix);
 
@@ -215,16 +236,17 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
     //fMultiphysicsReconstructionMesh->TransferMultiphysicsSolution();
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mesh_vectors, fMultiphysicsReconstructionMesh);
 
+#define ERRORESTIMATION_DEBUG
 #ifdef ERRORESTIMATION_DEBUG
     {
         //std::ofstream outFCon(fFolderOutput + "HdivFluxAfterLoadSolConnects.txt");
         //TPZCompMeshTools::PrintConnectInfoByGeoElement(cmeshHdiv, outFCon, {}, false, true);
         std::ofstream outF(fFolderOutput + "HdivRecAtomic.txt");
         fMultiphysicsReconstructionMesh->MeshVector()[0]->Print(outF);
-        std::ofstream outMultF(fFolderOutput + "HDivRecMulti.txt");
-        fMultiphysicsReconstructionMesh->Print(outMultF);
-        std::ofstream outvtk(fFolderOutput + "HDivRecAtomicGeoMesh.vtk");
-        TPZVTKGeoMesh::PrintCMeshVTK(fMultiphysicsReconstructionMesh->MeshVector()[0], outvtk);
+//        std::ofstream outMultF(fFolderOutput + "HDivRecMulti.txt");
+//        fMultiphysicsReconstructionMesh->Print(outMultF);
+//        std::ofstream outvtk(fFolderOutput + "HDivRecAtomicGeoMesh.vtk");
+//        TPZVTKGeoMesh::PrintCMeshVTK(fMultiphysicsReconstructionMesh->MeshVector()[0], outvtk);
     }
 #endif
 

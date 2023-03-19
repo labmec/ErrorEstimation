@@ -21,6 +21,14 @@ TPZHybridH1PressureRecMaterial::TPZHybridH1PressureRecMaterial(int matid, int di
 {
 }
 
+//TPZHybridH1PressureRecMaterial::TPZHybridH1PressureRecMaterial(TPZMatLaplacianHybrid &source) : TPZMixedPoisson(source.Id(),source.Dimension()) {
+//    int porder = source.ForcingFunctionPOrder();
+//    SetForcingFunction(source.ForcingFunction(), porder);
+//    int porderex = source.PolynomialOrderExact();
+//    SetExactSol(source.ExactSol(), porderex);
+//}
+
+
 TPZHybridH1PressureRecMaterial::TPZHybridH1PressureRecMaterial() : TPZMixedPoisson()
 {
 
@@ -96,7 +104,7 @@ void TPZHybridH1PressureRecMaterial::Contribute(const TPZVec<TPZMaterialDataT<ST
         InvPermTensor.Diagonal(1./perm);
 
 
-        //potetial fem
+        //potential fem
         solukfem(0, 0) = datavec[fFEMbrokenH1Position].sol[0][0];
         for (int ip = 0; ip < dim; ip++) {
             gradSol(ip, 0) = dsol.Get(ip, 0);

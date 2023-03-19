@@ -434,6 +434,9 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STAT
       error[3] - energy error computed with reconstructed flux
       error[4] - energy error computed with reconstructed potential
       error[5] - oscilatory data error
+      error[6] - error of the f projection
+      error[7] - integral of div(sigma)
+      error[8] - integral of the projected f function
 
      **/
     if(!ExactSol()) DebugStop();
@@ -505,6 +508,8 @@ void TPZHybridH1ErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STAT
     REAL shThErrorEstimate =0.;
     REAL residualFromHDivSpace = (source[0] - divTh)*(source[0] - divTh);
     REAL residualFromSource = (sourceProjection - source[0])*(sourceProjection - source[0]);
+//    errors[7] = divTh;
+//    errors[8] = sourceProjection;
 
     for (int i=0; i<3; i++) {
             FEMsemiH1Error           += (KGradUh[i]-KGradU(i,0))*invPerm*(KGradUh[i]-KGradU(i,0));//Pq esta somando: o fluxo fem esta + e o exato -

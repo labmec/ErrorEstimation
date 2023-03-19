@@ -19,6 +19,7 @@
 #include "TPZAnalysis.h"
 #include "TPZNullMaterial.h"
 #include "TPZNullMaterialCS.h"
+#include "Projection/TPZL2Projection.h"
 #include "TPZInterfaceEl.h"
 
 #include "TPZHybridH1CreateHDivReconstruction.h"
@@ -69,7 +70,7 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     
     // The solution is expanded to store errors,
     // Therefore it is required to account for the original solution and the errors.
-    int numErrors = 7;
+    int numErrors = 9;
     numErrors++; 
     TPZVec<REAL> errorVec = ComputeErrors(&an,numErrors);
 
@@ -163,7 +164,12 @@ void TPZHybridH1ErrorEstimator::PostProcess(REAL threshold, std::set<int64_t> &g
         if (!gel) continue;
         TPZFMatrix<STATE> &elsol = fMultiphysicsReconstructionMesh->ElementSolution();
         STATE error = elsol(i,3);
-        (errorVec)[gel->Index()] = error;
+        int64_t gelindex = gel->Index();
+//        if(gel->Dimension() == 2) {
+//            std::cout << "index " << gelindex << " err 5 " << elsol(i,5) << " err 6 " << elsol(i,6) <<
+//            " err 7 " << elsol(i,7) << " err 8 " << elsol(i,8) << std::endl;
+//        }
+        (errorVec)[gelindex] = error;
         if(maxerror < error) maxerror = error;
     }
     geltodivide.clear();
@@ -238,6 +244,8 @@ if(fH1conformMesh == NULL || fHDivconformMesh == NULL){
     mesh_vectors[1] = fH1conformMesh; //sh
     mesh_vectors[2] = fOriginal->MeshVector()[0];// flux
     mesh_vectors[3] = fOriginal->MeshVector()[1];// potential
+    // here we compute the L2 projection of the forcing term on the L2 space
+    // the name of the function is deceiving
     mesh_vectors[4] = ForceProjectionMesh();
 
     active[1] = 1;
@@ -246,11 +254,12 @@ if(fH1conformMesh == NULL || fHDivconformMesh == NULL){
 
     fMultiphysicsReconstructionMesh->BuildMultiphysicsSpace(active, mesh_vectors);
 
+#define ERRORESTIMATION_DEBUG
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::string dirPath = fDebugDirName + "/";
-        /*std::ofstream out(dirPath + "EnrichedFluxBorder.txt");
-        mesh_vectors[0]->Print(out);*/
+        std::string dirPath;// = fDebugDirName + "/";
+        std::ofstream out(dirPath + "EnrichedFluxBorder.txt");
+        mesh_vectors[0]->Print(out);
         std::ofstream out2(dirPath + "EnrichedPressure.txt");
         mesh_vectors[1]->Print(out2);
     }
@@ -271,51 +280,48 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
     forceProj->ApproxSpace().CreateDisconnectedElements(true);
 
     for(auto matid:fmaterialids){
-        TPZNullMaterial<> *material = new TPZNullMaterial<>(matid);
-        material->SetDimension(dimMesh);
+        auto *material = new TPZL2Projection<STATE>(matid,dimMesh);
+        TPZMaterialT<STATE> *matlaplacian = (TPZMaterialT<STATE> *)fOriginal->MaterialVec()[matid];
+        int porder = matlaplacian->ForcingFunctionPOrder();
+        material->SetForcingFunction(matlaplacian->ForcingFunction(),porder);
         forceProj->InsertMaterialObject(material);
-        int porder = 5;
-        material->SetForcingFunction(fExact->ForceFunc(),porder);
     }
     forceProj->AutoBuild();
     forceProj->ExpandSolution();
+    gmesh->ResetReference();
+    fOriginal->LoadReferences();
 
+    int dim = gmesh->Dimension();
     for(int iel = 0 ; iel < forceProj->NElements(); iel++) {
-        TPZGeoMesh *gmesh = forceProj->Reference();
-        int dim = gmesh->Dimension();
-        gmesh->ResetReference();
-        forceProj->LoadReferences();
         TPZCompEl *cel = forceProj->Element(iel);
         if (!cel) DebugStop();
         TPZGeoEl *gel = cel->Reference();
         if (!gel) DebugStop();
+        auto mfcel = dynamic_cast<TPZMultiphysicsElement*>(gel->Reference());
+        if(!mfcel) DebugStop();
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!intel) DebugStop();
         int nc = cel->NConnects();
         TPZMaterial *matabstr = cel->Material();
         TPZMatSingleSpace *material = dynamic_cast<TPZMatSingleSpace*>(matabstr);
-        int polyOrder = cel->Connect(nc - 1).Order();
-        int order = material->IntegrationRuleOrder(polyOrder);
 
         int nshape = intel->NShapeF();
         TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
         TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dphi(dim, nshape);
         REAL weight = 0.;
-        TPZAutoPointer<TPZIntPoints> intrule;
-        intrule = gel->CreateSideIntegrationRule(gel->NSides() - 1, order);
+        const TPZIntPoints &intrule = mfcel->GetIntegrationRule();
 
-        TPZManVector<int, 4> intorder(dim, order);
-        intrule->SetOrder(intorder);
-        int intrulepoints = intrule->NPoints();
+        int intrulepoints = intrule.NPoints();
         if (intrulepoints > 1000) {
             DebugStop();
         }
 
+        STATE integral = 0.;
         TPZFMatrix<REAL> jac, axe, jacInv;
         REAL detJac;
         TPZManVector<REAL, 4> intpointtemp(dim, 0.),x(3, 0.);
         for (int int_ind = 0; int_ind < intrulepoints; ++int_ind) {
-            intrule->Point(int_ind, intpointtemp, weight);
+            intrule.Point(int_ind, intpointtemp, weight);
             gel->Jacobian(intpointtemp, jac, axe, detJac, jacInv);
             weight *= fabs(detJac);
 
@@ -330,6 +336,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
             material->ForcingFunction()(x,res);
             force = res[0];
 
+            integral += force*weight;
             //std::cout << "[" << intpointtemp[0] << ", " << intpointtemp[1] << ", " << intpointtemp[2] << "]\n";
             //std::cout<< "f: " << force <<"\n\n";
             //phi.Print(std::cout);
@@ -347,6 +354,7 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
             }
         }
 
+//        std::cout << "gel index " << gel->Index() << " integrate f " << integral << std::endl;
         L2Mat.SolveDirect(L2Rhs, ECholesky);
 
         // Stores solution in the computational mesh

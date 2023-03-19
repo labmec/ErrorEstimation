@@ -21,6 +21,8 @@ struct PreConfig{
 
     /// determines the problem that will be run. This string will translate in a value of the "type" data structure
     std::string problem;
+    /// integral order of the forcing function
+    int integrationorder = -1;
     /// determines the the approximation space, will translate in an integer value of mode data (should be an enum)
     std::string approx;
     /// indicates the element topology that should be used

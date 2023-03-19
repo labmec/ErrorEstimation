@@ -454,7 +454,7 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreateBoundaryFluxMesh()
     for (int ic=0; ic<nconnects; ic++) {
         if(fluxmesh->ConnectVec()[ic].HasDependency())
         {
-            std::cout << "We should stop\n";
+            DebugStop();
         }
         fluxmesh->ConnectVec()[ic].SetLagrangeMultiplier(4);
     }
