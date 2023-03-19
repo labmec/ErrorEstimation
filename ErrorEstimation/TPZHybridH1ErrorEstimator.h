@@ -106,6 +106,16 @@ private:
 
     TPZCompMesh* fHDivconformMesh = NULL;
 
+    REAL fEffIndex = -1.;
+
+    REAL fEstimatedError = -1.;
+
+    //frac{hk}{pi}||f-Proj(f)||
+    REAL fSourceProjResidualIndex = -1;
+
+    //frac{hk}{pi}||f-Div(T_h)||
+    REAL fDivFluxResidualIndex = -1;
+
 };
 
 #endif /* TPZHybridH1ErrorEstimator_hpp */

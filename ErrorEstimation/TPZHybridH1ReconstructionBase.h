@@ -83,7 +83,7 @@ protected:
      * @param filepath : File path leading to "filename". Should end with a "/"  character;
      * @param filename : Name of the file containing errors. 
      **/ 
-    static void FlushErrorDataIntoFile(const TPZVec<REAL> &errorVec,const TPZVec<int> &complementaryVec,
+    static void FlushErrorDataIntoFile(const TPZVec<REAL> &errorVec,const TPZVec<std::string> &complementaryVec,
                                         const std::string &filePath,const std::string &filename);
 
 };
