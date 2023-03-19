@@ -229,8 +229,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
 
 void InitializeOutstream(PreConfig &pConfig, char *argv[]){
     //Error buffer
-    if( remove( "Erro.txt" ) != 0) perror( "Error deleting file" );
-    else puts( "Error log successfully deleted" );
+    remove( "Erro.txt" );
 
     pConfig.Erro.open("Erro.txt",std::ofstream::app);
     pConfig.Erro << "----------COMPUTED ERRORS----------\n";
@@ -287,15 +286,13 @@ void InitializeOutstream(PreConfig &pConfig, char *argv[]){
             DebugStop();
             break;
     }
-    std::string command = "mkdir -p " + pConfig.plotfile;
+    pConfig.plotfile = pConfig.FEMoutput + pConfig.plotfile; 
+    std::string command = "mkdir -p " +  pConfig.plotfile;
     system(command.c_str());
 
-    std::string timer_name = pConfig.plotfile + "/timer.txt";
+    std::string timer_name =  pConfig.plotfile + "/timer.txt";
 
-    if( remove(timer_name.c_str()) != 0)
-        perror( "Error deleting file" );
-    else
-        puts( "Error log successfully deleted" );
+    remove(timer_name.c_str());
 
     pConfig.timer.open(timer_name, std::ofstream::app);
 }
