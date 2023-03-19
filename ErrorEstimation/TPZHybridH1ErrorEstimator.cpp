@@ -75,12 +75,12 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
-    std::cout <<       "||u_h-u||:                    \t" << 
+    std::cout <<      "||u_h-u||:                     \t" << 
     (errorVec)[0]<< "\n||u_h-s_h||:                   \t" <<
     (errorVec)[1]<< "\n||K^0.5(Grad(u_h)-Grad(u))||:  \t" <<
-    (errorVec)[2]<< "\n||K^0.5(Grad(u_h)-Grad(s_h))||:\t"   <<
-    (errorVec)[3]<< "\n||K^-0.5(KGrad(u_h)+t_h)||:    \t"   <<
-    (errorVec)[4]<< "\n||f-div(t_h)||:                \t"   <<
+    (errorVec)[2]<< "\n||K^0.5(Grad(u_h)-Grad(s_h))||:\t" <<
+    (errorVec)[3]<< "\n||K^-0.5(KGrad(u_h)+t_h)||:    \t" <<
+    (errorVec)[4]<< "\n||f-div(t_h)||:                \t" <<
     (errorVec)[5]<< "\n||f-projL2(f)||:               \t" << (errorVec)[6] <<"\n";
 
     
@@ -88,21 +88,33 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
     
     //Erro global
-    std::ofstream myfile;
-    myfile.open(fFolderOutput + "ErrorsReconstruction.txt", std::ios::app);
-    myfile << "\n\n Estimator errors for Problem " << *fproblemname;
-    myfile << "\n-------------------------------------------------- \n";
-    myfile << "Ndiv = " << fnDivisions <<" Order k= " << forderFEM_k << " Order n= "<< forderFEM_n<<"\n";
-    //myfile << "DOF Total = " << fMultiphysicsReconstructionMesh->NEquations() << "\n";
-    myfile << "||u-u_h|| = " << (errorVec)[0] << "\n";
-    myfile << "||u_h-s_h|| = " << (errorVec)[1] << "\n";
-    myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << (errorVec)[2] << "\n";
-    myfile << "n_{NC}: ||K^{0.5}.grad(u_h-s_h)|| = " << (errorVec)[3] << "\n";
-    myfile << "n_{F} : ||K^{0.5}.[grad(u_h)-invK.T_h]|| = " << (errorVec)[4] << "\n";
-    myfile <<"Residual ErrorL2= "<< (errorVec)[5] << "\n";
-    //myfile <<"Global Index = "<< sqrt(errorVec[4] + errorVec[3]) / sqrt(errorVec[2]);
+    std::string filename = "ErrorsReconstruction.txt";
+    if(fAdaptivityStep ==0){
+        std::ofstream myfile;
+        myfile.open(fFolderOutput + filename, std::ios::app);
+        myfile << "\n\n Estimator errors for Problem " << *fproblemname; std::cout <<*fproblemname <<"\n\n\n\n\n";
+        myfile << "\n-------------------------------------------------- \n";
+        myfile << "Uniform refinement steps = " << fnDivisions  << "\n";
+        myfile << "Order k= " << forderFEM_k << " Order n=    " << forderFEM_n            <<"\n";
 
-    myfile.close();
+        myfile << "DOF                                      = " << fOriginal->NEquations()<<"\n";
+        myfile << "Current Adaptative step                  = " << fAdaptivityStep        <<"\n";
+        myfile << "||u-u_h||                                = " << (errorVec)[0]          << "\n";
+        myfile << "||u_h-s_h||                              = " << (errorVec)[1]          << "\n";
+        myfile << "||K^{0.5}.grad(u_h-u)|| :         e_{ex} = " << (errorVec)[2]          << "\n";
+        myfile << "||K^{0.5}.grad(u_h-s_h)||:        n_{NC} = " << (errorVec)[3]          << "\n";
+        myfile << "||K^{0.5}.[grad(u_h)-invK.T_h]||: n_{F}  = " << (errorVec)[4]          << "\n";
+        myfile << "||f-div(t_h)||:                          = " << (errorVec)[5]          << "\n";
+        myfile << "||f-projL2(f)||:                         = " << (errorVec)[6]          << "\n";
+
+        myfile.close();
+    } else{
+        TPZVec<int> complementaryVec(2);
+        complementaryVec[0] = fOriginal->NEquations();
+        complementaryVec[1] = fAdaptivityStep;
+        TPZHybridH1ReconstructionBase::FlushErrorDataIntoFile(errorVec,complementaryVec,fFolderOutput,filename);
+    }
+    
 
     double globalIndex;
     ComputeEffectivityIndices(globalIndex);

@@ -75,6 +75,16 @@ protected:
 
     TPZVec<REAL> ComputeErrors(TPZLinearAnalysis *an, int numberErrors);
 
+    /**
+     * File management: Introduce the approximation errors corresponding to the current adaptive step
+     * besides the errors from previous steps
+     * @param errorVec : Approximation errors corresponding to the current adaptivity step;
+     * @param errorVec : Complementary data that should be flushed (e.g. DOF, adapativity step,...)  ;
+     * @param filepath : File path leading to "filename". Should end with a "/"  character;
+     * @param filename : Name of the file containing errors. 
+     **/ 
+    static void FlushErrorDataIntoFile(const TPZVec<REAL> &errorVec,const TPZVec<int> &complementaryVec,
+                                        const std::string &filePath,const std::string &filename);
 
 };
 
