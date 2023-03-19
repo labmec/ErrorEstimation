@@ -175,6 +175,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
 
         // the empty multiphysics mesh is created here
         auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction(estimatorConfig);
+        // here we do not only create the mesh, we also project the solution onto de hdiv space
         auto myHdivMesh = myHdivMeshCreator->CreateFluxReconstructionMesh();
         //myHdivMeshCreator->PostProcess();
 
@@ -320,7 +321,28 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
     createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
 
+    {
+        int64_t nel = cmesh_H1Hybrid->NElements();
+        for(int64_t el = 0; el<nel; el++) {
+            auto cel = dynamic_cast<TPZMultiphysicsElement *>(cmesh_H1Hybrid->Element(el));
+            cel->InitializeIntegrationRule();
+            auto gel = cel->Reference();
+            int dim = gel->Dimension();
+            TPZManVector<int,3> order(dim);
+            cel->GetIntegrationRule().GetOrder(order);
+            for(int i=0; i<dim; i++) order[i]+=1;
+            cel->GetIntegrationRule().SetOrder(order);
+        }
+    }
+    
     createspace.AddInterfaceElements(cmesh_H1Hybrid);
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("mphysics.txt");
+        cmesh_H1Hybrid->Print(out);
+    }
+#endif
     createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
     cmesh_H1Hybrid->InitializeBlock();

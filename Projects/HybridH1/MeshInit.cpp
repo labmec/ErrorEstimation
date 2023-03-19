@@ -606,15 +606,14 @@ void InsertMaterialHybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig
             InsertMaterialHybrid_ELaplace(cmesh_H1Hybrid, config, pConfig);
             break;
         default:
-            int pOrder=5;
             auto *material = /*new TPZHybridDarcyFlow(matID,dim);*/new TPZMatLaplacianHybrid(matID, dim);
             TPZMatErrorCombinedSpaces<STATE> *err = material;
             material->SetConstantPermeability(1.);
             cmesh_H1Hybrid->InsertMaterialObject(material);
 
             if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-                material->SetForcingFunction(config.exact->ForceFunc(), pOrder);
-                err->SetExactSol(config.exact->ExactSolution(), pOrder);
+                material->SetForcingFunction(config.exact->ForceFunc(), pConfig.integrationorder);
+                err->SetExactSol(config.exact->ExactSolution(), pConfig.integrationorder);
             }
 
             // Inserts boundary conditions
@@ -624,8 +623,8 @@ void InsertMaterialHybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, ProblemConfig
             auto *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
             if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-                BCond0->SetForcingFunctionBC(config.exact->ExactSolution(),pOrder);
-                BCond1->SetForcingFunctionBC(config.exact->ExactSolution(),pOrder);
+                BCond0->SetForcingFunctionBC(config.exact->ExactSolution(),pConfig.integrationorder);
+                BCond1->SetForcingFunctionBC(config.exact->ExactSolution(),pConfig.integrationorder);
             }
 
             cmesh_H1Hybrid->InsertMaterialObject(BCond0);

@@ -36,6 +36,24 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateH1Reconstruction::CreateH1Reconstructi
     // Build the multiphysics cmesh on which the pressure is to be reconstructed.
     BuildMultiphysicsSpace();
 
+    // copy the integration rule order
+    if(0)
+    {
+        auto gmesh = fOriginal->Reference();
+        gmesh->ResetReference();
+        fOriginal->LoadReferences();
+        int64_t nel = fMultiphysicsReconstructionMesh->NElements();
+        for(int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = fMultiphysicsReconstructionMesh->Element(el);
+            auto mfcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
+            auto gel = cel->Reference();
+            auto mfcelorig = dynamic_cast<TPZMultiphysicsElement *>(gel->Reference());
+            TPZVec<int> order(gel->Dimension());
+            mfcelorig->GetIntegrationRule().GetOrder(order);
+            mfcel->SetIntegrationRule(order[0]);
+        }
+    }
+
     {
         std::ofstream filecmeshTXT(fFolderOutput + "toto.txt");
         fMultiphysicsReconstructionMesh->Print(filecmeshTXT);
@@ -154,7 +172,7 @@ void TPZHybridH1CreateH1Reconstruction::BuildMultiphysicsSpace(){
                 dynamic_cast<TPZMatLaplacianHybrid *>(mat.second);
         if (matlaplacian) {
             TPZHybridH1PressureRecMaterial *newmat = new TPZHybridH1PressureRecMaterial(*matlaplacian);
-            newmat->SetForcingFunction(newmat->ForcingFunction(),5);
+//            newmat->SetForcingFunction(newmat->ForcingFunction(),5);
 
             for (auto bcmat : fMultiphysicsReconstructionMesh->MaterialVec()) {
                 TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(bcmat.second);
