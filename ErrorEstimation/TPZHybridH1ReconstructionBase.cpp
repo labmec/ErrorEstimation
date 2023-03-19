@@ -154,7 +154,7 @@ TPZVec<REAL> TPZHybridH1ReconstructionBase::ComputeErrors(TPZLinearAnalysis *an,
     return errorVec;
 }
 
-void TPZHybridH1ReconstructionBase::FlushErrorDataIntoFile(const TPZVec<REAL> &errorVec,const TPZVec<int> &complementaryVec,
+void TPZHybridH1ReconstructionBase::FlushErrorDataIntoFile(const TPZVec<REAL> &errorVec,const TPZVec<std::string> &complementaryVec,
                                     const std::string &filePath,const std::string &filename){
 
     int numErrors = errorVec.size();

@@ -72,20 +72,28 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     int numErrors = 7;
     numErrors++; 
     TPZVec<REAL> errorVec = ComputeErrors(&an,numErrors);
+
+    TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
+    TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
+
+    double globalIndex;
+    ComputeEffectivityIndices(globalIndex);
     
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
-    std::cout <<      "||u_h-u||:                     \t" << 
-    (errorVec)[0]<< "\n||u_h-s_h||:                   \t" <<
-    (errorVec)[1]<< "\n||K^0.5(Grad(u_h)-Grad(u))||:  \t" <<
-    (errorVec)[2]<< "\n||K^0.5(Grad(u_h)-Grad(s_h))||:\t" <<
-    (errorVec)[3]<< "\n||K^-0.5(KGrad(u_h)+t_h)||:    \t" <<
-    (errorVec)[4]<< "\n||f-div(t_h)||:                \t" <<
-    (errorVec)[5]<< "\n||f-projL2(f)||:               \t" << (errorVec)[6] <<"\n";
-
-    
-    TPZCompMeshTools::UnCondensedElements(fMultiphysicsReconstructionMesh);
-    TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
+    std::cout <<            "||u_h-u||:                     \t" << 
+    (errorVec)[0]         <<"\n||u_h-s_h||:                   \t" <<
+    (errorVec)[1]         <<"\n||K^0.5(Grad(u_h)-Grad(u))||:  \t" <<
+    (errorVec)[2]         <<"\n||K^0.5(Grad(u_h)-Grad(s_h))||:\t" <<
+    (errorVec)[3]         <<"\n||K^-0.5(KGrad(u_h)+t_h)||:    \t" <<
+    (errorVec)[4]         <<"\n||f-div(t_h)||:                \t" <<
+    (errorVec)[5]         <<"\n||f-projL2(f)||:               \t" <<               
+    (errorVec)[6]         <<"\n\n\tEstimator metrics:         \n" <<
+                            "\nI_{EF}:                        \t" <<
+    fEffIndex             <<"\nEstimated Error                \t" <<
+    fEstimatedError       <<"\nfrac{hk}{pi}||f-Div(T_h)||     \t" <<
+    fDivFluxResidualIndex <<"\nfrac{hk}{pi}||f-Proj(f)||      \t" <<
+    fSourceProjResidualIndex <<"\n\n";
     
     //Erro global
     std::string filename = "ErrorsReconstruction.txt";
@@ -95,10 +103,12 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
         myfile << "\n\n Estimator errors for Problem " << *fproblemname; 
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Uniform refinement steps = " << fnDivisions  << "\n";
-        myfile << "Order k= " << forderFEM_k << " Order n=    " << forderFEM_n            <<"\n";
+        myfile << "Order k= " << forderFEM_k << " Order n=    " << forderFEM_n            << "\n";
 
-        myfile << "DOF                                      = " << fOriginal->NEquations()<<"\n";
-        myfile << "Current Adaptative step                  = " << fAdaptivityStep        <<"\n";
+        myfile << "DOF                                      = " << fOriginal->NEquations()<< "\n";
+        myfile << "Current Adaptative step                  = " << fAdaptivityStep        << "\n";
+        myfile << "I_{EF}:                                  = " << fEffIndex              << "\n";
+        myfile << "Estimated Error                          = " << fEstimatedError        << "\n";
         myfile << "||u-u_h||                                = " << (errorVec)[0]          << "\n";
         myfile << "||u_h-s_h||                              = " << (errorVec)[1]          << "\n";
         myfile << "||K^{0.5}.grad(u_h-u)|| :         e_{ex} = " << (errorVec)[2]          << "\n";
@@ -109,15 +119,26 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
 
         myfile.close();
     } else{
-        TPZVec<int> complementaryVec(2);
-        complementaryVec[0] = fOriginal->NEquations();
-        complementaryVec[1] = fAdaptivityStep;
+        TPZVec<std::string> complementaryVec(4);
+        std::stringstream ss;
+        ss << fOriginal->NEquations();
+        complementaryVec[0] = ss.str();
+        ss.clear(); ss.str(std::string());
+
+        ss << fAdaptivityStep;
+        complementaryVec[1] = ss.str();
+        ss.clear(); ss.str(std::string());
+
+        ss << fEffIndex;
+        complementaryVec[2] = ss.str();
+        ss.clear(); ss.str(std::string());
+
+        ss << fEstimatedError;
+        complementaryVec[3] = ss.str();
+        ss.clear(); ss.str(std::string());
+ 
         TPZHybridH1ReconstructionBase::FlushErrorDataIntoFile(errorVec,complementaryVec,fFolderOutput,filename);
     }
-    
-
-    double globalIndex;
-    ComputeEffectivityIndices(globalIndex);
     
     PrintSolutionVTK(an);
 
@@ -607,14 +628,10 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     globalProjResidual = sqrt(globalProjResidual);
     globalIndex = sqrt((n1+n2n3)/ex);
 
-    std::stringstream ss;
-    ss << "\n\n";
-    ss << "frac{hk}{pi}||f-Div(T_h)|| =\t" << globalResidual << "\n";
-    ss << "frac{hk}{pi}||f-Proj(f)||  =\t" << globalProjResidual << "\n";
-    ss << "I_{EF}                       =\t" << globalIndex << "\n";
-    ss << "Estimated Error              =\t" << sqrt(n1+n2n3) << "\n";
-    ss << "\n\n";
-    std::cout << ss.str();
+    fEffIndex = globalIndex;
+    fEstimatedError = sqrt(n1+n2n3);
+    fSourceProjResidualIndex = globalProjResidual;
+    fDivFluxResidualIndex = globalResidual;
 }
 
 static TPZMultiphysicsInterfaceElement *Extract(TPZElementGroup *cel)
