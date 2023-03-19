@@ -410,8 +410,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig &config,struct PreConfig &pConfig,int hybridLevel){
 
     config.exact.operator*().fSignConvention = 1;
-
-    std::cout << "Solving HYBRID_H1 " << std::endl;
+    std::cout << "\nStarting Primal Hybrid FEM solving step" << std::endl;
 
     TPZLinearAnalysis an(cmesh_H1Hybrid);
 
@@ -451,6 +450,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     cmesh_H1Hybrid->ExpandSolution();
     cmesh_H1Hybrid->ElementSolution().Redim(nelem, 5);
 
+    std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
     if(pConfig.debugger) {
         std::cout << "\n############\n";
         std::cout << "Computing Error HYBRID_H1" << std::endl;
@@ -458,7 +458,6 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 
         ////Calculo do erro
         StockErrors(an,cmesh_H1Hybrid,pConfig.Erro,pConfig.Log,pConfig);
-        std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
         ////PostProcess
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");

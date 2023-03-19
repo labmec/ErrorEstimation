@@ -92,7 +92,7 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     if(fAdaptivityStep ==0){
         std::ofstream myfile;
         myfile.open(fFolderOutput + filename, std::ios::app);
-        myfile << "\n\n Estimator errors for Problem " << *fproblemname; std::cout <<*fproblemname <<"\n\n\n\n\n";
+        myfile << "\n\n Estimator errors for Problem " << *fproblemname; 
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Uniform refinement steps = " << fnDivisions  << "\n";
         myfile << "Order k= " << forderFEM_k << " Order n=    " << forderFEM_n            <<"\n";
