@@ -447,11 +447,15 @@ TPZCompMesh *TPZCreateMultiphysicsSpace::CreateBoundaryFluxMesh()
     TPZCompMesh *fluxmesh = new TPZCompMesh(fGeoMesh);
     InsertFluxMaterialIds(fluxmesh);
     fluxmesh->ApproxSpace().SetAllCreateFunctionsHDiv(fDimension);
-    fluxmesh->ApproxSpace().CreateDisconnectedElements(true);
+    fluxmesh->ApproxSpace().CreateDisconnectedElements(false);
     fluxmesh->SetDefaultOrder(fDefaultLagrangeOrder);
     fluxmesh->AutoBuild();
     int64_t nconnects = fluxmesh->NConnects();
     for (int ic=0; ic<nconnects; ic++) {
+        if(fluxmesh->ConnectVec()[ic].HasDependency())
+        {
+            std::cout << "We should stop\n";
+        }
         fluxmesh->ConnectVec()[ic].SetLagrangeMultiplier(4);
     }
     return fluxmesh;
@@ -753,7 +757,8 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
         if(!gel || gel->HasSubElement() || gel->Dimension() != dim) continue;
         int nsides = gel->NSides();
         int side = 0;
-        for(int d=0; d<dim-1; d++) side += gel->NSides(d);
+//        for(int d=0; d<dim-1; d++) side += gel->NSides(d);
+        side = gel->FirstSide(dim-1);
         // loop over the sides of dimension dim-1
         for(; side < nsides-1; side++)
         {
@@ -846,7 +851,8 @@ void TPZCreateMultiphysicsSpace::AddGeometricWrapElements()
         if(fSpaceType == EH1Hybrid && islagrange)
         {
             bool ShouldCreateFlux =  ! HasBCNeighbour;
-            if(gelside.HasLowerLevelNeighbour(fH1Hybrid.fFluxMatId))
+            std::set<int> matids = {fH1Hybrid.fFluxMatId,lagrange.first,lagrange.second};
+            if(gelside.HasLowerLevelNeighbour(matids))
             {
                 // create the flux element
 //                TPZGeoElBC(gelside,fH1Hybrid.fFluxMatId);
