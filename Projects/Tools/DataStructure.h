@@ -27,6 +27,7 @@ struct PreConfig{
     std::string topology;           //Topology' name typed as input will translate in a value of topologyMode (should be an enum)
     
     std::string topologyFileName;   //Simplified name used for naming files/directories
+    std::string FEMoutput = "FEMsimulation/";
 
     int numberAdapativitySteps =-1;
 
@@ -49,6 +50,13 @@ struct PreConfig{
     bool estimateError;
     bool debugger = true;
     int exp = 2; // Initial exponent of mesh refinement (numElem = 2*2^exp)
+
+    PreConfig() {
+        std::string FEMsimulationOutput = "FEMsimulation/";
+        std::string temp = FEMsimulationOutput;
+        temp.pop_back();
+        std::string command = "mkdir -p " + temp;
+    }
 };
 
 #endif //ERRORESTIMATION_DATASTRUCTURE_H
