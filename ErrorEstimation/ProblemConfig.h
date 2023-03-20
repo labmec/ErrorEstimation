@@ -105,6 +105,8 @@ struct EstimatorConfig{
    int fAdaptivityStep = -1;
 
     int fvtkResolution = -1;
+    
+    REAL fdivision_threshold;
    /// exact solution
    TPZAutoPointer<TLaplaceExample1> fExact;
 
@@ -119,6 +121,7 @@ struct EstimatorConfig{
         fvtkResolution = pConfig.vtkResolution;
         fk = pConfig.k;
         fn = pConfig.n;
+        fdivision_threshold = pConfig.division_threshold;
 
         fLagrangeMatId = lagrangeMatId;
    }

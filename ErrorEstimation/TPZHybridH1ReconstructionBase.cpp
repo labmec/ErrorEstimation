@@ -20,6 +20,7 @@ TPZHybridH1ReconstructionBase::TPZHybridH1ReconstructionBase(EstimatorConfig *pE
        fnDivisions = pEstimator->fnDivisions;
        fAdaptivityStep = pEstimator->fAdaptivityStep;
        fvtkResolution = pEstimator->fvtkResolution;
+       fProblemFolderOutput = *pEstimator->fproblemname;
 
        fMultiphysicsReconstructionMesh = new TPZMultiphysicsCompMesh(fOriginal->Reference());
 }
@@ -92,7 +93,7 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
         int dim = fMultiphysicsReconstructionMesh->Reference()->Dimension();
 
         std::stringstream out;
-        out << fFolderOutput << *fproblemname
+        out << fProblemFolderOutput << *fproblemname
             << "_k_" << forderFEM_k << "_n_"
             << forderFEM_n;
         if (fnDivisions != -1) {
@@ -228,3 +229,15 @@ void TPZHybridH1ReconstructionBase::FlushErrorDataIntoFile(const TPZVec<REAL> &e
     }
 }
 
+void TPZHybridH1ReconstructionBase::InitializeProblemFolderOutput(std::string &problemName, std::string &folderOutput,const int &k, const int &n, const REAL threshold){
+       std::stringstream ss;
+       ss << "__k-" << k << "__n-" << n;
+
+       int th = (int)(100.*threshold);
+       if(threshold!=-1)
+            ss << "__tal-"<< th;
+       problemName += ss.str();
+       std::string command = "mkdir -p " + folderOutput + problemName;
+       system(command.c_str());
+       problemName = folderOutput + problemName + "/";
+}

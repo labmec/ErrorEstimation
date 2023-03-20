@@ -36,8 +36,10 @@ public:
     TPZHybridH1ErrorEstimator(EstimatorConfig *pEstimator) : TPZHybridH1ReconstructionBase(pEstimator){
        
         fFolderOutput = "ErrorEstimate/"; 
+        fdivision_threshold = pEstimator->fdivision_threshold;
 
         InitializeFolderOutput();
+        InitializeProblemFolderOutput(fProblemFolderOutput,fFolderOutput,forderFEM_k,forderFEM_n,fdivision_threshold);
      };
 
     
@@ -115,6 +117,8 @@ private:
 
     //frac{hk}{pi}||f-Div(T_h)||
     REAL fDivFluxResidualIndex = -1;
+
+    REAL fdivision_threshold =-1.;
 
 };
 
