@@ -440,7 +440,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
     TPZManVector<REAL, 5> errors(5, 0.);
     for (int64_t el = 0; el < nel; el++) {
         for (int i = 0; i < ncols; i++) {
-            errors[i] += elsol(el, ncols+i) * elsol(el, i);
+            errors[i] += elsol(el, ncols+i) * elsol(el, ncols+i);
         }
     }
     for (int i = 0; i < ncols; i++) {
@@ -621,19 +621,18 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex,in
                 n2n3 += (oscilatorytherm + elsol(el, 4))*(oscilatorytherm + elsol(el, 4));
             }
             
-            
             if (abs(ErrorEstimate) < tol) {
-                elsol(el, ncols + i / 2) = 1.;
+                elsol(el, ncols + i+1.) = 0.;
                 dataIeff(el,0)=1.;
             }
             else 
             {
                 REAL EfIndex = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator))/ErrorExact;
-                dataIeff(el,0)= EfIndex;
+                dataIeff(el,0) = EfIndex;
                 
-                elsol(el, ncols + i / 2) = EfIndex;
+                elsol(el, ncols + i) = EfIndex;
                 if(i == 2){
-                    elsol(el, ncols + i) = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator));
+                    elsol(el, ncols + i+1) = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator));
                 }
 
             }
