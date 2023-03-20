@@ -546,8 +546,8 @@ int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name) con
     if(name == "th_plus_KGradUh") return 104;
     if(name == "residual") return 105;
     if(name == "L2EffectivityIndex") return 106;
-    if(name == "EffectivityIndex") return 107;
-    if(name == "EstimatedError") return 108;
+    if(name == "EffectivityIndex") return 108;
+    if(name == "EstimatedError") return 109;
     if(name == "POrder") return 46;
 
     return -1;
