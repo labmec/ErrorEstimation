@@ -70,7 +70,7 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     
     // The solution is expanded to store errors,
     // Therefore it is required to account for the original solution and the errors.
-    int numErrors = 9;
+    int numErrors = 7;
     numErrors++; 
     TPZVec<REAL> errorVec = ComputeErrors(&an,numErrors);
 
@@ -78,7 +78,7 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     TPZCompMeshTools::UnGroupElements(fMultiphysicsReconstructionMesh);
 
     double globalIndex;
-    ComputeEffectivityIndices(globalIndex);
+    ComputeEffectivityIndices(globalIndex, numErrors);
     
     std::cout << "\n############\n";
     std::cout << "Computing Error H1 reconstruction\n";
@@ -163,7 +163,8 @@ void TPZHybridH1ErrorEstimator::PostProcess(REAL threshold, std::set<int64_t> &g
         TPZGeoEl* gel = fMultiphysicsReconstructionMesh->Element(i)->Reference();
         if (!gel) continue;
         TPZFMatrix<STATE> &elsol = fMultiphysicsReconstructionMesh->ElementSolution();
-        STATE error = elsol(i,3);
+        int ncols = elsol.Cols(); 
+        STATE error = elsol(i,ncols-1);
         int64_t gelindex = gel->Index();
 //        if(gel->Dimension() == 2) {
 //            std::cout << "index " << gelindex << " err 5 " << elsol(i,5) << " err 6 " << elsol(i,6) <<
@@ -171,7 +172,12 @@ void TPZHybridH1ErrorEstimator::PostProcess(REAL threshold, std::set<int64_t> &g
 //        }
         (errorVec)[gelindex] = error;
         if(maxerror < error) maxerror = error;
+    } 
+    if(maxerror < 1.e-15){
+        std::cout << "Review your stopping criteria or the tolenrance values in ComputeEffectivityIndices(...).\n";
+        DebugStop();
     }
+    std::cout << "max estimated error within elements = " <<maxerror<<"\n";
     geltodivide.clear();
     for (int64_t i = 0; i<errorVec.size(); i++) {
         REAL elementerror = errorVec[i];
@@ -418,9 +424,10 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::PressureMesh() {
 
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
 void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcmesh) {
+    DebugStop(); // Consider the right position
     TPZFMatrix<STATE> &elsol = subcmesh->ElementSolution();
     int64_t nrows = elsol.Rows();
-    int64_t ncols = 5; // subcmesh->ElementSolution().Cols();
+    int64_t ncols = elsol.Cols(); // subcmesh->ElementSolution().Cols();
 
     if (subcmesh->ElementSolution().Cols() != 7) {
         // TODO I made some changes to be able to run the code again.
@@ -433,7 +440,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
     TPZManVector<REAL, 5> errors(5, 0.);
     for (int64_t el = 0; el < nel; el++) {
         for (int i = 0; i < ncols; i++) {
-            errors[i] += elsol(el, i) * elsol(el, i);
+            errors[i] += elsol(el, ncols+i) * elsol(el, i);
         }
     }
     for (int i = 0; i < ncols; i++) {
@@ -442,7 +449,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
 
     for (int64_t el = 0; el < nel; el++) {
         for (int i = 0; i < ncols; i++) {
-            elsol(el, i) = errors[i];
+            elsol(el, ncols+i) = errors[i];
         }
     }
 
@@ -476,7 +483,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(TPZSubCompMesh *subcme
 
 /// TODO: Suport flux' effectivity indices
 /// compute the effectivity indices of the pressure error and flux error and store in the element solution
-void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
+void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex,int numErrors) {
     /**The  ElementSolution() is a matrix with 4 cols,
      col 0: pressure exact error
      col 1: pressure estimate error
@@ -491,7 +498,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     TPZFMatrix<STATE> &elsol = cmesh->ElementSolution();
     int64_t nrows = elsol.Rows();
     int64_t ncols = elsol.Cols();
-    
+    elsol.Resize(nrows, ncols+4);
     //std::ostream &out;
     //    cmesh->ElementSolution().Print("ElSolution",std::cout);
     
@@ -500,7 +507,7 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
     
     //    REAL oscilatorytherm = 0;
     int dim = cmesh->Dimension();
-    elsol.Resize(nrows, ncols+3);
+
     REAL oscilatorytherm = 0;
     REAL fluxestimator = 0;
     for (int64_t el = 0; el < nrows; el++) {
@@ -560,10 +567,10 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
                 REAL ErrorExact = elsol(el, i);
                 REAL sumErrorExact = sqrt(NeighbourErrorExact*NeighbourErrorExact+ErrorExact*ErrorExact);
                 REAL sumErrorEstimate = sqrt(NeighbourErrorEstimate*NeighbourErrorEstimate+ErrorEstimate*ErrorEstimate);
-                elsol(neighindex,i+1) = 0.;
-                elsol(neighindex,i) = 0.;
-                elsol(el,i) = sumErrorExact;
-                elsol(el,i+1) = sumErrorEstimate;
+                elsol(neighindex,i+1+ncols) = 0.;
+                elsol(neighindex,i+ncols) = 0.;
+                elsol(el,i+ncols) = sumErrorExact;
+                elsol(el,i+1+ncols) = sumErrorEstimate;
             }
         }
     }
@@ -619,13 +626,14 @@ void TPZHybridH1ErrorEstimator::ComputeEffectivityIndices(double &globalIndex) {
                 elsol(el, ncols + i / 2) = 1.;
                 dataIeff(el,0)=1.;
             }
-            else {
+            else 
+            {
                 REAL EfIndex = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator))/ErrorExact;
                 dataIeff(el,0)= EfIndex;
                 
                 elsol(el, ncols + i / 2) = EfIndex;
                 if(i == 2){
-                    elsol(el, ncols + 2) = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator));
+                    elsol(el, ncols + i) = sqrt(ErrorEstimate*ErrorEstimate +(oscilatorytherm+fluxestimator)*(oscilatorytherm+fluxestimator));
                 }
 
             }

@@ -89,7 +89,7 @@ protected:
     virtual void SwitchMaterialObjects();
     
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
-    void ComputeEffectivityIndices(double &globalIndex);
+    void ComputeEffectivityIndices(double &globalIndex, int numErrors);
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
     void ComputeEffectivityIndices(TPZSubCompMesh *cmesh);
