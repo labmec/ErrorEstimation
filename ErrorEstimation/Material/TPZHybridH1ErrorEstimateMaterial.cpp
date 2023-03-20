@@ -577,6 +577,7 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var) const
         case 107:
         case 108:
         case 109:
+        case 110:
             return 1;
             break;
         default:

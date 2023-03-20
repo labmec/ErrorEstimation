@@ -22,6 +22,7 @@ public:
        fFolderOutput = "HDivReconstruction/";
 
        InitializeFolderOutput();
+       InitializeProblemFolderOutput(fProblemFolderOutput,fFolderOutput,forderFEM_k,forderFEM_n);
 
        fLagrangeMatId = pEstimator->fLagrangeMatId;
      };

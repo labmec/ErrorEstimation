@@ -29,6 +29,8 @@ protected:
 
     std::string fFolderOutput;
 
+    std::string fProblemFolderOutput; 
+
     int forderFEM_k;
 
     int forderFEM_n;
@@ -85,6 +87,14 @@ protected:
      **/ 
     static void FlushErrorDataIntoFile(const TPZVec<REAL> &errorVec,const TPZVec<std::string> &complementaryVec,
                                         const std::string &filePath,const std::string &filename);
+
+    /**
+    * This function creates a folder gathering the output of similar problem configuarion.
+    * The new directory is created inside folder Output, and problemName is updated to the full path.
+    * @param problemName : Configuration of similar simulations;
+    * @param folderOutput: Name of the output where problemName will be nested in.
+    **/
+    static void InitializeProblemFolderOutput(std::string &problemName, std::string &folderOutput,const int &k, const int &n,const REAL threshold=-1.);
 
 };
 

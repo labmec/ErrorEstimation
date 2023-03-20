@@ -27,6 +27,7 @@ public:
         fFolderOutput = "H1-conformReconstruction/"; 
 
         InitializeFolderOutput();
+        InitializeProblemFolderOutput(fProblemFolderOutput,fFolderOutput,forderFEM_k,forderFEM_n);
 
         fPressureSkeletonMatId = FindFreeMatID(fOriginal->Reference());
         pEstimator->fSkeletonMatId = fPressureSkeletonMatId;
