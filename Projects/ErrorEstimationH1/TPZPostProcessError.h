@@ -103,7 +103,7 @@ private:
     TPZVec<int64_t> fConnectSeqNumbers;
     
     // multiplying coefficients of the reconstructed fluxes and pressures
-    TPZFMatrix<STATE> fSolution;// contain the global flux recovery
+    TPZFMatrix<STATE> fSolution;
     
     // block corresponding to the original connect sequence numbers
     TPZBlock fBlock;

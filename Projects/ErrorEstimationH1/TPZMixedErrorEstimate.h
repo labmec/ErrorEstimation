@@ -24,7 +24,8 @@ class TPZVec;
 template<class MixedMat>
 class TPZMixedErrorEstimate : public MixedMat
 {
-    
+ 
+    enum MMeshPositions {Eflux = 0, Epressure = 1, Epatch = 2, Eorigin = 3};
     /// sign convention adopted by MixedMat
     int fSignConvention = 1;
     
@@ -65,7 +66,7 @@ public:
     virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     
     /// make a contribution to the error computation
-    virtual void Errors(TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors);
+    virtual void Errors(const TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<REAL> &errors) override;
     
 
 };

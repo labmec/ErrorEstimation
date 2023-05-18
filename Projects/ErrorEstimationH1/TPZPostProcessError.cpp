@@ -40,7 +40,7 @@ TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin) : fMeshVector(5,0
 TPZPostProcessError::TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec)
 {
     fMeshVector = meshvec;
-    TPZCompMesh *multiphysics = meshvec[1];
+    TPZCompMesh *multiphysics = meshvec[Eflux];
     this->fSolution = multiphysics->Solution();
     this->fBlock = multiphysics->Block();
     int64_t ncon = multiphysics->NConnects();
@@ -318,8 +318,9 @@ void TPZPostProcessError::ComputeHDivSolution()
     an.PostProcess(1,ModelDimension);
     
 }
+
 using namespace std;
-// compute the estimated H1 seminorm errorselementerrors
+// compute the estimated H1 seminorm element errors
 void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {//TODO: elementerrors isn't being filled
     
@@ -425,7 +426,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
             {//Loop over boundary connects of a patch
                 int64_t ncon = fVecVecPatches[color][patch].fBoundaryConnectIndices.size();
-                for (int64_t ic = 0; ic < ncon; ic++) {// Need to study what happen with boundary conditions
+                for (int64_t ic = 0; ic < ncon; ic++) {//TODO: Need to study what happen with boundary conditions
                     int64_t cindex = fVecVecPatches[color][patch].fBoundaryConnectIndices[ic];
                     TPZConnect &c = meshmixed->ConnectVec()[cindex];
                     int64_t seqnum = c.SequenceNumber();
@@ -447,7 +448,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 }
             }
             
-        }//end patch loop
+        }//patch loop
         
 #ifdef ERRORESTIMATION_DEBUG
         {
@@ -526,9 +527,9 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         std::cout<<"Solving mixed problem"<<std::endl;
         TPZLinearAnalysis an(meshmixed,false);
-                
+         
         TPZSkylineStructMatrix<STATE> strmat(meshmixed);
-        int numthreads = 0; //TODO: I think must be use Case1.nthreads
+        int numthreads = 0;
         strmat.SetNumThreads(numthreads);
         //        strmat.SetEquationRange(0, nequations);
         
@@ -547,6 +548,17 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         TPZMatrixSolver<STATE> &matsolver = an.MatrixSolver<STATE>();
         TPZAutoPointer<TPZMatrix<STATE> > globmat = matsolver.Matrix();
+        
+        if(1){
+            std::ofstream outmat("colormatrix.nb");
+            globmat->Print("GK=",outmat,EMathematicaInput);
+            
+            TPZFMatrix<STATE> globalrhs = an.Rhs();
+            std::ofstream outrhs("colorrhs.txt");
+            globalrhs.Print(outrhs);
+        }
+        
+        
         for (int64_t p = 0; p < npatch; p++) {
             TPZPatch &patch = fVecVecPatches[color][p];
             if (!PatchHasBoundary(patch))
@@ -579,19 +591,19 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         // now we have a partial solution
         /** Variable names for post processing */
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("POrder");
-        scalnames.Push("Pressure");
-        vecnames.Push("Flux");
-        an.SetStep(color); //TODO: I need to explore it
-        
-        //        {
-        //            int ModelDimension = meshmixed->Dimension();
-        //            std::stringstream sout;
-        //            sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
-        //            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
-        //            an.PostProcess(1,meshmixed->Dimension());
-        //        }
+//        TPZStack<std::string> scalnames, vecnames;
+//        scalnames.Push("POrder");
+//        scalnames.Push("Pressure");
+//        vecnames.Push("Flux");
+//        an.SetStep(color); //TODO: I need to explore it
+//
+//        if(0){
+//            int ModelDimension = meshmixed->Dimension();
+//            std::stringstream sout;
+//            sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
+//            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
+//            an.PostProcess(1,meshmixed->Dimension());
+//        }
         
         //Recovery the initial comp. elements
         for (int64_t el = 0; el < nelem; el++) {
@@ -601,24 +613,27 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         meshmixed->ComputeNodElCon();
         
         TransferAndSumSolution(meshmixed);
-        ResetState(); //TODO: I  need to understand it
+        ResetState();
+        an.SetStep(color);
         
-        an.SetStep(color);//TODO:: again, because?
-        
-        // now draw the full mesh with the summed flux
-        //        {
-        //            int ModelDimension = meshmixed->Dimension();
-        //            std::stringstream sout;
-        //            sout << "../" << "FullPoisson" << ModelDimension << "HDiv" << ".vtk";
-        //            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
-        //            an.PostProcess(1,meshmixed->Dimension());
-        //        }
+         //Now draw the full mesh with the summed flux
+        {
+            TPZStack<std::string> scalnames, vecnames;
+            scalnames.Push("POrder");
+            scalnames.Push("Pressure");
+            vecnames.Push("Flux");
+            int ModelDimension = meshmixed->Dimension();
+            std::stringstream sout;
+            sout << "../" << "FullPoisson" << ModelDimension << "HDiv" << ".vtk";
+            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
+            an.PostProcess(3,meshmixed->Dimension());
+        }
         
         fMeshVector[Epressure]->Solution().Zero();
         fMeshVector[Epatch]->Solution().Zero();
         an.Solution().Zero();
         
-    }// color loop
+    }// colors loop
     
     TPZLinearAnalysis an(meshmixed,false);
     an.Solution() = fSolution;
@@ -629,6 +644,9 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     mixed[1] = fMeshVector[Epatch];
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, meshmixed);
 
+    std::ofstream outfmesh("Fluxmesh.txt");
+    fMeshVector[Eflux]->Print(outfmesh);
+    
     TPZManVector<REAL,6> errors(6,0.);
     
     {
@@ -770,6 +788,7 @@ void TPZPostProcessError::TransferAndSumSolution(TPZCompMesh *cmesh)
             // tototototo
             TPZFMatrix<STATE> &sol = cmesh->Solution();
             fSolution(targetpos+eq,0) += sol(pos+eq,0);
+            //fSolution.Print(std::cout);
         }
     }
     cmesh->Solution().Zero();
@@ -902,7 +921,7 @@ void TPZPostProcessError::CreatePressureMesh()
     TPZGeoMesh *gmesh = fluxmesh->Reference();
     int dim = fluxmesh->Dimension();
     
-    // MARK: go stepwise here. this is a big change
+    // MARK: go stepwise here, this is a big change
     //    DebugStop();
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
@@ -924,7 +943,6 @@ void TPZPostProcessError::CreatePressureMesh()
     }
     
     gmesh->ResetReference();
-    
     
     int64_t nel = fluxmesh->NElements();
     for (int64_t el=0; el<nel; el++) {
@@ -1062,7 +1080,7 @@ void TPZPostProcessError::CreateMixedMesh()
     fMeshVector[Emulti] = mphysics;
 }
 
-// create the meshes that allow us to compute the error estimate
+// Create the meshes that allow us to compute the error estimate
 void TPZPostProcessError::CreateAuxiliaryMeshes()
 {
     CreateFluxMesh();
