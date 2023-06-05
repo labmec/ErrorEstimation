@@ -322,10 +322,10 @@ void TPZPostProcessError::ComputeHDivSolution()
 using namespace std;
 // compute the estimated H1 seminorm element errors
 void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
-{//TODO: elementerrors isn't being filled
+{//elementerrors isn't being filled
     
     TPZCompMesh *meshmixed = fMeshVector[Emulti];
-    {
+    if(0){
         std::ofstream out4("../CMeshH1.txt");
         fMeshVector[Eorigin]->Print(out4);
         std::ofstream out0("../CMeshMixed.txt");
@@ -348,7 +348,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         elpointers[i] = meshmixed->Element(i);
     }
     
-    //Take the sequence number of each connect (is not being using)
+    //Take the sequence number of each connect (origseqnum is not used)
     int64_t ncon = meshmixed->NConnects();
     int64_t nblocks = meshmixed->Block().NBlocks();
     TPZManVector<int64_t> origseqnum(ncon);
@@ -426,7 +426,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
             {//Loop over boundary connects of a patch
                 int64_t ncon = fVecVecPatches[color][patch].fBoundaryConnectIndices.size();
-                for (int64_t ic = 0; ic < ncon; ic++) {//TODO: Need to study what happen with boundary conditions
+                for (int64_t ic = 0; ic < ncon; ic++) {
                     int64_t cindex = fVecVecPatches[color][patch].fBoundaryConnectIndices[ic];
                     TPZConnect &c = meshmixed->ConnectVec()[cindex];
                     int64_t seqnum = c.SequenceNumber();
@@ -491,21 +491,6 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             meshmixed->Print(out);
         }
         
-        if(0){//TODO: must be deleted
-            int neqloc = 0;
-            for (int i = 0; i < ncon; i++ ){
-                TPZConnect &c = meshmixed->ConnectVec()[i];
-                if (c.NElConnected() == 0){
-                    std::cout << "c.NShape()*c.NState(): "<< c.NShape()*c.NState() <<"\n";
-                }
-                else {
-                    if (!c.HasDependency() || !c.IsCondensed()){
-                        neqloc += c.NDof();
-                    }
-                }
-            }
-            std::cout << "neqloc: " << neqloc << std::endl;
-        }
             
         int64_t nequations = meshmixed->NEquations();
         std::cout << "nequations: " << nequations << std::endl;
@@ -533,7 +518,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         strmat.SetNumThreads(numthreads);
         //        strmat.SetEquationRange(0, nequations);
         
-        strmat.SetEquationRange(0, nintequations);// This variable need ...
+        strmat.SetEquationRange(0, nequations);
         an.SetStructuralMatrix(strmat);
         //		TPZSkylineStructMatrix strmat3(cmesh);
         //        strmat3.SetNumThreads(8);
@@ -542,20 +527,23 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         direct->SetDirect(ELDLt);
         an.SetSolver(*direct);
         delete direct;
-        direct = 0; //It's necessary?
+        direct = 0;
         
         an.Assemble();
         
         TPZMatrixSolver<STATE> &matsolver = an.MatrixSolver<STATE>();
         TPZAutoPointer<TPZMatrix<STATE> > globmat = matsolver.Matrix();
         
-        if(1){
-            std::ofstream outmat("colormatrix.nb");
+        if(0){
+            std::stringstream matname, rhsname;
+            matname << "colormatrix_" << color << ".nb";
+            std::ofstream outmat(matname.str());
             globmat->Print("GK=",outmat,EMathematicaInput);
             
             TPZFMatrix<STATE> globalrhs = an.Rhs();
-            std::ofstream outrhs("colorrhs.txt");
-            globalrhs.Print(outrhs);
+            rhsname << "colorrhs_" << color << ".nb";
+            std::ofstream outrhs(rhsname.str());
+            globalrhs.Print("F=",outrhs,EMathematicaInput);
         }
         
         
@@ -595,7 +583,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 //        scalnames.Push("POrder");
 //        scalnames.Push("Pressure");
 //        vecnames.Push("Flux");
-//        an.SetStep(color); //TODO: I need to explore it
+//        an.SetStep(color); //
 //
 //        if(0){
 //            int ModelDimension = meshmixed->Dimension();
@@ -617,7 +605,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         an.SetStep(color);
         
          //Now draw the full mesh with the summed flux
-        {
+        if(0){
             TPZStack<std::string> scalnames, vecnames;
             scalnames.Push("POrder");
             scalnames.Push("Pressure");
@@ -631,13 +619,24 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         fMeshVector[Epressure]->Solution().Zero();
         fMeshVector[Epatch]->Solution().Zero();
+        //meshmixed->Solution().Print("solu1");
         an.Solution().Zero();
-        
+        //meshmixed->Solution().Print("solu2");
     }// colors loop
     
     TPZLinearAnalysis an(meshmixed,false);
     an.Solution() = fSolution;
     an.LoadSolution();
+    
+    TPZStack<std::string> scalnames, vecnames;
+    scalnames.Push("POrder");
+    scalnames.Push("Pressure");
+    vecnames.Push("Flux");
+    std::stringstream sout;
+    sout << "../" << "Reconstructed Flux" << meshmixed->Dimension() << "HDiv" << ".vtk";
+    an.DefineGraphMesh(meshmixed->Dimension(),scalnames,vecnames,sout.str());
+    an.PostProcess(3,meshmixed->Dimension());
+    
     
     TPZManVector<TPZCompMesh *,2> mixed(2);
     mixed[0] = fMeshVector[Epressure];
@@ -922,7 +921,6 @@ void TPZPostProcessError::CreatePressureMesh()
     int dim = fluxmesh->Dimension();
     
     // MARK: go stepwise here, this is a big change
-    //    DebugStop();
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     cmesh->ApproxSpace().CreateDisconnectedElements(true);
@@ -1017,7 +1015,7 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
 /// create the multiphysics mesh that will compute the projection matrix
 void TPZPostProcessError::CreateMixedMesh()
 {
-    // the pressure mesh is the rootmesh
+    // the H1 mesh is the rootmesh
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
     TPZGeoMesh *gmesh = fMeshVector[Eorigin]->Reference();
     //Creating computational mesh for multiphysic elements
@@ -1037,10 +1035,9 @@ void TPZPostProcessError::CreateMixedMesh()
             TPZMaterialT<STATE> *material = 0;
             if (nstate == 1) {
                 TPZMixedErrorEstimate<TPZMixedPoisson> *locmat = new TPZMixedErrorEstimate<TPZMixedPoisson>(matId,dim);
-                locmat->SetSignConvention(-1);
+                locmat->SetSignConvention(1);
                 material = locmat;
                 locmat->SetForcingFunction(mat->ForcingFunction(),mat->ForcingFunctionPOrder());
-                
                 
                 //incluindo os dados do problema
                 locmat->SetConstantPermeability(1.);
@@ -1099,7 +1096,7 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
         fConnectSeqNumbers[i] = compmeshmulti->ConnectVec()[i].SequenceNumber();
         int64_t seqnum = fConnectSeqNumbers[i];
         TPZConnect &con = compmeshmulti->ConnectVec()[i];
-        //con.SetSequenceNumber(seqnum);//TODO: I thing this is redundant
+        con.SetSequenceNumber(seqnum);//MARK: I thing this is redundant
         int blsize = this->fBlock.Size(seqnum);
         int neq = con.NShape()*con.NState();
         fConnectSizes[i] = neq;
