@@ -110,6 +110,7 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
         myfile << "Current Adaptative step                  = " << fAdaptivityStep        << "\n";
         myfile << "I_{EF}:                                  = " << fEffIndex              << "\n";
         myfile << "Estimated Error                          = " << fEstimatedError        << "\n";
+        myfile << "frac{hk}{pi}||f-Div(T_h)||               = " << fDivFluxResidualIndex  << "\n";
         myfile << "||u-u_h||                                = " << (errorVec)[0]          << "\n";
         myfile << "||u_h-s_h||                              = " << (errorVec)[1]          << "\n";
         myfile << "||K^{0.5}.grad(u_h-u)|| :         e_{ex} = " << (errorVec)[2]          << "\n";
@@ -135,6 +136,10 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
         ss.clear(); ss.str(std::string());
 
         ss << fEstimatedError;
+        complementaryVec[3] = ss.str();
+        ss.clear(); ss.str(std::string());
+
+        ss << fDivFluxResidualIndex;
         complementaryVec[3] = ss.str();
         ss.clear(); ss.str(std::string());
  
@@ -336,11 +341,14 @@ TPZCompMesh *TPZHybridH1ErrorEstimator::ForceProjectionMesh(){
             gel->X(intpointtemp,x);
 
             TPZMaterialT<STATE> *material = dynamic_cast<TPZMaterialT<STATE>*>(matabstr);
-            if(!material->HasForcingFunction()) DebugStop();
             STATE force;
             TPZManVector<STATE> res(3);
-            material->ForcingFunction()(x,res);
-            force = res[0];
+            if(!material->HasForcingFunction()){
+                force =0.;
+            }else {
+                material->ForcingFunction()(x,res);
+                force = res[0];
+            }
 
             integral += force*weight;
             //std::cout << "[" << intpointtemp[0] << ", " << intpointtemp[1] << ", " << intpointtemp[2] << "]\n";
