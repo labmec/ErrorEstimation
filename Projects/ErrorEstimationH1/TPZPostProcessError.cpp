@@ -389,7 +389,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         for (int64_t patch = 0; patch < npatch; patch++) {
             {//Modifies the solution coeficients corresponding to hat functions of a color. They satisfy the unity partition property
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
-                int64_t seqnum = meshpatch->ConnectVec()[partitionindex].SequenceNumber();
+                TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
+                int64_t seqnum = c.SequenceNumber(); 
                 weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
             }
             
@@ -654,7 +655,9 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     }
     
     an.PostProcessError(errors);
-    cout << "Estimated error " << errors << std::endl;
+    cout << "Global estimated error " << errors[2] << std::endl;
+    cout << "Global residual error " << errors[3] << std::endl;
+
     ofstream myfile;
     myfile.open("ArquivosErros_estimate.txt", ios::app);
     myfile << "\n\n Estimator errors  \n";

@@ -114,8 +114,8 @@ int main(int argc, char *argv[]) {
         struct SimulationCase Case1;
         
         Case1.nthreads = 0;
-        Case1.numinitialrefine = 4;//ndiv;
-        Case1.porder = 2;
+        Case1.numinitialrefine = 2;//ndiv;
+        Case1.porder = 3;
         Case1.dir_name = "QuadCase1";
         Case1.gmesh = gmesh;
         Case1.materialids.insert(1);
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
         
         Case1.problemname = "ESinSin";//ESinMark,EConst,EBubble2D,ESteepWave,EX
         Case1.dir_name = "ESinSin";
-        std::string command = "mkdir -p " + Case1.dir_name;
+        std::string command = "mkdir -p " +Case1.dir_name; //+ porder;
         system(command.c_str());
         
         UniformRefinement(Case1.numinitialrefine,gmesh);
@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
         {
             //Solve H1 Problem
             Case1.exact.fSignConvention = 1;
+            gmesh->ResetReference();
             TPZCompMesh *cmeshH1 = CompMeshH1(Case1);//CMeshPressure(Case1);
             
             SolveH1Problem(cmeshH1,Case1);
@@ -168,8 +169,11 @@ int main(int argc, char *argv[]) {
             std::ofstream outEE("EstErrorByElem.txt");
             estimate_elerror.Print(outEE);
         
-            std::ofstream outEE2("EstErrorByElem2.txt");
-            estimate_elerror.Print(outEE2);
+//            std::ofstream outEE2("EstErrorByElem2.txt");
+//            estimate_elerror.Print(outEE2);
+            
+            std::ofstream outEE3("EstErrorByElem3.txt");
+            estimatedelementerror.Print(outEE3);
             
             //std::cout << "true_elerror: " << true_elerror.GetVal(2, 3) << std::endl;
             
@@ -558,7 +562,15 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
             
             if(!gel || gel->HasSubElement()) continue;
             if(gel->Dimension() == 0) continue;
-            gel->Divide(children);
+            if (division < nDiv-1){
+                gel->Divide(children);
+            }
+            else {
+                if (elem % 4 == 0){
+                    gel->Divide(children);
+                }
+            }
+            //gel->Divide(children);
         }
     }
 }
@@ -754,14 +766,16 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
     std::cout<<"***** Computing effectivity index *****"<<std::endl;
     
     {
-        
+        REAL sum = 0.;
         int64_t nel = true_elerror.Rows();
         for (int64_t el=0; el<nel; el++) {
             TPZCompEl *cel = pressuremesh->Element(el);
             if(!cel) continue;
             TPZGeoEl *gel = cel->Reference();
-            TPZCompEl *mphys = gel->Reference();//MARK: doubt
+            TPZCompEl *mphys = gel->Reference();
             int64_t elindex2 = mphys->Index();
+            REAL aux =  estimate_elerror(elindex2,2) + estimate_elerror(elindex2,3);
+            sum += aux*aux; // To compute global effectivity index
             true_elerror(el,0) = estimate_elerror(elindex2,2);
             true_elerror(el,1) = true_elerror(el,2);
             if (true_elerror(el,1) > 1.e-10) {
@@ -769,6 +783,12 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
             }
         }
         pressuremesh->ElementSolution() = true_elerror;
+        
+        TPZManVector<REAL> errorsum(5, 0.);
+        pressuremesh->EvaluateError(false, errorsum);
+        REAL globeffind = sqrt(sum)/errorsum[2];
+        std::cout << "Global effectivity index: " << globeffind << std::endl;
+        
     }
     
     {

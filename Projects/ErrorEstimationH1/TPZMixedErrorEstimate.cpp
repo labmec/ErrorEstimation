@@ -48,13 +48,12 @@ template<class MixedMat>
 void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDataT<STATE> > &datavec) const
 {
     MixedMat::FillDataRequirements(datavec);
-    {
-        for( int i = 1; i<4; i++){
-            datavec[i].SetAllRequirements(true);
-            datavec[i].fNeedsSol = true;
-        }
-        
+    
+    for( int i = 1; i<4; i++){
+        datavec[i].SetAllRequirements(true);
+        datavec[i].fNeedsSol = true;
     }
+        
     datavec[0].fNeedsHSize=true;
 
 }
@@ -158,10 +157,12 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     this->Solution(data,MixedMat::VariableIndex("Flux"), flux);
     //this->Solution(data,MixedMat::VariableIndex("Pressure"), pressure);
 
+    REAL hsize = data[0].HSize;
     TPZVec<REAL> errorsaux;
     errorsaux.Fill(0.0);
     MixedMat::Errors(data,errorsaux);
-    errors[1] += errorsaux[1];
+    errors[1] += errorsaux[2];
+    errors[3] = 2*hsize*hsize*errorsaux[2]/(M_PI*M_PI);
     
     STATE perm = MixedMat::GetPermeability(data[1].x);
     
@@ -169,7 +170,7 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     {
         TPZFNMatrix<3,STATE> dsolprimal(3,1);
         TPZFNMatrix<3,REAL> gradpressureH1(3,1);
-        TPZAxesTools<STATE>::Axes2XYZ(data[3].dsol[0], dsolprimal, data[3].axes);
+        TPZAxesTools<STATE>::Axes2XYZ(data[Eorigin].dsol[0], dsolprimal, data[Eorigin].axes);
         for (int i=0; i<3; i++) {
             gradpressureH1(i,0) = dsolprimal(i,0);
             fluxprimalneg = perm*gradpressureH1;
