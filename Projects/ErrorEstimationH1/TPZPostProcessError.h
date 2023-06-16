@@ -151,7 +151,7 @@ private:
 public:
     
     // print partition diagnostics
-    void PrintPartitionDiagnostics(int color, std::ostream &out) const ;
+    void PrintPartitionDiagnostics(int64_t color, std::ostream &out) const ;
     
     // Collect the connect indices and elements which will contribute to the patch caracterized by the set of nodes
     // generally each node will form a patch

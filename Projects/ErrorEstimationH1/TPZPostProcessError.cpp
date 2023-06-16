@@ -19,6 +19,8 @@
 #include "pzstepsolver.h"
 #include "TPZFrontStructMatrix.h"
 #include "TPZParFrontStructMatrix.h"
+#include "TPZFrontSym.h"
+
 #include "pzbuildmultiphysicsmesh.h"
 
 #include "TPZMaterial.h"
@@ -170,7 +172,7 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
 void TPZPostProcessError::BuildPatchStructures()
 {
     // vector indicating which connect indices of the H1 mesh have been processed
-    TPZVec<int> connectprocessed(fMeshVector[Eorigin]->NConnects(),0);
+    TPZVec<int64_t> connectprocessed(fMeshVector[Epatch]->NConnects(),0);
     bool connectfailed = true;
     
     // load the references of all elements of the mixed mesh
@@ -186,9 +188,9 @@ void TPZPostProcessError::BuildPatchStructures()
         // fillin is a vector which contains 0 if the connect has not been touched by any patch
         TPZManVector<int> fillin(fMeshVector[Emulti]->NConnects(),0);
         // loop over all elements of the patch mesh
-        for (int64_t el=0; el<fMeshVector[Eorigin]->NElements(); el++) {
+        for (int64_t el=0; el<fMeshVector[Epatch]->NElements(); el++) {
             // take an element of the H1 mesh
-            TPZCompEl *cel = fMeshVector[Eorigin]->Element(el);
+            TPZCompEl *cel = fMeshVector[Epatch]->Element(el);
             if(!cel) continue;
             TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
             TPZGeoEl *gel = cel->Reference();
@@ -357,7 +359,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     }
     
     //For each color compute the contribution to the estimated error
-    int ncolors = fVecVecPatches.size();
+    int64_t ncolors = fVecVecPatches.size();
     for (int color = 0; color < ncolors; color++)
     {
         meshmixed->Solution().Zero();
@@ -670,7 +672,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 }
 
 // print partition diagnostics
-void TPZPostProcessError::PrintPartitionDiagnostics(int color, std::ostream &out) const
+void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream &out) const
 {
     TPZCompMesh *meshmixed = fMeshVector[Emulti];
     if (color < 0 || color >= fVecVecPatches.size()) {
@@ -1114,6 +1116,8 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
     {
         std::ofstream out("../patchinfo.txt");
         PrintPatchInformation(out);
+        std::ofstream outp("../partitionmesh.txt");
+        fMeshVector[Epatch]->Print(outp);
         std::ofstream out2("../mphysics.txt");
         compmeshmulti->Print(out2);
     }
