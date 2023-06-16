@@ -3606,7 +3606,7 @@ void TPZHybridH1ErrorEstimator::PrepareElementsForH1Reconstruction() {
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel, false);
+        TPZCondensedCompEl *condense = new TPZCondensedCompElT<STATE>(cel, false);
     }
 
     for (auto matit : fPostProcMesh.MaterialVec()) {

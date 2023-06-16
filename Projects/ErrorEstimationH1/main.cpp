@@ -625,10 +625,11 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct SimulationCase &config){
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
-    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
+//    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
+//    strmat.SetDecomposeType(ECholesky);
+//    strmat.SetNumThreads(0);
+    TPZSkylineStructMatrix<STATE> strmat(cmeshH1);
     strmat.SetNumThreads(0);
-    //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
-    //        strmat3.SetNumThreads(8);
 #endif
     
     std::set<int> matids;

@@ -424,7 +424,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
     //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
     //    strmat.SetNumThreads(2);
     //    strmat.SetDecomposeType(ELDLt);
-    TPZSkylineStructMatrix strmat(Hybridmesh);
+    TPZSkylineStructMatrix<STATE> strmat(Hybridmesh);
     strmat.SetNumThreads(0);
 #endif
 

@@ -601,7 +601,7 @@ void TPZCreateMultiphysicsSpace::GroupandCondenseElements(TPZMultiphysicsCompMes
         TPZCompEl *cel = cmesh->Element(el);
         TPZElementGroup *elgr = dynamic_cast<TPZElementGroup *> (cel);
         if (elgr) {
-            TPZCondensedCompEl *cond = new TPZCondensedCompEl(elgr);
+            TPZCondensedCompEl *cond = new TPZCondensedCompElT<STATE>(elgr);
             cond->SetKeepMatrix(false);
         }
     }
