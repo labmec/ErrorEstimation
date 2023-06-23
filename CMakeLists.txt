@@ -20,7 +20,10 @@ endif()
 
 #TODO: Define this using modern CMake standards. @Gustavo, do you know how to do this?
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_definitions(-DERRORESTIMATION_DEBUG)
+    option(ERRORESTIMATION_DEBUG "Debug verifications" OFF)
+    if(ERRORESTIMATION_DEBUG)
+        add_definitions(-DERRORESTIMATION_DEBUG)
+    endif()
 endif()
 
 # This option enables a lot of warnings and treat them as errors, to ensure

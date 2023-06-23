@@ -16,7 +16,7 @@
 
 typedef TPZDarcyFlow TPZMatLaplacian;
 
-class TPZMatLaplacianHybrid : public TPZMatCombinedSpacesT<STATE>, public TPZMatErrorCombinedSpaces<STATE>, public TPZDarcyFlow
+class TPZMatLaplacianHybrid : public TPZDarcyFlow, public TPZMatCombinedSpacesT<STATE>, public TPZMatErrorCombinedSpaces<STATE>
 {
     
 public:
@@ -25,13 +25,15 @@ public:
         
     TPZMatLaplacianHybrid();
     
-    TPZMatLaplacianHybrid(const TPZMatLaplacian &copy);
+    TPZMatLaplacianHybrid(const TPZMatLaplacianHybrid &copy);
     
     virtual ~TPZMatLaplacianHybrid();
     
     TPZMatLaplacianHybrid &operator=(const TPZMatLaplacianHybrid &copy);
     
     virtual TPZMaterial *NewMaterial() const override;
+
+    [[nodiscard]] std::string Name() const override { return "TPZMatLaplacianHybrid"; }
     
     virtual int VariableIndex(const std::string &name) const override;
     int NSolutionVariables(int var) const override;
@@ -76,7 +78,7 @@ public:
     virtual void Write(TPZStream &buf, int withclassid) const override;
     
     virtual void Read(TPZStream &buf, void *context) override;
-    
+
     /** @brief Creates an associated boundary condition.
      @param[in] reference The volumetric material associated with the BC.
      @param[in] id Boundary condition identifier.
@@ -89,11 +91,12 @@ public:
                                         const TPZFMatrix<STATE> &val1,
                                         const TPZVec<STATE> &val2) override
     {
-        return new  TPZBndCondBase<STATE,TPZMatCombinedSpacesBC<STATE> >
+        return new  TPZBndCondBase<STATE,TPZMatCombinedSpacesBC<STATE> , TPZMatErrorCombinedSpacesBC<STATE>  >
         (reference,id, type,val1,val2);
     }
 
-    
+
+
 };
 
 #endif /* TPZMatLaplacianHybrid_hpp */

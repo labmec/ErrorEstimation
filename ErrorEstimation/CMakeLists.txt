@@ -2,10 +2,17 @@
 add_library(ErrorEstimationLib
     # Error estimation
     ProblemConfig.h
+    ProblemConfig.cpp
     TPZHDivErrorEstimator.cpp
     TPZHDivErrorEstimator.h
     TPZHybridH1ErrorEstimator.cpp
     TPZHybridH1ErrorEstimator.h
+    TPZHybridH1CreateHDivReconstruction.h
+    TPZHybridH1CreateHDivReconstruction.cpp
+    TPZHybridH1CreateH1Reconstruction.h
+    TPZHybridH1CreateH1Reconstruction.cpp
+    TPZHybridH1ReconstructionBase.h
+    TPZHybridH1ReconstructionBase.cpp
     TPZMHMHDivErrorEstimator.cpp
     TPZMHMHDivErrorEstimator.h
     # Related tools

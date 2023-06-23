@@ -207,7 +207,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
         TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix; //(2xnphiuk)
         TPZFNMatrix<9, REAL> dphiuk(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes); //(3xnphiuk)
-        TPZFMatrix<STATE> &dsolaxes = datavec[H1functionposition].dsol[0];
+        TPZFMatrix<STATE> &dsolaxes = datavec[3].dsol[0];
         TPZFNMatrix<9, REAL> dsol(2, dphiukaxes.Cols());
         TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, dsol, datavec[H1functionposition].axes);
 
@@ -229,7 +229,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
 
 
         //potetial fem
-        /*solukfem(0, 0) = datavec[3].sol[0][0];
+        solukfem(0, 0) = datavec[3].sol[0][0];
         for (int ip = 0; ip < dim; ip++) {
            gradSol(ip, 0) = dsol.Get(ip, 0);
         }
@@ -237,7 +237,7 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
             for (int jd = 0; jd < dim; jd++) {
                 kGradSol(id, 0) += PermTensor(id, jd) * gradSol(jd, 0);
             }
-        }*/
+        }
 
         TPZFMatrix<STATE> kgraduk(dim, nphiuk, 0.);
 
@@ -250,10 +250,10 @@ void TPZHybridH1ErrorEstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<
                     kgraduk(id, irow) += PermTensor(id, jd) * dphiuk(jd, irow);
                 }
                 /// ... = (grad u_h, grad v_h)
-                //ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
+                ef(irow,0) +=weight*dphiuk(id,irow)*kGradSol(id,0);
             }
             ///... = (f , v_h)
-            ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
+            //ef(irow, 0) += weight * phiuk(irow, 0) * divsigma[0];
 
             //matrix Sk= int_{K} K graduk.gradv
             for (int jcol = 0; jcol < nphiuk; jcol++) {
@@ -427,155 +427,127 @@ void TPZHybridH1ErrorEstimateMaterial::FillBoundaryConditionDataRequirements(int
 void TPZHybridH1ErrorEstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors)
 {
     /**
-     datavec[0] H1 mesh, uh_reconstructed
-     datavec[1] L2 mesh,
-     datavec[2] Hdiv fem mesh, sigma_h
-     datavec[3] L2 mesh fem, u_h
-     datavec[4] L2 projection 
-
+     * 
       error[0] - error computed with exact pressure
       error[1] - error computed with reconstructed pressure
       error[2] - energy error computed with exact solution
       error[3] - energy error computed with reconstructed flux
       error[4] - energy error computed with reconstructed potential
       error[5] - oscilatory data error
+      error[6] - error of the f projection
+      error[7] - integral of div(sigma)
+      error[8] - integral of the projected f function
 
      **/
     if(!ExactSol()) DebugStop();
-    TPZVec<STATE> u_exact(1);
-    TPZFMatrix<STATE> du_exact(3,1,0.);
-    ExactSol()(data[1].x,u_exact,du_exact);
+
     errors.Resize(NEvalErrors());
     errors.Fill(0.0);
 
+    auto x = data[fHDivConformPosition].x;
 
-    STATE divsigmarec, pressurefem, pressurereconstructed, forceProj;
+    /// Permeability data
+    auto perm = GetPermeability(x);
+    auto invPerm = 1./perm;
 
-    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1), gradreconstructed(3,1);
-    TPZFMatrix<REAL> gradfem,fluxfem(3,1);
+    /// Potential, velocity and source term from analytical data
+    TPZVec<STATE> u(1);
+    TPZFNMatrix<3,REAL> gradU(3,1),KGradU(3,1);
+    ExactSol()(x, u, gradU);
 
-    gradfem=data[3].dsol[0];
+    for (int i=0; i<3; i++) 
+        KGradU(i,0) = perm*gradU(i,0);
 
-    gradfem.Resize(3,1);
-
-
-    int H1functionposition = 1;
-
-    TPZVec<STATE> divsigma(1);
+    TPZVec<STATE> source(1);
 
     if(this->fForcingFunction){
 
-        this->fForcingFunction(data[H1functionposition].x,divsigma);
+        this->fForcingFunction(x,source);
     }
 
-    REAL residual = 0.,altResidual = 0.;
-    divsigmarec= data[0].divsol[0][0];
-    residual = (divsigma[0] - divsigmarec)*(divsigma[0] - divsigmarec);
+    /// Broken H1 data from FEM simulation
+    STATE u_h;
+    TPZFMatrix<REAL> gradUhAxes(3,1),gradUh(3,1),KGradUh(3,1);
 
-    forceProj = data[4].sol[0][0];
-    altResidual = forceProj - divsigma[0];
+    u_h = data[fFEMbrokenH1Position].sol[0][0];
 
-    pressurereconstructed = data[H1functionposition].sol[0][0];
+    gradUhAxes = data[fFEMbrokenH1Position].dsol[0];
+    TPZAxesTools<REAL>::Axes2XYZ(gradUhAxes,gradUh,data[fFEMbrokenH1Position].axes);
 
+    for (int i=0; i<3; i++) 
+        KGradUh(i,0) = perm*gradUh(i,0);
 
-    pressurefem = data[3].sol[0][0];
+    /// Source term projection onto polinomial space
+    STATE sourceProjection;
+    sourceProjection = data[fSourceProjectionPosition].sol[0][0];
 
-    TPZFNMatrix<9,REAL> PermTensor(3,3);
-    TPZFNMatrix<9,REAL> InvPermTensor(3,3);
-    auto perm = GetPermeability(data[1].x);
+    /// H1-conform data from reconstruction
+    STATE s_h;
+    s_h = data[fH1conformPosition].sol[0][0];
 
-    PermTensor.Diagonal(perm);
-    InvPermTensor.Diagonal(1./perm);
+    TPZFMatrix<REAL> gradShAxes(3,1), gradSh(3,1), KGradSh(3,1);
+    gradShAxes = data[fH1conformPosition].dsol[0];
 
+    TPZAxesTools<REAL>::Axes2XYZ(gradShAxes, gradSh, data[fH1conformPosition].axes);
+    for(int id=0 ; id<3; id++) 
+        KGradSh(id,0) = perm*gradSh(id,0);
 
-    TPZFNMatrix<3,REAL> fluxexactneg;
-
-    {
-        TPZFNMatrix<9,REAL> gradpressure(3,1);
-        for (int i=0; i<3; i++) {
-            gradpressure(i,0) = (-1.)*du_exact[i];
-            gradfem(i,0) = (-1.)* gradfem(i,0);
-        }
-        PermTensor.Multiply(gradpressure,fluxexactneg);
-    }
-    PermTensor.Multiply(gradfem,fluxfem);
-
-    TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
-    TPZFNMatrix<9,REAL> fluxrec(dsolaxes.Rows(),0);
-
-
+    /// HDiv-conform data from reconstruction
+    TPZFNMatrix<3,REAL> t_h(3,1);
     for(int ip = 0 ; ip < 3 ; ip++){
-        fluxreconstructed(ip,0) = data[0].sol[0][ip];
+        t_h(ip,0) = data[0].sol[0][ip];
     }
 
-    TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
-    for(int id=0 ; id<3; id++) {
-        fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
-    }
-    PermTensor.Multiply(fluxreconstructed2,gradreconstructed);
+    STATE divTh;
+    divTh= data[fHDivConformPosition].divsol[0][0];
 
-    //data[H1functionposition].axes.Print(std::cout);
-    //dsolaxes.Print(std::cout);
-    //fluxrec.Print(std::cout);
-
-
-    REAL innerexact = 0.;
-    REAL innerestimate = 0.;
-    REAL gradinnerestimate = 0.;
-    REAL npz =0.;
-
-
-
-#ifdef ERRORESTIMATION_DEBUG2
-    std::cout<<"flux fem "<<fluxfem<<std::endl;
-    std::cout<<"flux reconst "<<fluxreconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
-
-
+    /// measuring errors
+    REAL FEMsemiH1Error = 0.;
+    REAL thFEMerrorEstimate = 0.;
+    REAL shFEMsemiH1ErrorEstimate = 0.;
+    REAL shThErrorEstimate =0.;
+    REAL residualFromHDivSpace = (source[0] - divTh)*(source[0] - divTh);
+    REAL residualFromSource = (sourceProjection - source[0])*(sourceProjection - source[0]);
+//    errors[7] = divTh;
+//    errors[8] = sourceProjection;
 
     for (int i=0; i<3; i++) {
-        for (int j=0; j<3; j++) {
-            innerexact += (fluxfem[i]-fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]-fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
-            innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
-            gradinnerestimate += (fluxfem[i]-gradreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-gradreconstructed[j]);
-            npz += (gradreconstructed[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(gradreconstructed[i]-fluxreconstructed[i]);
-        }
+            FEMsemiH1Error           += (KGradUh[i]-KGradU(i,0))*invPerm*(KGradUh[i]-KGradU(i,0));//Pq esta somando: o fluxo fem esta + e o exato -
+            thFEMerrorEstimate       += (KGradUh[i]+t_h[i])*invPerm*(KGradUh[i]+t_h[i]);
+            shFEMsemiH1ErrorEstimate += (KGradUh[i]-KGradSh[i])*invPerm*(KGradUh[i]-KGradSh[i]);
+            shThErrorEstimate        += (KGradSh[i]+t_h[i])*invPerm*(KGradSh[i]+t_h[i]);
     }
 
-#ifdef ERRORESTIMATION_DEBUG2
-    std::cout<<"potential fem "<<pressurefem<<std::endl;
-    std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
-    std::cout<<"-------"<<std::endl;
-#endif
-    errors[0] = (pressurefem-u_exact[0])*(pressurefem-u_exact[0]);//exact error pressure
-    errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
-    errors[2] = innerexact;//error flux exact
-    errors[3] = gradinnerestimate; // NFC: ||grad(u_h-s_h)||
-    errors[4] = residual; //||f - Proj_divsigma||
-    errors[5] = innerestimate;//NF: ||grad(u_h)+sigma_h)||
-    errors[6] = altResidual*altResidual;
+
+    errors[0]   = (u_h-u[0])*(u_h-u[0]);           //exact error pressure
+    errors[1]   = (u_h-s_h)*(u_h-s_h);             //error pressure reconstructed
+    errors[2]   = FEMsemiH1Error;                  //error flux exact
+    errors[3]   = shFEMsemiH1ErrorEstimate;        // NFC: ||grad(u_h-s_h)||
+    errors[4]   = thFEMerrorEstimate;              //NF: ||grad(u_h)+sigma_h)||
+    errors[5]   = residualFromHDivSpace;           //||f - Proj_divsigma||
+    errors[6]   = residualFromSource;
 }
 
 
 
 int TPZHybridH1ErrorEstimateMaterial::VariableIndex(const std::string &name) const
 {
-    if(name == "FluxFem") return 40;
-    if(name == "FluxExact") return 42;
-    if(name == "PressureFem") return 43;
-    if(name == "PressureReconstructed") return 44;
-    if(name == "FluxSigmaReconstructed") return 39;
-    if(name == "FluxReconstructed") return 41;
-    if(name == "PressureExact") return 45;
-    if(name == "PressureErrorExact") return 100;
-    if(name == "PressureErrorEstimate") return 101;
-    if(name == "EnergyErrorExact") return 102;
-    if(name == "NCIndex") return 103;
-    if(name == "NRIndex") return 104;
-    if(name == "NFIndex") return 105;
-    if(name == "PressureEffectivityIndex") return 107;
-    if(name == "EnergyEffectivityIndex") return 108;
+    if(name == "minus_KGradUh") return 40;
+    if(name == "minus_KGradSh") return 41;
+    if(name == "minus_KGradU") return 42;
+    if(name == "uh") return 43;
+    if(name == "sh") return 44;
+    if(name == "th") return 39;
+    if(name == "u") return 45;
+    if(name == "uh_minus_u") return 100;
+    if(name == "uh_minus_sh") return 101;
+    if(name == "KGradUh_minus_KGradU") return 102;
+    if(name == "KGradSh_minus_KGradUh") return 103;
+    if(name == "th_plus_KGradUh") return 104;
+    if(name == "residual") return 105;
+    if(name == "L2EffectivityIndex") return 107;
+    if(name == "EffectivityIndex") return 109;
+    if(name == "EstimatedError") return 110;
     if(name == "POrder") return 46;
 
     return -1;
@@ -604,6 +576,8 @@ int TPZHybridH1ErrorEstimateMaterial::NSolutionVariables(int var) const
         case 106:
         case 107:
         case 108:
+        case 109:
+        case 110:
             return 1;
             break;
         default:
@@ -742,8 +716,6 @@ void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(const TPZVec<TPZMaterialDataT<S
         TPZManVector<STATE,3> fluxrec(fDim);
         this->Solution(data,VariableIndex("FluxReconstructed"), fluxrec);
 
-        std::cout<<"flux_rec "<<fluxrec[0]<<" , "<<fluxrec[1]<<"\n";
-
 
         TPZFNMatrix<9,REAL> PermTensor(3,3), InvPermTensor(3,3);
         auto perm = GetPermeability(data[0].x);
@@ -774,7 +746,6 @@ void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(const TPZVec<TPZMaterialDataT<S
         }
         g = (-1)*normflux;
 
-        std::cout<<"n_0 "<<data[2].normal[0]<<" n_1 "<<data[2].normal[1]<<"\n";
 
 
 
@@ -783,7 +754,6 @@ void TPZHybridH1ErrorEstimateMaterial:: ErrorsBC(const TPZVec<TPZMaterialDataT<S
 
         REAL Km = bc.Val1()(0, 0);
         REAL InvKm = 1./Km;
-        std::cout<<"Km "<<Km<<" InvKm "<<InvKm<<"\n";
         REAL errorEstimated =0.,errorReal = 0.;
 
         normalsigmarec = Km*(urec-u_D)+g;

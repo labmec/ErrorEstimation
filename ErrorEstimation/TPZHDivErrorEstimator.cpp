@@ -117,14 +117,13 @@ void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& e
         TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
         elementErrors[gel->Index()] = elsol(i, 3);
     }
-    
 }
 
 void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
 
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
     int varindex = -1;
-    if (mat) varindex = mat->VariableIndex("PressureFem");
+    if (mat) varindex = mat->VariableIndex("PressureFEM");
     if (varindex != -1) {
         TPZStack<std::string> scalnames, vecnames;
         if (fExact) {
@@ -135,7 +134,7 @@ void TPZHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
             scalnames.Push("EnergyEffectivityIndex");
             vecnames.Push("FluxExact");
         }
-        scalnames.Push("PressureFem");
+        scalnames.Push("PressureFEM");
         scalnames.Push("PressureReconstructed");
         scalnames.Push("PressureErrorEstimate");
         scalnames.Push("EnergyErrorEstimate");
@@ -1553,6 +1552,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             }
         }
     }
+    double globalIeff = 0.;
+    double globalRight = 0.;
+    double globalLeft =0.;
     for (int64_t el = 0; el < nrows; el++) {
 
         TPZCompEl *cel = cmesh->Element(el);
@@ -1590,6 +1592,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             if (i == 2) {
                 oscilatorytherm = elsol(el, i + 2);
                 oscilatorytherm *= (hk / M_PI);
+
+                globalRight += (ErrorEstimate*ErrorEstimate +oscilatorytherm*oscilatorytherm);
+                globalLeft += (ErrorExact*ErrorExact);
             }
 
             if (abs(ErrorEstimate) < tol) {
@@ -1602,6 +1607,9 @@ void TPZHDivErrorEstimator::ComputeEffectivityIndices() {
             }
         }
     }
+
+    globalIeff = sqrt(globalRight/globalLeft);
+    std::cout << "GlobalIeff: " << globalIeff << "\n";
 
     {
         std::ofstream out("IeffPerElement.nb");
@@ -2076,7 +2084,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompElT<STATE>(cel, false);
+        TPZCondensedCompEl *condense = new TPZCondensedCompElT<STATE>(cel,false);
     }
     
     // @TODO what is the meaning of this? phil

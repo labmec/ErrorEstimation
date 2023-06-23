@@ -9,7 +9,8 @@
 #include "TPZCompMeshTools.h"
 #include "TPZCreateMultiphysicsSpace.h"
 #include "TPZSSpStructMatrix.h"
-#include "TPZSSpStructMatrix.h"
+#include "TPZSpStructMatrix.h"
+#include "pzfstrmatrix.h"
 #include "TPZParFrontStructMatrix.h"
 #include "pzskylstrmatrix.h"
 #include "pzstepsolver.h"
@@ -18,21 +19,27 @@
 #include "pzvisualmatrix.h"
 #include "MeshInit.h"
 #include "TPZHybridH1ErrorEstimator.h"
+#include "TPZHybridH1CreateHDivReconstruction.h"
+#include "TPZHybridH1CreateH1Reconstruction.h"
 #include "InputTreatment.h"
+#include "ForcingFunction.h"
+#include "TPZFrontSym.h"
+#include "DataStructure.h"
 
 using namespace std;
 void Solve(ProblemConfig &config, PreConfig &preConfig){
 
-    TPZCompMesh *cmesh = InsertCMeshH1(config,preConfig);
+    TPZCompMesh *cmesh = 0;
+//    TPZCompMesh *cmesh = InsertCMeshH1(config,preConfig);
     TPZMultiphysicsCompMesh *multiCmesh = new TPZMultiphysicsCompMesh(config.gmesh);
     int interfaceMatID = -10;
     int fluxMatID = -10;
     int hybridLevel = 1;
-
     const clock_t start = clock();
 
     switch(preConfig.mode){
         case 0: //H1
+            cmesh = InsertCMeshH1(config,preConfig);
             TPZCompMeshTools::CreatedCondensedElements(cmesh, false, false);
             SolveH1Problem(cmesh, config, preConfig);
             break;
@@ -53,6 +60,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     FlushTime(preConfig,start);
 
     if(preConfig.debugger) Tools::DrawCompMesh(config,preConfig,cmesh,multiCmesh);
+    delete multiCmesh;
 }
 
 void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]){
@@ -94,10 +102,9 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, P
     std::cout << "Post Processing ""Hyb - Mix"" difference " << std::endl;
     an.SetExact(config.exact.operator*().ExactSolution());
 
-    TPZVec<REAL> errorVec;
-    auto mat_error = dynamic_cast<TPZMatError<STATE>*>(multHybMix->MaterialVec().at(1));
-    if (!mat_error) DebugStop();
-    int64_t nErrorCols = mat_error->NEvalErrors() + 1;
+    TPZVec<REAL> errorVec; 
+    //The following line suddenly breaks. NEvalErrors no longer belongs to the Material class.
+    int64_t nErrorCols = -1;DebugStop();
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -165,15 +172,29 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
 
     //if(preConfig.topologyMode != 2) DebugStop();
     if(preConfig.mode == 1){
-        TPZHybridH1ErrorEstimator HybridH1Estimate(*multiCmesh);
-        HybridH1Estimate.fProblemConfig = config;
-        HybridH1Estimate.SetAnalyticSolution(config.exact);
-        HybridH1Estimate.SetHybridizer(fluxMatID, 1, false);
-        HybridH1Estimate.CreateReconstructionSpaces();
+        EstimatorConfig *estimatorConfig = new EstimatorConfig(multiCmesh,config,fluxMatID);
 
-        TPZManVector<REAL> elementerrors;
-        TPZVec<REAL> errorVec;
-        HybridH1Estimate.ComputeErrors(errorVec, elementerrors, true);
+        // the empty multiphysics mesh is created here
+        auto myHdivMeshCreator = new TPZHybridH1CreateHDivReconstruction(estimatorConfig);
+        // here we do not only create the mesh, we also project the solution onto de hdiv space
+        auto myHdivMesh = myHdivMeshCreator->CreateFluxReconstructionMesh();
+        //myHdivMeshCreator->PostProcess();
+
+        auto myH1MeshCreator = new TPZHybridH1CreateH1Reconstruction(estimatorConfig);
+        TPZMultiphysicsCompMesh* myH1Mesh = myH1MeshCreator->CreateH1ReconstructionMesh();
+        //myH1MeshCreator->PostProcess();
+
+        TPZHybridH1ErrorEstimator *HybridH1Estimate = new TPZHybridH1ErrorEstimator(estimatorConfig);
+        HybridH1Estimate->SetH1conformMesh(myH1MeshCreator->GetReconstructionMesh());
+        HybridH1Estimate->SetHDivConformMesh(myHdivMeshCreator->GetReconstructionMesh());
+        HybridH1Estimate->CreatePostProcessingMesh();
+        std::set<int64_t> geltodivide;
+        HybridH1Estimate->PostProcess(config.division_threshold,geltodivide);
+        config.fElIndexDivide.push_back(geltodivide);
+        
+        delete HybridH1Estimate;
+        delete myH1MeshCreator;
+        delete myHdivMesh;
     }
 
     if (preConfig.mode == 2){
@@ -206,8 +227,6 @@ void DrawMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, T
 }
 
 void CreateHybMixCompMesh(TPZMultiphysicsCompMesh *multiHyb, TPZMultiphysicsCompMesh *multiMix, TPZMultiphysicsCompMesh *multHybMix,PreConfig &hybConfig, ProblemConfig &ConfHyb){
-    // initialize the post processing mesh
-    //fOriginal->CopyMaterials(fPostProcMesh);
 
     InsertMaterialMixHyb(multHybMix,hybConfig,ConfHyb);
 
@@ -217,28 +236,6 @@ void CreateHybMixCompMesh(TPZMultiphysicsCompMesh *multiHyb, TPZMultiphysicsComp
     mesh_vectors[0] = multiHyb->MeshVector()[1]->Clone();      // HybH1 potential
     mesh_vectors[1] = multiMix->MeshVector()[1]->Clone();      // Mixed potential
     mesh_vectors[2] = multiMix->MeshVector()[0]->Clone();      // HDiv mixed flux
-
-    // mesh_vector[2]: mixF
-    /*{
-        TPZCompMesh *mixF = mesh_vectors[2];
-        int flux_order = hybConfig.k;
-        mixF->SetDefaultOrder(flux_order);
-        mixF->SetDimModel(hybConfig.dim);
-
-        mixF->SetAllCreateFunctionsHDiv();
-
-        mixF->AutoBuild();
-        mixF->InitializeBlock();
-        TPZCompMeshTools::AdjustFluxPolynomialOrders(mixF, hybConfig.n);
-    }
-    {
-        TPZCompMesh *hybP = mesh_vectors[0],*mixP = mesh_vectors[1];
-
-        hybP->ApproxSpace().SetAllCreateFunctionsContinuous();
-        hybP->ApproxSpace().CreateDisconnectedElements(true);
-        mixP->ApproxSpace().SetAllCreateFunctionsContinuous();
-        mixP->ApproxSpace().CreateDisconnectedElements(true);
-    }*/
 
     multHybMix->BuildMultiphysicsSpace(active,mesh_vectors);
     multHybMix->LoadReferences();
@@ -297,7 +294,8 @@ void CreateCondensedMixedElements(TPZMultiphysicsCompMesh *cmesh_Mixed){
 
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID,int &fluxMatID , PreConfig &pConfig, ProblemConfig &config,int hybridLevel){
     auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
-    if(hybridLevel == 2) {
+    cmesh_H1Hybrid->SetAllCreateFunctionsMultiphysicElem();
+    if (hybridLevel == 2) {
         spaceType = TPZCreateMultiphysicsSpace::EH1HybridSquared;
     }
     else if(hybridLevel != 1) {
@@ -307,8 +305,10 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     TPZCreateMultiphysicsSpace createspace(config.gmesh, spaceType);
     //TPZCreateMultiphysicsSpace createspace(config.gmesh);
     std::cout << cmesh_H1Hybrid->NEquations();
+    (pConfig.type == 2) ? 
+        createspace.SetMaterialIds({2,3}, {-6,-5}) :
+        createspace.SetMaterialIds({1,}, {-2,-1});
 
-    createspace.SetMaterialIds({1,2,3}, {-6,-5,-3,-2,-1});
     createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();
 
@@ -322,7 +322,28 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     cmesh_H1Hybrid->BuildMultiphysicsSpace(meshvec);
     createspace.InsertLagranceMaterialObjects(cmesh_H1Hybrid);
 
+    {
+        int64_t nel = cmesh_H1Hybrid->NElements();
+        for(int64_t el = 0; el<nel; el++) {
+            auto cel = dynamic_cast<TPZMultiphysicsElement *>(cmesh_H1Hybrid->Element(el));
+            cel->InitializeIntegrationRule();
+            auto gel = cel->Reference();
+            int dim = gel->Dimension();
+            TPZManVector<int,3> order(dim);
+            cel->GetIntegrationRule().GetOrder(order);
+            for(int i=0; i<dim; i++) order[i]+=1;
+            cel->GetIntegrationRule().SetOrder(order);
+        }
+    }
+    
     createspace.AddInterfaceElements(cmesh_H1Hybrid);
+    
+#ifdef PZDEBUG
+    {
+        std::ofstream out("mphysics.txt");
+        cmesh_H1Hybrid->Print(out);
+    }
+#endif
     createspace.GroupandCondenseElements(cmesh_H1Hybrid);
 
     cmesh_H1Hybrid->InitializeBlock();
@@ -341,7 +362,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
     TPZLinearAnalysis an(cmeshH1);
 
 #ifdef PZ_USING_MKL
-    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
+     TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
@@ -407,11 +428,10 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
     std::cout << "FINISHED!" << std::endl;
 }
 
-void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig config,struct PreConfig &pConfig,int hybridLevel){
+void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId, struct ProblemConfig &config,struct PreConfig &pConfig,int hybridLevel){
 
     config.exact.operator*().fSignConvention = 1;
-
-    std::cout << "Solving HYBRID_H1 " << std::endl;
+    std::cout << "\nStarting Primal Hybrid FEM solving step" << std::endl;
 
     TPZLinearAnalysis an(cmesh_H1Hybrid);
 
@@ -420,11 +440,15 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
-    //    TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(Hybridmesh);
-    //    strmat.SetNumThreads(2);
-    //    strmat.SetDecomposeType(ELDLt);
-    TPZSkylineStructMatrix strmat(cmesh_H1Hybrid);
-    strmat.SetNumThreads(0);
+    TPZFStructMatrix<STATE> strmat(cmesh_H1Hybrid);
+    
+//    TPZSpStructMatrix<STATE> strmat(cmesh_H1Hybrid);
+//    strmat.SetNumThreads(0);
+//        TPZFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmesh_H1Hybrid);
+//        strmat.SetNumThreads(2);
+//        strmat.SetDecomposeType(ELDLt);
+//    TPZSkylineStructMatrix<STATE> strmat(cmesh_H1Hybrid);
+//    strmat.SetNumThreads(0);
 #endif
     std::set<int> matIds;
     for (auto matid : config.materialids) matIds.insert(matid);
@@ -447,17 +471,21 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     cmesh_H1Hybrid->ExpandSolution();
     cmesh_H1Hybrid->ElementSolution().Redim(nelem, 5);
 
+    std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
     if(pConfig.debugger) {
-        std::cout << "Computing Error HYBRID_H1 " << std::endl;
+        std::cout << "\n############\n";
+        std::cout << "Computing Error HYBRID_H1" << std::endl;
         an.SetExact(config.exact.operator*().ExactSolution());
+
         ////Calculo do erro
         StockErrors(an,cmesh_H1Hybrid,pConfig.Erro,pConfig.Log,pConfig);
-        std::cout << "DOF = " << cmesh_H1Hybrid->NEquations() << std::endl;
         ////PostProcess
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
+        scalnames.Push("Kperm");
         vecnames.Push("Flux");
+        vecnames.Push("ExactFlux");
 
         int dim = pConfig.dim;
         std::string plotname;
@@ -492,7 +520,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
     //strmat.SetNumThreads(8);
     strmat.SetNumThreads(0);
 #else
-    TPZSkylineStructMatrix strmat(cmesh_Mixed);
+    TPZSkylineStructMatrix<STATE> strmat(cmesh_Mixed);
     strmat.SetNumThreads(0);
 #endif
     an.SetStructuralMatrix(strmat);
@@ -578,6 +606,11 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
     bool store_errors = false;
 
     an.PostProcessError(Errors, store_errors, Erro);
+
+    std::cout << "||u_h-u||:                   \t" <<Errors[0] << 
+               "\n||Grad(u_h)-Grad(u)||:       \t" << Errors[1]<< 
+               "\nError[0]+Error[1]:           \t"<< Errors[2]<<
+               "\n||K^0.5(Grad(u_h)-Grad(u))||:\t"<< Errors[3]<<"\n\n";
 
     if ((*Log)[0] != -1) {
         for (int j = 0; j < 3; j++) {

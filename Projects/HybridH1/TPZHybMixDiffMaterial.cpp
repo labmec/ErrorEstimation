@@ -29,17 +29,18 @@ TPZHybMixDiffMaterial::TPZHybMixDiffMaterial(TPZMatLaplacianHybrid &matlaplacian
     this->SetDimension(matlaplacian.Dimension());
     
     STATE Ks;
-    matlaplacian.GetPermeability(Ks);
+    Ks = matlaplacian.GetPermeability({0,0,0});
     this->SetConstantPermeability(Ks);
     
     if (matlaplacian.HasForcingFunction()) {
         int porder = matlaplacian.ForcingFunctionPOrder();
         this->SetForcingFunction(matlaplacian.ForcingFunction(),porder);
     }
-    if(matlaplacian.HasExactSol())
+    TPZMatErrorCombinedSpaces<STATE> *laperr = &matlaplacian;
+    if(laperr->HasExactSol())
     {
-        int porder = matlaplacian.PolynomialOrderExact();
-        this->SetExactSol(matlaplacian.ExactSol(), porder);
+        int porder = laperr->PolynomialOrderExact();
+        this->SetExactSol(laperr->ExactSol(), porder);
     }
 }
 
