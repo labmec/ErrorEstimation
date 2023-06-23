@@ -1071,7 +1071,7 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fMultiphysicsReconstructionMesh->Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel, false);
+        TPZCondensedCompElT<STATE> *condense = new TPZCondensedCompElT<STATE>(cel, false);
     }
 
     for (auto matit : fMultiphysicsReconstructionMesh->MaterialVec()) {

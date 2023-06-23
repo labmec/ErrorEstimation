@@ -2084,7 +2084,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompElT<STATE>(cel, false);
+        TPZCondensedCompEl *condense = new TPZCondensedCompElT<STATE>(cel,false);
     }
     
     // @TODO what is the meaning of this? phil

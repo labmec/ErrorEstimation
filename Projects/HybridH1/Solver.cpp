@@ -97,13 +97,14 @@ void SolveDiff(PreConfig &hybConfig, PreConfig &mixConfig,char *argv[]){
 
 void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, ProblemConfig &config){
 
-    TPZAnalysis an(multHybMix);
+    TPZLinearAnalysis an(multHybMix);
 
     std::cout << "Post Processing ""Hyb - Mix"" difference " << std::endl;
     an.SetExact(config.exact.operator*().ExactSolution());
 
-    TPZVec<REAL> errorVec;
-    int64_t nErrorCols =multHybMix->MaterialVec().at(1)->NEvalErrors()+1;
+    TPZVec<REAL> errorVec; 
+    //The following line suddenly breaks. NEvalErrors no longer belongs to the Material class.
+    int64_t nErrorCols = -1;DebugStop();
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -358,10 +359,10 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
     std::cout << "Solving H1 " << std::endl;
 
-    TPZAnalysis an(cmeshH1);
+    TPZLinearAnalysis an(cmeshH1);
 
 #ifdef PZ_USING_MKL
-    TPZSymetricSpStructMatrix strmat(cmeshH1);
+     TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else

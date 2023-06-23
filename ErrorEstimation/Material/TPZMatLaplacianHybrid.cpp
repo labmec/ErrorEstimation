@@ -174,7 +174,7 @@ void TPZMatLaplacianHybrid::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &d
     ek(phr+1,phr) -= weight;
     
 #ifdef PZDEBUG
-    if ( ek.VerifySymmetry(1.e-10) != SymProp::Sym) std::cout << __PRETTY_FUNCTION__ << "\nMATRIZ NAO SIMETRICA" << std::endl;
+    if ( ek.VerifySymmetry(1.e-10) == SymProp::NonSym) std::cout << __PRETTY_FUNCTION__ << "\nMATRIZ NAO SIMETRICA" << std::endl;
 #endif
     
 }

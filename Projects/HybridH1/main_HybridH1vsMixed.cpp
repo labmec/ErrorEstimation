@@ -20,12 +20,12 @@ int main(int argc, char *argv[]) {
     PreConfig pConfig;
     pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "ESteepWave";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
+    pConfig.problem = "ESinSin";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
     pConfig.integrationorder = 6;
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 3;                      //// How many uniform refinements
+    pConfig.refLevel = 1;                      //// How many uniform refinements
     pConfig.numberAdapativitySteps = 3;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = false;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     InitializeOutstream(pConfig,argv);
 
     ProblemConfig config;
-    config.division_threshold = 0.5;
+    config.division_threshold = 0.85;
     for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps+1; config.adaptivityStep++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
         
