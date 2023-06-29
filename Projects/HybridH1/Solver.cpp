@@ -46,7 +46,9 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
         case 1: //Hybrid
             CreateHybridH1ComputationalMesh(multiCmesh, interfaceMatID, fluxMatID,preConfig, config,hybridLevel);
             SolveHybridH1Problem(multiCmesh, interfaceMatID, config, preConfig,hybridLevel);
-            if (preConfig.estimateError) EstimateError(config, preConfig, fluxMatID, multiCmesh);
+            if (preConfig.estimateError){
+                EstimateError(config, preConfig, fluxMatID, multiCmesh);
+            }
             break;
         case 2: //Mixed
             CreateMixedComputationalMesh(multiCmesh, preConfig, config);

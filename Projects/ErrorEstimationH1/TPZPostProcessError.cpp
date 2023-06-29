@@ -660,8 +660,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     }
     
     an.PostProcessError(errors);
-    cout << "Global estimated error " << errors[2] << std::endl;
-    cout << "Global residual error " << errors[3] << std::endl;
+    cout << "Global flux estimated error " << errors[2] << std::endl;
+    cout << "Global residual estimate error " << errors[3] << std::endl;
 
     ofstream myfile;
     myfile.open("ArquivosErros_estimate.txt", ios::app);

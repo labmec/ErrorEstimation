@@ -114,8 +114,8 @@ int main(int argc, char *argv[]) {
         struct SimulationCase Case1;
         
         Case1.nthreads = 0;
-        Case1.numinitialrefine = 2;//ndiv;
-        Case1.porder = 3;
+        Case1.numinitialrefine = 0;//ndiv;
+        Case1.porder = 1;
         Case1.dir_name = "QuadCase1";
         Case1.gmesh = gmesh;
         Case1.materialids.insert(1);
@@ -562,17 +562,32 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
             
             if(!gel || gel->HasSubElement()) continue;
             if(gel->Dimension() == 0) continue;
-            if (division < nDiv-1){
-                gel->Divide(children);
-            }
-            else {
-                if (elem % 4 == 0){
-                    gel->Divide(children);
-                }
-            }
-            //gel->Divide(children);
+//            if (division < nDiv-1){
+//                gel->Divide(children);
+//            }
+//            else {
+//                if (elem == 8){
+//                    gel->Divide(children);
+//                }
+//            }
+            gel->Divide(children);
         }
     }
+    
+//    int nels = gmesh->NElements();
+//    for(int64_t elem = 0; elem < nels; elem++) {
+//
+//        TPZGeoEl * gel = gmesh->ElementVec()[elem];
+//
+//        if(!gel || gel->HasSubElement()) continue;
+//        if(gel->Dimension() != 1) continue;
+//        TPZGeoElSide geoelside(gel);
+//        TPZGeoElSide neig=geoelside.Neighbour();
+//
+//        if(neig.Element()->HasSubElement()){
+//            gel->Divide(children);
+//        }
+//    }
 }
 
 TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case) {
@@ -788,6 +803,7 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
         TPZManVector<REAL> errorsum(5, 0.);
         pressuremesh->EvaluateError(false, errorsum);
         REAL globeffind = sqrt(sum)/errorsum[2];
+        std::cout << "Global full error estimate: "<<sqrt(sum)<<std::endl;
         std::cout << "Global effectivity index: " << globeffind << std::endl;
         
     }

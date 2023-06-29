@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     pConfig.refLevel = 1;                      //// How many uniform refinements
     pConfig.numberAdapativitySteps = 3;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
-    pConfig.debugger = false;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
+    pConfig.debugger = true;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
     pConfig.vtkResolution = 1;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
 
     // this is where the type in pConfig is set
