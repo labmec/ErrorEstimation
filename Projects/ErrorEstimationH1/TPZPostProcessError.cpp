@@ -517,7 +517,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         nequations = meshmixed->NEquations();
         
         std::cout<<"Solving mixed problem"<<std::endl;
-        TPZLinearAnalysis an(meshmixed,false);
+        TPZLinearAnalysis an(meshmixed,RenumType::ENone);
          
         TPZSkylineStructMatrix<STATE> strmat(meshmixed);
         int numthreads = 0;
@@ -630,7 +630,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         //meshmixed->Solution().Print("solu2");
     }// colors loop
     
-    TPZLinearAnalysis an(meshmixed,false);
+    TPZLinearAnalysis an(meshmixed,RenumType::ENone);
     an.Solution() = fSolution;
     an.LoadSolution();
     

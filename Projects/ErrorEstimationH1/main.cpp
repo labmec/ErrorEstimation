@@ -440,7 +440,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
         }
     }
     
-    TPZLinearAnalysis an(pressuremesh, true);
+    TPZLinearAnalysis an(pressuremesh, RenumType::EMetis);
     an.SetExact(example.ExactSolution());
     
     //    {

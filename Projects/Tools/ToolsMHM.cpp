@@ -443,7 +443,7 @@ TPZGeoMesh *CreateLMHMMesh(int nDiv, TPZVec<int64_t>& coarseIndexes) {
 void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer<TPZCompMesh>> &compmeshes,
                   TPZAnalyticSolution *analytic, const std::string &prefix, TRunConfig config) {
     //calculo solution
-    bool shouldrenumber = true;
+    RenumType shouldrenumber = RenumType::EMetis;
     TPZLinearAnalysis an(cmesh,shouldrenumber);
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<> strmat(cmesh.operator->());

@@ -507,7 +507,7 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
 void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig config,struct PreConfig &pConfig) {
 
     config.exact.operator*().fSignConvention = 1;
-    bool optBW = true;
+    RenumType optBW = RenumType::ESloan;
 
     std::cout << "Solving Mixed " << std::endl;
     TPZLinearAnalysis an(cmesh_Mixed, optBW); //Cria objeto de análise que gerenciará a analise do problema

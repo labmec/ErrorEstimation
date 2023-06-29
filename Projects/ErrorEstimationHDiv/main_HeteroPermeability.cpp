@@ -754,7 +754,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
 
             bctype = 0;
             auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            bc->SetForcingFunctionBC(problem.exact->ExactSolution());
+            bc->SetForcingFunctionBC(problem.exact->ExactSolution(),5);
             cmesh->InsertMaterialObject(bc);
 
         }
@@ -774,7 +774,7 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
                 //   bcfunction=new TPZDummyFunction<STATE>(Neumann1,5);
                 int bctype = 0;
                 bc->SetType(bctype);
-                bc->SetForcingFunctionBC(Dirichlet1);
+                bc->SetForcingFunctionBC(Dirichlet1,5);
                 cmesh->InsertMaterialObject(bc);
             }
 
@@ -783,20 +783,20 @@ TPZMultiphysicsCompMesh *CreateNeumannHDivMesh(const ProblemConfig &problem) {
             case 6: {
                 int bctype = 1;
                 bc->SetType(bctype);
-                bc->SetForcingFunctionBC(Neumann2);
+                bc->SetForcingFunctionBC(Neumann2,5);
                 cmesh->InsertMaterialObject(bc);
             } break;
             case 7: {
                 int bctype = 0;
                 bc->SetType(bctype);
-                bc->SetForcingFunctionBC(Dirichlet3);
+                bc->SetForcingFunctionBC(Dirichlet3,5);
                 cmesh->InsertMaterialObject(bc);
             } break;
 
             case 8: {
                 int bctype = 1;
                 bc->SetType(bctype);
-                bc->SetForcingFunctionBC(Neumann4);
+                bc->SetForcingFunctionBC(Neumann4,5);
                 cmesh->InsertMaterialObject(bc);
             }
             }
@@ -885,7 +885,7 @@ TPZMultiphysicsCompMesh *CreateBoundaryLayerHDivMesh(const ProblemConfig &proble
         TPZAutoPointer<TPZFunction<STATE>> bcfunction;
         auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
 
-        bc->SetForcingFunctionBC(problem.exact->ExactSolution());
+        bc->SetForcingFunctionBC(problem.exact->ExactSolution(),5);
         cmesh->InsertMaterialObject(bc);
     }
 

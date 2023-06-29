@@ -425,14 +425,14 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
-    bool shouldrenumber = true;
+    RenumType shouldrenumber = RenumType::EMetis;
     TPZLinearAnalysis an(cmesh, shouldrenumber);
 
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<> strmat(cmesh.operator->());
     strmat.SetNumThreads(8);
 #else
-    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    TPZSkylineStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(0);
 #endif
 
@@ -529,7 +529,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         TPZManVector<REAL> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution());
+        bc->SetForcingFunctionBC(config.exact->ExactSolution(),5);
         cmesh.InsertMaterialObject(bc);
     }
 }
@@ -577,7 +577,7 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
         TPZManVector<STATE,1> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution());
+        bc->SetForcingFunctionBC(config.exact->ExactSolution(),5);
         cmesh.InsertMaterialObject(bc);
     }
 

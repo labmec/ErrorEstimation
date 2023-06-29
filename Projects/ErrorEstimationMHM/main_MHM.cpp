@@ -434,14 +434,14 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
-    bool shouldrenumber = true;
+    RenumType shouldrenumber = RenumType::EMetis;
     TPZLinearAnalysis an(cmesh, shouldrenumber);
 
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(0 /*config.n_threads*/);
 #else
-    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    TPZSkylineStructMatrix<> strmat(cmesh.operator->());
     strmat.SetNumThreads(0);
 #endif
 
@@ -544,7 +544,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         TPZManVector<STATE,1> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution());
+        bc->SetForcingFunctionBC(config.exact->ExactSolution(),5);
         cmesh.InsertMaterialObject(bc);
     }
 }
