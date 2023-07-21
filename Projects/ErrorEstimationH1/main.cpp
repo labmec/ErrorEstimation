@@ -24,7 +24,7 @@
 #include "ProblemConfig.h"
 #include "TPZPostProcessError.h"
 #include "Tools.h"
-#include "ProblemConfig.h"
+//#include "ProblemConfig.h"
 //#include "pzgengrid.h"
 #include "TPZGenGrid2D.h"
 
@@ -111,11 +111,11 @@ int main(int argc, char *argv[]) {
             //gmesh = CreateSquareShapeMesh(1, bcids);//[-1,1]x[-1,1] triangular
         }
         
-        struct SimulationCase Case1;
+        SimulationCase Case1;
         
         Case1.nthreads = 0;
-        Case1.numinitialrefine = 0;//ndiv;
-        Case1.porder = 1;
+        Case1.numinitialrefine = 2;//ndiv;
+        Case1.porder = 2;
         Case1.dir_name = "QuadCase1";
         Case1.gmesh = gmesh;
         Case1.materialids.insert(1);

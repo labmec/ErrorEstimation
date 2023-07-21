@@ -10,6 +10,7 @@
 #include "TPZLinearAnalysis.h"
 #include "DataStructure.h"
 #include "ProblemConfig.h"
+#include "TPZMixedErrorEstimate.h"
 
 //// Call required methods to build a computational mesh for an Pryymal Hybrid approximation
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId, int &fluxMatID,PreConfig &eData, ProblemConfig &config,int hybridLevel);
@@ -50,5 +51,7 @@ void DrawMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMesh *cmesh, T
 void PostProcessHybMix(TPZMultiphysicsCompMesh *multiHybMix,PreConfig &hybConfig,ProblemConfig &config);
 
 void FluxErrorCreateCompMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId, int &fluxMatID,PreConfig &eData, ProblemConfig &config);
+
+bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror);
 
 #endif //ERRORESTIMATION_SOLVER_H
