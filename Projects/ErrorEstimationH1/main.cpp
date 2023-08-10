@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
         SimulationCase Case1;
         
         Case1.nthreads = 0;
-        Case1.numinitialrefine = 2;//ndiv;
+        Case1.numinitialrefine = 4;//ndiv;
         Case1.porder = 2;
         Case1.dir_name = "QuadCase1";
         Case1.gmesh = gmesh;
@@ -124,10 +124,10 @@ int main(int argc, char *argv[]) {
         //    Case1.bcmaterialids.insert(2);//para sinmark
         
         TLaplaceExample1 example;
-        Case1.exact.fExact = example.ESinSin;//ESinMark//ESinSin//ESinSinDirNonHom
+        Case1.exact.fExact = example.ESteepWave;//ESinMark//ESinSin//ESinSinDirNonHom
         
-        Case1.problemname = "ESinSin";//ESinMark,EConst,EBubble2D,ESteepWave,EX
-        Case1.dir_name = "ESinSin";
+        Case1.problemname = "ESteepWave";//ESinMark,EConst,EBubble2D,ESteepWave,EX
+        Case1.dir_name = "ESteepWave";
         std::string command = "mkdir -p " +Case1.dir_name; //+ porder;
         system(command.c_str());
         
@@ -582,7 +582,7 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
 //        if(!gel || gel->HasSubElement()) continue;
 //        if(gel->Dimension() != 1) continue;
 //        TPZGeoElSide geoelside(gel);
-//        TPZGeoElSide neig=geoelside.Neighbour();
+//        TPZGeoElSide neig = geoelside.Neighbour();
 //
 //        if(neig.Element()->HasSubElement()){
 //            gel->Divide(children);

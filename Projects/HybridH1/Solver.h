@@ -52,6 +52,6 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multiHybMix,PreConfig &hybConfig
 
 void FluxErrorCreateCompMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, int &InterfaceMatId, int &fluxMatID,PreConfig &eData, ProblemConfig &config);
 
-bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror);
+bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror, ProblemConfig &config);
 
 #endif //ERRORESTIMATION_SOLVER_H

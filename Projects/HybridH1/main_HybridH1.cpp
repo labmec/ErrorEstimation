@@ -94,7 +94,6 @@ int main(int argc, char *argv[]) {
         config.bcmaterialids.insert(-1);
         
         
-    
     Tools::UniformRefinement(config.ndivisions, gmesh);
     int refinement_depth = 3;
     Tools::RandomRefinement(config.gmesh, 5, refinement_depth);

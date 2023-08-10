@@ -18,9 +18,9 @@ int main(int argc, char *argv[]) {
     TPZLogger::InitializePZLOG();
 #endif
     PreConfig pConfig;
-    pConfig.k = 1; // Porder for H1
+    pConfig.k = 2; // Porder for H1
     pConfig.n = 2;
-    pConfig.problem = "EArcTan";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
+    pConfig.problem = "ESteepWave";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
     pConfig.integrationorder = 6;
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     pConfig.numberAdapativitySteps = 4;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
-    pConfig.vtkResolution = 1;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
+    pConfig.vtkResolution = 4;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
 
     // this is where the type in pConfig is set
     EvaluateEntry(argc,argv,pConfig);
@@ -41,9 +41,10 @@ int main(int argc, char *argv[]) {
         pConfig.h = 1./pConfig.exp;
         
         Configure(config,pConfig.refLevel,pConfig,argv);
-
+        
         Solve(config,pConfig);
     }
+    
     std::string command = "cp Erro.txt " + pConfig.plotfile + "/Erro.txt";
     system(command.c_str());
     FlushTable(pConfig,argv);

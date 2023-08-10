@@ -216,18 +216,18 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         
         std::cout << "max estimated error within elements = " <<maxerror<<"\n";
         
-        std::set<int64_t> geltodivide;
-        geltodivide.clear();
+        std::set<int64_t> gelstodivide;
+        gelstodivide.clear();
         REAL threshold = config.division_threshold;
-        for (int64_t i = 0; i<estimate_elerror.Rows(); i++) {
+        for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
             REAL elementerror = estimate_elerror(i,2);
             if(elementerror > threshold*maxerror){
                 TPZCompEl* cel = cmeshH1->Element(i);
                 TPZGeoEl* gel = cel->Reference();
-                geltodivide.insert(gel->Index());
+                gelstodivide.insert(gel->Index());
             }
         }
-        config.fElIndexDivide.push_back(geltodivide);
+        config.fElIndexDivide.push_back(gelstodivide);
 
         {
             std::string foldername = "ErrorEstimate/";
@@ -248,7 +248,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
             //problemName = foldername + problemName + "/";
         }
         
-        //PostProcessing(cmeshH1,true_elerror, estimate_elerror);
+        PostProcessing(cmeshH1,true_elerror, estimate_elerror, config);
         
     }
     //if(preConfig.topologyMode != 2) DebugStop();
@@ -442,16 +442,17 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
     std::cout << "Solving H1 " << std::endl;
 
     TPZLinearAnalysis an(cmeshH1);
-
+    //an.SetExact(config.exact->ExactSolution());
+    
 #ifdef PZ_USING_MKL
      TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     strmat.SetNumThreads(0);
     //        strmat.SetDecomposeType(ELDLt);
 #else
-    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
-    strmat.SetNumThreads(0);
-    //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
-    //        strmat3.SetNumThreads(8);
+//    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
+//    strmat.SetNumThreads(0);
+            TPZSkylineStructMatrix<STATE> strmat(cmeshH1);
+            strmat.SetNumThreads(0);
 #endif
 
     std::set<int> matids;
@@ -470,7 +471,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
     delete direct;
     direct = 0;
     an.Assemble();
-    an.Solve();//resolve o problema misto ate aqui
+    an.Solve();//resolve o problema ate aqui
 
     int64_t nelem = cmeshH1->NElements();
     cmeshH1->LoadSolution(cmeshH1->Solution());
@@ -490,7 +491,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
         scalnames.Push("Solution");
         vecnames.Push("Derivative");
         scalnames.Push("ExactSolution");
-
+        vecnames.Push("ExactFlux");
         int dim = cmeshH1->Reference()->Dimension();
 
         std::string plotname;
@@ -503,7 +504,8 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
             plotname = out.str();
         }
-        int resolution=1;
+        int resolution=3;
+        
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(resolution,dim);
     }
@@ -741,7 +743,7 @@ void FluxErrorCreateCompMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interF
     fluxMatID = createspace.fH1Hybrid.fFluxMatId;
 }
 
-bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror) {
+bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror, ProblemConfig &config) {
     
     TPZLinearAnalysis an(pressuremesh);
     
@@ -792,13 +794,15 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
         std::string plotname;
         {
             std::stringstream out;
+            out << "ErrorEstimate/";
             out <<"ErrorEstimationH1_" << pressuremesh->GetDefaultOrder() << "_" << pressuremesh->Reference()->Dimension()
             <<  "Ndofs " << pressuremesh->NEquations() << ".vtk";
             plotname = out.str();
         }
-        
+        //an.SetExact(config.exact->ExactSolution());
+        //an.SetExact(config.exact.operator*().ExactSolution());
         an.DefineGraphMesh(pressuremesh->Dimension(), scalnames, vecnames, plotname);
-        int resolution = 1;
+        int resolution = 0;
         an.PostProcess(resolution);
     }
 

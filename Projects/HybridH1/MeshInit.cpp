@@ -696,8 +696,6 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
         cmesh->InsertMaterialObject(material_Q1);
         cmesh->InsertMaterialObject(material_Q2);
 
-
-
         // Inserts boundary conditions
         TPZFMatrix<STATE> val1(1, 1, 0.);
         TPZManVector<STATE, 2> val2(11, 1.);

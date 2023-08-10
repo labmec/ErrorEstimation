@@ -17,7 +17,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     config.exact->fDimension = config.dimension;
 
     bool isOriginCentered = 0; /// Wheater the domain = [0,1]x^n or [-1,1]^n
-    if(pConfig.type == 2 || pConfig.type >= 7) isOriginCentered = 1;
+    if(pConfig.type == 2 || pConfig.type >= 7) isOriginCentered = 0;
 
     TPZGeoMesh *gmesh;
     TPZManVector<int, 4> bcids(4, -1);
@@ -34,13 +34,11 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         config.gmesh->Print(salida);
     }
     
-    
     Tools::UniformRefinement(config.ndivisions, gmesh);
     Tools::DrawGeoMesh(config, pConfig);
 
     config.ApplyDivision();
     gmesh = config.gmesh;
-    
     
         {
             std::ofstream salida("mallageometricaAdap.txt");
