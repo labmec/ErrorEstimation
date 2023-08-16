@@ -12,7 +12,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     config.ndivisions = ndiv;
     config.dimension = pConfig.dim;
     config.vtkResolution = pConfig.vtkResolution;
-    config.prefine = false;
+    config.prefine = true;
     config.exact.operator*().fSignConvention = 1;
     config.exact->fDimension = config.dimension;
 
@@ -25,6 +25,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[0] = -3;
         bcids[1] = bcids[3] = -2;
     }
+    
     gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
@@ -36,14 +37,14 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     
     Tools::UniformRefinement(config.ndivisions, gmesh);
     Tools::DrawGeoMesh(config, pConfig);
-
     config.ApplyDivision();
-    gmesh = config.gmesh;
     
-        {
-            std::ofstream salida("mallageometricaAdap.txt");
-            gmesh->Print(salida);
-        }
+//    gmesh = config.gmesh;
+//
+//        {
+//            std::ofstream salida("mallageometricaAdap.txt");
+//            gmesh->Print(salida);
+//        }
     
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);

@@ -42,6 +42,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
         case 0: //H1
             config.gmesh->ResetReference();
             cmesh = InsertCMeshH1(config,preConfig);
+            config.PorderIncrement();
             //TPZCompMeshTools::CreatedCondensedElements(cmesh, false, false);
             SolveH1Problem(cmesh, config, preConfig);
             if (preConfig.estimateError){
@@ -181,8 +182,8 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
     if(preConfig.mode == 0){
         TPZCompMesh* cmeshH1 = config.gmesh->Reference();
         {
-            std::ofstream salida("mallageometrica.txt");
-            config.gmesh->Print(salida);
+            std::ofstream out("mallageometrica.txt");
+            config.gmesh->Print(out);
         }
         TPZPostProcessError error(cmeshH1);
         //error.SetAnalyticSolution(config.exact);
@@ -193,10 +194,6 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         TPZFMatrix<STATE> true_elerror(cmeshH1->ElementSolution());
         TPZFMatrix<STATE> estimate_elerror(error.MultiPhysicsMesh()->ElementSolution());
         
-        //true_elerror.Print("true error", std::cout);
-        //estimate_elerror.Print("estimate error", std::cout);
-        //std::ofstream outTE("TrueErrorByElem.txt");
-        //true_elerror.Print(outTE);
         std::ofstream outEE("EstErrorByElem.txt");
         estimate_elerror.Print(outEE);
         
@@ -214,21 +211,31 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
             }
         }
         
-        std::cout << "max estimated error within elements = " <<maxerror<<"\n";
+        std::cout << "max estimated error within elements = " << maxerror <<"\n";
         
-        std::set<int64_t> gelstodivide;
-        gelstodivide.clear();
+        // Select elements to hp refinement
+        std::set<int64_t> gelstohref;
+        std::map<int64_t,int> gelstoPplus;
+        gelstohref.clear();
+        gelstoPplus.clear();
         REAL threshold = config.division_threshold;
         for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
             REAL elementerror = estimate_elerror(i,2);
             if(elementerror > threshold*maxerror){
                 TPZCompEl* cel = cmeshH1->Element(i);
                 TPZGeoEl* gel = cel->Reference();
-                gelstodivide.insert(gel->Index());
+                gelstohref.insert(gel->Index());
+            } else if (0.2*maxerror > elementerror){
+                TPZCompEl* cel = cmeshH1->Element(i);
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+                int porder = intel->GetPreferredOrder();
+                TPZGeoEl* gel = cel->Reference();
+                gelstoPplus[gel->Index()] = porder+1;
             }
         }
-        config.fElIndexDivide.push_back(gelstodivide);
-
+        config.fElIndexDivide.push_back(gelstohref);
+        config.fElIndexPplus.push_back(gelstoPplus);
+        
         {
             std::string foldername = "ErrorEstimate/";
             //foldername.pop_back();
@@ -750,7 +757,6 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
     int64_t nels = pressuremesh->ElementVec().NElements();
     pressuremesh->ElementSolution().Redim(nels, 6);
     
-    
     //Compute the effectivity index
     std::cout<<"***** Computing effectivity index *****"<<std::endl;
     
@@ -787,6 +793,7 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
         scalnames.Push("ExactSolution");
         scalnames.Push("EstimatedError");
         scalnames.Push("TrueError");
+        scalnames.Push("POrder");
         scalnames.Push("EffectivityIndex");
         vecnames.Push("Flux");
         vecnames.Push("ExactFlux");

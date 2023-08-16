@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include "ProblemConfig.h"
+#include "pzintel.h"
 
 void ProblemConfig::ApplyDivision()
 {
@@ -48,6 +49,7 @@ static int MaxLevel(TPZGeoElSide gelside)
     }
     return maxlevel;
 }
+
 void ProblemConfig::ApplyTwoonOneRestraint()
 {
     int64_t nel = gmesh->NElements();
@@ -125,3 +127,31 @@ void ProblemConfig::DivideBoundaryElements()
     }
 }
 
+// To make p refinement incrementing
+void ProblemConfig::PorderIncrement() {
+    TPZCompMesh *cmeshH1 = gmesh->Reference();
+    if (!fElIndexPplus.size() || !cmeshH1) {
+        return;
+    }
+    int64_t elem, nels = fElIndexPplus.size();
+    int order;
+    
+    for(auto &itlist : fElIndexPplus) {
+        for(auto eleindex : itlist) {
+            if (eleindex.first < 0) continue;
+            TPZGeoEl* gel = gmesh->ElementVec()[eleindex.first];
+            TPZCompEl* cel = gel->Reference();
+            if (!cel || cel->Dimension()!=cmeshH1->Dimension()){
+                continue;
+            }
+            
+            //if(order > maxPrefine-1) continue;
+            
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+            if(!intel) continue;
+            int order = cel->GetgOrder();
+            intel->PRefine(eleindex.second);
+        }
+    }
+    
+}

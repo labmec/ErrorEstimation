@@ -36,6 +36,8 @@ struct ProblemConfig
     int ndivisions = -1;
     int ninternalref = -1;
     int adaptivityStep = -1; // Keep this variable for compatibility to maintain support for Gustavo's code. Useless for HybridH1 simulations.
+    int maxPrefine = 4;
+    
     int dimension = 0;
     bool prefine = false;
     bool steklovexample = false;
@@ -66,6 +68,9 @@ struct ProblemConfig
     /// set of elements to be divided after each adaptivity step
     std::list<std::set<int64_t> > fElIndexDivide;
 
+    /// set of elements to be increment his p-order after each adaptivity step
+    std::list<std::map<int64_t,int> > fElIndexPplus;
+    
     ProblemConfig() = default;
 
     ProblemConfig(const ProblemConfig &cp) = default;
@@ -80,6 +85,7 @@ struct ProblemConfig
     
     void DivideBoundaryElements();
     
+    void PorderIncrement();
     
 };
 

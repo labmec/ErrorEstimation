@@ -18,12 +18,12 @@ int main(int argc, char *argv[]) {
     TPZLogger::InitializePZLOG();
 #endif
     PreConfig pConfig;
-    pConfig.k = 2; // Porder for H1
+    pConfig.k = 1; // Porder for H1
     pConfig.n = 2;
-    pConfig.problem = "ESteepWave";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
+    pConfig.problem = "ESinSin";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
     pConfig.integrationorder = 6;
     pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
-    pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
+    pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
     pConfig.refLevel = 2;                      //// How many uniform refinements
     pConfig.numberAdapativitySteps = 4;        //// Maximum number of adapativity refinement steps.
