@@ -156,5 +156,5 @@ void ProblemConfig::PorderIncrement() {
             intel->PRefine(eleindex.second);
         }
     }
-    
+    cmeshH1->CleanUpUnconnectedNodes();
 }
