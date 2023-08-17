@@ -225,12 +225,24 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                 TPZCompEl* cel = cmeshH1->Element(i);
                 TPZGeoEl* gel = cel->Reference();
                 gelstohref.insert(gel->Index());
-            } else if (0.2*maxerror > elementerror){
+            } else if (threshold*maxerror >= elementerror){
                 TPZCompEl* cel = cmeshH1->Element(i);
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                 int porder = intel->GetPreferredOrder();
                 TPZGeoEl* gel = cel->Reference();
+                if (gel->Dimension() != cmeshH1->Dimension()) continue;
                 gelstoPplus[gel->Index()] = porder+1;
+            }
+            
+            //Selects elements adjacent to the selected node
+            TPZGeoNode node = config.gmesh->NodeVec()[0];
+            TPZCompEl* cel = cmeshH1->Element(i);
+            TPZGeoEl* gel = cel->Reference();
+            const int nnodes = gel->NNodes();
+            std::set<int64_t> nodeindices;
+            gel->GetNodeIndices(nodeindices);
+            if (nodeindices.count(node.Id())){
+                gelstohref.insert(gel->Index());
             }
         }
         config.fElIndexDivide.push_back(gelstohref);

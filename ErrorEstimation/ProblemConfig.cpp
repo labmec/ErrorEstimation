@@ -134,13 +134,16 @@ void ProblemConfig::PorderIncrement() {
         return;
     }
     int64_t elem, nels = fElIndexPplus.size();
-    int order;
+    //int order;
     
     for(auto &itlist : fElIndexPplus) {
         for(auto eleindex : itlist) {
             if (eleindex.first < 0) continue;
             TPZGeoEl* gel = gmesh->ElementVec()[eleindex.first];
             TPZCompEl* cel = gel->Reference();
+            
+            //if (gel->HasSubElement()) continue;
+            
             if (!cel || cel->Dimension()!=cmeshH1->Dimension()){
                 continue;
             }

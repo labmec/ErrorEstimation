@@ -26,25 +26,23 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[1] = bcids[3] = -2;
     }
     
-    gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
+//    gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
+//    if(config.gmesh) delete config.gmesh;
+//    config.gmesh = gmesh;
+    
+    TPZManVector<int, 8> Lshape_bcids(8, -1);
+    gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
-
-    {
-        std::ofstream salida("configGmesh.txt");
-        config.gmesh->Print(salida);
-    }
     
     Tools::UniformRefinement(config.ndivisions, gmesh);
     Tools::DrawGeoMesh(config, pConfig);
     config.ApplyDivision();
-    
-//    gmesh = config.gmesh;
-//
-//        {
-//            std::ofstream salida("mallageometricaAdap.txt");
-//            gmesh->Print(salida);
-//        }
+
+        {
+            std::ofstream salida("mallageometricaAdap.txt");
+            gmesh->Print(salida);
+        }
     
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
