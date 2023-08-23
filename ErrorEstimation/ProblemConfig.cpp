@@ -142,8 +142,6 @@ void ProblemConfig::PorderIncrement() {
             TPZGeoEl* gel = gmesh->ElementVec()[eleindex.first];
             TPZCompEl* cel = gel->Reference();
             
-            //if (gel->HasSubElement()) continue;
-            
             if (!cel || cel->Dimension()!=cmeshH1->Dimension()){
                 continue;
             }

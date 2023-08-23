@@ -181,21 +181,14 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
 
     if(preConfig.mode == 0){
         TPZCompMesh* cmeshH1 = config.gmesh->Reference();
-        {
-            std::ofstream out("mallageometrica.txt");
-            config.gmesh->Print(out);
-        }
+        
         TPZPostProcessError error(cmeshH1);
-        //error.SetAnalyticSolution(config.exact);
         
         TPZVec<STATE> estimatedelementerror;
         error.ComputeElementErrors(estimatedelementerror);
         
         TPZFMatrix<STATE> true_elerror(cmeshH1->ElementSolution());
         TPZFMatrix<STATE> estimate_elerror(error.MultiPhysicsMesh()->ElementSolution());
-        
-        std::ofstream outEE("EstErrorByElem.txt");
-        estimate_elerror.Print(outEE);
         
         STATE maxerror = 0.;
         int64_t nel = estimate_elerror.Rows();
@@ -248,24 +241,23 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         config.fElIndexDivide.push_back(gelstohref);
         config.fElIndexPplus.push_back(gelstoPplus);
         
-        {
-            std::string foldername = "ErrorEstimate/";
-            //foldername.pop_back();
-            std::string command = "mkdir -p " + foldername;
-            system(command.c_str());
-            
-            std::stringstream ss;
-            ss << "__p-" << preConfig.k;
-
-            int th = (int)(100.*threshold);
-            if(config.division_threshold!=-1)
-                 ss << "__tal-"<< th;
-            std::string problemName = preConfig.problem;
-            problemName += ss.str();
-            std::string command2 = "mkdir -p " + foldername + problemName;
-            system(command2.c_str());
-            //problemName = foldername + problemName + "/";
-        }
+//        {
+//            std::string foldername = "ErrorEstimate/";
+//            //foldername.pop_back();
+//            std::string command = "mkdir -p " + foldername;
+//            system(command.c_str());
+//
+//            std::stringstream ss;
+//            ss << "__p-" << preConfig.k;
+//
+//            int th = (int)(100.*threshold);
+//            if(config.division_threshold!=-1)
+//                 ss << "__thr-"<< th;
+//            std::string problemName = preConfig.problem;
+//            problemName += ss.str();
+//            std::string command2 = "mkdir -p " + foldername + problemName;
+//            system(command2.c_str());
+//        }
         
         PostProcessing(cmeshH1,true_elerror, estimate_elerror, config);
         
@@ -681,7 +673,7 @@ void StockErrorsH1(TPZAnalysis &an,TPZCompMesh *cmesh, ofstream &Erro, TPZVec<RE
 
     TPZManVector<REAL,6> Errors;
     Errors.resize(pConfig.numErrors);
-    bool store_errors = false;
+    bool store_errors = true;
 
     an.PostProcessError(Errors, store_errors, Erro);
 
@@ -789,6 +781,7 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
                 true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
             }
         }
+        
         pressuremesh->ElementSolution() = true_elerror;
         
         TPZManVector<REAL> errorsum(5, 0.);
@@ -811,13 +804,30 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
         vecnames.Push("ExactFlux");
 
         std::string plotname;
-        {
+        {   //Creating the directories for the output
+            std::string foldername = "ErrorEstimate/";
+            std::string command = "mkdir -p " + foldername;
+            system(command.c_str());
+            
+            std::stringstream ss;
+            ss << "__p-" << config.k;
+            REAL threshold = config.division_threshold;
+            int th = (int)(100.*threshold);
+            if(config.division_threshold!=-1)
+                 ss << "__thr-"<< th;
+            std::string problemName = config.problemname;
+            problemName += ss.str();
+            std::string command2 = "mkdir -p " + foldername + problemName;
+            system(command2.c_str());
+            
+            // Enabling file name
             std::stringstream out;
-            out << "ErrorEstimate/";
+            out << "ErrorEstimate/" + problemName + "/";
             out <<"ErrorEstimationH1_" << pressuremesh->GetDefaultOrder() << "_" << pressuremesh->Reference()->Dimension()
             <<  "Ndofs " << pressuremesh->NEquations() << ".vtk";
             plotname = out.str();
         }
+        
         //an.SetExact(config.exact->ExactSolution());
         //an.SetExact(config.exact.operator*().ExactSolution());
         an.DefineGraphMesh(pressuremesh->Dimension(), scalnames, vecnames, plotname);
