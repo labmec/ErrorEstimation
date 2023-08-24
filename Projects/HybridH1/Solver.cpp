@@ -218,7 +218,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                 TPZCompEl* cel = cmeshH1->Element(i);
                 TPZGeoEl* gel = cel->Reference();
                 gelstohref.insert(gel->Index());
-            } else if (threshold*maxerror >= elementerror){
+            } else if (threshold*maxerror >= elementerror && elementerror >(1-threshold)*maxerror){
                 TPZCompEl* cel = cmeshH1->Element(i);
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                 int porder = intel->GetPreferredOrder();
@@ -240,24 +240,6 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         }
         config.fElIndexDivide.push_back(gelstohref);
         config.fElIndexPplus.push_back(gelstoPplus);
-        
-//        {
-//            std::string foldername = "ErrorEstimate/";
-//            //foldername.pop_back();
-//            std::string command = "mkdir -p " + foldername;
-//            system(command.c_str());
-//
-//            std::stringstream ss;
-//            ss << "__p-" << preConfig.k;
-//
-//            int th = (int)(100.*threshold);
-//            if(config.division_threshold!=-1)
-//                 ss << "__thr-"<< th;
-//            std::string problemName = preConfig.problem;
-//            problemName += ss.str();
-//            std::string command2 = "mkdir -p " + foldername + problemName;
-//            system(command2.c_str());
-//        }
         
         PostProcessing(cmeshH1,true_elerror, estimate_elerror, config);
         
@@ -790,6 +772,13 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
         std::cout << "Global full error estimate: "<<sqrt(sum)<<std::endl;
         std::cout << "Global effectivity index: " << globeffind << std::endl;
         
+        std::ofstream fileouput;
+        fileouput.open("adaptivityresults.txt",ios::app);
+        fileouput << std::setw(15) << pressuremesh->NEquations();
+        fileouput << std::setw(15) << errorsum[2];
+        fileouput << std::setw(15) << sqrt(sum);
+        fileouput << std::setw(15) << globeffind << std::endl;
+        fileouput.close();
     }
     
     {

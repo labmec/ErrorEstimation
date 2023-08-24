@@ -45,6 +45,7 @@ public:
                 matvec[mat.first] = singleSpaceMat;
             }
         }
+        this->IdentifyFEMWrapId();
      };
 
     ~TPZHybridH1CreateH1Reconstruction();
