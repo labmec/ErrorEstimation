@@ -207,43 +207,75 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         std::cout << "max estimated error within elements = " << maxerror <<"\n";
         
         // Select elements to hp refinement
-        std::set<int64_t> gelstohref;
-        std::map<int64_t,int> gelstoPplus;
-        gelstohref.clear();
-        gelstoPplus.clear();
-        REAL threshold = config.division_threshold;
-        for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
-            REAL elementerror = estimate_elerror(i,2);
-            if(elementerror > threshold*maxerror){
+        if(1){
+            std::set<int64_t> gelstohref;
+            std::map<int64_t,int> gelstoPplus;
+            gelstohref.clear();
+            gelstoPplus.clear();
+            REAL threshold = config.division_threshold;
+            for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
+                REAL elementerror = estimate_elerror(i,2);
+                if(elementerror > threshold*maxerror){
+                    TPZCompEl* cel = cmeshH1->Element(i);
+                    TPZGeoEl* gel = cel->Reference();
+                    gelstohref.insert(gel->Index());
+                } else if (threshold*maxerror >= elementerror && elementerror >(1-threshold)*maxerror){
+                    TPZCompEl* cel = cmeshH1->Element(i);
+                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+                    int porder = intel->GetPreferredOrder();
+                    TPZGeoEl* gel = cel->Reference();
+                    if (gel->Dimension() != cmeshH1->Dimension()) continue;
+                    gelstoPplus[gel->Index()] = porder+1;
+                }
+                
+                //Selects elements adjacent to the selected node
+                TPZGeoNode node = config.gmesh->NodeVec()[0];
                 TPZCompEl* cel = cmeshH1->Element(i);
                 TPZGeoEl* gel = cel->Reference();
-                gelstohref.insert(gel->Index());
-            } else if (threshold*maxerror >= elementerror && elementerror >(1-threshold)*maxerror){
-                TPZCompEl* cel = cmeshH1->Element(i);
-                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-                int porder = intel->GetPreferredOrder();
-                TPZGeoEl* gel = cel->Reference();
-                if (gel->Dimension() != cmeshH1->Dimension()) continue;
-                gelstoPplus[gel->Index()] = porder+1;
+                const int nnodes = gel->NNodes();
+                std::set<int64_t> nodeindices;
+                gel->GetNodeIndices(nodeindices);
+                if (nodeindices.count(node.Id())){
+                    gelstohref.insert(gel->Index());
+                }
             }
-            
-            //Selects elements adjacent to the selected node
-            TPZGeoNode node = config.gmesh->NodeVec()[0];
-            TPZCompEl* cel = cmeshH1->Element(i);
-            TPZGeoEl* gel = cel->Reference();
-            const int nnodes = gel->NNodes();
-            std::set<int64_t> nodeindices;
-            gel->GetNodeIndices(nodeindices);
-            if (nodeindices.count(node.Id())){
-                gelstohref.insert(gel->Index());
+            config.fElIndexDivide.push_back(gelstohref);
+            config.fElIndexPplus.push_back(gelstoPplus);
+        }
+        else{
+            std::set<int64_t> gelstohref;
+            std::map<int64_t,int> gelstoPplus;
+            gelstohref.clear();
+            gelstoPplus.clear();
+            REAL threshold = config.division_threshold;
+
+            for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
+                REAL elementerror = estimate_elerror(i,2);
+                //Selects elements adjacent to the selected node
+                TPZGeoNode node = config.gmesh->NodeVec()[0];
+                TPZCompEl* cel = cmeshH1->Element(i);
+                TPZGeoEl* gel = cel->Reference();
+                const int nnodes = gel->NNodes();
+                std::set<int64_t> nodeindices;
+                gel->GetNodeIndices(nodeindices);
+                if (nodeindices.count(node.Id())){
+                    gelstohref.insert(gel->Index());
+                }
+                else if (elementerror > 2*(1-threshold)*maxerror){
+                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+                    int porder = intel->GetPreferredOrder();
+                    gelstoPplus[gel->Index()] = porder+1;
+                }
+                
+                config.fElIndexDivide.push_back(gelstohref);
+                config.fElIndexPplus.push_back(gelstoPplus);
             }
         }
-        config.fElIndexDivide.push_back(gelstohref);
-        config.fElIndexPplus.push_back(gelstoPplus);
         
         PostProcessing(cmeshH1,true_elerror, estimate_elerror, config);
         
     }
+        
     //if(preConfig.topologyMode != 2) DebugStop();
     if(preConfig.mode == 1){
         EstimatorConfig *estimatorConfig = new EstimatorConfig(multiCmesh,config,fluxMatID);

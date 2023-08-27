@@ -102,11 +102,11 @@ int main(int argc, char *argv[]) {
             
         }
         else {
-            gmesh = CreateGeoMesh2(); //[0,1]x[0,1] quadrilateral
+            //gmesh = CreateGeoMesh2(); //[0,1]x[0,1] quadrilateral
             //gmesh = CreateGeoMesh(); //[-1,1]x[-1,1] quadrilateral
 
             TPZManVector<int, 4> bcids(8, -1);
-            //gmesh = CreateLShapeMesh(1, bcids);//CreateGeoCircleMesh();
+            gmesh = CreateLShapeMesh(1, bcids);//CreateGeoCircleMesh();
             //gmesh = CreateSquareShapeMesh2(1, bcids);//[0,1]x[0,1] triangular
             //gmesh = CreateSquareShapeMesh(1, bcids);//[-1,1]x[-1,1] triangular
         }
