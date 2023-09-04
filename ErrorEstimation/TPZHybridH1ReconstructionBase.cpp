@@ -163,9 +163,9 @@ void TPZHybridH1ReconstructionBase::FlushErrorDataIntoFile(const TPZVec<REAL> &e
     int numTargetLines = numErrors+numComplementary;
     std::string fullPath = filePath+filename;
 
-    if(!std::filesystem::exists(fullPath)){
-        DebugStop();
-    }
+//    if(!std::filesystem::exists(fullPath)){
+//        DebugStop();
+//    }
 
     std::ifstream fin(fullPath); 
     const int numFileLines = std::count(std::istreambuf_iterator<char>(fin), 

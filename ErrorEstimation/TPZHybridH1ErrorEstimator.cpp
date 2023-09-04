@@ -66,7 +66,7 @@ TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
 }
 
 TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
-    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
+    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, RenumType::ENone);
     
     // The solution is expanded to store errors,
     // Therefore it is required to account for the original solution and the errors.
@@ -713,7 +713,7 @@ void TPZHybridH1ErrorEstimator::PlotState(const std::string& filename, int targe
     cmesh->Print(out2);
     
     {
-        TPZLinearAnalysis an(cmesh, false);
+        TPZLinearAnalysis an(cmesh, RenumType::ENone);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
         scalnames.Push("PressureReconstructed");

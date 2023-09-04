@@ -286,7 +286,8 @@ void TPZHybridH1CreateHDivReconstruction::VerifyBoundaryFluxConsistency(TPZCompM
 }
 
 TPZVec<REAL>  TPZHybridH1CreateHDivReconstruction::PostProcess(){
-    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
+    
+    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh,RenumType::ENone);
 
     // The solution is expanded to store errors,
     // Therefore it is required to account for the original solution and the errors.
