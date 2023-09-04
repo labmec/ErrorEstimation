@@ -7,6 +7,8 @@ add_library(Methods
         Output.h
         Solver.cpp
         Solver.h
+        TPZHybMixDiffMaterial.h
+        TPZHybMixDiffMaterial.cpp
         )
 
 target_link_libraries(Methods Tools ErrorEstimationLib)
@@ -17,6 +19,9 @@ add_executable(HybridH1 main_HybridH1.cpp)
 target_link_libraries(HybridH1 Tools ErrorEstimationLib)
 
 # Project to apply error estimation for hybrid H1 approximations
+add_executable(HybMixDiff main_HybMixDiff.cpp)
+target_link_libraries(HybMixDiff Tools Methods ErrorEstimationLib)
+
 add_executable(HybridH1vsMixed main_HybridH1vsMixed.cpp)
 target_link_libraries(HybridH1vsMixed Tools Methods ErrorEstimationLib)
 

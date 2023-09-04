@@ -1,20 +1,19 @@
 #include "Tools.h"
 #include "ToolsUNISIM.h"
 
-#include <Analysis/pzanalysis.h>
+#include <Analysis/TPZLinearAnalysis.h>
 #include <Geom/pzgeoquad.h>
-#include <Material/REAL/mixedpoisson.h>
+#include <Material/DarcyFlow/TPZMixedDarcyFlow.h>
 #include <Material/TPZNullMaterial.h>
-#include <Material/TPZVecL2.h>
-#include <Material/pzbndcond.h>
-#include <Matrix/pzstepsolver.h>
+#include <Solvers/TPZMatrixSolver.h>
 #include <Mesh/TPZCompMeshTools.h>
 #include <Mesh/TPZMultiphysicsCompMesh.h>
 #include <Mesh/tpzgeoelrefpattern.h>
 #include <Pre/TPZHybridizeHDiv.h>
 #include <ProblemConfig.h>
 #include <StrMatrix/TPZSSpStructMatrix.h>
-#include <StrMatrix/pzstrmatrix.h>
+#include <StrMatrix/TPZStructMatrix.h>
+//#include "TPZHybridHDivErrorEstimator.h"
 
 #include <algorithm>
 #include <iostream>
@@ -80,7 +79,7 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
     config.dir_name = "UNISIM_Flat_AdaptivityMore";
 #endif
     config.problemname = "UNISIM_HDIV";
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     std::stringstream gmeshFileName;
@@ -108,9 +107,12 @@ void UNISIMMHM(TPZGeoMesh *gmesh, std::vector<std::pair<REAL, int64_t>> &results
     {
         // Estimates error
         bool postProcWithHDiv = false;
-        TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
-        HDivEstimate.SetProblemConfig(config);
-        HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
+
+        
+        TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
+        DebugStop();
+//        HDivEstimate.SetProblemConfig(config);
+//        HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
 
 #ifdef DEBUGTEST
         HDivEstimate.SetAnalyticSolution(config.exact);

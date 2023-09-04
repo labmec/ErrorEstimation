@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <iterator>
 
+#include <TPZMultiphysicsCompMesh.h>
 #include "pzmanvector.h"
 #include "pzcmesh.h"
 #include "pzfmatrix.h"
@@ -49,6 +50,7 @@ struct TPZPatch
     {
         
     }
+    
     TPZPatch &operator=(const TPZPatch &copy)
     {
         fPartitionConnectIndex = copy.fPartitionConnectIndex;
@@ -71,8 +73,9 @@ struct TPZPatch
     // return the first equation associated with a lagrange multiplier
     int64_t FirstLagrangeEquation(TPZCompMesh *cmesh) const;
     
-
 };
+ 
+enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
 
 class TPZPostProcessError
 {
@@ -104,7 +107,7 @@ private:
     TPZFMatrix<STATE> fSolution;
     
     // block corresponding to the original connect sequence numbers
-    TPZBlock<STATE> fBlock;
+    TPZBlock fBlock;
     
     /// size of the connects in the multiphysics mesh
     TPZVec<int64_t> fConnectSizes;
@@ -113,20 +116,20 @@ private:
     void PlotFluxes(const std::string &filename);
     
     // solve for the reconstructed fluxes of a given color. Add the flux coefficients
-    void ComputePatchFluxes();
+    void ComputePatchFluxes();// not implemented
     
     // determine if a given patch is boundary or not
     bool PatchHasBoundary(TPZPatch &patch) const;
     
     // Sum the solution stored in fSolution of the second mesh to the fSolution vector
-    void TransferAndSumSolution(TPZCompMesh *cmesh);
-    
+    void TransferAndSumSolution(TPZCompMesh *cmesh); // what is second mesh?
+
     // Reset the state of the HDiv mesh to its original structure
     void ResetState();
-    
+
     // check whether the connectsizes have changed
     void CheckConnectSizes();
-    
+
     // create the meshes that allow us to compute the error estimate
     void CreateAuxiliaryMeshes();
 
@@ -148,14 +151,14 @@ private:
 public:
     
     // print partition diagnostics
-    void PrintPartitionDiagnostics(int color, std::ostream &out) const ;
+    void PrintPartitionDiagnostics(int64_t color, std::ostream &out) const ;
     
     // Collect the connect indices and elements which will contribute to the patch caracterized by the set of nodes
     // generally each node will form a patch
     TPZPatch BuildPatch(TPZCompElSide &seed);
 
     // compute the estimated H1 seminorm errors
-    void ComputeHDivSolution();
+    void ComputeHDivSolution();//Not used
     
     // compute the estimated H1 seminorm errors
     void ComputeElementErrors(TPZVec<STATE> &elementerrors);
@@ -166,9 +169,9 @@ public:
         DebugStop();
     }
     
-    TPZCompMesh *MultiPhysicsMesh()
+    TPZMultiphysicsCompMesh *MultiPhysicsMesh()
     {
-        return fMeshVector[1];
+        return dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]) ;
     }
     
     void SetAnalyticSolution(TPZAnalyticSolution &exact)

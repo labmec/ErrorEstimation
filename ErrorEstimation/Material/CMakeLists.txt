@@ -10,6 +10,10 @@ target_sources(ErrorEstimationLib PUBLIC
     TPZPressureProjection.cpp
     TPZHybridH1ErrorEstimateMaterial.h
     TPZHybridH1ErrorEstimateMaterial.cpp
+    TPZHybridH1HdivFluxRecMaterial.h
+    TPZHybridH1HdivFluxRecMaterial.cpp
+    TPZHybridH1PressureRecMaterial.h
+    TPZHybridH1PressureRecMaterial.cpp
     TPZSteklovMaterial.h
     TPZSteklovMaterial.cpp
 )

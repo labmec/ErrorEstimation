@@ -35,18 +35,15 @@
 
 #include "TPZRefPattern.h"
 #include "tpzgeoelrefpattern.h"
-#include "tpzcompmeshreferred.h"
 #include "tpzautopointer.h"
-#include "pzbndcond.h"
-#include "pzanalysis.h"
+#include "TPZAnalysis.h"
 
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
-#include "pzstrmatrix.h"
+#include "TPZStructMatrixT.h"
 #include "pzfstrmatrix.h"
 #include "TPZFrontNonSym.h"
 #include "TPZFrontSym.h"
-#include "TPBSpStructMatrix.h"
 #include "TPZSpStructMatrix.h"
 #include "pzbstrmatrix.h"
 
@@ -54,16 +51,9 @@
 #include "tpzgeoblend.h"
 #include "TPZGeoLinear.h"
 
-#include "pzpoisson3d.h"
-//#include "pzhybridpoisson.h"
-#include "pzpoisson3dreferred.h"
-#include "mixedpoisson.h"
-#include "pzelasmat.h"
-#include "pzelasthybrid.h"
-#include "pzmat1dlin.h"
-#include "TPZVecL2.h"
+#include "DarcyFlow/TPZDarcyFlow.h"
 #include "TPZMatLaplacianHybrid.h"
-#include "TPZLagrangeMultiplier.h"
+#include "TPZLagrangeMultiplierCS.h"
 
 #include "pzbuildmultiphysicsmesh.h"
 #include "pzelementgroup.h"
@@ -95,7 +85,6 @@
 #include <string>
 #include <cmath>
 #include <set>
-#include "pzsolve.h"
 
 #include "TPZPersistenceManager.h"
 

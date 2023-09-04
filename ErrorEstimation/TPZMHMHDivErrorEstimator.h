@@ -1,5 +1,5 @@
 //
-//  TPZHybridHDivErrorEstimator.hpp
+//  TPZHDivErrorEstimator.hpp
 //  ErrorEstimateHDiv
 //
 //  Created by Philippe Devloo on 10/06/18.
@@ -8,7 +8,7 @@
 #ifndef TPZMHMHDivErrorEstimator_hpp
 #define TPZMHMHDivErrorEstimator_hpp
 
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimator.h"
 #include "TPZMHMixedMeshControl.h"
 
 /// this class will compute the estimated value of the energy error of an MHM mesh
@@ -16,12 +16,12 @@
 // first create the post processing mesh
 // then compute the errors
 // compute a reference solution without MHM
-class TPZMHMHDivErrorEstimator : public TPZHybridHDivErrorEstimator {
+class TPZMHMHDivErrorEstimator : public TPZHDivErrorEstimator {
 
 public:
 
     TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
-        : TPZHybridHDivErrorEstimator(originalMesh, postProcWithHDiv), fMHM(mhm) {
+        : TPZHDivErrorEstimator(originalMesh, postProcWithHDiv), fMHM(mhm) {
     }
 
     // this method wont work because multiphysics meshes have no copy constructor (yet)

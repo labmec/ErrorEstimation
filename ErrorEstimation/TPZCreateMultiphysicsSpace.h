@@ -158,7 +158,7 @@ private:
     void InsertFluxMaterialIds(TPZCompMesh *fluxmesh);
     
     /// insert materialids for the null space
-    void InsertNullSpaceMaterialIds(TPZCompMesh *nullspace);
+    void InsertNullSpaceMaterialIds(TPZCompMesh *nullspace,int eldim);
     
     /// Find the neighbouring flux element
     TPZCompEl *FindFluxElement(TPZCompEl *wrapelement);

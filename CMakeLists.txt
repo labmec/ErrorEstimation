@@ -10,8 +10,21 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(cmake/StandardProjectSettings.cmake)
 
 # Enables NeoPZ library
-include(cmake/EnableNeoPZ.cmake)
-enable_pz()
+find_package(NeoPZ REQUIRED)
+
+# Mac OS X specific code
+if (APPLE)
+  add_definitions(-DMACOSX)
+endif()
+
+
+#TODO: Define this using modern CMake standards. @Gustavo, do you know how to do this?
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    option(ERRORESTIMATION_DEBUG "Debug verifications" OFF)
+    if(ERRORESTIMATION_DEBUG)
+        add_definitions(-DERRORESTIMATION_DEBUG)
+    endif()
+endif()
 
 # This option enables a lot of warnings and treat them as errors, to ensure
 # good programming practices are used. Since its behaviour is extreme, it
@@ -24,17 +37,8 @@ if (ENABLE_ALL_WARNINGS)
     set(CMAKE_CXX_FLAGS "")
 endif ()
 
-find_package(Threads)
 # Creates ErrorEstimationLib with common error estimation file
 add_subdirectory(ErrorEstimation)
 
 # Created executable targets
 add_subdirectory(Projects)
-
-option(USING_LOG4CXX "Whether the LOG4CXX library will be linked in" ON)
-if(USING_LOG4CXX)
-    #this is the definition used in pz lib
-    find_package(Log4cxx REQUIRED)
-    target_link_libraries(ErrorEstimationLib PRIVATE ${Log4cxx_LIBRARY})
-    target_include_directories(ErrorEstimationLib PRIVATE ${Log4cxx_INCLUDE_DIR})
-endif(USING_LOG4CXX)

@@ -6,8 +6,8 @@
 #ifndef ConfigCasesMaze_H
 #define ConfigCasesMaze_H
 
-#include "TPZMatLaplacian.h"
-#include "pzdiscgal.h"
+#include "DarcyFlow/TPZDarcyFlow.h"
+//#include "pzdiscgal.h"
 #include "pzfmatrix.h"
 #include <Pre/TPZAnalyticSolution.h>
 #include <iostream>
@@ -27,6 +27,8 @@ private:
     bool MhmOpenChannel = false;
     std::string VTKName = "Salida.vtk";
     TLaplaceExample1 * exact = nullptr;
+    int nSubDomains = 1;
+    int SkeletonDivision = 1;
 
 public:
     void SetImageName(std::string name){
@@ -95,6 +97,22 @@ public:
 
     TLaplaceExample1* GetExactSolution(){
         return exact;
+    }
+
+    void SetNumberOfSubdomains(int nsub){
+        nSubDomains = nsub;
+    }
+
+    int GetNumberOfSubdomains(){
+        return nSubDomains;
+    }
+
+    void SetSkeletonDivision(int nsub){
+        SkeletonDivision = nsub;
+    }
+
+    int GetSkeletonDivision(){
+        return SkeletonDivision;
     }
 
 };

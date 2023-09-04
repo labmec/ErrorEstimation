@@ -19,10 +19,10 @@
 #ifndef TPZSteklovMaterial_hpp
 #define TPZSteklovMaterial_hpp
 
-#include "mixedpoisson.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include <cstdio>
 
-class TPZSteklovMaterial : public TPZMixedPoisson {
+class TPZSteklovMaterial : public TPZMixedDarcyFlow {
 
 public:
     TPZSteklovMaterial(int matid, int dim);
@@ -31,16 +31,16 @@ public:
 
     TPZSteklovMaterial(const TPZSteklovMaterial &copy);
 
-    explicit TPZSteklovMaterial(const TPZMixedPoisson &copy);
+    explicit TPZSteklovMaterial(const TPZMixedDarcyFlow &copy);
 
     ~TPZSteklovMaterial() override;
 
     TPZSteklovMaterial &operator=(const TPZSteklovMaterial &copy);
 
-    void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+    void Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek,
                     TPZFMatrix<STATE> &ef) override;
-    void ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef,
-                      TPZBndCond &bc) override;
+    void ContributeBC(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef,
+                      TPZBndCondT<STATE> &bc) override;
 };
 
 #endif /* TPZSteklovMaterial_hpp */

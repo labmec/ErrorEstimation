@@ -12,10 +12,9 @@
 #include <cmath>
 #include <tuple>
 
-#include "Tools.h"
 #include "ProblemConfig.h"
-#include "TPZHDivErrorEstimatorH1.h"
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZHDivErrorEstimator.h"
+#include "Tools.h"
 
 //#include "pzelchdiv.h"
 
@@ -55,7 +54,7 @@ int main(int argc, char* argv[]) {
     config.dir_name = "AdaptivityLShape";
     config.problemname = "ESinSinMark";
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     if (readGeoMeshFromFile) {
@@ -64,7 +63,6 @@ int main(int argc, char* argv[]) {
         TPZGmshReader gmsh;
         gmsh.GetDimNamePhysical()[1]["dirichlet"] = 2;
         gmsh.GetDimNamePhysical()[2]["domain"] = 1;
-        gmsh.SetFormatVersion("4.1");
         gmeshOriginal = gmsh.GeometricGmshMesh(meshfilename);
         gmsh.PrintPartitionSummary(std::cout);
         config.materialids.insert(1);
@@ -117,7 +115,7 @@ else
         
    //     UniformRefinement(iSteps, gmeshOriginal);
         
-        #ifdef PZDEBUG
+        #ifdef ERRORESTIMATION_DEBUG
                 {
                     std::ofstream out("gmeshToSolve.vtk");
                     TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);
@@ -134,7 +132,7 @@ else
               
               cmesh_HDiv = Tools::CreateHDivMesh(config);//Hdiv x L2
               cmesh_HDiv->InitializeBlock();
-               #ifdef PZDEBUG2
+               #ifdef ERRORESTIMATION_DEBUG2
               {
                   std::ofstream out("MultiPhysicsMesh.txt");
                   cmesh_HDiv->Print(out);
@@ -169,9 +167,7 @@ else
         //reconstroi potencial e calcula o erro
         {
             bool postProcWithHDiv = false;
-            TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
-            HDivEstimate.SetProblemConfig(config);
-            HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
+            TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
             HDivEstimate.SetAnalyticSolution(config.exact);
 
             HDivEstimate.PotentialReconstruction();
@@ -180,7 +176,7 @@ else
             std::string vtkPath = "adaptivity_error_results.vtk";
             HDivEstimate.ComputeErrors(errorvec, elementerrors, vtkPath);
             Tools::hAdaptivity(HDivEstimate.PostProcMesh(), gmeshOriginal, config);
-            #ifdef PZDEBUG
+            #ifdef ERRORESTIMATION_DEBUG
                     {
                         std::ofstream out("gmeshAdapty.vtk");
                         TPZVTKGeoMesh::PrintGMeshVTK(gmeshOriginal, out);

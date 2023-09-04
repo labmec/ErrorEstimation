@@ -6,6 +6,7 @@ set(ErrorEstimateSRCGmesh
     TPZPostProcessError.h
     TPZPostProcessError.cpp
     ProblemConfig.h
+#    ProblemConfig.cpp
 )
 
 add_executable(ErrorEstimateH1GMsh ${ErrorEstimateSRCGmesh})
