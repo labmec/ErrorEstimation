@@ -347,6 +347,7 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh) {
         TPZManVector<REAL, 6> errors;
         TPZManVector<REAL> elementerrors;
         std::string outVTK = config.dir_name + "/out.vtk";
+        // Computar os erros
         ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK);
     }
 }
