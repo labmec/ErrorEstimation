@@ -1071,7 +1071,7 @@ void TPZHybridH1CreateH1Reconstruction::CreateGroupedAndCondensedElements() {
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fMultiphysicsReconstructionMesh->Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel, false);
+        TPZCondensedCompElT<STATE> *condense = new TPZCondensedCompElT<STATE>(cel, false);
     }
 
     for (auto matit : fMultiphysicsReconstructionMesh->MaterialVec()) {
@@ -1275,7 +1275,7 @@ void TPZHybridH1CreateH1Reconstruction::PlotLagrangeMultiplier(const std::string
     pressure->Print(out2);
 
     {
-        TPZLinearAnalysis an(pressure, false);
+        TPZLinearAnalysis an(pressure, RenumType::ENone);
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("State");
         scalnames.Push("Pressure");
@@ -2725,7 +2725,7 @@ void TPZHybridH1CreateH1Reconstruction::VerifyAverage(int target_dim) {
 }
 
 TPZVec<REAL> TPZHybridH1CreateH1Reconstruction::PostProcess(){
-    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, false);
+    TPZLinearAnalysis an(fMultiphysicsReconstructionMesh, RenumType::ENone);
 
     // The solution is expanded to store errors,
     // Therefore it is required to account for the original solution and the errors.

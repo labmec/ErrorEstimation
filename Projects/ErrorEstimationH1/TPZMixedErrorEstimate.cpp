@@ -21,7 +21,7 @@ TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate() : MixedMat()
 template<class MixedMat>
 TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate(int matid, int dim) : MixedMat(matid,dim)
 {
-    
+  
 }
 
 template<class MixedMat>
@@ -45,15 +45,17 @@ TPZMixedErrorEstimate<MixedMat> &TPZMixedErrorEstimate<MixedMat>::operator=(cons
 }
 
 template<class MixedMat>
-void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec)
+void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDataT<STATE> > &datavec) const
 {
     MixedMat::FillDataRequirements(datavec);
-    {
-        int i = 1;
-        datavec[i].SetAllRequirements(false);
+    
+    for( int i = 1; i<4; i++){
+        datavec[i].SetAllRequirements(true);
         datavec[i].fNeedsSol = true;
     }
-    
+        
+    datavec[0].fNeedsHSize=true;
+
 }
 
 /**
@@ -64,61 +66,73 @@ void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements(TPZVec<TPZMaterialDat
  * @param ef [out] is the load vector
  */
 template<class MixedMat>
-void TPZMixedErrorEstimate<MixedMat>::Contribute(TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
-    if (datavec[1].sol[0].size() != 3)
+    if (datavec.size() != 4  )
     {
         DebugStop();
     }
+    
     TPZFNMatrix<100,STATE> efkeep(ef);
+    
+    if(datavec[Epatch].fNeedsSol == false || datavec[Eorigin].fNeedsSol == false){
+        DebugStop();
+    }
+    
+#ifdef PZ_LOG
+    
+    
+#endif
+    
+    //REAL solpatch = datavec[2].sol[0][0];
+    //TPZFMatrix<STATE> &gradH1 = datavec[3].dsol[0];
+    
     MixedMat::Contribute(datavec,weight,ek,ef);
     ef = efkeep;
-    TPZFMatrix<REAL> &phip = datavec[1].phi;
+    TPZFMatrix<REAL> &phip = datavec[Epressure].phi;
     int64_t phrp = phip.Rows();
     int64_t phrq = datavec[0].fVecShapeIndex.NElements();
     STATE force = 0.;
     if(MixedMat::fForcingFunction) {
         TPZManVector<STATE> res(1);
-        MixedMat::fForcingFunction(datavec[1].x,res);
+        MixedMat::fForcingFunction(datavec[Epressure].x,res);
         force = fSignConvention*res[0];
     }
-    STATE perm = MixedMat::GetPermeability(datavec[1].x);
+    STATE perm = MixedMat::GetPermeability(datavec[Epressure].x);
     //int rtens = 2*fDim;
     
-
     TPZFNMatrix<3,REAL> fluxprimal;
 
     {
-        REAL psival = datavec[1].sol[0][1];
-        TPZFNMatrix<9,STATE> dsolprimal(3,3);
+        REAL psival = datavec[Epatch].sol[0][0]; //datavec[1].sol[0][1]??
+        //TPZFNMatrix<9,STATE> dsolprimal(3,1);
         TPZFNMatrix<9,REAL> gradpsi(3,1),gradpressure(3,1);
-        TPZAxesTools<STATE>::Axes2XYZ(datavec[1].dsol[0], dsolprimal, datavec[1].axes);
-        for (int i=0; i<3; i++) {
-            gradpsi(i,0) = dsolprimal(i,1);
-            gradpressure(i,0) = dsolprimal(i,2);
-        }
+        TPZAxesTools<STATE>::Axes2XYZ(datavec[Epatch].dsol[0], gradpsi, datavec[Epatch].axes); //datavec[1].axes
+        TPZAxesTools<STATE>::Axes2XYZ(datavec[Eorigin].dsol[0], gradpressure, datavec[Eorigin].axes); //datavec[1].axes
+
         fluxprimal = perm*gradpressure;
         
         for (int64_t jq=0; jq<phrq; jq++)
         {
             // vector value
             TPZFNMatrix<3,REAL> jvec(3,1,0.);
-            int jvecind = datavec[0].fVecShapeIndex[jq].first;
-            int jshapeind = datavec[0].fVecShapeIndex[jq].second;
-            REAL phival = datavec[0].phi(jshapeind);
+
             for(int id=0; id<3; id++){
-                jvec(id,0) = datavec[0].fDeformedDirections(id,jvecind)*phival;
+                jvec(id,0) = datavec[Eflux].fDeformedDirections(id,jq);
             }
             STATE inner = 0.;
-            for(int i=0; i<3; i++) inner += jvec(i,0)*gradpressure(i,0);
-            ef(jq) -= weight*inner*psival;
+            for(int i=0; i<3; i++) {
+                inner += jvec(i,0)*gradpressure(i,0);
+            }
+            ef(jq) -= weight*psival*inner;
         }
+        
         STATE inner2 = 0.;
         for (int i=0; i<3; i++) {
-            inner2 += fluxprimal(i,0)*gradpsi(i,0);
+            inner2 += gradpressure(i,0)*gradpsi(i,0);//fluxprimal(i,0)*gradpsi(i,0);
         }
         for (int ip=0; ip<phrp; ip++) {
-            ef(phrq+ip,0) += (-1.)*weight*force*phip(ip,0)*psival+weight*phip(ip,0)*inner2;
+            ef(phrq+ip,0) += (-1.)*weight*psival*force*phip(ip,0) + weight*inner2*phip(ip,0);
             //            ef(phrq+ip,0) += (-1.)*weight*phip(ip,0);
             
         }
@@ -128,33 +142,41 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(TPZVec<TPZMaterialDataT<STATE> 
 
 /// make a contribution to the error computation
 template<class MixedMat>
-void TPZMixedErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors)
+void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<REAL> &errors)
 {
     /*
      data[0] Flux
      data[1] pressure
-     
+     data[3] H1
      */
     errors.Resize(MixedMat::NEvalErrors());
     errors.Fill(0.0);
+    
     TPZManVector<STATE,3> flux(3,0.), pressure(1,0.);
+    //flux = equilibrate flux recovered
     this->Solution(data,MixedMat::VariableIndex("Flux"), flux);
-    this->Solution(data,MixedMat::VariableIndex("Pressure"), pressure);
+    //this->Solution(data,MixedMat::VariableIndex("Pressure"), pressure);
 
+    REAL hsize = data[0].HSize;
+    TPZVec<REAL> errorsaux;
+    errorsaux.Fill(0.0);
+    MixedMat::Errors(data,errorsaux);
+    errors[1] += errorsaux[2];
+    errors[3] = 2*hsize*hsize*errorsaux[2]/(M_PI*M_PI);
+    
     STATE perm = MixedMat::GetPermeability(data[1].x);
     
-    
     TPZFNMatrix<3,REAL> fluxprimalneg;
-    
     {
-        TPZFNMatrix<9,STATE> dsolprimal(3,3);
-        TPZFNMatrix<9,REAL> gradpressure(3,1);
-        TPZAxesTools<STATE>::Axes2XYZ(data[1].dsol[0], dsolprimal, data[1].axes);
+        TPZFNMatrix<3,STATE> dsolprimal(3,1);
+        TPZFNMatrix<3,REAL> gradpressureH1(3,1);
+        TPZAxesTools<STATE>::Axes2XYZ(data[Eorigin].dsol[0], dsolprimal, data[Eorigin].axes);
         for (int i=0; i<3; i++) {
-            gradpressure(i,0) = dsolprimal(i,2);
-            fluxprimalneg = perm*gradpressure;
+            gradpressureH1(i,0) = dsolprimal(i,0);
+            fluxprimalneg = perm*gradpressureH1;
         }
     }
+    
     REAL inner = 0.;
     for (int i=0; i<3; i++) {
             inner += (flux[i]+fluxprimalneg(i,0))*(flux[i]+fluxprimalneg(i,0))/perm;
@@ -162,7 +184,5 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(TPZVec<TPZMaterialDataT<STATE> > &d
     
     errors[2] += inner;
 }
-
-
 
 template class TPZMixedErrorEstimate<TPZMixedDarcyFlow>;

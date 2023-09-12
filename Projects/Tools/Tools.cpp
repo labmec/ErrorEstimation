@@ -527,7 +527,7 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
 #endif
 
 
-    TPZLinearAnalysis an(cmesh_HDiv, false);
+    TPZLinearAnalysis an(cmesh_HDiv, RenumType::ENone);
 
 
     TPZSSpStructMatrix<> strmat(cmesh_HDiv);

@@ -15,6 +15,8 @@ add_library(ErrorEstimationLib
     TPZHybridH1ReconstructionBase.cpp
     TPZMHMHDivErrorEstimator.cpp
     TPZMHMHDivErrorEstimator.h
+	TPZElasticityErrorEstimator.h
+	TPZElasticityErrorEstimator.cpp
     # Related tools
     TPZCreateMultiphysicsSpace.cpp
     TPZCreateMultiphysicsSpace.h

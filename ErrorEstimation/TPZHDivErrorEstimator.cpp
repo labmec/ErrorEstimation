@@ -65,7 +65,7 @@ TPZHDivErrorEstimator::~TPZHDivErrorEstimator() {
 /// compute the element errors comparing the reconstructed solution based on average pressures
 /// with the original solution
 void TPZHDivErrorEstimator::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& elementErrors, std::string& vtkPath) {
-    TPZLinearAnalysis an(&fPostProcMesh, false);
+    TPZLinearAnalysis an(&fPostProcMesh, RenumType::ENone);
     
     if (fExact) {
         an.SetExact(fExact->ExactSolution());
@@ -1779,7 +1779,7 @@ void TPZHDivErrorEstimator::PlotPressureSkeleton(const std::string &filename, bo
         scalnames.Push("State");
     }
 
-    TPZLinearAnalysis an(pressure, false);
+    TPZLinearAnalysis an(pressure,RenumType::ENone);
 
     {
         int dim = pressure->Reference()->Dimension() - 1;
@@ -1806,7 +1806,7 @@ void TPZHDivErrorEstimator::PlotInterfaceFluxes(const std::string &filename, boo
     TPZStack<std::string> scalnames, vecnames;
     scalnames.Push("State");
 
-    TPZLinearAnalysis an(flux_mesh, false);
+    TPZLinearAnalysis an(flux_mesh, RenumType::ENone);
 
     {
         int dim = flux_mesh->Reference()->Dimension() - 1;
@@ -2084,7 +2084,7 @@ void TPZHDivErrorEstimator::PrepareElementsForH1Reconstruction() {
             if (!group) DebugStop();
         }
         if (gel && gel->Dimension() != fPostProcMesh.Dimension()) continue;
-        TPZCondensedCompEl *condense = new TPZCondensedCompEl(cel, false);
+        TPZCondensedCompEl *condense = new TPZCondensedCompElT<STATE>(cel,false);
     }
     
     // @TODO what is the meaning of this? phil
@@ -2228,7 +2228,7 @@ void TPZHDivErrorEstimator::PlotState(const std::string& filename, int targetDim
     cmesh->Print(outTXT);
     
     {
-        TPZLinearAnalysis an(cmesh, false);
+        TPZLinearAnalysis an(cmesh, RenumType::ENone);
         TPZStack<std::string> scalnames, vecnames;
         if (atomic) {
             scalnames.Push("State");

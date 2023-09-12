@@ -50,6 +50,7 @@ struct TPZPatch
     {
         
     }
+    
     TPZPatch &operator=(const TPZPatch &copy)
     {
         fPartitionConnectIndex = copy.fPartitionConnectIndex;
@@ -74,7 +75,7 @@ struct TPZPatch
     
 };
  
-enum MMeshPositions {Eorigin = 4, Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3};
+enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
 
 class TPZPostProcessError
 {
@@ -103,7 +104,7 @@ private:
     TPZVec<int64_t> fConnectSeqNumbers;
     
     // multiplying coefficients of the reconstructed fluxes and pressures
-    TPZFMatrix<STATE> fSolution;// contain the global flux recovery
+    TPZFMatrix<STATE> fSolution;
     
     // block corresponding to the original connect sequence numbers
     TPZBlock fBlock;
@@ -115,7 +116,7 @@ private:
     void PlotFluxes(const std::string &filename);
     
     // solve for the reconstructed fluxes of a given color. Add the flux coefficients
-    void ComputePatchFluxes();// TODO: wich color is been process?
+    void ComputePatchFluxes();// not implemented
     
     // determine if a given patch is boundary or not
     bool PatchHasBoundary(TPZPatch &patch) const;
@@ -150,14 +151,14 @@ private:
 public:
     
     // print partition diagnostics
-    void PrintPartitionDiagnostics(int color, std::ostream &out) const ;
+    void PrintPartitionDiagnostics(int64_t color, std::ostream &out) const ;
     
     // Collect the connect indices and elements which will contribute to the patch caracterized by the set of nodes
     // generally each node will form a patch
     TPZPatch BuildPatch(TPZCompElSide &seed);
 
     // compute the estimated H1 seminorm errors
-    void ComputeHDivSolution();//???
+    void ComputeHDivSolution();//Not used
     
     // compute the estimated H1 seminorm errors
     void ComputeElementErrors(TPZVec<STATE> &elementerrors);

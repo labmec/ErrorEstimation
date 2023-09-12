@@ -6,6 +6,7 @@ add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationHDiv)
 add_subdirectory(HybridH1)
 add_subdirectory(ErrorEstimationMHM)
+add_subdirectory(ErrorEstimationElasticity)
 
 # This project is marked as optional since it requires OpenCV external library
 option(BUILD_MHM_MAZE_PROJECT "Whether to build MHM Maze project" OFF)

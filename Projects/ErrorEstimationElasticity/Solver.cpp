@@ -518,7 +518,7 @@ void SolveMixedProblem(TPZMultiphysicsCompMesh *cmesh_Mixed,struct ProblemConfig
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<STATE> strmat(cmesh_Mixed);
     //strmat.SetNumThreads(8);
-    strmat.SetNumThreads(8);
+    strmat.SetNumThreads(0);
 #else
     TPZSkylineStructMatrix<STATE> strmat(cmesh_Mixed);
     strmat.SetNumThreads(0);
