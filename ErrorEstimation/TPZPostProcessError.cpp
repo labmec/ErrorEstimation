@@ -904,7 +904,30 @@ void TPZPostProcessError::CreateFluxMesh()
         TPZGeoEl *gel = cel->Reference();
         TPZCompEl *celL2 = gel->Reference();
         TPZInterpolationSpace *intelHDiv = dynamic_cast<TPZInterpolationSpace *>(celL2);
-        intelHDiv->SetPreferredOrder(order);
+        intelHDiv->PRefine(order);
+    }
+    
+    {
+        int meshdim = cmesh->Dimension();
+        int64_t nel = cmesh->NElements();
+        for(int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            if(gel->Dimension() < meshdim) continue;
+            int nsides = gel->NSides();
+            int ncon = cel->NConnects();
+            int connorder = cel->Connect(ncon-1).Order();
+            int maxorder = connorder;
+            for(int ic = 0; ic<ncon-1; ic++) {
+                int cord = cel->Connect(ic).Order();
+                maxorder = cord > maxorder ? cord : maxorder;
+            }
+            if(maxorder > connorder) {
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+                intel->ForceSideOrder(nsides-1, maxorder);
+            }
+        }
+        
     }
     cmesh->ExpandSolution();
     
