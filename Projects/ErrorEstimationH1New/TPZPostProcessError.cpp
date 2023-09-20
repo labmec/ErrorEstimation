@@ -583,21 +583,21 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         an.LoadSolution();
         
-        // now we have a partial solution
-        /** Variable names for post processing */
-//        TPZStack<std::string> scalnames, vecnames;
-//        scalnames.Push("POrder");
-//        scalnames.Push("Pressure");
-//        vecnames.Push("Flux");
-//        an.SetStep(color); //
-//
-//        if(0){
-//            int ModelDimension = meshmixed->Dimension();
-//            std::stringstream sout;
-//            sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
-//            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
-//            an.PostProcess(1,meshmixed->Dimension());
-//        }
+        if(1){
+            // now we have a partial solution
+            /** Variable names for post processing */
+            TPZStack<std::string> scalnames, vecnames;
+            scalnames.Push("POrder");
+            scalnames.Push("Pressure");
+            vecnames.Push("Flux");
+            an.SetStep(color); //
+            
+            int ModelDimension = meshmixed->Dimension();
+            std::stringstream sout;
+            sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
+            an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
+            an.PostProcess(1,meshmixed->Dimension());
+        }
         
         //Recovery the initial comp. elements
         for (int64_t el = 0; el < nelem; el++) {

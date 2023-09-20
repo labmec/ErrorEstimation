@@ -1000,7 +1000,6 @@ TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, int dim, bool isOr
         gen.SetBC(gmesh, 7, bcids[3]);
 
         gmesh->SetDimension(2);
-
         return gmesh;
     }
     if (dim == 3){

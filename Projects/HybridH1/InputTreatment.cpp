@@ -26,18 +26,23 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[1] = bcids[3] = -2;
     }
     
-//    gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
-//    if(config.gmesh) delete config.gmesh;
-//    config.gmesh = gmesh;
-    
+    if(1){ //Square shape domain quadrilateral mesh
+    gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
+    if(config.gmesh) delete config.gmesh;
+    config.gmesh = gmesh;
+    }
+    else{ //Lshape domain quadrilateral mesh
     TPZManVector<int, 8> Lshape_bcids(8, -1);
     gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
+    }
     
     Tools::UniformRefinement(config.ndivisions, gmesh);
+    std::ofstream out("mallarefinada.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     Tools::DrawGeoMesh(config, pConfig);
-    config.ApplyDivision();
+    //config.ApplyDivision();
 
         {
             std::ofstream salida("mallageometricaAdap.txt");
@@ -220,6 +225,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "ESing2D") pConfig.type = 7;
         else if (pConfig.problem == "ESinMark") pConfig.type = 8;
         else if (pConfig.problem == "ESteepWave") pConfig.type = 9;
+        else if (pConfig.problem == "ESinMarkHom") pConfig.type = 10;
         else DebugStop();
     }
 
@@ -365,6 +371,9 @@ TLaplaceExample1::EExactSol *ChooseAnaliticSolution(PreConfig &preConfig){
             break;
         case 9:
             *solutionCase = TLaplaceExample1::ESteepWave;
+            break;
+        case 10:
+            *solutionCase = TLaplaceExample1::ESinMarkHom;
             break;
         default:
             DebugStop();

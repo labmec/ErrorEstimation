@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
         else {
             gmesh = CreateGeoMesh2(); //[0,1]x[0,1] quadrilateral
             //gmesh = CreateGeoMesh(); //[-1,1]x[-1,1] quadrilateral
-
+            
             TPZManVector<int, 4> bcids(8, -1);
             //gmesh = CreateLShapeMesh(1, bcids);//CreateGeoCircleMesh();
             //gmesh = CreateSquareShapeMesh2(1, bcids);//[0,1]x[0,1] triangular
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
         
         //Case1.nthreads = 0;
         
-        pConfig.refLevel = 2;
+        pConfig.refLevel = 3;
         //Case1.numinitialrefine = 1;//ndiv;
         
         pConfig.k = 2;
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
         
         pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
         pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
-
+        
         pConfig.problem = "ESinSin";
         //Case1.problemname = "ESinSin";//ESinMark,EConst,EBubble2D,ESteepWave,EX
         
@@ -151,37 +151,43 @@ int main(int argc, char *argv[]) {
         //Case1.dir_name = "ESinSin";
         std::string command = "mkdir -p " +config.dir_name; //+ porder;
         system(command.c_str());
-        
-        //UniformRefinement(pConfig.refLevel,gmesh);
-        
+                
         pConfig.numberAdapativitySteps = 3;        //// Maximum number of adapativity refinement steps.
         pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
         pConfig.debugger = true;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
         pConfig.vtkResolution = 1;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
-
-        // this is where the type in pConfig is set
-        EvaluateEntry(argc,argv,pConfig);
-        InitializeOutstream(pConfig,argv);
         
-        {
-            std::ofstream outgmesh("gmesh.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outgmesh);
-            std::ofstream outgmesh2("gmesh.txt");
-            gmesh->Print(outgmesh2);
-        }
-        
-        {
-            config.division_threshold = 0.85;
-            for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps+1; config.adaptivityStep++) {     //ndiv = 1 corresponds to a 2x2 mesh.
-                pConfig.h = 1./pConfig.exp;
-                
-                Configure(config,pConfig.refLevel,pConfig,argv);
-
-                Solve(config,pConfig);
+        if(0){ //If hp-adaptivity
+            
+            EvaluateEntry(argc,argv,pConfig);
+            InitializeOutstream(pConfig,argv);
+            
+            {
+                std::ofstream outgmesh("gmesh.vtk");
+                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outgmesh);
+                std::ofstream outgmesh2("gmesh.txt");
+                gmesh->Print(outgmesh2);
+            }
+            
+            {
+                config.division_threshold = 0.85;
+                for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps+1; config.adaptivityStep++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+                    pConfig.h = 1./pConfig.exp;
+                    
+                    Configure(config,pConfig.refLevel,pConfig,argv);
+                    
+                    Solve(config,pConfig);
+                }
             }
         }
-        
-        if(0){
+        else{
+            
+            UniformRefinement(pConfig.refLevel,gmesh);
+            std::ofstream file("gmesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
+            std::ofstream outgmesh("gmesh.txt");
+            gmesh->Print(outgmesh);
+            
             //Solve H1 Problem
             config.exact.operator*().fSignConvention = 1;
             //Case1.exact.fSignConvention = 1;
@@ -211,9 +217,9 @@ int main(int argc, char *argv[]) {
             true_elerror.Print(outTE);
             std::ofstream outEE("EstErrorByElem.txt");
             estimate_elerror.Print(outEE);
-        
-//            std::ofstream outEE2("EstErrorByElem2.txt");
-//            estimate_elerror.Print(outEE2);
+            
+            //            std::ofstream outEE2("EstErrorByElem2.txt");
+            //            estimate_elerror.Print(outEE2);
             
             std::ofstream outEE3("EstErrorByElem3.txt");
             estimatedelementerror.Print(outEE3);
@@ -605,15 +611,39 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
             
             if(!gel || gel->HasSubElement()) continue;
             if(gel->Dimension() == 0) continue;
-//            if (division < nDiv-1){
-//                gel->Divide(children);
-//            }
-//            else {
-//                if (elem == 8){
-//                    gel->Divide(children);
-//                }
-//            }
-            gel->Divide(children);
+            
+            if(0){ //if uniform refinament purely
+                gel->Divide(children);
+            }
+            else{ // selected refinament
+                if (division < nDiv-1){
+                    gel->Divide(children);
+                }
+                else {
+                    if (elem % 4 == 2){
+                        gel->Divide(children);
+                    }
+                }
+            }
+        }
+    }
+
+    {
+        int64_t nel = gmesh->NElements();
+        int dim = gmesh->Dimension();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(!gel || gel->Dimension() == dim || gel->HasSubElement()) continue;
+            TPZGeoElSide gelside(gel);
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            while(neighbour != gelside) {
+                if(neighbour.Element()->HasSubElement()) {
+                    TPZStack<TPZGeoEl *> subs;
+                    gel->Divide(subs);
+                    break;
+                }
+                neighbour = neighbour.Neighbour();
+            }
         }
     }
     
@@ -626,7 +656,6 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
 //        if(gel->Dimension() != 1) continue;
 //        TPZGeoElSide geoelside(gel);
 //        TPZGeoElSide neig=geoelside.Neighbour();
-//
 //        if(neig.Element()->HasSubElement()){
 //            gel->Divide(children);
 //        }
