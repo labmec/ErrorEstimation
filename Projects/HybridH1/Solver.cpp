@@ -42,7 +42,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
         case 0: //H1
             config.gmesh->ResetReference();
             cmesh = InsertCMeshH1(config,preConfig);
-            //config.PorderIncrement();
+            config.PorderIncrement();
             //TPZCompMeshTools::CreatedCondensedElements(cmesh, false, false);
             SolveH1Problem(cmesh, config, preConfig);
             if (preConfig.estimateError){
@@ -242,7 +242,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
             config.fElIndexDivide.push_back(gelstohref);
             config.fElIndexPplus.push_back(gelstoPplus);
         }
-        else{
+        else{// h-ref to singular node adjacent elements and posible p-ref in ohers
             std::set<int64_t> gelstohref;
             std::map<int64_t,int> gelstoPplus;
             gelstohref.clear();
@@ -769,12 +769,12 @@ void FluxErrorCreateCompMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interF
     fluxMatID = createspace.fH1Hybrid.fFluxMatId;
 }
 
-bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror, ProblemConfig &config) {
+bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFMatrix<STATE> estimate_elerror, ProblemConfig &config) {
     
-    TPZLinearAnalysis an(pressuremesh);
+    TPZLinearAnalysis an(cmeshH1);
     
-    int64_t nels = pressuremesh->ElementVec().NElements();
-    pressuremesh->ElementSolution().Redim(nels, 6);
+    int64_t nels = cmeshH1->ElementVec().NElements();
+    cmeshH1->ElementSolution().Redim(nels, 6);
     
     //Compute the effectivity index
     std::cout<<"***** Computing effectivity index *****"<<std::endl;
@@ -783,7 +783,7 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
         REAL sum = 0.;
         int64_t nel = true_elerror.Rows();
         for (int64_t el=0; el<nel; el++) {
-            TPZCompEl *cel = pressuremesh->Element(el);
+            TPZCompEl *cel = cmeshH1->Element(el);
             if(!cel) continue;
             TPZGeoEl *gel = cel->Reference();
             TPZCompEl *mphys = gel->Reference();
@@ -797,17 +797,17 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
             }
         }
         
-        pressuremesh->ElementSolution() = true_elerror;
+        cmeshH1->ElementSolution() = true_elerror;
         
         TPZManVector<REAL> errorsum(5, 0.);
-        pressuremesh->EvaluateError(false, errorsum);
+        cmeshH1->EvaluateError(false, errorsum);
         REAL globeffind = sqrt(sum)/errorsum[2];
         std::cout << "Global full error estimate: "<<sqrt(sum)<<std::endl;
         std::cout << "Global effectivity index: " << globeffind << std::endl;
         
         std::ofstream fileouput;
         fileouput.open("adaptivityresults.txt",ios::app);
-        fileouput << std::setw(15) << pressuremesh->NEquations();
+        fileouput << std::setw(15) << cmeshH1->NEquations();
         fileouput << std::setw(15) << errorsum[2];
         fileouput << std::setw(15) << sqrt(sum);
         fileouput << std::setw(15) << globeffind << std::endl;
@@ -845,14 +845,14 @@ bool PostProcessing(TPZCompMesh * pressuremesh, TPZFMatrix<STATE> true_elerror, 
             // Enabling file name
             std::stringstream out;
             out << "ErrorEstimate/" + problemName + "/";
-            out <<"ErrorEstimationH1_" << pressuremesh->GetDefaultOrder() << "_" << pressuremesh->Reference()->Dimension()
-            <<  "Ndofs " << pressuremesh->NEquations() << ".vtk";
+            out <<"ErrorEstimationH1_" << cmeshH1->GetDefaultOrder() << "_" << cmeshH1->Reference()->Dimension()
+            <<  "Ndofs " << cmeshH1->NEquations() << ".vtk";
             plotname = out.str();
         }
         
         //an.SetExact(config.exact->ExactSolution());
         //an.SetExact(config.exact.operator*().ExactSolution());
-        an.DefineGraphMesh(pressuremesh->Dimension(), scalnames, vecnames, plotname);
+        an.DefineGraphMesh(cmeshH1->Dimension(), scalnames, vecnames, plotname);
         int resolution = 0;
         an.PostProcess(resolution);
     }

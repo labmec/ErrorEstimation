@@ -121,7 +121,7 @@ private:
     // determine if a given patch is boundary or not
     bool PatchHasBoundary(TPZPatch &patch) const;
     
-    // Sum the solution stored in fSolution of the second mesh to the fSolution vector
+    // Sum the solution stored in fSolution of the multiphysics mesh to the fSolution vector
     void TransferAndSumSolution(TPZCompMesh *cmesh); // what is second mesh?
 
     // Reset the state of the HDiv mesh to its original structure
