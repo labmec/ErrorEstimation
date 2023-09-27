@@ -12,6 +12,7 @@
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include <memory>
 #include <pzgmesh.h>
+#include "TPZDarcyMHMHDivErrorEstimator.h"
 
 typedef _2D::BicubicInterpolator<REAL> Interpolator;
 
@@ -253,7 +254,7 @@ void EstimateError(TPZMHMixedMeshControl *mhm) {
     if (!originalMesh) DebugStop();
 
     bool postProcWithHDiv = true;
-    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
+    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.PotentialReconstruction();
 
     std::string command = "mkdir SPE10";

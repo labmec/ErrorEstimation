@@ -10,6 +10,7 @@
 //#include <Tools.h>
 #include <ToolsMHM.h>
 #include <Util/pzlog.h>
+#include "TPZDarcyMHMHDivErrorEstimator.h"
 
 void RunSmoothProblem();
 void RunHighGradientProblem();
@@ -509,7 +510,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     if (!originalMesh) DebugStop();
 
     bool postProcWithHDiv = false;
-    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
+    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
     ErrorEstimator.PrimalReconstruction();
 

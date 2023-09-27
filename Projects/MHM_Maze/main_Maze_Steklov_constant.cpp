@@ -40,6 +40,7 @@
 #include <string>
 
 #include "TPZPersistenceManager.h"
+#include "TPZDarcyMHMHDivErrorEstimator.h"
 
 using namespace std;
 using namespace cv;
@@ -81,9 +82,9 @@ int matid1BC = 8;
 int matid2BC = 9;
 
 
-void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+void EstimateError(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
-void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+void LocateElementsToAdapt(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
 void AssociateGeoElSides(TPZVec<std::set<TPZGeoElSide>> &eigGeoElSides, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide);
 
@@ -243,7 +244,7 @@ int MHMTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> &int
 
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     bool postProcWithHdiv = false;
-//    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
+//    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
 //    EstimateError(ErrorEstimator, config);
     //LocateElementsToAdapt(ErrorEstimator, config);
 

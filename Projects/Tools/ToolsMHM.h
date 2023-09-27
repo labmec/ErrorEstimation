@@ -88,7 +88,7 @@
 
 #include "TPZPersistenceManager.h"
 
-#include "TPZMHMHDivErrorEstimator.h"
+#include "TPZDarcyMHMHDivErrorEstimator.h"
 #include "Tools.h"
 #include "TPZGenGrid2D.h"
 

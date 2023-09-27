@@ -1,6 +1,6 @@
 
 #include "Maze_common.h"
-
+#include "TPZDarcyMHMHDivErrorEstimator.h"
 
 TPZCompMesh* MixedTest(ConfigCasesMaze &Conf, int nx, int ny){
   
@@ -324,7 +324,7 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
     return mphysics;
 }
 
-void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config) {
+void EstimateError(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config) {
     cout << "Error Estimation processing for MHM-Hdiv problem " << endl;
 
     DebugStop();
@@ -503,7 +503,7 @@ TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny){
     return gmeshcoarse;
 }
 
-void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config) {
+void LocateElementsToAdapt(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config) {
 
     TPZMultiphysicsCompMesh *postProcMesh = errorEstimator.PostProcMesh();
     postProcMesh->LoadReferences();

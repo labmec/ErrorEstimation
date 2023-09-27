@@ -123,7 +123,7 @@ int MHMTest(ConfigCasesMaze &Conf){
 
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     bool postProcWithHdiv = false;
-//    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
+//    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
 //    EstimateError(ErrorEstimator, config);
     //LocateElementsToAdapt(ErrorEstimator, config);
 

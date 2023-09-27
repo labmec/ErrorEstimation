@@ -7,7 +7,7 @@
 #include "ToolsUNISIM.h"
 
 #include <TPZMFSolutionTransfer.h>
-#include <TPZMHMHDivErrorEstimator.h>
+#include <TPZDarcyMHMHDivErrorEstimator.h>
 
 #include <Analysis/pzanalysis.h>
 #include <Geom/pzgeoquad.h>
@@ -216,7 +216,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     if (!InputMesh) DebugStop();
 
     bool postProcWithHDiv = false;
-    TPZMHMHDivErrorEstimator ErrorEstimator(*InputMesh, mhm, postProcWithHDiv);
+    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*InputMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
     ErrorEstimator.PotentialReconstruction();
 

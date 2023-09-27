@@ -41,6 +41,8 @@
 
 #include "TPZPersistenceManager.h"
 
+#include "TPZDarcyMHMHDivErrorEstimator.h"
+
 using namespace std;
 using namespace cv;
 
@@ -81,9 +83,9 @@ int matid1BC = 8;
 int matid2BC = 9;
 
 
-void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+void EstimateError(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
-void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+void LocateElementsToAdapt(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
 int main(){
     TPZLogger::InitializePZLOG();
@@ -204,7 +206,7 @@ int MHMTest(ConfigCasesMaze &Conf){
 
     TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
     bool postProcWithHdiv = false;
-//    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
+//    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
 //    EstimateError(ErrorEstimator, config);
     //LocateElementsToAdapt(ErrorEstimator, config);
 

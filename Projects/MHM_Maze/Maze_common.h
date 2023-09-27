@@ -43,6 +43,7 @@
 #include <string>
 
 #include "TPZPersistenceManager.h"
+#include "TPZDarcyMHMHDivErrorEstimator.h"
 
 using namespace std;
 using namespace cv;
@@ -76,8 +77,8 @@ TPZCompMesh* MixedTest(ConfigCasesMaze &Conf, int nx, int ny);
 // Conf contains the maze information and the problem boundary conditions
 int MHMTest(ConfigCasesMaze &Conf);
 
-void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+void EstimateError(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
-void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+void LocateElementsToAdapt(TPZDarcyMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
 
 #endif

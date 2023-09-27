@@ -43,7 +43,7 @@
 #include <TPZMFSolutionTransfer.h>
 #include "TPZPersistenceManager.h"
 
-#include "TPZMHMHDivErrorEstimator.h"
+#include "TPZDarcyMHMHDivErrorEstimator.h"
 
 TPZCompMesh *CMeshFlux(TPZGeoMesh * gmesh,int pOrder){
     
