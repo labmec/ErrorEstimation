@@ -10,18 +10,18 @@
 
 void TPZMFSolutionTransfer::Match::TransferFromMultiphysics(TPZCompMesh * cmesh){
     
-    TPZBlock<STATE> &blockMF = cmesh->Block();
-    TPZBlock<STATE>* blockAto = fblockTarget.first;
+    TPZBlock &blockMF = cmesh->Block();
+    TPZBlock &blockAtomic = fblockTarget.first->Block();
     int seqMF = fblockTarget.second;
     int seqAto = fblocknumber;
-    int blocksizeAto = blockAto->Size(seqAto);
+    int blocksizeAto = blockAtomic.Size(seqAto);
     int blocksizeMF = blockMF.Size(seqMF);
     if(blocksizeMF != blocksizeAto){
         DebugStop();
     }
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     int64_t nblockMF = blockMF.NBlocks();
-    int64_t nblockAto = blockAto->NBlocks();
+    int64_t nblockAto = blockAtomic.NBlocks();
     if(seqMF < nblockMF-1)
     {
         int64_t PosMF = blockMF.Position(seqMF);
@@ -30,31 +30,37 @@ void TPZMFSolutionTransfer::Match::TransferFromMultiphysics(TPZCompMesh * cmesh)
     }
     if(seqAto < nblockAto-1)
     {
-        int64_t PosAto = blockAto->Position(seqAto);
-        int64_t nextPosAto = blockAto->Position(seqAto+1);
+        int64_t PosAto = blockAtomic.Position(seqAto);
+        int64_t nextPosAto = blockAtomic.Position(seqAto+1);
         if(nextPosAto-PosAto != blocksizeAto) DebugStop();
     }
 #endif
+    TPZFMatrix<STATE> solAtomic = fblockTarget.first->Solution();
+    TPZFMatrix<STATE> solMF = cmesh->Solution();
+
     for (int idf=0; idf<blocksizeAto; idf++) {
-        (*blockAto)(seqAto, 0, idf, 0) =  blockMF(seqMF, 0, idf, 0);
+        solAtomic(blockAtomic.Index(seqAto, idf)) =  solMF.at(blockMF.at(seqMF, 0, idf, 0));
     }
 //    Print(std::cout, cmesh);
 
 }
 void TPZMFSolutionTransfer::Match::TransferToMultiphysics(TPZCompMesh * cmesh){
     cmesh->InitializeBlock();
-    TPZBlock<STATE> &blockToTransfer = cmesh->Block();
-    TPZBlock<STATE>* blockAto = fblockTarget.first;
+    TPZBlock &blockToTransfer = cmesh->Block();
+    TPZBlock &blockAtomic = fblockTarget.first->Block();
     int seqtoTrans = fblockTarget.second;
     int seqAto = fblocknumber;
     
-    int blocksizeAto = blockAto->Size(seqAto);
+    int blocksizeAto = blockAtomic.Size(seqAto);
     int blocksizeTarg = blockToTransfer.Size(seqtoTrans);
     if(blocksizeAto!=blocksizeTarg){
         DebugStop();
     }
+
+    TPZFMatrix<STATE> solAtomic = fblockTarget.first->Solution();
+    TPZFMatrix<STATE> solToTransfer = cmesh->Solution();
     for (int idf=0; idf<blocksizeAto; idf++) {
-        blockToTransfer.Put(seqtoTrans, idf, 0, blockAto->Get(seqAto, idf, 0));
+        solToTransfer(blockToTransfer.Index(seqtoTrans, idf)) = solAtomic(blockAtomic.Index(seqAto, idf));
     }
 }
 
@@ -142,8 +148,8 @@ void TPZMFSolutionTransfer::MeshTransferData::BuildTransferData(TPZCompMesh* cme
                         int seqnumberMF = conectTarget.SequenceNumber();
                         Match currentmatch;
                         currentmatch.fblocknumber = seqnumberAto;
-                        TPZBlock<STATE> *blockAto = &celfrom->Mesh()->Block();
-                        std::pair<TPZBlock<STATE> *, int> target = std::make_pair(blockAto,seqnumberMF);
+                        TPZCompMesh *atomic_cmesh = celfrom->Mesh();
+                        std::pair<TPZCompMesh *, int> target = std::make_pair(atomic_cmesh,seqnumberMF);
                         currentmatch.fblockTarget = target;
                         fconnecttransfer.push_back(currentmatch);
                     }
@@ -216,26 +222,30 @@ void TPZMFSolutionTransfer::Match::Print(std::ostream &out, TPZCompMesh *cmesh)
     << " MeshB " << fblockTarget.first << " block " << fblocknumber << std::endl;
     int blnumA = fblockTarget.second;
     int blnumB = fblocknumber;
-    TPZBlock<STATE> *blockA = &cmesh->Block();
-    TPZBlock<STATE> *blockB = fblockTarget.first;
+    TPZBlock *blockA = &cmesh->Block();
+    TPZBlock &blockB = fblockTarget.first->Block();
     int64_t nblA = cmesh->Block().NBlocks();
-    int64_t nblB = fblockTarget.first->NBlocks();
+    int64_t nblB = blockB.NBlocks();
     out << "BlockA pos " << blockA->Position(fblockTarget.second)
     << " size " << blockA->Size(fblockTarget.second);
     if(blnumA < nblA-1) out << " next pos " << blockA->Position(fblockTarget.second+1);
     out << std::endl;
-    out << "BlockB pos " << blockB->Position(fblocknumber)
-    << " size " << blockB->Size(fblocknumber);
-    if(blnumB < nblB-1) out << " next pos " << blockB->Position(fblocknumber+1);
+    out << "BlockB pos " << blockB.Position(fblocknumber)
+    << " size " << blockB.Size(fblocknumber);
+    if(blnumB < nblB-1) out << " next pos " << blockB.Position(fblocknumber+1);
     out << std::endl;
     int blsizeA = cmesh->Block().Size(fblockTarget.second);
-    int blsizeB = fblockTarget.first->Size(fblocknumber);
+    int blsizeB = blockB .Size(fblocknumber);
+
+    TPZBlock &block =  cmesh->Block();
+    TPZFMatrix<STATE> &sol = cmesh->Solution();
     for (int i=0; i<blsizeA; i++) {
-        out << cmesh->Block()(fblockTarget.second,0,i,0) << " ";
+        out << sol.at(block.at(fblockTarget.second,0,i,0)) << " ";
     }
     out << std::endl;
+    TPZFMatrix<STATE> &solAtomic = fblockTarget.first->Solution();
     for (int i=0; i<blsizeB; i++) {
-        out << (*(fblockTarget.first))(fblocknumber,0,i,0) << " ";
+        out << solAtomic.at(blockB.at(fblocknumber,0,i,0)) << " ";
     }
     out << std::endl;
 
