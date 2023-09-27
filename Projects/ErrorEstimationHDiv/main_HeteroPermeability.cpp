@@ -374,7 +374,7 @@ int main(int argc, char *argv[]) {
             }
             */
 
-            HDivEstimate.PotentialReconstruction();
+            HDivEstimate.PrimalReconstruction();
 
             TPZManVector<REAL> elementerrors, errvec;
             std::string vtkPath = "hetero_permeability_error_results.vtk";

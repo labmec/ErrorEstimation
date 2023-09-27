@@ -107,7 +107,7 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, T
 
     HDivEstimate.SetAnalyticSolution(config.exact);
 
-    HDivEstimate.PotentialReconstruction();
+    HDivEstimate.PrimalReconstruction();
 
     TPZManVector<REAL> elementerrors;
     TPZVec<REAL> errorVec;

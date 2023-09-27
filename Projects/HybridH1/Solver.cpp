@@ -200,7 +200,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
     if (preConfig.mode == 2){
         TPZHDivErrorEstimator test(*multiCmesh);
         test.SetAnalyticSolution(config.exact);
-        test.PotentialReconstruction();
+        test.PrimalReconstruction();
 
         TPZManVector<REAL> elementerrors;
         TPZVec<REAL> errorVec;

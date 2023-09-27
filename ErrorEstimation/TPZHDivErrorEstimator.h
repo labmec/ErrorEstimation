@@ -16,11 +16,15 @@
 #include "TPZAnalysis.h"
 #include "pzsubcmesh.h"
 
+#include "Elasticity/TPZMixedElasticityND.h"
+
 /// this class will compute the estimated value of the energy error of the input mesh
 // it is expected that the estimated value of the error is improved if the input mesh is of H(div)++ type
 // the class should work for any H(div) mesh
 // first create the post processing mesh
 // then compute the errors
+
+template <typename MixedMaterial>
 class TPZHDivErrorEstimator {
 protected:
     /// The H(Div) approximation mesh for which we will compute the error
@@ -29,15 +33,15 @@ protected:
     /// Locally created computational mesh to compute the error
     TPZMultiphysicsCompMesh fPostProcMesh;
 
-    /// weights associated with the dim-1 pressure elements to compute the averages
-    TPZVec<REAL> fPressureweights;
+    /// weights associated with the dim-1 pressure/displacement elements to compute the averages
+    TPZVec<REAL> fPrimalWeights;
     /// weights associated with material ids
     std::map<int,REAL> fMatid_weights;
     // object to assist in creating a hybridized version of the computational mesh
     TPZHybridizeHDiv fHybridizer;
 
     // material id of the dim-1 skeleton elements
-    int fPressureSkeletonMatId = 0;
+    int fPrimalSkeletonMatId = 0;
 
     TPZAnalyticSolution *fExact;
     /// whether the post processing mesh will be H(div) or H1
@@ -50,10 +54,10 @@ public:
     }
 
     // this method wont work because multiphysics meshes have no operator= (yet)
-    TPZHDivErrorEstimator(const TPZHDivErrorEstimator &copy) = delete;
+    TPZHDivErrorEstimator(const TPZHDivErrorEstimator<MixedMaterial> &copy) = delete;
 
     // this method wont work because multiphysics meshes have no operator= (yet)
-    TPZHDivErrorEstimator &operator=(const TPZHDivErrorEstimator &cp) = delete;
+    TPZHDivErrorEstimator &operator=(const TPZHDivErrorEstimator<MixedMaterial> &cp) = delete;
 
     ~TPZHDivErrorEstimator();
 
@@ -64,32 +68,35 @@ public:
 
     void SetHybridizer(TPZHybridizeHDiv &hybridizer) { fHybridizer = hybridizer; }
 
-    /// compute the element errors comparing the reconstructed solution based on average pressures
-    /// with the original solution
-    virtual void ComputeErrors(TPZVec<REAL> &error_vec, TPZVec<REAL> &element_errors, std::string&vtkPath);
+    /**
+     * Compute the element errors comparing the reconstructed solution based on 
+     * average pressures/displacements
+     * with the original solution
+     */
+    virtual void ComputeErrors(TPZVec<REAL> &error_vec, TPZVec<REAL> &element_errors, std::string& vtkPath);
 
-    // reconstruction of potential using hybrid solution on enrichment space
-    virtual void PotentialReconstruction();
+    // reconstruction of pressure/displacement using hybrid solution on enrichment space
+    virtual void PrimalReconstruction();
 
     /// create graphical output of estimated and true errors using the analysis
     void PostProcessing(TPZAnalysis &an, std::string &out);
 
-    void PlotPressureSkeleton(const std::string &filename, bool reconstructed = true);
+    void PlotPrimalSkeleton(const std::string &filename, bool reconstructed = true);
     void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
     static void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
 
-    int PressureSkeletonMatId() const { return fPressureSkeletonMatId; }
+    int PrimalSkeletonMatId() const { return fPrimalSkeletonMatId; }
 
     TPZMultiphysicsCompMesh *PostProcMesh() { return &fPostProcMesh; }
     TPZGeoMesh *GMesh() { return fOriginal->Reference(); }
 
 protected:
 
-    /// compute the pressure weights and material weights
-    // fills in the data structure pressureweights and matid_weights
-    virtual void ComputePressureWeights();
+    /// compute the pressure/displacement weights and material weights
+    // fills in the data structure primalWeights and matid_weights
+    virtual void ComputePrimalWeights() = 0;
 
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
@@ -98,63 +105,63 @@ protected:
     void ComputeElementStiffnesses();
 
     // a method for generating the HDiv mesh
-    virtual TPZCompMesh *CreateFluxMesh();
+    virtual TPZCompMesh *CreateHDivMesh();
 
-    // this method clones the original pressure mesh and perform the following:
+    // this method clones the original pressure/displacement mesh and performs the following:
     // 1. delete dim - 1 elements, where dim is the mesh dimension
     // 2. build BC elements // TODO improve comments
     // 3. create skeleton geometric elements and comp elements
-    virtual TPZCompMesh *CreatePressureMesh();
+    virtual TPZCompMesh *CreatePrimalMesh();
 
-    /// return a pointer to the pressure mesh
-    virtual TPZCompMesh *PressureMesh();
+    /// return a pointer to the pressure/displacement mesh
+    virtual TPZCompMesh *PrimalMesh();
 
     // Finds a material ID that has not been used yet
     static int FindFreeMatId(TPZGeoMesh *gmesh);
 
-    // Creates skeleton geometric elements on which the average pressure will be calculated
-    virtual void CreateSkeletonElements(TPZCompMesh *pressure_mesh);
+    // Creates skeleton geometric elements on which the average pressure/displacement will be calculated
+    virtual void CreateSkeletonElements(TPZCompMesh *primal_mesh);
 
     /// increase the side orders of the post processing mesh
     static void IncreaseSideOrders(TPZCompMesh *fluxmesh);
 
 
-    /// increase the order of the lower dimensional pressure elements
-    static void IncreasePressureSideOrders(TPZCompMesh *pressure_mesh);
-
+    /// increase the order of the lower dimensional pressure/displacement elements
+    static void IncreasePrimalSideOrders(TPZCompMesh *primal_mesh);
 
     void ComputeBoundaryL2Projection(int target_dim);
 
-    /// compute the average pressures of across edges of the H(div) mesh
-    virtual void ComputeAveragePressures(int target_dim);
+    /// compute the average pressures/displacements of across edges of the H(div) mesh
+    virtual void ComputeAveragePrimal(int target_dim);
 
     /// transfer the solution of the edge functions to the face functions
     void TransferEdgeSolution();
 
     /// create dim-2 skeleton mesh based on the dim-1 faces
     // will do nothing if the dimension of the mesh == 2
-    void CreateEdgeSkeletonMesh(TPZCompMesh *pressure_mesh);
+    void CreateEdgeSkeletonMesh(TPZCompMesh *primal_mesh);
 
-    /// adjust the interpolation orders so as to create an H1/2 boundary mesh
+    /// adjusts the interpolation orders so as to create an H1/2 boundary mesh
     // this method is called by the CreateEdgeSkeletonMesh method
-    void AdjustNeighbourPolynomialOrders(TPZCompMesh *pressure_mesh);
+    void AdjustNeighbourPolynomialOrders(TPZCompMesh *primal_mesh);
 
-    /// restrain the edge elements that have larger elements as neighbours
-    void RestrainSmallEdges(TPZCompMesh *pressuremesh);
+    /// restrains the edge elements that have larger elements as neighbours
+    void RestrainSmallEdges(TPZCompMesh *primalmesh);
 
-    /// set the cornernode values equal to the averages
+    /// sets the cornernode values equal to the averages
     virtual void ComputeNodalAverages();
 
-    /// compute the nodal average of all elements that share a point
+    /// computes the nodal average of all elements that share a point
     void ComputeNodalAverage(TPZCompElSide &node_celside);
-    //compute the global efectivity index using the CharacteristicSize() of element
+    
+    //computes the global effectivity index using the CharacteristicSize() of element
     void GlobalEffectivityIndex();
 
-    /// copy the solution from the neighbouring skeleton elements
+    // copies the solution from the neighbouring skeleton elements
     // this is a placeholder for the derived class TPZHDivErrorEstimatorH1
     virtual void CopySolutionFromSkeleton();
 
-    /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
+    /// switches material object from MixedMaterial to TPZMixedHdivErrorEstimate
     virtual void SwitchMaterialObjects();
 
     /// compute the effectivity indices of the pressure error and flux error and store in the element solution
@@ -172,8 +179,8 @@ protected:
     // Checks if the solution is in fact continuous
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
 
-    // compute the average of an element iel in the pressure mesh looking at its neighbours
-    void ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel);
+    // computes the average of the element iel in the pressure/displacement mesh looking at its neighbours
+    void ComputeAverage(TPZCompMesh *primalmesh, int64_t iel);
 
     void PrepareElementsForH1Reconstruction();
 

@@ -6,22 +6,22 @@
 //
 
 #include "TPZPressureProjection.h"
-#include "TPZHDivErrorEstimateMaterial.h"
+#include "TPZHDivErrorEstimateDarcyMaterial.h"
 #include "TPZAnalyticSolution.h"
 #include "TPZMaterialDataT.h"
 
 
-TPZPressureProjection::TPZPressureProjection(int matid, int dim) : TPZHDivErrorEstimateMaterial(matid,dim)
+TPZPressureProjection::TPZPressureProjection(int matid, int dim) : TPZHDivErrorEstimateDarcyMaterial(matid,dim)
 {
     
 }
 
-TPZPressureProjection::TPZPressureProjection() : TPZHDivErrorEstimateMaterial()
+TPZPressureProjection::TPZPressureProjection() : TPZHDivErrorEstimateDarcyMaterial()
 {
     
 }
 
-TPZPressureProjection::TPZPressureProjection(const TPZHDivErrorEstimateMaterial &copy) : TPZHDivErrorEstimateMaterial(copy)
+TPZPressureProjection::TPZPressureProjection(const TPZHDivErrorEstimateDarcyMaterial &copy) : TPZHDivErrorEstimateDarcyMaterial(copy)
 {
     
 }

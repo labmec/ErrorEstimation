@@ -16,19 +16,20 @@
 // first create the post processing mesh
 // then compute the errors
 // compute a reference solution without MHM
-class TPZMHMHDivErrorEstimator : public TPZHDivErrorEstimator {
+template <typename MixedMaterial>
+class TPZMHMHDivErrorEstimator : public TPZHDivErrorEstimator<MixedMaterial> {
 
 public:
 
     TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
-        : TPZHDivErrorEstimator(originalMesh, postProcWithHDiv), fMHM(mhm) {
+        : TPZHDivErrorEstimator<MixedMaterial>(originalMesh, postProcWithHDiv), fMHM(mhm) {
     }
 
     // this method wont work because multiphysics meshes have no copy constructor (yet)
-    TPZMHMHDivErrorEstimator(const TPZMHMHDivErrorEstimator &copy) = delete;
+    TPZMHMHDivErrorEstimator(const TPZMHMHDivErrorEstimator<MixedMaterial> &copy) = delete;
 
     // this method wont work because multiphysics meshes have no copy constructor (yet)
-    TPZMHMHDivErrorEstimator &operator=(const TPZMHMHDivErrorEstimator &cp) = delete;
+    TPZMHMHDivErrorEstimator<MixedMaterial> &operator=(const TPZMHMHDivErrorEstimator<MixedMaterial> &cp) = delete;
 
     virtual ~TPZMHMHDivErrorEstimator() = default;
 
@@ -41,12 +42,12 @@ private:
     /// a pointer to the datastructure used to generate the MHM mesh
     TPZMHMixedMeshControl *fMHM = nullptr;
     // a method for generating the HDiv mesh
-    TPZCompMesh *CreateFluxMesh() override;
-    // a method for creating the pressure mesh
-    TPZCompMesh *CreatePressureMesh() override;
-    // method fro creating a discontinuous pressure mesh
+    TPZCompMesh *CreateHDivMesh() override;
+    // a method for creating the pressure/displacement mesh
+    TPZCompMesh *CreatePrimalMesh() override;
+    // method fro creating a discontinuous pressure/displacement mesh
     TPZCompMesh *CreateDiscontinuousPressureMesh();
-    // method for creating a pressure mesh that is continuous in each MHM domain, but not globally
+    // method for creating a pressure/displacement mesh that is continuous in each MHM domain, but not globally
     TPZCompMesh *CreateInternallyContinuousPressureMesh();
 
     // Creates skeleton geometric elements on which the average pressure will be calculated
@@ -70,7 +71,7 @@ private:
     void RemoveMaterialObjects(std::map<int,TPZMaterial *> &matvec);
     // a method for computing the pressures between subdomains as average pressures
     /// compute the average pressures of across edges of the H(div) mesh
-    void ComputeAveragePressures(int target_dim) override;
+    void ComputeAveragePrimal(int target_dim) override;
 
     /// compute the average pressure over corners
     /// set the cornernode values equal to the averages

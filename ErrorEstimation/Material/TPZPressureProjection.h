@@ -10,12 +10,9 @@
 
 #include <stdio.h>
 
-#include "TPZHDivErrorEstimateMaterial.h"
+#include "TPZHDivErrorEstimateDarcyMaterial.h"
 
-
-
-
-class TPZPressureProjection : public TPZHDivErrorEstimateMaterial
+class TPZPressureProjection : public TPZHDivErrorEstimateDarcyMaterial
 {
 
 public:
@@ -27,7 +24,7 @@ public:
     
     TPZPressureProjection(const TPZPressureProjection &copy);
     
-    TPZPressureProjection(const TPZHDivErrorEstimateMaterial &copy);
+    TPZPressureProjection(const TPZHDivErrorEstimateDarcyMaterial &copy);
     
     virtual ~TPZPressureProjection();
     

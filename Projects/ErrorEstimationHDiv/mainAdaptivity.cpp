@@ -170,7 +170,7 @@ else
             TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
             HDivEstimate.SetAnalyticSolution(config.exact);
 
-            HDivEstimate.PotentialReconstruction();
+            HDivEstimate.PrimalReconstruction();
             TPZManVector<REAL> elementerrors;
             TPZManVector<REAL> errorvec;
             std::string vtkPath = "adaptivity_error_results.vtk";

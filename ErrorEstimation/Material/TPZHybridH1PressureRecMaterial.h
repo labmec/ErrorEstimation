@@ -11,7 +11,7 @@
 #include "DarcyFlow/TPZDarcyFlow.h"
 #include "TPZNullMaterial.h"
 
-typedef TPZMixedDarcyFlow TPZMixedPoisson;
+    typedef TPZMixedDarcyFlow TPZMixedPoisson;
 
 
 class TPZHybridH1PressureSingleSpace : public TPZDarcyFlow{

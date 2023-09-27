@@ -511,7 +511,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     bool postProcWithHDiv = false;
     TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
-    ErrorEstimator.PotentialReconstruction();
+    ErrorEstimator.PrimalReconstruction();
 
     {
         std::string command = "mkdir -p " + config.dir_name;

@@ -55,21 +55,21 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        PlotPressureSkeleton("ReconstructionSteps/SkelBoundaryProjection");
+        PlotPrimalSkeleton("ReconstructionSteps/SkelBoundaryProjection");
     }
 #endif
 
     // Calculates average pressure on interface edges and vertices
     int dim = fPostProcMesh.Dimension();
-    ComputeAveragePressures(dim - 1);
+    ComputeAveragePrimal(dim - 1);
     // in three dimensions make the one-d polynomials compatible
     if (dim == 3) {
-        ComputeAveragePressures(1);
+        ComputeAveragePrimal(1);
     }
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        PlotPressureSkeleton("ReconstructionSteps/SkelInterfaceAverage");
+        PlotPrimalSkeleton("ReconstructionSteps/SkelInterfaceAverage");
     }
 #endif
 
@@ -77,7 +77,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        PlotPressureSkeleton("ReconstructionSteps/SkelNodalAverage");
+        PlotPrimalSkeleton("ReconstructionSteps/SkelNodalAverage");
     }
 #endif
 
@@ -137,10 +137,10 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
 
 
 #ifdef ERRORESTIMATION_DEBUG
-    VerifySolutionConsistency(PressureMesh());
+    VerifySolutionConsistency(PrimalMesh());
 #endif
 
-    PlotPressureSkeleton("ReconstructionSteps/FinalSkeletonPressure");
+    PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure");
 
     if (fPostProcesswithHDiv) {
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
@@ -162,16 +162,16 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     SwitchMaterialObjects();
 //create 5 meshes: stress (fem and reconstructed), displacement (fem and reconstructed) and rotation (?)
     TPZManVector<TPZCompMesh *> meshvec(5);
-    TPZManVector<int,4> active(5,0);
+    TPZManVector<int,5> active(5,0);
     active[1] = 1;
 
     meshvec[0] = 0;
-    meshvec[1] = CreatePressureMesh();// CreateDisplacementMesh()
+    meshvec[1] = CreateDisplacementMesh(); // CreatePressureMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
     meshvec[3] = fOriginal->MeshVector()[1];
 
     if (fPostProcesswithHDiv) {
-        meshvec[0] = CreateFluxMesh(); // CreateTensorMesh()
+        meshvec[0] = CreateStressMesh(); // CreateFluxMesh(); 
         active[0] = 1;
     }
 
@@ -182,7 +182,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     if (fPostProcesswithHDiv) {
         CreateFluxSkeletonElements(meshvec[0]);
         // TODO move this to InsertMaterials method
-        TPZNullMaterialCS<> *skeletonMat = new TPZNullMaterialCS<>(fPressureSkeletonMatId);
+        TPZNullMaterialCS<> *skeletonMat = new TPZNullMaterialCS<>(fPrimalSkeletonMatId);
         skeletonMat->SetDimension(GMesh()->Dimension() - 1);
         fPostProcMesh.InsertMaterialObject(skeletonMat);
 
@@ -192,7 +192,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     }
 
     //enriquecer no MHM tbem?
-    IncreasePressureSideOrders(meshvec[1]);//malha da pressao
+    IncreasePrimalSideOrders(meshvec[1]);//malha da pressao
     if(fPostProcesswithHDiv) {
         IncreaseSideOrders(meshvec[0]);//malha do fluxo
     }
@@ -231,7 +231,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     }
 
     SubStructurePostProcessingMesh();
-    ComputePressureWeights();
+    ComputePrimalWeights();
 
     {
         std::ofstream file("GmeshAfterCreatePostProcessing.vtk");
@@ -454,7 +454,7 @@ void TPZElasticityErrorEstimator::SubStructurePostProcessingMesh()
     std::cout << "Finished substructuring post proc mesh\n";
 }
 
-TPZCompMesh *TPZElasticityErrorEstimator::CreateFluxMesh()
+TPZCompMesh *TPZElasticityErrorEstimator::CreateHDivMesh()
 {
     TPZCompMesh *OrigFlux = fOriginal->MeshVector()[0];
     TPZGeoMesh *gmesh = OrigFlux->Reference();
@@ -505,59 +505,58 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateFluxMesh()
     return fluxmesh;
 }
 
-TPZCompMesh *TPZElasticityErrorEstimator::CreatePressureMesh() {
+TPZCompMesh *TPZElasticityErrorEstimator::CreatePrimalMesh() {
     if (fPostProcesswithHDiv) {
-        return CreateDiscontinuousPressureMesh();
+        return CreateDiscontinuousDisplacementMesh();
     } else {
-        return CreateInternallyContinuousPressureMesh();
+        return CreateInternallyContinuousDisplacementMesh();
     }
 }
 
 
 TPZCompMesh *TPZElasticityErrorEstimator::CreateDisplacementMesh() {
-    std::cout<<" to be implemented "<<std::endl;
+    return this->CreatePrimalMesh();
 }
 
-TPZCompMesh *TPZElasticityErrorEstimator::CreateTensorMesh (){
-    std::cout<<" to be implemented "<<std::endl;
+TPZCompMesh *TPZElasticityErrorEstimator::CreateStressMesh (){
+    return this->CreateHDivMesh();
 }
 
 
-TPZCompMesh *TPZElasticityErrorEstimator::CreateDiscontinuousPressureMesh()
+TPZCompMesh *TPZElasticityErrorEstimator::CreateDiscontinuousDisplacementMesh()
 {
-    TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
-    TPZGeoMesh *gmesh = OrigPressure->Reference();
+    TPZCompMesh *OrigDisplacement = fOriginal->MeshVector()[1];
+    TPZGeoMesh *gmesh = OrigDisplacement->Reference();
     gmesh->ResetReference();
-    int dim = gmesh->Dimension();
-    TPZCompMesh *pressmesh = OrigPressure->Clone();
-    RemoveMaterialObjects(pressmesh->MaterialVec());
-    int64_t nel = pressmesh->NElements();
+    TPZCompMesh *displacementMesh = OrigDisplacement->Clone();
+    RemoveMaterialObjects(displacementMesh->MaterialVec());
+    int64_t nel = displacementMesh->NElements();
     for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel = pressmesh->Element(el);
+        TPZCompEl *cel = displacementMesh->Element(el);
         if(!cel) continue;
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if(!intel) DebugStop();
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
-        if(!pressmesh->FindMaterial(matid))
+        if(!displacementMesh->FindMaterial(matid))
         {
             delete cel;
         }
     }
-    pressmesh->ExpandSolution();
-    return pressmesh;
+    displacementMesh->ExpandSolution();
+    return displacementMesh;
 }
 
-TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousPressureMesh() {
-    TPZCompMesh *original_pressure = fOriginal->MeshVector()[1];
-    TPZGeoMesh *gmesh = original_pressure->Reference();
+TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousDisplacementMesh() {
+    TPZCompMesh *original_displacement = fOriginal->MeshVector()[1];
+    TPZGeoMesh *gmesh = original_displacement->Reference();
     gmesh->ResetReference();
-    original_pressure->LoadReferences();
+    original_displacement->LoadReferences();
 
     // We need to fill a tuple with the information of the MHM domain that each geometric element belongs to
-    // and the corresponding computational element in the original pressure mesh.
+    // and the corresponding computational element in the original displacement mesh.
     // The MHM domain info allows the creation of continuous space inside a MHM domain, but not globally.
-    // The original pressure comp. element is used to retrieve the original approximation order.
+    // The original displacement comp. element is used to retrieve the original approximation order.
     int64_t nel = gmesh->NElements();
     auto geoToMHM = fMHM->GetGeoToMHMDomain();
     TPZManVector<std::tuple<int64_t, int64_t, TPZCompEl*>> MHMOfEachGeoEl(nel);
@@ -576,7 +575,6 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousPressureMesh
     }
 
     int dim = gmesh->Dimension();
-    std::map<int64_t, int64_t> bcToMHM;
     int64_t nElem = gmesh->NElements();
     for (int64_t el = 0; el < nElem; el++) {
         TPZGeoEl *gel = gmesh->Element(el);
@@ -605,36 +603,34 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousPressureMesh
 
     std::sort(&MHMOfEachGeoEl[0], &MHMOfEachGeoEl[nel - 1] + 1);
 
-    // Create pressure mesh
-    TPZCompMesh *reconstruction_pressure = new TPZCompMesh(gmesh);
+    // Create displacement mesh
+    TPZCompMesh *reconstruction_displacement = new TPZCompMesh(gmesh);
 
     // Copies volume materials
-    original_pressure->CopyMaterials(*reconstruction_pressure);
-    RemoveMaterialObjects(reconstruction_pressure->MaterialVec());
+    original_displacement->CopyMaterials(*reconstruction_displacement);
+    RemoveMaterialObjects(reconstruction_displacement->MaterialVec());
 
     // Copies BC materials
-    std::set<int> bcMatIDs;
     for (auto it : fOriginal->MaterialVec()) {
         TPZMaterial *mat = it.second;
         TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if (bc) {
             int bcID = bc->Material()->Id();
-            TPZMaterial *pressure_abs = original_pressure->FindMaterial(bcID);
-            TPZMaterialT<STATE> *pressure_mat = dynamic_cast<TPZMaterialT<STATE>*>(pressure_abs);
-            TPZBndCondT<STATE> *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            TPZMaterialT<STATE> *displacement_mat = dynamic_cast<TPZMaterialT<STATE>*>(original_displacement->FindMaterial(bcID));
+            TPZBndCondT<STATE> *bc_mat = displacement_mat->CreateBC(displacement_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (fExact) {
                 bc_mat->SetForcingFunctionBC(fExact->ExactSolution(),4);
             }
-            reconstruction_pressure->InsertMaterialObject(bc_mat);
+            reconstruction_displacement->InsertMaterialObject(bc_mat);
         }
     }
 
-    reconstruction_pressure->SetDefaultOrder(original_pressure->GetDefaultOrder());
-    reconstruction_pressure->SetAllCreateFunctionsContinuous();
-    reconstruction_pressure->ApproxSpace().CreateDisconnectedElements(false);
+    reconstruction_displacement->SetDefaultOrder(original_displacement->GetDefaultOrder());
+    reconstruction_displacement->SetAllCreateFunctionsContinuous();
+    reconstruction_displacement->ApproxSpace().CreateDisconnectedElements(false);
     gmesh->ResetReference();
 
-    // Creates elements in pressure mesh
+    // Creates elements in displacement mesh
     int64_t previousMHMDomain = -1;
     int64_t firstElemInMHMDomain = -1;
     for (int i = 0; i < MHMOfEachGeoEl.size(); i++) {
@@ -653,12 +649,11 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousPressureMesh
             previousMHMDomain = MHMDomain;
         }
 
-        // Create the pressure element
+        // Create the displacement element
         TPZGeoEl *gel = gmesh->Element(elIndex);
         if (!gel || gel->HasSubElement()) continue;
 
-        TPZCompEl *new_cel = reconstruction_pressure->CreateCompEl(gel);
-        TPZInterpolatedElement *new_intel = dynamic_cast<TPZInterpolatedElement *>(new_cel);
+        TPZInterpolatedElement *new_intel = dynamic_cast<TPZInterpolatedElement *>(reconstruction_displacement->CreateCompEl(gel));
 
         TPZCompEl * orig_cel = std::get<2>(MHMOfEachGeoEl[i]);
         if (orig_cel) {
@@ -669,7 +664,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousPressureMesh
         else {
             // TODO: review these choices
             // There are no BC elements in original pressure, so I'm not sure what to set as default order in this case.
-            // What I'm doing right now is to set as the same order of the neighbour. I think PZ does this automatically
+            // What I'm doing right now is to set as the same order of the neighbor. I think PZ does this automatically
             // but I'm not sure. (Gustavo, 9/11/2020)
             TPZGeoElSide gelside(gel);
             TPZStack<TPZCompElSide> celstack;
@@ -677,7 +672,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousPressureMesh
             int removeduplicates = 0;
 
             gelside.EqualLevelCompElementList(celstack, onlyinterpolated, removeduplicates);
-            // A BC element should have only one neighbour from its highest dimension side
+            // A BC element should have only one neighbor from its highest dimension side
             if (celstack.size() != 1) {
                 continue;
                 //DebugStop();
@@ -694,7 +689,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousPressureMesh
         gmesh->Element(std::get<1>(MHMOfEachGeoEl[j]))->ResetReference();
     }
 
-    return reconstruction_pressure;
+    return reconstruction_displacement;
 }
 
 // remove the materials that are not listed in MHM
@@ -713,7 +708,7 @@ void TPZElasticityErrorEstimator::RemoveMaterialObjects(std::map<int,TPZMaterial
                 if (!fPostProcesswithHDiv || (fPostProcesswithHDiv
                     && matid != fMultiPhysicsInterfaceMatId
                     && matid != fHDivWrapMatId
-                    && matid != fPressureSkeletonMatId)) {
+                    && matid != fPrimalSkeletonMatId)) {
                     std::cout << __PRETTY_FUNCTION__  << ": Removing material " << matid << '\n';
                     TPZMaterial *mat = iter.second;
                     delete mat;
@@ -790,7 +785,7 @@ void TPZElasticityErrorEstimator::TransferEmbeddedElements()
 
 // a method for computing the pressures between subdomains as average pressures
 /// compute the average pressures of across edges of the H(div) mesh
-void TPZElasticityErrorEstimator::ComputeAveragePressures(int target_dim)
+void TPZElasticityErrorEstimator::ComputeAveragePrimal(int target_dim)
 {
     // load the pressure elements of the finite element approximation
     TPZCompMesh *OrigPressure = fOriginal->MeshVector()[1];
@@ -826,7 +821,7 @@ void TPZElasticityErrorEstimator::ComputeAveragePressures(int target_dim)
             if(!intel) DebugStop();
             
             int matId = gel->MaterialId();
-            if(matId != fPressureSkeletonMatId) continue;
+            if(matId != fPrimalSkeletonMatId) continue;
             int64_t index = intel->Index();
             ComputeAverage(postpressuremesh,index);
         }
@@ -889,9 +884,9 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
     }
 #endif
 
-    if (fPressureSkeletonMatId == 0) {
-        fPressureSkeletonMatId = FindFreeMatId(this->GMesh());
-        std::cout << "Created new pressure skeleton material of index " << fPressureSkeletonMatId << '\n';
+    if (fPrimalSkeletonMatId == 0) {
+        fPrimalSkeletonMatId = FindFreeMatId(this->GMesh());
+        std::cout << "Created new pressure skeleton material of index " << fPrimalSkeletonMatId << '\n';
     }
 
     const TPZManVector<int64_t> geoToMHM = fMHM->GetGeoToMHMDomain();
@@ -922,8 +917,8 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
                 int64_t gel_index = gel->Index();
                 int64_t neigh_gel_index = neighbour.Element()->Index();
                 if (geoToMHM[gel_index] != geoToMHM[neigh_gel_index]) {
-                    if (!gelside.HasNeighbour(fPressureSkeletonMatId)) {
-                        TPZGeoElBC gbc(gelside, fPressureSkeletonMatId);
+                    if (!gelside.HasNeighbour(fPrimalSkeletonMatId)) {
+                        TPZGeoElBC gbc(gelside, fPrimalSkeletonMatId);
                         break;
                     }
                 }
@@ -939,27 +934,27 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
 #endif
 }
 
-void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *pressure_mesh) {
+void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *displacement_mesh) {
 
-    TPZGeoMesh *gmesh = pressure_mesh->Reference();
+    TPZGeoMesh *gmesh = displacement_mesh->Reference();
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPressureSkeletonMatId);
+    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPrimalSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
-    pressure_mesh->InsertMaterialObject(skeletonMat);
+    displacement_mesh->InsertMaterialObject(skeletonMat);
 
-    std::set<int> matIdSkeleton = { fPressureSkeletonMatId };
+    std::set<int> matIdSkeleton = { fPrimalSkeletonMatId };
     gmesh->ResetReference();
 
-    pressure_mesh->ApproxSpace().CreateDisconnectedElements(true);
-    pressure_mesh->AutoBuild(matIdSkeleton);
-    pressure_mesh->ExpandSolution();
+    displacement_mesh->ApproxSpace().CreateDisconnectedElements(true);
+    displacement_mesh->AutoBuild(matIdSkeleton);
+    displacement_mesh->ExpandSolution();
 }
 
 void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
 
-    TPZCompMesh *pressuremesh = PressureMesh();
+    TPZCompMesh *pressuremesh = PrimalMesh();
 
     pressuremesh->Reference()->ResetReference();
 
@@ -1156,7 +1151,7 @@ void TPZElasticityErrorEstimator::ComputeConnectsNextToSkeleton(std::set<int64_t
         TPZGeoEl* gel = gmesh->Element(el);
         if (!gel) continue;
         if (gel->Dimension() == dim) continue;
-        if (gel->MaterialId() != this->fPressureSkeletonMatId) continue;
+        if (gel->MaterialId() != this->fPrimalSkeletonMatId) continue;
         TPZCompEl* cel = gel->Reference();
         if (!cel) continue;
 
@@ -1213,7 +1208,7 @@ void TPZElasticityErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_m
         if (!gel) continue;
 
         // Continue if element is not of pressure skeleton mat id
-        if (gel->MaterialId() != fPressureSkeletonMatId) continue;
+        if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
 
         // Get side of largest dimension of the skeleton
         TPZGeoElSide skelSide = TPZGeoElSide(gel);
@@ -1272,7 +1267,7 @@ void TPZElasticityErrorEstimator::CreateMultiphysicsInterfaces() {
     for (int64_t iel = 0; iel < nel; iel++) {
         TPZGeoEl *gel = gmesh->Element(iel);
 
-        if (gel->MaterialId() != fPressureSkeletonMatId) continue;
+        if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
 
         // Get side of largest dimension of the skeleton
         TPZGeoElSide skelSide = TPZGeoElSide(gel);
@@ -1301,4 +1296,66 @@ void TPZElasticityErrorEstimator::CreateMultiphysicsInterfaces() {
         std::ofstream file("GmeshAfterInterfaces.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(this->GMesh(), file);
     }
+}
+
+
+
+
+/// compute the pressure weights and material weights
+// fills in the data structure fPrimalWeights and fMatid_weights
+void TPZElasticityErrorEstimator::ComputePrimalWeights() {
+    std::cout << "Computing pressure weights\n";
+    TPZCompMesh *primalMesh = fPostProcMesh.MeshVector()[1];
+    const int dim = primalMesh->Dimension();
+    const int64_t nel = primalMesh->NElements();
+    fPrimalWeights.Resize(nel, 0);
+    fMatid_weights.clear();
+    for (int64_t el = 0; el < nel; el++) {
+        TPZCompEl *cel = primalMesh->Element(el);
+        if (!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        int matid = gel->MaterialId();
+        TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
+        if (matid == fPrimalSkeletonMatId || matid == fHybridizer.fLagrangeInterface) {
+            fPrimalWeights[el] = 0.;
+            fMatid_weights[matid] = 0.;
+            continue;
+        }
+        if (!mat) DebugStop();
+
+        TPZBndCondT<STATE> *bcmat = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if (bcmat) {
+            switch(bcmat->Type()) {
+                case 0: // Dirichlet BC
+                    fPrimalWeights[el] = 1.e12;
+                    fMatid_weights[matid] = 1.e12;
+                    break;
+                case 1: // Neumann BC
+                    fPrimalWeights[el] = 0;
+                    fMatid_weights[matid] = 0;
+                    break;
+                case 4: // Robin BC, weight = Km
+                    fPrimalWeights[el] = bcmat->Val1()(0, 0);
+                    fMatid_weights[matid] = bcmat->Val1()(0, 0);
+                    break;
+                default:
+                    DebugStop();
+            }
+        } else {
+            TPZMixedElasticityND *mixedElasticityMaterial = dynamic_cast<TPZMixedElasticityND *>(mat);
+            if (!mixedElasticityMaterial) DebugStop();
+
+            REAL weight;
+            TPZVec<REAL> xi(gel->Dimension(), 0.);
+            gel->CenterPoint(gel->NSides() - 1, xi);
+            TPZVec<REAL> x(3, 0.);
+            gel->X(xi, x);
+            weight = mixedElasticityMaterial->GetMaxCoalescenceEigenvalue(x);
+
+            if (IsZero(weight)) DebugStop();
+            this->fPrimalWeights[el] = weight;
+            fMatid_weights[matid] = weight;
+        }
+    }
+    std::cout << "Finished computing pressure weights\n";
 }

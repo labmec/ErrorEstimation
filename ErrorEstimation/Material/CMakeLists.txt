@@ -2,6 +2,10 @@
 target_sources(ErrorEstimationLib PUBLIC
     TPZHDivErrorEstimateMaterial.cpp
     TPZHDivErrorEstimateMaterial.h
+    TPZHDivErrorEstimateDarcyMaterial.cpp
+    TPZHDivErrorEstimateDarcyMaterial.h
+    TPZHDivErrorEstimateElasticityMaterial.cpp
+    TPZHDivErrorEstimateElasticityMaterial.h
     TPZMixedHdivErrorEstimate.cpp
     TPZMixedHdivErrorEstimate
     TPZMatLaplacianHybrid.cpp

@@ -64,7 +64,7 @@ CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId);
 template<class tshape>
 void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,ProblemConfig &config);
 
-void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivc, TPZAnalyticSolution *fAn);
+void InsertMaterials(const int &dim, TPZHDivApproxCreator& hdivc, TPZAnalyticSolution *fAn);
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh);
 
 //%%%%
@@ -112,12 +112,11 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     TPZLogger::InitializePZLOG();
 #endif
     
-    int DIM = tshape::Dimension;
+    const int DIM = tshape::Dimension;
     TPZVec<int> nDivs;
-    TPZVec<int> divs = {2,5,10,20,50,100};
+    TPZVec<int> divs = {2, 5, 10, 20, 50, 100};
     // TPZVec<int> divs = {5};
     int pend = 3;
-
     
     for (int iorder = 1; iorder < pend+1; iorder++){
         for (int idiv = 0; idiv < divs.size(); idiv++){
@@ -129,8 +128,6 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     // Creates/import a geometric mesh
     auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
-            
-            
 
     // Creates an hdivApproxCreator object. It is an environment developped to
     // help creating H(div)-family possible approximation spaces.
@@ -161,7 +158,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
             
-            config.gmesh=gmesh;
+    config.gmesh=gmesh;
 
     //Creates an analytical solution to test
     TPZAnalyticSolution *gAnalytic = 0;
@@ -227,7 +224,6 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     //Assemble and solve the problem.
     an.Run();
-            
   
     //Printing results in a vtk file
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(cmesh->MeshVector(), an.Mesh());
@@ -316,10 +312,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     //             << " " << error[5] << " " << error[6] << std::endl;
             
             // Estimation Error for elasticity problem
-            
             EstimateError(config,cmesh);
-            
-            
         }
     }
 }
@@ -334,10 +327,11 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh) {
     bool postProcWithHDiv = false;
     //criar construtor para estimador de elasticidade
     
-    TPZElasticityErrorEstimator ErrorEstimator(*multimesh);
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    TPZElasticityErrorEstimator ErrorEstimator(*multimesh, mhm);
     
     ErrorEstimator.SetAnalyticSolution(config.exact);
-    //criar displacement reconstruction
+    //create displacement reconstruction
     ErrorEstimator.DisplacementReconstruction();
 
     {
@@ -404,54 +398,49 @@ CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId)
     
 }
 
-void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolution *fAn){
-
-    if (hdivCreator.ProbType() == ProblemType::EDarcy){
-        TPZMixedDarcyFlow* matdarcy = new TPZMixedDarcyFlow(EDomain,dim);
+void InsertMaterials(const int &dim, TPZHDivApproxCreator& hdivCreator, TPZAnalyticSolution *fAn) {
+    if (hdivCreator.ProbType() == ProblemType::EDarcy) {
+        TPZMixedDarcyFlow* matdarcy = new TPZMixedDarcyFlow(EDomain, dim);
         // matdarcy->SetConstantPermeability(1.);
-        TLaplaceExample1* lapl = dynamic_cast<TLaplaceExample1*> (fAn) ;
-        matdarcy->SetExactSol(lapl->ExactSolution(),4);
-        matdarcy->SetForcingFunction(lapl->ForceFunc(),4);
+        TLaplaceExample1* lapl = dynamic_cast<TLaplaceExample1*> (fAn);
+        matdarcy->SetExactSol(lapl->ExactSolution(), 4);
+        matdarcy->SetForcingFunction(lapl->ForceFunc(), 4);
 
         hdivCreator.InsertMaterialObject(matdarcy);
 
-        TPZFMatrix<STATE> val1(1,1,0.);
-        TPZManVector<STATE> val2(1,0.);
+        TPZFMatrix<STATE> val1(1, 1, 0.);
+        TPZManVector<STATE> val2(1, 0.);
         TPZBndCondT<STATE> *BCond1 = matdarcy->CreateBC(matdarcy, EBoundary, 0, val1, val2);
-        BCond1->SetForcingFunctionBC(lapl->ExactSolution(),4);
+        BCond1->SetForcingFunctionBC(lapl->ExactSolution(), 4);
         hdivCreator.InsertMaterialObject(BCond1);
-    } else if (hdivCreator.ProbType() == ProblemType::EElastic){
-        TElasticity2DAnalytic *elas2D;
-        TElasticity3DAnalytic *elas3D;
-        TPZMixedElasticityND* matelas;
+    } else if (hdivCreator.ProbType() == ProblemType::EElastic) {
         if (dim == 2) {
-            elas2D = dynamic_cast<TElasticity2DAnalytic*> (fAn) ;
-            matelas = new TPZMixedElasticityND(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress, dim);
-            matelas->SetExactSol(elas2D->ExactSolution(),4);
-            matelas->SetForcingFunction(elas2D->ForceFunc(),4);
+            TElasticity2DAnalytic *elas2D = dynamic_cast<TElasticity2DAnalytic*> (fAn);
+            auto matelas = new TPZMixedElasticityND(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress, dim);
+            matelas->SetExactSol(elas2D->ExactSolution(), 4);
+            matelas->SetForcingFunction(elas2D->ForceFunc(), 4);
             hdivCreator.InsertMaterialObject(matelas);
 
-            TPZFMatrix<STATE> val1(dim,dim,0.);
-            TPZManVector<STATE> val2(dim,0.);
+            TPZFMatrix<STATE> val1(dim, dim, 0.);
+            TPZManVector<STATE> val2(dim, 0.);
             TPZBndCondT<STATE> *BCond1 = matelas->CreateBC(matelas, EBoundary, 0, val1, val2);
-            BCond1->SetForcingFunctionBC(elas2D->ExactSolution(),4);
+            BCond1->SetForcingFunctionBC(elas2D->ExactSolution(), 4);
             hdivCreator.InsertMaterialObject(BCond1);
         }
         if (dim == 3) {
-            elas3D = dynamic_cast<TElasticity3DAnalytic*> (fAn) ;
-            matelas = new TPZMixedElasticityND(EDomain, elas3D->fE, elas3D->fPoisson, 0, 0, 0, dim);
-            matelas->SetExactSol(elas3D->ExactSolution(),4);
-            matelas->SetForcingFunction(elas3D->ForceFunc(),4);
+            TElasticity3DAnalytic *elas3D = dynamic_cast<TElasticity3DAnalytic*> (fAn);
+            auto matelas = new TPZMixedElasticityND(EDomain, elas3D->fE, elas3D->fPoisson, 0, 0, 0, dim);
+            matelas->SetExactSol(elas3D->ExactSolution(), 4);
+            matelas->SetForcingFunction(elas3D->ForceFunc(), 4);
             hdivCreator.InsertMaterialObject(matelas);
 
-            TPZFMatrix<STATE> val1(dim,dim,0.);
-            TPZManVector<STATE> val2(dim,0.);
+            TPZFMatrix<STATE> val1(dim, dim, 0.);
+            TPZManVector<STATE> val2(dim, 0.);
             TPZBndCondT<STATE> *BCond1 = matelas->CreateBC(matelas, EBoundary, 0, val1, val2);
-            BCond1->SetForcingFunctionBC(elas3D->ExactSolution(),4);
+            BCond1->SetForcingFunctionBC(elas3D->ExactSolution(), 4);
             hdivCreator.InsertMaterialObject(BCond1);
         }
-        
     } else {
-        DebugStop();//Material Not Implemented
+        DebugStop(); //Material Not Implemented
     }
 }
