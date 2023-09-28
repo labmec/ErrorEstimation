@@ -822,6 +822,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
         scalnames.Push("TrueError");
         scalnames.Push("POrder");
         scalnames.Push("EffectivityIndex");
+        
         vecnames.Push("Flux");
         vecnames.Push("ExactFlux");
 
@@ -850,8 +851,6 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
             plotname = out.str();
         }
         
-        //an.SetExact(config.exact->ExactSolution());
-        //an.SetExact(config.exact.operator*().ExactSolution());
         an.DefineGraphMesh(cmeshH1->Dimension(), scalnames, vecnames, plotname);
         int resolution = 0;
         an.PostProcess(resolution);

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
     pConfig.refLevel = 2;                      //// How many uniform refinements
-    pConfig.numberAdapativitySteps = 4;        //// Maximum number of adapativity refinement steps.
+    pConfig.numberAdapativitySteps = 1;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
     pConfig.vtkResolution = 4;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.

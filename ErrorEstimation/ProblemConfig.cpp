@@ -139,8 +139,7 @@ void ProblemConfig::PorderIncrement() {
     if (!fElIndexPplus.size() || !cmeshH1) {
         return;
     }
-    int64_t elem, nels = fElIndexPplus.size();
-    //int order;
+    int64_t nels = fElIndexPplus.size();
     
     for(auto &itlist : fElIndexPplus) {
         for(auto eleindex : itlist) {
@@ -162,6 +161,7 @@ void ProblemConfig::PorderIncrement() {
         }
     }
     
+    //Adjustments to smooth the distribution of polynomial orders
     int64_t nels2 = cmeshH1->NElements();
     bool change = true;
     while (change) {
@@ -171,7 +171,6 @@ void ProblemConfig::PorderIncrement() {
             int celorder = CelOrder(cel);
             TPZGeoEl* gel = cel->Reference();
             
-            //Adjust neighbour polynomial orders
             for (int side = 0; side < gel->NSides()-1; side++) {
                 TPZGeoElSide gelside(gel,side);
                 TPZCompElSide celsidebig = gelside.LowerLevelCompElementList2(1);
@@ -183,33 +182,37 @@ void ProblemConfig::PorderIncrement() {
                         intel->PRefine(orderbig-1);
                         celorder = orderbig - 1;
                         change = true;
-                        break;
+                        //break;
                     }
                 }
+                
+                TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                 
                 TPZGeoElSide neighbour = gelside.Neighbour();
-                TPZGeoEl* gelneigh = neighbour.Element();
-                TPZCompEl* celneigh = gelneigh->Reference();
-                TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-                if(celneigh){
-                    TPZInterpolatedElement* intelneigh = dynamic_cast<TPZInterpolatedElement*>(celneigh);
+                while(neighbour != gelside){
+                    TPZGeoEl* gelneigh = neighbour.Element();
+                    TPZCompEl* celneigh = gelneigh->Reference();
                     
-                    int orderneigh = CelOrder(celneigh);
-                    
-                    if(celorder > orderneigh + 1) {
-                        intelneigh->PRefine(celorder - 1);
-                        change = true;
-                        break;
+                    if(celneigh){
+                        TPZInterpolatedElement* intelneigh = dynamic_cast<TPZInterpolatedElement*>(celneigh);
+                        
+                        int orderneigh = CelOrder(celneigh);
+                        
+                        if(celorder > orderneigh + 1) {
+                            intelneigh->PRefine(celorder - 1);
+                            change = true;
+                            //break;
+                        }
+                        
+                        if(orderneigh > celorder + 1) {
+                            intel->PRefine(orderneigh - 1);
+                            change = true;
+                            celorder = orderneigh - 1;
+                            
+                        }
                     }
-                    
-                    if(orderneigh > celorder + 1) {
-                        intel->PRefine(orderneigh - 1);
-                        change = true;
-                        celorder = orderneigh - 1;
-                        break;
-                    }
+                    neighbour = neighbour.Neighbour();
                 }
-                
                 TPZStack<TPZCompElSide> celsidestack;
                 gelside.HigherLevelCompElementList2(celsidestack, 1, 1);
                 for(int i = 0; i < celsidestack.size(); i++ ){

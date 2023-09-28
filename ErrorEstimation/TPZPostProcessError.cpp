@@ -588,14 +588,36 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             TPZStack<std::string> scalnames, vecnames;
             scalnames.Push("POrder");
             scalnames.Push("Pressure");
+            scalnames.Push("PartialErrorColor");
             vecnames.Push("Flux");
             an.SetStep(color); //
             
+            TPZVec<REAL> errorscolor(6,0);
+            int n = meshmixed->NElements();
+            meshmixed->ElementSolution().Resize(n, 6);
+            
+            an.PostProcessError(errorscolor);
             int ModelDimension = meshmixed->Dimension();
             std::stringstream sout;
             sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
             an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
             an.PostProcess(0,meshmixed->Dimension());
+            
+        }
+        
+        if(0){ //just to plot hat functions of one color
+            if(color == 6 and meshpatch->NElements() > 60){
+                //meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
+                
+                TPZStack<std::string> scalnames2, vecnames2;
+                scalnames2.Push("Solution");
+                std::stringstream sout;
+                sout << "Hatfunctions" << ".vtk";
+                TPZLinearAnalysis an2(meshpatch);
+                an2.DefineGraphMesh(meshpatch->Dimension(), scalnames2, vecnames2, sout.str());
+                int resolution = 0;
+                an2.PostProcess(resolution, meshpatch->Dimension());
+            }
         }
         
         //Recovery the initial comp. elements
@@ -629,6 +651,28 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         //meshmixed->Solution().Print("solu2");
     }// colors loop
     
+    if(0){// Just to check the property of the partition of unity
+        TPZFMatrix<STATE> &weightsol = meshpatch->Solution();
+        for (int color_ = 0; color_ < ncolors; color_++){
+            int npatch = fVecVecPatches[color_].size();
+            for (int patch_ = 0; patch_ < npatch; patch_++){
+                int64_t partitionindex = fVecVecPatches[color_][patch_].fPartitionConnectIndex;
+                TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
+                int64_t seqnum = c.SequenceNumber();
+                weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
+            }
+        }
+        meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
+        TPZStack<std::string> scalnames2, vecnames2;
+        scalnames2.Push("Solution");
+        std::stringstream sout;
+        sout << "SumHatfunctions" << ".vtk";
+        TPZLinearAnalysis an2(meshpatch);
+        an2.DefineGraphMesh(meshpatch->Dimension(), scalnames2, vecnames2, sout.str());
+        int resolution = 0;
+        an2.PostProcess(resolution, meshpatch->Dimension());
+    }
+    
     TPZLinearAnalysis an(meshmixed,RenumType::ENone);
     an.Solution() = fSolution;
     an.LoadSolution();
@@ -651,13 +695,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     std::ofstream outfmesh("Fluxmesh.txt");
     fMeshVector[Eflux]->Print(outfmesh);
     
-    TPZManVector<REAL,6> errors(6,0.);
-    
     {
         int64_t nels = meshmixed->ElementVec().NElements();
         meshmixed->ElementSolution().Redim(nels, 6);
     }
     
+    TPZManVector<REAL,6> errors(6,0.);
     an.PostProcessError(errors);
     cout << "Global flux estimated error " << errors[2] << std::endl;
     cout << "Global residual estimate error " << errors[3] << std::endl;

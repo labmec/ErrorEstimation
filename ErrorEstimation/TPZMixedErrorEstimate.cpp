@@ -182,7 +182,24 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
             inner += (flux[i]+fluxprimalneg(i,0))*(flux[i]+fluxprimalneg(i,0))/perm;
     }
     
-    errors[2] += inner;
+    //make a contribution to the partial error on each color uniquely
+    if(1){
+        errors[2] += inner;
+        TPZManVector<STATE,1> u_exact(1, 0);
+        TPZFMatrix<STATE> du_exact(3, 1, 0);
+        if (this->fExactSol) {
+            this->fExactSol(data[3].x, u_exact, du_exact);
+        }
+        
+        REAL psival = data[Epatch].sol[0][0]; //hat function
+        
+        REAL inner2 = 0.;
+        for (int i=0; i<3; i++) {
+            inner2 += (psival*du_exact(i,0)+flux[i])*(psival*du_exact(i,0)+flux[i]);
+        }
+        
+        errors[4] += inner2; // for L2 norm
+    }
 }
 
 template class TPZMixedErrorEstimate<TPZMixedDarcyFlow>;

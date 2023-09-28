@@ -68,6 +68,8 @@ public:
     /// make a contribution to the error computation
     virtual void Errors(const TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<REAL> &errors) override;
     
+    /// make a contribution to the partial error on each color
+    void ErrorPartialReconstruct(const TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<REAL> &errors);
 
 };
 
