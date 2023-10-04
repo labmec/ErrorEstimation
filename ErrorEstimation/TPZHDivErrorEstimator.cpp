@@ -26,6 +26,8 @@
 #include "pzmultiphysicscompel.h"
 #include "TPZHDivErrorEstimateMaterial.h"
 #include "TPZCompMeshTools.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "Projection/TPZL2Projection.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -201,6 +203,7 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
             TPZMaterial *pressuremat = pressureMesh->FindMaterial(volumetricMatId);
             if (!pressuremat) DebugStop();
             TPZMaterialT<STATE> *press = dynamic_cast<TPZMaterialT<STATE> *>(pressuremat);
+            TPZMixedDarcyFlow *press2 = dynamic_cast<TPZMixedDarcyFlow *>(pressuremat);
 
             TPZBndCondT<STATE> *newbc = press->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (bc->HasForcingFunctionBC()) {
@@ -258,14 +261,14 @@ TPZCompMesh *TPZHDivErrorEstimator::CreatePressureMesh() {
             neighCel->Reference()->ResetReference();
         }
         
-#ifdef ERRORESTIMATION_DEBUG
+// #ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream outTXT("PostProcPressureMesh.txt");
             std::ofstream outVTK("PostProcPressureMesh.vtk");
             pressureMesh->Print(outTXT);
             TPZVTKGeoMesh::PrintCMeshVTK(pressureMesh, outVTK);
         }
-#endif
+// #endif
 
         CreateSkeletonElements(pressureMesh);
         
@@ -354,7 +357,7 @@ void TPZHDivErrorEstimator::CreatePostProcessingMesh() {
         // the flux mesh is active only if we postprocess with an H(div) approximation
         active[0] = 1;
     }
-    
+    fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     {
         std::ofstream out("multiphysicsCreated.txt");
@@ -829,6 +832,9 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
     gmesh->ResetReference();
     int64_t nel = pressuremesh->NElements();
     
+    pressuremesh->DeleteMaterial(-1);
+    TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(-1,1);
+    pressuremesh->InsertMaterialObject(l2p);
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
     
     TPZElementMatrixT<STATE> ekbc, efbc;
@@ -840,9 +846,9 @@ void TPZHDivErrorEstimator::ComputeBoundaryL2Projection(int target_dim){
         
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
-        
-        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-        if (!bc || (bc->Type() != 0)) continue;
+        if (matid != -1) continue;
+        // TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        // if (!bc || (bc->Type() != 0)) continue;
         
         cel->CalcStiff(ekbc, efbc);
         ekbc.fMat.SolveDirect(efbc.fMat, ELU);
@@ -1668,7 +1674,7 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
         int target_dim = 1;
         // TODO ver se fica igual para dimensao maior
         ComputeBoundaryL2Projection(target_dim);
-        //BoundaryPressureProjection(pressuremesh, target_dim);
+        //BoundaryPressurePrRojection(pressuremesh, target_dim);
     }
 
 #ifdef ERRORESTIMATION_DEBUG
@@ -1743,15 +1749,15 @@ void TPZHDivErrorEstimator::PotentialReconstruction() {
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
-    {
-        //PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh, false);
-        //PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
-        std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
-        std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
-    }
+    // TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+    // {
+    //     //PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh, false);
+    //     //PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
+    //     std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
+    //     TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
+    //     std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
+    //     TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+    // }
 
 
 #ifdef ERRORESTIMATION_DEBUG
