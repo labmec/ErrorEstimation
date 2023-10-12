@@ -64,8 +64,14 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::CreatePostProcessingMesh()
         this->IncreaseSideOrders(meshvec[0]);//malha do fluxo
     }
 
+<<<<<<< HEAD
     this->RemoveMaterialObjects(this->fPostProcMesh.MaterialVec());
     this->fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
+=======
+    RemoveMaterialObjects(fPostProcMesh.MaterialVec());
+    fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
+    fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
+>>>>>>> HybridH1Adaptative
 
     if(this->fPostProcesswithHDiv) {
         // Create multiphysics interface computational elements

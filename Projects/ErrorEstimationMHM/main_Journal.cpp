@@ -42,12 +42,14 @@ int main() {
     TPZLogger::InitializePZLOG();
     gRefDBase.InitializeAllUniformRefPatterns();
 
-    const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nInternalRef = {0, 1, 2, 3};
+    // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
+    const std::set<int> nCoarseDiv = {3};
+    const std::set<int> nInternalRef = {1};
+    // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
         for (const auto internal_ref : nInternalRef) {
-            RunSmoothProblem(coarse_div, internal_ref);
-            //RunInnerSingularityProblem(coarse_div, internal_ref);
+            // RunSmoothProblem(coarse_div, internal_ref);
+            RunInnerSingularityProblem(coarse_div, internal_ref);
             //RunHighGradientProblem(coarse_div, internal_ref);
             //RunPeriodicPermProblem(coarse_div, internal_ref);
         }
@@ -417,7 +419,7 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     mhm->DivideSkeletonElements(0);
     mhm->DivideBoundarySkeletonElements();
     // Creates MHM mesh
-    bool substructure = true;
+    bool substructure = false;
     mhm->BuildComputationalMesh(substructure);
 }
 
@@ -425,8 +427,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
-    bool shouldrenumber = true;
-    TPZLinearAnalysis an(cmesh, shouldrenumber);
+    TPZLinearAnalysis an(cmesh, RenumType::ESloan);
 
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<> strmat(cmesh.operator->());
@@ -529,7 +530,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         TPZManVector<REAL> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution());
+        bc->SetForcingFunctionBC(config.exact->ExactSolution(),4);
         cmesh.InsertMaterialObject(bc);
     }
 }
@@ -577,7 +578,7 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
         TPZManVector<STATE,1> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution());
+        bc->SetForcingFunctionBC(config.exact->ExactSolution(),4);
         cmesh.InsertMaterialObject(bc);
     }
 
@@ -590,7 +591,7 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
     mhm->DivideSkeletonElements(0);
     mhm->DivideBoundarySkeletonElements();
     // Creates MHM mesh
-    bool substructure = true;
+    bool substructure = false;
     mhm->BuildComputationalMesh(substructure);
 }
 

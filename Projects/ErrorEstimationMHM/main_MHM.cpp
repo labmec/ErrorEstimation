@@ -39,14 +39,14 @@ int main() {
     TPZLogger::InitializePZLOG();
 #endif
     gRefDBase.InitializeAllUniformRefPatterns();
-    //RunSmoothProblem();
-    //RunHighGradientProblem();
-    RunOscillatoryProblem();
+    // RunSmoothProblem();
+    RunHighGradientProblem();
+    // RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
-    //RunInnerSingularityProblem();
+    // RunInnerSingularityProblem();
     
-   // RunAdaptivityProblem();
+//    RunAdaptivityProblem();
 
     return 0;
 }
@@ -64,8 +64,8 @@ void RunSmoothProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseDiv = 2;
-    int nInternalRef = 0;
+    int nCoarseDiv = 4;
+    int nInternalRef = 1;
 
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
@@ -93,7 +93,7 @@ void RunHighGradientProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::EConst;
+    config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
     config.problemname = "Constant";
     config.dir_name = "MHM";
     config.porder = 1;
@@ -103,7 +103,7 @@ void RunHighGradientProblem() {
     config.makepressurecontinuous = true;
 
     int nCoarseDiv = 2;
-    int nInternalRef = 0;
+    int nInternalRef = 1;
 
     config.ndivisions = nCoarseDiv;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
@@ -243,7 +243,7 @@ void RunInnerSingularityProblem() {
     ProblemConfig config;
     config.dimension = 2;
     config.exact = new TLaplaceExample1;
-    config.exact.operator*().fExact = TLaplaceExample1::ESinMark;
+    config.exact.operator*().fExact = TLaplaceExample1::ESteklovNonConst;
     config.problemname = "SinMarkLShape";
     config.dir_name = "MHM";
     config.porder = 1;
@@ -252,8 +252,8 @@ void RunInnerSingularityProblem() {
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
 
-    int nCoarseRef = 0;
-    int nInternalRef = 0;
+    int nCoarseRef = 2;
+    int nInternalRef = 1;
 
     config.ndivisions = nCoarseRef;
     TPZStack<int64_t> mhmIndexes;
@@ -427,7 +427,7 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     mhm->DivideSkeletonElements(0);
     mhm->DivideBoundarySkeletonElements();
     // Creates MHM mesh
-    bool substructure = true;
+    bool substructure = false;
     mhm->BuildComputationalMesh(substructure);
 }
 
@@ -436,7 +436,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
     bool shouldrenumber = true;
-    TPZLinearAnalysis an(cmesh, shouldrenumber);
+    TPZLinearAnalysis an(cmesh, RenumType::ESloan);
 
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<STATE> strmat(cmesh.operator->());
@@ -473,6 +473,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
     scalnames.Push("Pressure");
     scalnames.Push("ExactPressure");
+    scalnames.Push("Permeability");
     vecnames.Push("Flux");
     vecnames.Push("ExactFlux");
 
@@ -545,7 +546,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         TPZManVector<STATE,1> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution());
+        bc->SetForcingFunctionBC(config.exact->ExactSolution(),4);
         cmesh.InsertMaterialObject(bc);
     }
 }
