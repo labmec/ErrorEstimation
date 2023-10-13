@@ -42,7 +42,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
         case 0: //H1
             config.gmesh->ResetReference();
             cmesh = InsertCMeshH1(config,preConfig);
-            config.PorderIncrement();
+            //config.PorderIncrement();
             //TPZCompMeshTools::CreatedCondensedElements(cmesh, false, false);
             SolveH1Problem(cmesh, config, preConfig);
             if (preConfig.estimateError){
@@ -182,7 +182,19 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
     if(preConfig.mode == 0){
         TPZCompMesh* cmeshH1 = config.gmesh->Reference();
         
-        TPZPostProcessError error(cmeshH1);
+        TPZPostProcessError error(cmeshH1,config);
+        if(0){
+            TPZVec<STATE> x(3,0);
+            x[0]=0.5;
+            x[1]=0.5;
+            TPZFMatrix<STATE> du(3,1,0);
+            TPZVec<STATE> u(3,0);
+            config.exact->ExactSolution()(x,u,du);
+            std::cout << "u[0]=" << u[0] << std::endl;
+        }
+        
+        error.SetAnalyticSolution(config.exact);
+
         
         TPZVec<STATE> estimatedelementerror;
         error.ComputeElementErrors(estimatedelementerror);
@@ -504,6 +516,10 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
     cmeshH1->ExpandSolution();
     cmeshH1->ElementSolution().Redim(nelem, 10);
 
+    {
+        std::ofstream out("cmeshH1.txt");
+        cmeshH1->Print(out);
+    }
     ////Calculo do erro
     std::cout << "Computing Error H1 " << std::endl;
 
@@ -781,6 +797,8 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
     
     {
         REAL sum = 0.;
+        REAL sum2 = 0.;
+
         int64_t nel = true_elerror.Rows();
         for (int64_t el=0; el<nel; el++) {
             TPZCompEl *cel = cmeshH1->Element(el);
@@ -792,7 +810,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
             sum += aux*aux; // To compute global effectivity index
             true_elerror(el,0) = estimate_elerror(elindex2,2);
             true_elerror(el,1) = true_elerror(el,2);
-            if (true_elerror(el,1) > 1.e-10) {
+            if (true_elerror(el,1) > 1.e-13) {
                 true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
             }
         }
@@ -809,6 +827,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
         fileouput.open("adaptivityresults.txt",ios::app);
         fileouput << std::setw(15) << cmeshH1->NEquations();
         fileouput << std::setw(15) << errorsum[2];
+        fileouput << std::setw(15) << sqrt(sum);
         fileouput << std::setw(15) << sqrt(sum);
         fileouput << std::setw(15) << globeffind << std::endl;
         fileouput.close();

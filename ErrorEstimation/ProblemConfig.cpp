@@ -133,35 +133,8 @@ static int CelOrder(TPZCompEl* cel){
     return celorder;
 }
 
-// To make p refinement incrementing or decrement
-void ProblemConfig::PorderIncrement() {
+void ProblemConfig::AdjustH1PorderDistrib(){
     TPZCompMesh *cmeshH1 = gmesh->Reference();
-    if (!fElIndexPplus.size() || !cmeshH1) {
-        return;
-    }
-    int64_t nels = fElIndexPplus.size();
-    
-    for(auto &itlist : fElIndexPplus) {
-        for(auto eleindex : itlist) {
-            if (eleindex.first < 0) continue;
-            TPZGeoEl* gel = gmesh->ElementVec()[eleindex.first];
-            TPZCompEl* cel = gel->Reference();
-            
-            if (!cel || cel->Dimension() != cmeshH1->Dimension()){
-                continue;
-            }
-            
-            //if(order > maxPrefine-1) continue;
-            
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-            if(!intel) continue;
-            //int order = cel->GetgOrder();
-            intel->PRefine(eleindex.second);
-            
-        }
-    }
-    
-    //Adjustments to smooth the distribution of polynomial orders
     int64_t nels2 = cmeshH1->NElements();
     bool change = true;
     while (change) {
@@ -236,9 +209,41 @@ void ProblemConfig::PorderIncrement() {
             }
         }
     }
-    //cmeshH1->AdjustBoundaryElements();
-    cmeshH1->CleanUpUnconnectedNodes();
-    //cmeshH1->ExpandSolution();
-    
 }
 
+
+// To make p refinement incrementing or decrement
+void ProblemConfig::PorderIncrement() {
+    TPZCompMesh *cmeshH1 = gmesh->Reference();
+    if (!fElIndexPplus.size() || !cmeshH1) {
+        return;
+    }
+    int64_t nels = fElIndexPplus.size();
+    
+    for(auto &itlist : fElIndexPplus) {
+        for(auto eleindex : itlist) {
+            if (eleindex.first < 0) continue;
+            TPZGeoEl* gel = gmesh->ElementVec()[eleindex.first];
+            TPZCompEl* cel = gel->Reference();
+            
+            if (!cel || cel->Dimension() != cmeshH1->Dimension()){
+                continue;
+            }
+            
+            //if(order > maxPrefine-1) continue;
+            
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+            if(!intel) continue;
+            //int order = cel->GetgOrder();
+            intel->PRefine(eleindex.second);
+            
+        }
+    }
+    
+    //Adjustments to smooth the distribution of polynomial orders
+    AdjustH1PorderDistrib();
+    
+    //cmeshH1->AdjustBoundaryElements();
+    cmeshH1->CleanUpUnconnectedNodes();
+    
+}

@@ -14,7 +14,7 @@ void InitializeOutstream(PreConfig &pConfig,char *argv[]);
 void IsInteger(char *argv);
 void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]);
 void ReadEntry(ProblemConfig &config, PreConfig &pConfig);
-TLaplaceExample1::EExactSol *ChooseAnaliticSolution(PreConfig &preConfig);
+TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig);
 void FluxErrorConfigure(ProblemConfig &config,PreConfig &pConfig);
 void CopyHybSetup(PreConfig &hybConfig, PreConfig &mixConfig);
 

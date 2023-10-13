@@ -17,16 +17,17 @@ int main(int argc, char *argv[]) {
 #ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
 #endif
+    
     PreConfig pConfig;
-    pConfig.k = 2; // Porder for H1
+    pConfig.k = 9; // Porder for H1
     pConfig.n = 2;
-    pConfig.problem = "ESinMarkHom";         //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
-    pConfig.integrationorder = 6;
-    pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
+    pConfig.problem = "ESinSin";         //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb","ESinMarkHom", "EBubble2DTemp"}
+    pConfig.integrationorder =18;
+    pConfig.maxIter = 15;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 2;                      //// How many uniform refinements
-    pConfig.numberAdapativitySteps = 1;        //// Maximum number of adapativity refinement steps.
+    pConfig.refLevel = 0;                      //// How many uniform refinements
+    pConfig.numberAdapativitySteps = 0;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
     pConfig.vtkResolution = 4;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.

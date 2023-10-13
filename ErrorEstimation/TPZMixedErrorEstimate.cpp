@@ -49,7 +49,7 @@ void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDa
 {
     MixedMat::FillDataRequirements(datavec);
     
-    for( int i = 1; i<4; i++){
+    for( int i = 0; i<4; i++){
         datavec[i].SetAllRequirements(true);
         datavec[i].fNeedsSol = true;
     }
@@ -88,10 +88,15 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
     //TPZFMatrix<STATE> &gradH1 = datavec[3].dsol[0];
     
     MixedMat::Contribute(datavec,weight,ek,ef);
+//    {
+//        std::stringstream sout;
+//        sout<<"\n\n Matriz ek e vetor fk \n ";
+//        ek.Print("ekmph = ",sout,EMathematicaInput);
+//    }
     ef = efkeep;
     TPZFMatrix<REAL> &phip = datavec[Epressure].phi;
     int64_t phrp = phip.Rows();
-    int64_t phrq = datavec[0].fVecShapeIndex.NElements();
+    int64_t phrq = datavec[Eflux].fVecShapeIndex.NElements();
     STATE force = 0.;
     if(MixedMat::fForcingFunction) {
         TPZManVector<STATE> res(1);
@@ -157,12 +162,12 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     this->Solution(data,MixedMat::VariableIndex("Flux"), flux);
     //this->Solution(data,MixedMat::VariableIndex("Pressure"), pressure);
 
-    REAL hsize = data[0].HSize;
+    REAL hsize = data[Eflux].HSize;
     TPZVec<REAL> errorsaux;
     errorsaux.Fill(0.0);
     MixedMat::Errors(data,errorsaux);
     errors[1] += errorsaux[2];
-    errors[3] = 2*hsize*hsize*errorsaux[2]/(M_PI*M_PI);
+    errors[3] = 2*hsize*hsize*errorsaux[2]/(M_PI*M_PI);//for residual error
     
     STATE perm = MixedMat::GetPermeability(data[1].x);
     
@@ -171,6 +176,7 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
         TPZFNMatrix<3,STATE> dsolprimal(3,1);
         TPZFNMatrix<3,REAL> gradpressureH1(3,1);
         TPZAxesTools<STATE>::Axes2XYZ(data[Eorigin].dsol[0], dsolprimal, data[Eorigin].axes);
+        
         for (int i=0; i<3; i++) {
             gradpressureH1(i,0) = dsolprimal(i,0);
             fluxprimalneg = perm*gradpressureH1;
@@ -181,16 +187,20 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     for (int i=0; i<3; i++) {
             inner += (flux[i]+fluxprimalneg(i,0))*(flux[i]+fluxprimalneg(i,0))/perm;
     }
-    
+    errors[2] += inner; // Flux estimator
+
     //make a contribution to the partial error on each color uniquely
     if(1){
-        errors[2] += inner;
         TPZManVector<STATE,1> u_exact(1, 0);
         TPZFMatrix<STATE> du_exact(3, 1, 0);
+                
         if (this->fExactSol) {
-            this->fExactSol(data[3].x, u_exact, du_exact);
+            this->fExactSol(data[Eflux].x, u_exact, du_exact);
         }
         
+//        std::cout << "u_exact: " << u_exact[0] << std::endl;
+//        std::cout << "du_exact: " << du_exact[0] << "," << du_exact[1] << std::endl;
+
         REAL psival = data[Epatch].sol[0][0]; //hat function
         
         REAL inner2 = 0.;

@@ -32,9 +32,10 @@
 
 #define ERRORESTIMATION_DEBUG
 
-TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin) : fMeshVector(5,0)
+TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config) : fMeshVector(5,0)
 {
     fMeshVector[Eorigin] = origin;
+    fExact = &(*(config.exact));
     CreateAuxiliaryMeshes();
 }
 
@@ -329,7 +330,7 @@ using namespace std;
 void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {//elementerrors isn't being filled
     
-    TPZCompMesh *meshmixed = fMeshVector[Emulti];
+    TPZMultiphysicsCompMesh *meshmixed = dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]);
     if(0){
         std::ofstream out4("../CMeshH1.txt");
         fMeshVector[Eorigin]->Print(out4);
@@ -582,6 +583,14 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         an.LoadSolution();
         
+        {
+            std::stringstream outt;
+            outt << "patch" << color << ".txt";
+            auto* fluxmesh = meshmixed->MeshVector()[0];
+            std::ofstream out(outt.str());
+            fluxmesh->Print(out);
+        }
+        
         if(1){
             // now we have a partial solution (only in one color of the colors loop)
             /** Variable names for post processing */
@@ -594,9 +603,9 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
             TPZVec<REAL> errorscolor(6,0);
             int n = meshmixed->NElements();
-            meshmixed->ElementSolution().Resize(n, 6);
-            
-            an.PostProcessError(errorscolor);
+            meshmixed->ElementSolution().Resize(n,6);
+            bool storeerrors = true;
+            an.PostProcessError(errorscolor,storeerrors);
             int ModelDimension = meshmixed->Dimension();
             std::stringstream sout;
             sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
@@ -628,6 +637,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         meshmixed->ComputeNodElCon();
         
         TransferAndSumSolution(meshmixed);
+        
+        {
+            auto* fluxmesh = meshmixed->MeshVector()[0];
+            std::ofstream out("hdivsol.txt");
+            fluxmesh->Print(out);
+        }
+        
         ResetState();
         an.SetStep(color);
         
@@ -711,7 +727,9 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Order = " << meshmixed->GetDefaultOrder() << "\n";
     myfile << "DOF Total = " << meshmixed->NEquations() << "\n";
-    myfile << "Global estimator = " << errors[2] << "\n";
+    myfile << "Global flux estimated error = " << errors[2] << "\n";
+    myfile << "Global residual estimate error " << errors[3] << "\n";
+
     myfile.close();
     
 }
@@ -1111,6 +1129,25 @@ void TPZPostProcessError::CreateMixedMesh()
                 locmat->SetSignConvention(1);
                 material = locmat;
                 locmat->SetForcingFunction(mat->ForcingFunction(),mat->ForcingFunctionPOrder());
+                
+                if(fExact){
+                    locmat->SetExactSol(fExact->ExactSolution(), mat->ForcingFunctionPOrder());
+                    auto exactsol= locmat->ExactSol();
+                    if(0){
+                        TPZVec<STATE> x(3,0);
+                        x[0]=0.5;
+                        x[1]=0.5;
+                        TPZFMatrix<STATE> du(3,1,0);
+                        TPZVec<STATE> u(3,0);
+                        
+                        fExact->ExactSolution()(x,u,du);
+                        std::cout << "u[0]=" << u[0] << std::endl;
+                        exactsol(x,u,du);
+                    }
+                }
+                
+                
+                
                 
                 //incluindo os dados do problema
                 locmat->SetConstantPermeability(1.);

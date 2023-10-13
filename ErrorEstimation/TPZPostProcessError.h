@@ -19,6 +19,7 @@
 #include "pzblock.h"
 #include "pzfunction.h"
 #include "TPZAnalyticSolution.h"
+#include "ProblemConfig.h"
 
 struct TPZPatch
 {
@@ -81,7 +82,7 @@ class TPZPostProcessError
 {
 public:
     
-    TPZPostProcessError(TPZCompMesh * origin);
+    TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config);
     
     TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec);
     
@@ -146,8 +147,9 @@ private:
     /// create the partition of unity mesh
     void CreatePartitionofUnityMesh();
     
-     TPZAnalyticSolution *fExact;
-    
+    TPZAnalyticSolution *fExact;
+    //TPZAutoPointer<TLaplaceExample1> fExact;
+
 public:
     
     // print partition diagnostics

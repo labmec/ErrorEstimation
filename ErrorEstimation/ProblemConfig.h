@@ -87,6 +87,8 @@ struct ProblemConfig
     
     void PorderIncrement();
     
+    //Adjustments to smooth the distribution of polynomial orders
+    void AdjustH1PorderDistrib();
 };
 
 struct EstimatorConfig{

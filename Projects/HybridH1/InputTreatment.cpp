@@ -26,8 +26,9 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[1] = bcids[3] = -2;
     }
     
-    if(0){ //Square shape domain quadrilateral mesh
-    gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
+    if(1){ //Square shape domain quadrilateral mesh
+        //isOriginCentered = 1;
+        gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
     }
@@ -42,12 +43,12 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     std::ofstream out("mallarefinada.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     Tools::DrawGeoMesh(config, pConfig);
-    config.ApplyDivision();
+    //config.ApplyDivision();
 
-        {
-            std::ofstream salida("mallageometricaAdap.txt");
-            gmesh->Print(salida);
-        }
+    {
+        std::ofstream salida("mallageometricaAdap.txt");
+        gmesh->Print(salida);
+    }
     
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
@@ -226,6 +227,8 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "ESinMark") pConfig.type = 8;
         else if (pConfig.problem == "ESteepWave") pConfig.type = 9;
         else if (pConfig.problem == "ESinMarkHom") pConfig.type = 10;
+        else if (pConfig.problem == "EBubble2DTemp") pConfig.type = 11;
+
         else DebugStop();
     }
 
@@ -327,54 +330,67 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
 
     config.exact = new TLaplaceExample1;
 
-    config.exact.operator*().fExact = *ChooseAnaliticSolution(preConfig);
+    //config.exact.operator*().fExact = *ChooseAnaliticSolution(preConfig);
+    config.exact->fExact = ChooseAnaliticSolution(preConfig);
 
+    TPZVec<STATE> x(3,0);
+    x[0]=0.5;
+    x[1]=0.5;
+    TPZFMatrix<STATE> du(3,1,0);
+    TPZVec<STATE> u(3,0);
+    config.exact->ExactSolution()(x,u,du);
+    std::cout << "u(0)=" << u[0] << std::endl;
+    
     config.k = preConfig.k;
     config.n = preConfig.n;
     config.problemname = preConfig.problem;
     config.exact->fmaxIter = preConfig.maxIter;
 }
 
-TLaplaceExample1::EExactSol *ChooseAnaliticSolution(PreConfig &preConfig){
+TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
 
-    TLaplaceExample1::EExactSol *solutionCase = new TLaplaceExample1::EExactSol;
+    TLaplaceExample1::EExactSol solutionCase;
     
     switch(preConfig.type){
         case 0:
-            *solutionCase = TLaplaceExample1::ESinSin;
+            solutionCase = TLaplaceExample1::ESinSin;
             break;
         case 1:
-            *solutionCase = TLaplaceExample1::EArcTan;
+            solutionCase = TLaplaceExample1::EArcTan;
             break;
         case 2:
-            *solutionCase = TLaplaceExample1::ESteklovNonConst;
+            solutionCase = TLaplaceExample1::ESteklovNonConst;
             preConfig.h*=2;
             break;
         case 3:
-            *solutionCase = TLaplaceExample1::EBubble2D;
+            solutionCase = TLaplaceExample1::EBubble2D;
             break;
         case 4:
-            *solutionCase = TLaplaceExample1::ELaplace2D;
+            solutionCase = TLaplaceExample1::ELaplace2D;
             break;
         case 5:
-            *solutionCase = TLaplaceExample1::E2SinSin;
+            solutionCase = TLaplaceExample1::E2SinSin;
             break;
         case 6:
-            *solutionCase = TLaplaceExample1::E10SinSin;
+            solutionCase = TLaplaceExample1::E10SinSin;
             break;
         case 7:
             DebugStop();
             //config.exact.operator*().fExact = TLaplaceExample1::ESing2D;
             break;
         case 8:
-            *solutionCase = TLaplaceExample1::ESinMark;
+            solutionCase = TLaplaceExample1::ESinMark;
             break;
         case 9:
-            *solutionCase = TLaplaceExample1::ESteepWave;
+            solutionCase = TLaplaceExample1::ESteepWave;
             break;
         case 10:
-            *solutionCase = TLaplaceExample1::ESinMarkHom;
+            solutionCase = TLaplaceExample1::ESinMarkHom;
             break;
+        case 11:
+            solutionCase = TLaplaceExample1::EBubble2DTemp;
+            break;
+            
         default:
             DebugStop();
             break;
