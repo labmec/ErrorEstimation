@@ -324,11 +324,28 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh) {
 
     // Error estimation
 
-    bool postProcWithHDiv = false;
     //criar construtor para estimador de elasticidade
     
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-    TPZElasticityErrorEstimator ErrorEstimator(*multimesh, mhm);
+    
+    TPZVec<int64_t> coarseindices(config.gmesh->NElements());
+    int64_t count = 0;
+    int coarselevel = 0;
+    int64_t nel = config.gmesh->NElements();
+    for (int64_t el=0; el<nel; el++) {
+        TPZGeoEl *gel = config.gmesh->Element(el);
+        if(gel && gel->Dimension() == config.gmesh->Dimension() && gel->Level()==coarselevel)
+        {
+            coarseindices[count++] = el;
+        }
+    }
+    coarseindices.resize(count);
+    mhm->DefinePartitionbyCoarseIndices(coarseindices);
+    
+    mhm->fMaterialIds = {1};
+    
+    bool postProcWithHDiv = false;
+    TPZElasticityErrorEstimator ErrorEstimator(*multimesh, mhm, postProcWithHDiv);
     
     ErrorEstimator.SetAnalyticSolution(config.exact);
     //create displacement reconstruction

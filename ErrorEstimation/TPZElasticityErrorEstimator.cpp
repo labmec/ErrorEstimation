@@ -16,6 +16,7 @@
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("ElasticityErrorEstimator"));
 #endif
+#include <cassert>
 
 
 void TPZElasticityErrorEstimator::DisplacementReconstruction(){
@@ -160,7 +161,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     fOriginal->CopyMaterials(fPostProcMesh);
     // Switch the material from mixed to TPZMHMHDivErrorEstimationMaterial
     SwitchMaterialObjects();
-//create 5 meshes: stress (fem and reconstructed), displacement (fem and reconstructed) and rotation (?)
+    //create 5 meshes: stress (fem and reconstructed), displacement (fem and reconstructed) and rotation (?)
     TPZManVector<TPZCompMesh *> meshvec(5);
     TPZManVector<int,5> active(5,0);
     active[1] = 1;
@@ -169,6 +170,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     meshvec[1] = CreateDisplacementMesh(); // CreatePressureMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
     meshvec[3] = fOriginal->MeshVector()[1];
+    meshvec[4] = fOriginal->MeshVector()[2];
 
     if (fPostProcesswithHDiv) {
         meshvec[0] = CreateStressMesh(); // CreateFluxMesh(); 
@@ -192,12 +194,13 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     }
 
     //enriquecer no MHM tbem?
-    IncreasePrimalSideOrders(meshvec[1]);//malha da pressao
+    IncreasePrimalSideOrders(meshvec[1]);//malha do deslocamento
     if(fPostProcesswithHDiv) {
-        IncreaseSideOrders(meshvec[0]);//malha do fluxo
+        IncreaseSideOrders(meshvec[0]);//malha da tensão
     }
 
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
+    fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
 
     if(fPostProcesswithHDiv) {
@@ -559,6 +562,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousDisplacement
     // The original displacement comp. element is used to retrieve the original approximation order.
     int64_t nel = gmesh->NElements();
     auto geoToMHM = fMHM->GetGeoToMHMDomain();
+    assert(geoToMHM.size() == nel);
     TPZManVector<std::tuple<int64_t, int64_t, TPZCompEl*>> MHMOfEachGeoEl(nel);
     for (int i = 0; i < nel; i++) {
         TPZGeoEl * gel = gmesh->Element(i);
@@ -1350,7 +1354,7 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
             gel->CenterPoint(gel->NSides() - 1, xi);
             TPZVec<REAL> x(3, 0.);
             gel->X(xi, x);
-            weight = mixedElasticityMaterial->GetMaxCoalescenceEigenvalue(x);
+            weight = mixedElasticityMaterial->GetMaxComplianceEigenvalue(x);
 
             if (IsZero(weight)) DebugStop();
             this->fPrimalWeights[el] = weight;
