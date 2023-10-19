@@ -15,7 +15,9 @@
 /// class to guide the error estimator
 struct ProblemConfig
 {
-    
+    enum TProbType {EDarcy,EElasticity};
+
+    virtual ~ProblemConfig() = default;
     /// geometric mesh on which the computational meshes are based
     TPZGeoMesh *gmesh = 0;
     /// polynomial order of the original mesh
@@ -42,6 +44,7 @@ struct ProblemConfig
     bool GalvisExample = false;
     bool TensorNonConst = false;
     bool MeshNonConvex = false;
+    TProbType problemtype = EDarcy;
     
     STATE alpha=1;
     STATE Km = 0.;
@@ -62,6 +65,7 @@ struct ProblemConfig
     int vtkResolution = -1;
     /// exact solution
     TPZAutoPointer<TLaplaceExample1> exact;
+    TPZAutoPointer<TElasticity2DAnalytic> exactElast;
     
     /// set of elements to be divided after each adaptivity step
     std::list<std::set<int64_t> > fElIndexDivide;
@@ -82,6 +86,7 @@ struct ProblemConfig
     
     
 };
+
 
 struct EstimatorConfig{
    TPZMultiphysicsCompMesh *fOriginal =NULL;

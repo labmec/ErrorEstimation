@@ -10,6 +10,7 @@
 
 #include "TPZHDivErrorEstimator.h"
 #include "TPZMHMixedMeshControl.h"
+#include "ProblemConfig.h"
 
 /// this class will compute the estimated value of the energy error of an MHM mesh
 // the class should work for any MHM-H(div) mesh

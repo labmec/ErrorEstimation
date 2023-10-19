@@ -97,8 +97,8 @@ TPZCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstructionL2Mesh
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::ofstream outOriginalP(dirPath + "HdivCondFlux.txt");
-        cmeshHdiv->Print(outOriginalP);
+        // std::ofstream outOriginalP("HdivCondFlux.txt");
+        // cmeshHdiv->Print(outOriginalP);
     }
 #endif
 
@@ -215,17 +215,17 @@ TPZMultiphysicsCompMesh *TPZHybridH1CreateHDivReconstruction::CreateFluxReconstr
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::ofstream outMultF("HdivMultMesh.txt");
-        HdivRecMesh->Print(outMultF);
+        // std::ofstream outMultF("HdivMultMesh.txt");
+        // HdivRecMesh->Print(outMultF);
 
         std::ofstream outMultOriginal("HdivMultOriginal.txt");
         fOriginal->Print(outMultOriginal);
 
-        std::ofstream outL2("L2Mesh.txt");
-        HdivRecMesh->MeshVector()[1]->Print(outL2);
+        // std::ofstream outL2("L2Mesh.txt");
+        // HdivRecMesh->MeshVector()[1]->Print(outL2);
 
-        std::ofstream outH1("H1Mesh.txt");
-        HdivRecMesh->MeshVector()[4]->Print(outH1);
+        // std::ofstream outH1("H1Mesh.txt");
+        // HdivRecMesh->MeshVector()[4]->Print(outH1);
     }
 #endif
 

@@ -11,9 +11,12 @@
 #include <Util/pzlog.h>
 #include "TPZLinearAnalysis.h"
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "Elasticity/TPZMixedElasticityND.h"
 #include "TPZBndCondT.h"
+#include "Pre/TPZMHMeshControl.h"
 
 void RunSmoothProblem(int nCoarseDiv, int nInternalRef);
+void RunElasticityProblem(int nCoarseDiv, int nInternalRef);
 void RunNonConvexProblem();
 void RunHighGradientProblem(int nCoarseDiv, int nInternalRef);
 void RunInnerSingularityProblem(int nCoarseDiv, int nInternalRef);
@@ -44,17 +47,18 @@ int main() {
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
     const std::set<int> nCoarseDiv = {3};
-    const std::set<int> nInternalRef = {1};
+    const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
         for (const auto internal_ref : nInternalRef) {
             // RunSmoothProblem(coarse_div, internal_ref);
-            RunInnerSingularityProblem(coarse_div, internal_ref);
+            RunElasticityProblem(coarse_div, internal_ref);
+            // RunInnerSingularityProblem(coarse_div, internal_ref);
             //RunHighGradientProblem(coarse_div, internal_ref);
             //RunPeriodicPermProblem(coarse_div, internal_ref);
         }
     }
-    RunNonConvexProblem();
+    // RunNonConvexProblem();
 
     return 0;
 }
@@ -67,7 +71,7 @@ void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     config.problemname = "Smooth";
     config.dir_name = "Journal";
     config.porder = 1;
-    config.hdivmais = 2;
+    config.hdivmais = 1;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -89,6 +93,44 @@ void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     TPZManVector<int64_t> coarseIndexes;
     ComputeCoarseIndices(config.gmesh, coarseIndexes);
     bool definePartitionByCoarseIndexes = true;
+    CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
+
+    SolveMHMProblem(mhm, config);
+    EstimateError(config, mhm);
+}
+
+void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
+    ProblemConfig config; 
+    config.dimension = 2;
+    config.exactElast = new TElasticity2DAnalytic;
+    config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispx;
+    config.problemname = "Elasticity";
+    config.dir_name = "Journal";
+    config.porder = 1;
+    config.hdivmais = 1;
+    config.materialids.insert(1);
+    config.bcmaterialids.insert(-1);
+    config.makepressurecontinuous = true;
+    config.problemtype = ProblemConfig::TProbType::EElasticity;
+
+    config.ndivisions = nCoarseDiv;
+    config.ninternalref = nInternalRef;
+    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
+
+    std::string command = "mkdir -p " + config.dir_name;
+    system(command.c_str());
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GeoMesh.vtk";
+        std::ofstream file(fileName);
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, file);
+    }
+
+    auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
+    TPZManVector<int64_t> coarseIndexes;
+    ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    bool definePartitionByCoarseIndexes = true;
+    mhm->SetProblemType(TPZMHMeshControl::MProblemType::EElasticity2D);
     CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
@@ -460,15 +502,26 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
         DebugStop();
     }
 
-    scalnames.Push("Pressure");
-    scalnames.Push("Permeability");
-    vecnames.Push("Flux");
+    // if (mhm->ProblemType()<3){
+    //     scalnames.Push("Pressure");
+    //     scalnames.Push("Permeability");
+    //     vecnames.Push("Flux");
 
-    if (config.exact) {
-        scalnames.Push("ExactPressure");
-        vecnames.Push("ExactFlux");
-    }
+    //     if (config.exact) {
+    //         scalnames.Push("ExactPressure");
+    //         vecnames.Push("ExactFlux");
+    //     }
+    // } else {
+        scalnames.Push("SigmaX");
+        scalnames.Push("SigmaY");
+        scalnames.Push("TauXY");
+        vecnames.Push("Displacement");
 
+        if (config.exact) {
+            vecnames.Push("ExactDisplacement");
+        }
+    // }
+    
     std::cout << "Post Processing...\n";
 
     int resolution = 2;
@@ -488,9 +541,15 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     if (!originalMesh) DebugStop();
 
     bool postProcWithHDiv = false;
-    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
-    ErrorEstimator.SetAnalyticSolution(config.exact);
-    ErrorEstimator.PrimalReconstruction();
+    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, config, postProcWithHDiv);
+    
+    if (config.problemtype == ProblemConfig::TProbType::EElasticity){
+        ErrorEstimator.SetAnalyticSolution(config.exactElast);
+    } else {
+        ErrorEstimator.SetAnalyticSolution(config.exact);
+    }
+    
+    ErrorEstimator.PotentialReconstruction();
 
     std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
@@ -516,22 +575,44 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
     int dim = control.GMesh()->Dimension();
     cmesh.SetDimModel(dim);
 
-    auto *mat = new TPZMixedDarcyFlow(1, dim);
-
-
-    mat->SetExactSol(config.exact->ExactSolution(),5);
-    mat->SetForcingFunction(config.exact->ForceFunc(),5);
-    mat->SetConstantPermeability(1.);
+    TPZMaterial *mat;
+    if (config.problemtype == ProblemConfig::TProbType::EElasticity){
+        double E= 1000.;
+        double nu = 0.3;
+        auto matelast = new TPZMixedElasticityND(1,E,nu,0,0,1,dim);
+        matelast->SetExactSol(config.exactElast->ExactSolution(),5);
+        matelast->SetForcingFunction(config.exactElast->ForceFunc(),5);
+        mat = matelast;
+    } else {
+        auto matdarcy = new TPZMixedDarcyFlow(1, dim);
+        matdarcy->SetExactSol(config.exact->ExactSolution(),5);
+        matdarcy->SetForcingFunction(config.exact->ForceFunc(),5);
+        matdarcy->SetConstantPermeability(1.);
+        mat=matdarcy;
+    }
 
     cmesh.InsertMaterialObject(mat);
 
     for (auto matid : config.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
-        TPZManVector<REAL> val2(1, 0.);
-        int bctype = 0;
-        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution(),4);
-        cmesh.InsertMaterialObject(bc);
+        
+        auto *matdarcy = dynamic_cast<TPZMixedDarcyFlow *> (mat);
+        auto *matelast = dynamic_cast<TPZMixedElasticityND *> (mat);
+        if (matdarcy){
+            TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+            TPZManVector<REAL> val2(1, 0.);
+            int bctype = 0;
+            TPZBndCondT<STATE> *bc = matdarcy->CreateBC(mat, matid, bctype, val1, val2);
+            bc->SetForcingFunctionBC(config.exact->ExactSolution(),4);
+            cmesh.InsertMaterialObject(bc);
+        }
+        if (matelast){
+            TPZFNMatrix<1, REAL> val1(dim, dim, 0.);
+            TPZManVector<REAL> val2(dim, 0.);
+            int bctype = 0;
+            TPZBndCondT<STATE> *bc = matelast->CreateBC(mat, matid, bctype, val1, val2);
+            bc->SetForcingFunctionBC(config.exactElast->ExactSolution(),4);
+            cmesh.InsertMaterialObject(bc);
+        }
     }
 }
 

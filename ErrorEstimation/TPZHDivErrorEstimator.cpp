@@ -28,8 +28,6 @@
 #include "TPZCompMeshTools.h"
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "Projection/TPZL2Projection.h"
-
-#include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "Elasticity/TPZMixedElasticityND.h"
 
 #ifdef LOG4CXX
@@ -850,9 +848,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
     gmesh->ResetReference();
     int64_t nel = pressuremesh->NElements();
     
-    pressuremesh->DeleteMaterial(-1);
-    TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(-1,1);
-    pressuremesh->InsertMaterialObject(l2p);
+    // pressuremesh->DeleteMaterial(-1);
+    // TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(-1,1);
+    // pressuremesh->InsertMaterialObject(l2p);
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
     
     TPZElementMatrixT<STATE> ekbc, efbc;
@@ -865,11 +863,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
         int matid = gel->MaterialId();
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
         if (matid != -1) continue;
-        // TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
-        // if (!bc || (bc->Type() != 0)) continue;
+        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        if (!bc || (bc->Type() != 0)) continue;
         
         cel->CalcStiff(ekbc, efbc);
-        ekbc.fMat.SolveDirect(efbc.fMat, ELU);
+        // ekbc.fMat.SolveDirect(efbc.fMat, ELU);
         int count = 0;
         int nc = cel->NConnects();
         for (int ic = 0; ic < nc; ic++) {
@@ -903,6 +901,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
     if (!intel) DebugStop();
     int nc = cel->NConnects();
     int order = cel->Connect(nc - 1).Order();
+    int nstate = cel->Connect(nc - 1).NState();
 
 #ifdef ERRORESTIMATION_DEBUG
     for (int ic = 0; ic < nc; ic++) {
@@ -1008,7 +1007,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
     }
 
     int nshape = intel->NShapeF();
-    TPZFNMatrix<20, REAL> L2Mat(nshape, nshape, 0.), L2Rhs(nshape, 1, 0.);
+    TPZFNMatrix<20, REAL> L2Mat(nshape*nstate, nshape*nstate, 0.), L2Rhs(nshape*nstate, 1, 0.);
     TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dphi(dim, nshape);
     for (int iskel = 0; iskel < nSkelsToIntegrate; iskel++) {
         TPZGeoElSide integrationGeoElSide;
@@ -1053,16 +1052,21 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             integrationGeoElSide.Jacobian(pt_right_skel, jac, axes, detjac, jacinv);
 
             for (int ishape = 0; ishape < nshape; ishape++) {
-                L2Rhs(ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
+                for (int istate = 0; istate < nstate; istate++) {
+                    L2Rhs(nshape*istate+ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
+                }
             }
             for (int ishape = 0; ishape < nshape; ishape++) {
                 for (int jshape = 0; jshape < nshape; jshape++) {
-                    L2Mat(ishape, jshape) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
+                    for (int istate = 0; istate < nstate; istate++) {
+                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
+                    }
                 }
             }
         }
     }
-    
+    // L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
+    // L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
     int count = 0;
@@ -1856,22 +1860,22 @@ void TPZHDivErrorEstimator<MixedMaterial>::PlotInterfaceFluxes(const std::string
 }
 
 /// switch material object from mixed poisson to TPZMixedHdivErrorEstimate
-template <typename MixedMaterial>
-void TPZHDivErrorEstimator<MixedMaterial>::SwitchMaterialObjects() {
+template <>
+void TPZHDivErrorEstimator<TPZMixedDarcyFlow>::SwitchMaterialObjects() {
 
     for (auto mat : fPostProcMesh.MaterialVec()) {
-        MixedMaterial *mixpoisson = dynamic_cast<MixedMaterial *>(mat.second);
+        TPZMixedDarcyFlow *mixpoisson = dynamic_cast<TPZMixedDarcyFlow *>(mat.second);
         if (mixpoisson) {
-            MixedMaterial *newmat;
+            TPZMixedDarcyFlow *newmat;
             if (fPostProcesswithHDiv) {
-                newmat = new TPZMixedHDivErrorEstimate<MixedMaterial>(*mixpoisson);
+                newmat = new TPZMixedHDivErrorEstimate<TPZMixedDarcyFlow>(*mixpoisson);
             } else {
-                newmat = new TPZHDivErrorEstimateMaterial(*mixpoisson);
+                newmat = new TPZHDivErrorEstimateMaterial<TPZMixedDarcyFlow>(*mixpoisson);
             }
 
             if (mixpoisson->HasForcingFunction()) {
                 newmat->SetForcingFunction(mixpoisson->ForcingFunction(),
-                                           mixpoisson->ForcingFunctionPOrder());
+                                            mixpoisson->ForcingFunctionPOrder());
             }
             if (mixpoisson->HasExactSol()) {
                 newmat->SetExactSol(mixpoisson->ExactSol(),
@@ -1888,6 +1892,42 @@ void TPZHDivErrorEstimator<MixedMaterial>::SwitchMaterialObjects() {
             delete mixpoisson;
         }
     }
+}
+
+template <>
+void TPZHDivErrorEstimator<TPZMixedElasticityND>::SwitchMaterialObjects() {
+
+    for (auto mat : fPostProcMesh.MaterialVec()) {
+        TPZMixedElasticityND *mixelasticity = dynamic_cast<TPZMixedElasticityND *>(mat.second);
+        if (mixelasticity) {
+            TPZMixedElasticityND *newmat;
+            if (fPostProcesswithHDiv) {
+                DebugStop();//This option was not implemented.
+                newmat = new TPZMixedHDivErrorEstimate<TPZMixedElasticityND>(*mixelasticity);
+            } else {
+                newmat = new TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>(*mixelasticity);
+            }
+
+            if (mixelasticity->HasForcingFunction()) {
+                newmat->SetForcingFunction(mixelasticity->ForcingFunction(),
+                                            mixelasticity->ForcingFunctionPOrder());
+            }
+            if (mixelasticity->HasExactSol()) {
+                newmat->SetExactSol(mixelasticity->ExactSol(),
+                                    mixelasticity->PolynomialOrderExact());
+            }
+
+            for (auto bcmat : fPostProcMesh.MaterialVec()) {
+                TPZBndCond *bc = dynamic_cast<TPZBndCond *>(bcmat.second);
+                if (bc) {
+                    bc->SetMaterial(newmat);
+                }
+            }
+            fPostProcMesh.MaterialVec()[newmat->Id()] = newmat;
+            delete mixelasticity;
+        }
+    }
+
 }
 
 template <typename MixedMaterial>
@@ -2452,3 +2492,4 @@ std::set<int> TPZHDivErrorEstimator<MixedMaterial>::GetBCMatIDs(const TPZCompMes
 }
 
 template class TPZHDivErrorEstimator<TPZMixedElasticityND>;
+template class TPZHDivErrorEstimator<TPZMixedDarcyFlow>;

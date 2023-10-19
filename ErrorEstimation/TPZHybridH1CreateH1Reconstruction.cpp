@@ -289,7 +289,7 @@ void TPZHybridH1CreateH1Reconstruction::CreateSkeletonElements() {
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::string dirPath = fDebugDirName + "/";
+        std::string dirPath;// = fDebugDirName + "/";
         std::ofstream fileVTK(dirPath + "GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
         std::ofstream fileTXT(dirPath + "GeoMeshBeforePressureSkeleton.txt");
@@ -364,14 +364,14 @@ void TPZHybridH1CreateH1Reconstruction::IncreasePressureSideOrders() {
     cmesh->LoadReferences();
 
 #ifdef ERRORESTIMATION_DEBUG
-    std::string dirPath = fDebugDirName + "/";
-    std::set<int> matIDs = fProblemConfig.materialids;
-    matIDs.insert(fProblemConfig.bcmaterialids.begin(),fProblemConfig.bcmaterialids.end());
-    matIDs.insert(fPressureSkeletonMatId);
-    {
-        std::ofstream outCon(dirPath + "PressureConnectsB4IncreaseSideOrder.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh, outCon, matIDs, false, true);
-    }
+    // std::string dirPath;
+    // std::set<int> matIDs = fProblemConfig.materialids;
+    // matIDs.insert(fProblemConfig.bcmaterialids.begin(),fProblemConfig.bcmaterialids.end());
+    // matIDs.insert(fPressureSkeletonMatId);
+    // {
+    //     std::ofstream outCon(dirPath + "PressureConnectsB4IncreaseSideOrder.txt");
+    //     TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh, outCon, matIDs, false, true);
+    // }
 #endif
 
     int OrigOrder = cmesh->GetDefaultOrder();
@@ -432,8 +432,8 @@ void TPZHybridH1CreateH1Reconstruction::IncreasePressureSideOrders() {
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::ofstream outCon(dirPath + "PressureConnectsAFTERIncreaseSideOrder.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh, outCon, matIDs, false, true);
+        // std::ofstream outCon("PressureConnectsAFTERIncreaseSideOrder.txt");
+        // TPZCompMeshTools::PrintConnectInfoByGeoElement(cmesh, outCon, matIDs, false, true);
     }
 #endif
 }
@@ -446,9 +446,9 @@ void TPZHybridH1CreateH1Reconstruction::RestrainSkeletonSides() {
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::string dirPath = fDebugDirName + '/';
+        std::string dirPath;
         std::ofstream out(dirPath + "MeshBeforeRestrainSkeleton.txt");
-        pressure_mesh->Print(out);
+        fPressureMesh->Print(out);
     }
 #endif
 
@@ -504,9 +504,9 @@ void TPZHybridH1CreateH1Reconstruction::RestrainSkeletonSides() {
     fPressureMesh->CleanUpUnconnectedNodes();
 #ifdef ERRORESTIMATION_DEBUG
     {
-        std::string dirPath = fDebugDirName + '/';
+        std::string dirPath;
         std::ofstream out(dirPath + "MeshAfterRestrainSkeleton.txt");
-        pressure_mesh->Print(out);
+        fPressureMesh->Print(out);
     }
 #endif
 }
@@ -1364,16 +1364,20 @@ void TPZHybridH1CreateH1Reconstruction::ComputeAveragePressures(int target_dim) 
         ComputeAverage(pressure_mesh, el);
     } 
 #ifdef ERRORESTIMATION_DEBUG 
+    {
         std::ofstream outCon(fFolderOutput + "AverageB4LoadSolution.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(pressure_mesh, outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+    }
 #endif
 
     // Loads solution into the connects of the smaller skeletons
     pressure_mesh->LoadSolution(pressure_mesh->Solution());
 
 #ifdef ERRORESTIMATION_DEBUG 
+    {
         std::ofstream outCon(fFolderOutput + "AverageAfterLoadSolution.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(pressure_mesh, outCon, {1,2,3,fPressureSkeletonMatId}, false, true);
+    }
 #endif
 
     // apply the restraints to the edge connects
