@@ -20,9 +20,7 @@ template <typename MixedMaterial>
 class TPZHDivErrorEstimateMaterial : public MixedMaterial {
 
 public:
-    TPZHDivErrorEstimateMaterial(int matid, int dim) : MixedMaterial(matid, dim) {
-        
-    }
+    TPZHDivErrorEstimateMaterial(int matid, int dim);
 
     TPZHDivErrorEstimateMaterial() : MixedMaterial(){
         

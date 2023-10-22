@@ -14,6 +14,7 @@
 #include "Elasticity/TPZMixedElasticityND.h"
 #include "TPZBndCondT.h"
 #include "Pre/TPZMHMeshControl.h"
+#include "TPZElasticityMHMHDivErrorEstimator.h"
 
 void RunSmoothProblem(int nCoarseDiv, int nInternalRef);
 void RunElasticityProblem(int nCoarseDiv, int nInternalRef);
@@ -34,6 +35,7 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config);
 
 void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
+void EstimateErrorElasticity(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
 
 void MHMAdaptivity(TPZMHMixedMeshControl *mhm, TPZGeoMesh* gmeshToRefine, ProblemConfig& config);
 
@@ -71,7 +73,7 @@ void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     config.problemname = "Smooth";
     config.dir_name = "Journal";
     config.porder = 1;
-    config.hdivmais = 1;
+    config.hdivmais = 2;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -134,7 +136,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
-    EstimateError(config, mhm);
+    EstimateErrorElasticity(config, mhm);
 }
 
 void RunHighGradientProblem(const int nCoarseDiv, const int nInternalRef) {
@@ -502,25 +504,25 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
         DebugStop();
     }
 
-    // if (mhm->ProblemType()<3){
-    //     scalnames.Push("Pressure");
-    //     scalnames.Push("Permeability");
-    //     vecnames.Push("Flux");
+    if (config.problemtype == ProblemConfig::TProbType::EDarcy){
+        scalnames.Push("Pressure");
+        scalnames.Push("Permeability");
+        vecnames.Push("Flux");
 
-    //     if (config.exact) {
-    //         scalnames.Push("ExactPressure");
-    //         vecnames.Push("ExactFlux");
-    //     }
-    // } else {
+        if (config.exact) {
+            scalnames.Push("ExactPressure");
+            vecnames.Push("ExactFlux");
+        }
+    } else if (config.problemtype == ProblemConfig::TProbType::EElasticity){
         scalnames.Push("SigmaX");
         scalnames.Push("SigmaY");
         scalnames.Push("TauXY");
         vecnames.Push("Displacement");
 
-        if (config.exact) {
+        if (config.exactElast) {
             vecnames.Push("ExactDisplacement");
         }
-    // }
+    }
     
     std::cout << "Post Processing...\n";
 
@@ -541,15 +543,43 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     if (!originalMesh) DebugStop();
 
     bool postProcWithHDiv = false;
-    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, config, postProcWithHDiv);
+    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
+    ErrorEstimator.SetAnalyticSolution(config.exact);
     
-    if (config.problemtype == ProblemConfig::TProbType::EElasticity){
-        ErrorEstimator.SetAnalyticSolution(config.exactElast);
-    } else {
-        ErrorEstimator.SetAnalyticSolution(config.exact);
+    ErrorEstimator.PrimalReconstruction();
+
+    std::string command = "mkdir -p " + config.dir_name;
+    system(command.c_str());
+
+    TPZManVector<REAL, 6> errors;
+    TPZManVector<REAL> elementerrors;
+    std::stringstream outVTK;
+    outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
+           << "-Errors.vtk";
+    std::string outVTKstring = outVTK.str();
+    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
+        std::ofstream file(fileName, std::ios::app);
+        Tools::PrintErrors(file, config, errors);
     }
+}
+
+
+void EstimateErrorElasticity(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
+
+    std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
+
+    // Error estimation
+    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
+    if (!originalMesh) DebugStop();
+
+    bool postProcWithHDiv = false;
+    TPZElasticityMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
+    ErrorEstimator.SetAnalyticSolution(config.exactElast);
     
-    ErrorEstimator.PotentialReconstruction();
+    ErrorEstimator.PrimalReconstruction();
 
     std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());

@@ -18,11 +18,18 @@ TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate() : MixedMat()
     
 }
 
-template<class MixedMat>
-TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(int matid, int dim) : MixedMat(matid,dim)
+template<>
+TPZMixedHDivErrorEstimate<TPZMixedDarcyFlow>::TPZMixedHDivErrorEstimate(int matid, int dim) : TPZMixedDarcyFlow(matid,dim)
 {
     
 }
+
+template<>
+TPZMixedHDivErrorEstimate<TPZMixedElasticityND>::TPZMixedHDivErrorEstimate(int matid, int dim)
+{
+    DebugStop();
+}
+
 
 template<class MixedMat>
 TPZMixedHDivErrorEstimate<MixedMat>::TPZMixedHDivErrorEstimate(const MixedMat &copy) : MixedMat(copy)

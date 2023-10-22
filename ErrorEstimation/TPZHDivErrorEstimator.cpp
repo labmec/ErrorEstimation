@@ -29,6 +29,8 @@
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "Projection/TPZL2Projection.h"
 #include "Elasticity/TPZMixedElasticityND.h"
+#include "TPZHDivErrorEstimateDarcyMaterial.h"
+#include "TPZHDivErrorEstimateElasticityMaterial.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
@@ -1810,10 +1812,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::PlotPrimalSkeleton(const std::string 
 
     if (!reconstructed) {
         pressure = fOriginal->MeshVector()[1];
-        scalnames.Push("State");
+        // scalnames.Push("Pressure");
     } else {
         pressure = PrimalMesh();
-        scalnames.Push("State");
+        // scalnames.Push("Pressure");
     }
 
     TPZLinearAnalysis an(pressure,RenumType::ENone);
@@ -1827,7 +1829,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PlotPrimalSkeleton(const std::string 
             plotname = out.str();
         }
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(5, dim);
+        an.PostProcess(0, dim);
     }
 }
 
@@ -1870,7 +1872,7 @@ void TPZHDivErrorEstimator<TPZMixedDarcyFlow>::SwitchMaterialObjects() {
             if (fPostProcesswithHDiv) {
                 newmat = new TPZMixedHDivErrorEstimate<TPZMixedDarcyFlow>(*mixpoisson);
             } else {
-                newmat = new TPZHDivErrorEstimateMaterial<TPZMixedDarcyFlow>(*mixpoisson);
+                newmat = new TPZHDivErrorEstimateDarcyMaterial(*mixpoisson);
             }
 
             if (mixpoisson->HasForcingFunction()) {
@@ -1905,7 +1907,7 @@ void TPZHDivErrorEstimator<TPZMixedElasticityND>::SwitchMaterialObjects() {
                 DebugStop();//This option was not implemented.
                 newmat = new TPZMixedHDivErrorEstimate<TPZMixedElasticityND>(*mixelasticity);
             } else {
-                newmat = new TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>(*mixelasticity);
+                newmat = new TPZHDivErrorEstimateElasticityMaterial(*mixelasticity);
             }
 
             if (mixelasticity->HasForcingFunction()) {

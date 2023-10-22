@@ -131,6 +131,8 @@ void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices)
         count++;
     }
     coarseindices.Resize(count);
+
+    
 }
 
 

@@ -11,9 +11,6 @@
 TPZHDivErrorEstimateElasticityMaterial::TPZHDivErrorEstimateElasticityMaterial() {
 }
 
-TPZHDivErrorEstimateElasticityMaterial::TPZHDivErrorEstimateElasticityMaterial(const TPZHDivErrorEstimateElasticityMaterial& orig) {
-}
-
 TPZHDivErrorEstimateElasticityMaterial::~TPZHDivErrorEstimateElasticityMaterial() {
 }
 

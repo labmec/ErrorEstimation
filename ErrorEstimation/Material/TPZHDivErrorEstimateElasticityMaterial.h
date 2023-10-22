@@ -15,9 +15,26 @@
 class TPZHDivErrorEstimateElasticityMaterial : public TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>{
 public:
     TPZHDivErrorEstimateElasticityMaterial();
-    TPZHDivErrorEstimateElasticityMaterial(const TPZHDivErrorEstimateElasticityMaterial& orig);
     virtual ~TPZHDivErrorEstimateElasticityMaterial();
     
+    TPZHDivErrorEstimateElasticityMaterial(const TPZHDivErrorEstimateElasticityMaterial &copy): TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>(copy){
+    }
+    
+    TPZHDivErrorEstimateElasticityMaterial(const TPZHDivErrorEstimateMaterial<TPZMixedElasticityND> &copy): TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>(copy){
+        
+    }
+    
+    TPZHDivErrorEstimateElasticityMaterial(const TPZMixedElasticityND &copy): TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>(copy){
+        
+    }
+        
+    TPZHDivErrorEstimateElasticityMaterial &operator=(const TPZHDivErrorEstimateElasticityMaterial &copy) {
+        TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>::operator=(copy); 
+        return *this;
+    }
+
+
+
     virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
                             TPZFMatrix<STATE> &ef) override;
 

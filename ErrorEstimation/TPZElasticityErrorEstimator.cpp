@@ -1354,7 +1354,8 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
             gel->CenterPoint(gel->NSides() - 1, xi);
             TPZVec<REAL> x(3, 0.);
             gel->X(xi, x);
-            weight = std::norm(mixedElasticityMaterial->GetMaxComplianceEigenvalue(x));
+            DebugStop();
+            // weight = std::norm(mixedElasticityMaterial->GetMaxComplianceEigenvalue(x));
 
             if (IsZero(weight)) DebugStop();
             this->fPrimalWeights[el] = weight;

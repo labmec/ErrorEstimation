@@ -14,6 +14,19 @@
 
 
 
+template<>
+TPZHDivErrorEstimateMaterial<TPZMixedDarcyFlow>::TPZHDivErrorEstimateMaterial(int matid, int dim) : TPZMixedDarcyFlow(matid,dim)
+{
+    
+}
+
+template<>
+TPZHDivErrorEstimateMaterial<TPZMixedElasticityND>::TPZHDivErrorEstimateMaterial(int matid, int dim)
+{
+    DebugStop();
+}
+
+
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("pz.errorestimation.hdiv"));
 #endif
