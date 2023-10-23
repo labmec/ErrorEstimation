@@ -21,6 +21,60 @@ TPZElasticityMHMHDivErrorEstimator::~TPZElasticityMHMHDivErrorEstimator() {
 }
 
 void TPZElasticityMHMHDivErrorEstimator::ComputePrimalWeights() {
-    DebugStop();
+    std::cout << "Computing pressure weights\n";
+    TPZCompMesh *primalMesh = fPostProcMesh.MeshVector()[1];
+    const int dim = primalMesh->Dimension();
+    const int64_t nel = primalMesh->NElements();
+    fPrimalWeights.Resize(nel, 0);
+    fMatid_weights.clear();
+    for (int64_t el = 0; el < nel; el++) {
+        TPZCompEl *cel = primalMesh->Element(el);
+        if (!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        int matid = gel->MaterialId();
+        TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
+        if (matid == fPrimalSkeletonMatId || matid == fHybridizer.fLagrangeInterface) {
+            fPrimalWeights[el] = 0.;
+            fMatid_weights[matid] = 0.;
+            continue;
+        }
+        if (!mat) DebugStop();
+
+        TPZBndCondT<STATE> *bcmat = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if (bcmat) {
+            switch(bcmat->Type()) {
+                case 0: // Dirichlet BC
+                    fPrimalWeights[el] = 1.e12;
+                    fMatid_weights[matid] = 1.e12;
+                    break;
+                case 1: // Neumann BC
+                    fPrimalWeights[el] = 0;
+                    fMatid_weights[matid] = 0;
+                    break;
+                case 4: // Robin BC, weight = Km
+                    fPrimalWeights[el] = bcmat->Val1()(0, 0);
+                    fMatid_weights[matid] = bcmat->Val1()(0, 0);
+                    break;
+                default:
+                    DebugStop();
+            }
+        } else {
+            TPZMixedElasticityND *mixedElasticityMaterial = dynamic_cast<TPZMixedElasticityND *>(mat);
+            if (!mixedElasticityMaterial) DebugStop();
+
+            STATE weight;
+            TPZVec<REAL> xi(gel->Dimension(), 0.);
+            gel->CenterPoint(gel->NSides() - 1, xi);
+            TPZVec<REAL> x(3, 0.);
+            gel->X(xi, x);
+            // DebugStop();
+            weight = std::norm(mixedElasticityMaterial->GetMaxComplianceEigenvalue(x));
+
+            if (IsZero(weight)) DebugStop();
+            this->fPrimalWeights[el] = weight;
+            fMatid_weights[matid] = weight;
+        }
+    }
+    std::cout << "Finished computing pressure weights\n";
 }
 

@@ -42,6 +42,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     divsigmafem= data[2].divsol[0][0];
     
     STATE divtest=0.;
+    int dim  = this->Dimension();
     for (int j=0; j < this->Dimension(); j++) {
         divtest += data[2].dsol[0](j,j);
     }
@@ -49,10 +50,10 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     int H1functionposition = 0;
     H1functionposition = FirstNonNullApproxSpaceIndex(data);
     
-    TPZVec<STATE> divsigma(1);
-    divsigma[0]=0.;
+    TPZVec<STATE> divsigma(dim);
+    
 
-    TPZManVector<STATE, 1> u_exact(1);
+    TPZManVector<STATE, 1> u_exact(dim);
     TPZFNMatrix<9, STATE> du_exact(3, 3);
     if(this->fExactSol){
         
@@ -172,18 +173,17 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
     STATE perm = 0; // this->GetPermeability(data[1].x);
     PermTensor.Diagonal(perm);
     InvPermTensor.Diagonal(1. / perm);
+    int dim = this->Dimension();
 
 
-
-    TPZManVector<STATE, 2> pressexact(1, 0.);
-    TPZFNMatrix<9, STATE> gradu(3, 1, 0.), fluxinv(3, 1);
+    TPZManVector<STATE, 2> pressexact(dim, 0.);
+    TPZFNMatrix<9, STATE> gradu(3, dim, 0.), fluxinv(3, 1);
 
     if (TPZMixedElasticityND::HasExactSol()) {
         this->ExactSol()(datavec[H1functionIdx].x, pressexact, gradu);
     }
 
     PermTensor.Multiply(gradu, fluxinv);
-    int dim = this->Dimension();
     switch (var) {
         case 40://FluxFem
             for (int i = 0; i < 3; i++) {

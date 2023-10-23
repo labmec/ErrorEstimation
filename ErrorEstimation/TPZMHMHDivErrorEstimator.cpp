@@ -816,7 +816,8 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::CreateSkeletonApproximationSpace(T
     // Create skeleton elements in pressure mesh
     TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(this->fPrimalSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
-    // if(fConfig.problemtype == ProblemConfig::TProbType::EElasticity) skeletonMat->SetNStateVariables(dim);
+    // if(fConfig.problemtype == ProblemConfig::TProbType::EElasticity) 
+    skeletonMat->SetNStateVariables(dim);
     pressure_mesh->InsertMaterialObject(skeletonMat);
 
     std::set<int> matIdSkeleton = { this->fPrimalSkeletonMatId };
