@@ -477,7 +477,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     TPZSSpStructMatrix<> strmat(cmesh.operator->());
     strmat.SetNumThreads(8);
 #else
-    TPZSkylineStructMatrix strmat(cmesh.operator->());
+    TPZSkylineStructMatrix<STATE> strmat(cmesh.operator->());
     strmat.SetNumThreads(0);
 #endif
 

@@ -21,7 +21,7 @@ TPZElasticityMHMHDivErrorEstimator::~TPZElasticityMHMHDivErrorEstimator() {
 }
 
 void TPZElasticityMHMHDivErrorEstimator::ComputePrimalWeights() {
-    std::cout << "Computing pressure weights\n";
+    std::cout << "Computing displacement weights\n";
     TPZCompMesh *primalMesh = fPostProcMesh.MeshVector()[1];
     const int dim = primalMesh->Dimension();
     const int64_t nel = primalMesh->NElements();
@@ -75,6 +75,38 @@ void TPZElasticityMHMHDivErrorEstimator::ComputePrimalWeights() {
             fMatid_weights[matid] = weight;
         }
     }
-    std::cout << "Finished computing pressure weights\n";
+    std::cout << "Finished computing displacement weights\n";
 }
 
+
+void TPZElasticityMHMHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
+
+    TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
+    int varindex = -1;
+    if (mat) varindex = mat->VariableIndex("DisplacementFem");
+    if (varindex != -1) {
+        TPZStack<std::string> scalnames, vecnames;
+        if (fExact) {
+            vecnames.Push("DisplacementExact");
+            scalnames.Push("DisplacementErrorExact");
+            scalnames.Push("EnergyErrorExact");
+            scalnames.Push("DisplacementEffectivityIndex");
+            scalnames.Push("EnergyEffectivityIndex");
+            vecnames.Push("StressExact");
+        }
+        vecnames.Push("DisplacementFem");
+        vecnames.Push("DisplacementReconstructed");
+        scalnames.Push("DisplacementErrorEstimate");
+        scalnames.Push("EnergyErrorEstimate");
+        vecnames.Push("StressFem");
+        scalnames.Push("POrder");
+        
+        int dim = fPostProcMesh.Reference()->Dimension();
+
+        an.DefineGraphMesh(dim, scalnames, vecnames, out);
+        an.PostProcess(0, dim);
+    }
+    else {
+        std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
+    }
+}

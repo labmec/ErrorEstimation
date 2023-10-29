@@ -44,7 +44,10 @@ public:
     virtual void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
     
     virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
+    virtual int VariableIndex(const std::string &name) const override;
+
 private:
+
 
 };
 

@@ -79,7 +79,7 @@ public:
     virtual void PrimalReconstruction();
 
     /// create graphical output of estimated and true errors using the analysis
-    void PostProcessing(TPZAnalysis &an, std::string &out);
+  virtual  void PostProcessing(TPZAnalysis &an, std::string &out);
 
     void PlotPrimalSkeleton(const std::string &filename, bool reconstructed = true);
     void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);

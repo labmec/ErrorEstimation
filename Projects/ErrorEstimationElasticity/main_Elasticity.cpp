@@ -213,9 +213,21 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 
     // Solve problem
     constexpr int nThreads{20};
-    TPZSSpStructMatrix<STATE,TPZStructMatrixOR<STATE>> stiffness(cmesh);
+            
+   // TPZSSpStructMatrix<STATE,TPZStructMatrixOR<STATE>> stiffness(cmesh);
+            
+#ifdef PZ_USING_MKL
+    TPZSSpStructMatrix<> stiffness(cmesh);
+            //stiffness.SetNumThreads(0);
+#else
+    TPZSkylineStructMatrix<STATE> stiffness(cmesh);
+           // stiffness.SetNumThreads(0);
+#endif
+            
     stiffness.SetNumThreads(nThreads);
     an.SetStructuralMatrix(stiffness);
+            
+            
 
     ///Setting a direct solver
     TPZStepSolver<STATE> step;

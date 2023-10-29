@@ -1737,11 +1737,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     }
 #endif
 
-    //PlotState("ReconstructionSteps/VolumePressureBeforeCopyFromSkel", 2, fPostProcMesh.MeshVector()[1]);
-    //PlotState("ReconstructionSteps/VolumeMFPressureBeforeCopyFromSkel", 2, &fPostProcMesh, false);
+    PlotState("ReconstructionSteps/VolumePressureBeforeCopyFromSkel", 2, fPostProcMesh.MeshVector()[1]);
+    PlotState("ReconstructionSteps/VolumeMFPressureBeforeCopyFromSkel", 2, &fPostProcMesh, false);
     CopySolutionFromSkeleton();
-    //PlotState("ReconstructionSteps/VolumePressureAfterCopyFromSkel", 2, fPostProcMesh.MeshVector()[1]);
-    //PlotState("ReconstructionSteps/VolumeMFPressureAfterCopyFromSkel", 2, &fPostProcMesh, false);
+    PlotState("ReconstructionSteps/VolumePressureAfterCopyFromSkel", 2, fPostProcMesh.MeshVector()[1]);
+    PlotState("ReconstructionSteps/VolumeMFPressureAfterCopyFromSkel", 2, &fPostProcMesh, false);
 
     // transfer the continuous pressures to the multiphysics space
     TPZManVector<TPZCompMesh *, 2> meshvec(2);
