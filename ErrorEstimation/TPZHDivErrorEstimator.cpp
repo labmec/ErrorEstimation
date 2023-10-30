@@ -87,7 +87,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
-    fPostProcMesh.ElementSolution().Redim(nelem, 5);
+    fPostProcMesh.ElementSolution().Redim(nelem, 6);
     for(int64_t el = 0; el<nelem; el++)
     {
         TPZCompEl *cel = fPostProcMesh.Element(el);
@@ -95,7 +95,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
         if(subc)
         {
             int64_t nelsub = subc->NElements();
-            subc->ElementSolution().Redim(nelsub, 5);
+            subc->ElementSolution().Redim(nelsub, 6);
         }
     }
     
@@ -1781,15 +1781,15 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
-    // TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
-    // {
-    //     //PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh, false);
-    //     //PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
-    //     std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
-    //     TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
-    //     std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
-    //     TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
-    // }
+//    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+//    {
+//        PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh, false);
+//        PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
+        //     std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
+        //     TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
+        //     std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
+        //     TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+//    }
 
 
 #ifdef ERRORESTIMATION_DEBUG
@@ -2254,7 +2254,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PlotState(const std::string& filename
         if (atomic) {
             scalnames.Push("State");
         } else {
-            scalnames.Push("PressureReconstructed");
+            vecnames.Push("DisplacementReconstructed");
         }
 
         std::string plotname;

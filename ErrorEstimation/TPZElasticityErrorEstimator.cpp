@@ -946,6 +946,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     // Create skeleton elements in pressure mesh
     TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPrimalSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
+    skeletonMat->SetNStateVariables(2);
     displacement_mesh->InsertMaterialObject(skeletonMat);
 
     std::set<int> matIdSkeleton = { fPrimalSkeletonMatId };
@@ -1354,8 +1355,7 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
             gel->CenterPoint(gel->NSides() - 1, xi);
             TPZVec<REAL> x(3, 0.);
             gel->X(xi, x);
-            DebugStop();
-            // weight = std::norm(mixedElasticityMaterial->GetMaxComplianceEigenvalue(x));
+            weight = std::norm(mixedElasticityMaterial->GetMaxComplianceEigenvalue(x));
 
             if (IsZero(weight)) DebugStop();
             this->fPrimalWeights[el] = weight;

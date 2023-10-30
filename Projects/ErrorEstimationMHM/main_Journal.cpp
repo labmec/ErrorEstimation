@@ -585,7 +585,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMHMixedMeshControl *mhm) 
     system(command.c_str());
 
     TPZManVector<REAL, 6> errors;
-    TPZManVector<REAL> elementerrors;
+    TPZManVector<REAL, 6> elementerrors;
     std::stringstream outVTK;
     outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
            << "-Errors.vtk";
