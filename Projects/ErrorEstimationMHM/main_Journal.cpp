@@ -595,7 +595,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMHMixedMeshControl *mhm) 
     {
         std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
         std::ofstream file(fileName, std::ios::app);
-        Tools::PrintErrors(file, config, errors);
+        Tools::PrintElasticityErrors(file, config, errors);
     }
 }
 

@@ -58,6 +58,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     }
 
     TPZManVector<STATE> divstressfem(dim, 0.);
+    divstressfem.Fill(0);
     for (int i = 0; i < dim; i++) {
         divstressfem[i] = data[2].divsol[0][i];
     }
@@ -72,13 +73,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     H1functionposition = FirstNonNullApproxSpaceIndex(data);
 
 
-
-    //    TPZFNMatrix<3,REAL> fluxreconstructed(3,1), fluxreconstructed2(3,1);
-    //    fluxfem = data[2].sol[0];
-    //    divsigmafem= data[2].divsol[0][0];
-
     TPZManVector<STATE> divstress(dim, 0.);
-
+    
+    divstress.Fill(0);
 
     TPZManVector<STATE, 3> u_exact(dim, 0.);
     TPZFNMatrix<9, STATE> du_exact(dim, dim, 0.);
@@ -93,6 +90,8 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     for (unsigned int idf = 0; idf < dim; idf++) {
         residual = (divstress[idf] - divstressfem[idf])*(divstress[idf] - divstressfem[idf]);
     }
+    
+    std::cout<<"residual error "<<residual<<std::endl;
 
 
     TPZManVector<STATE, 3> displacementreconstructed(dim, 0.);
@@ -102,32 +101,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     displacementfem = data[3].sol[0];
 
     std::cout << " stressfem ----\n" << stressfem;
-    stressfem.Print(std::cout);
+
 
     std::cout << " displacement fem ----\n" << displacementfem;
-    displacementfem.Print(std::cout);
+
 
     std::cout << " displacement reconstructed ----\n" << displacementreconstructed;
-    displacementreconstructed.Print(std::cout);
 
-    //TPZFNMatrix<9,REAL> PermTensor(3,3);
-    //TPZFNMatrix<9,REAL> InvPermTensor(3,3);
-    //STATE perm = 0; // this->GetPermeability(data[1].x);
-    //PermTensor.Diagonal(perm);
-    //InvPermTensor.Diagonal(1./perm);
-
-    //TPZFNMatrix<3,REAL> fluxexactneg;
-
-    //sigmarec = -K grad(urec)
-    //  sigmak = -K graduk
-
-    //{
-    //    TPZFNMatrix<9,REAL> gradpressure(3,1);
-    //    for (int i=0; i<3; i++) {
-    //        gradpressure(i,0) = du_exact[i];
-    //    }
-    //    PermTensor.Multiply(gradpressure,fluxexactneg);
-    //}
 
     /// calculo do erro de sigma na norma energia || sigma_fem-sigma_ex||_C
     int nstate = dim;
@@ -149,19 +129,6 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     eps_reconstructed(0, 0) = du_exact(0, 0);
     eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
     eps_reconstructed(1, 1) = du_exact(1, 1);
-
-
-
-    //TPZFMatrix<REAL> &dsolaxes = data[H1functionposition].dsol[0];
-    //TPZFNMatrix<9,REAL> fluxrec(3,0);
-    //TPZAxesTools<REAL>::Axes2XYZ(dsolaxes, fluxrec, data[H1functionposition].axes);
-
-    //for(int id=0 ; id<3; id++) {
-    //    fluxreconstructed2(id,0) = (-1.)*fluxrec(id,0);
-    //}
-
-    //PermTensor.Multiply(fluxreconstructed2,fluxreconstructed);
-
 
     //eps(reconstructed displacement)
     const auto &dudxreconstructed = data[H1functionposition].dsol[0];
@@ -189,7 +156,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         TElasticityAtPoint modify(E, nu);
         elast = modify;
     }
-    //compute C(sigma) ?
+    //compute C(sigma)
     ComputeStressVector(eps_exactV, sigma_exactV, elast);
 
     /// || sigma - sigma_fem||_C^2 = (C(sigma - sigma_fem), sigma - sigma_fem)
@@ -204,13 +171,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         part2[i] = sigma_exactV[i] - stress_femV[i];
     }
     errors[3] = InnerVec(part1, part2);
-//    for (int i = 0; i < matdim; i++) {
-//        //L2_Error: for the stress tensor (sigma)
-//        // errors[0] += (Sigma_fem[i] - sigma_exactV[i])*(Sigma_fem[i] - sigma_exactV[i]);
-//
-//        //Energy_Error: for the stress tensor (sigma)
-//        errors[3] += (eps_exactV - stress_femV[i])*(EPSZV[i] - eps_exactV[i]);
-//    }
+
 
     /// Como calcular do erro estimado na norma energia?  || sigma_fem - Aeps(u_rec)||_C
 
@@ -227,23 +188,12 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     }
     errors[4] = InnerVec(part1, part2);
     
-    
-    //    REAL innerexact = 0.;
-    //    REAL innerestimate = 0.;
 
 #ifdef ERRORESTIMATION_DEBUG2
     std::cout << "stress fem " << stress_femV << std::endl;
     std::cout << "stress reconst " << Sigma_reconstructed << std::endl;
     std::cout << "-------" << std::endl;
 #endif
-
-    /*    for (int i=0; i<3; i++) {
-            for (int j=0; j<3; j++) {
-                innerexact += (fluxfem[i]+fluxexactneg(i,0))*InvPermTensor(i,j)*(fluxfem[j]+fluxexactneg(j,0));//Pq esta somando: o fluxo fem esta + e o exato -
-                innerestimate += (fluxfem[i]-fluxreconstructed[i])*InvPermTensor(i,j)*(fluxfem[j]-fluxreconstructed[j]);
-            }
-        }*/
-
 
     //exact error displacement
     errors[0] = 0.;
@@ -263,16 +213,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
 
     //||f - Proj_divsigma||
     errors[5] = residual;
-    /*#ifdef ERRORESTIMATION_DEBUG2
-        std::cout<<"potential fem "<<pressurefem<<std::endl;
-        std::cout<<"potential reconst "<<pressurereconstructed<<std::endl;
-        std::cout<<"-------"<<std::endl;
-    #endif
-        errors[0] = (pressurefem-u_exact[0])*(pressurefem-u_exact[0]);//exact error pressure
-        errors[1] = (pressurefem-pressurereconstructed)*(pressurefem-pressurereconstructed);//error pressure reconstructed
-        errors[2] = innerexact;//error flux exact
-        errors[3] = innerestimate;//error flux reconstructed
-        errors[4] = residual; //||f - Proj_divsigma||*/
+  
 
 #ifdef LOG4CXX
     if (logger->isDebugEnabled()) {
@@ -312,16 +253,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
     int dim = this->Dimension();
 
 
-    TPZManVector<STATE, 2> pressexact(dim, 0.);
+    TPZManVector<STATE, 2> u_exact(dim, 0.);
+    u_exact.Fill(0);
     TPZFNMatrix<9, STATE> gradu(3, dim, 0.), fluxinv(3, 1);
 
     auto x = datavec[H1functionIdx].x;
     
-    if (TPZMixedElasticityND::HasExactSol()) {
-        this->ExactSol()(x, pressexact, gradu);
-    }
 
-    //PermTensor.Multiply(gradu, fluxinv);
     TPZFNMatrix<9, STATE> StressExac(3, 3, 0.), StressFem(3, 3, 0.), eps(3, 3, 0.);
 
     for (int i = 0; i < dim; i++) {
@@ -349,6 +287,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
 
         case 41://StressExact
         {
+
             unsigned int nstate = fDimension*fDimension;
             TPZVec<STATE> u_exact(fDimension, 0.);
             TPZFMatrix<STATE> du_exact(fDimension, fDimension, 0.);
@@ -365,7 +304,6 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
 
             TElasticityAtPoint elast(fE_const, fnu_const);
             if (TPZMixedElasticityND::fElasticity) {
-                //TPZManVector<REAL,3> result(2);
                 TPZManVector<STATE, 3> result(2);
                 TPZFNMatrix<4, STATE> Dres(0, 0);
                 fElasticity(x, result, Dres);
@@ -389,13 +327,16 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
 
         case 43://displacement Exact
         {
+
             TPZVec<STATE> u_exact(fDimension, 0.);
             TPZFMatrix<STATE> du_exact(fDimension, fDimension, 0.);
             if (this->fExactSol) {
                 this->fExactSol(datavec[2].x, u_exact, du_exact);
             }
+            //std::cout << "uexact = " << u_exact << std::endl;
+
             for (int idf = 0; idf < dim; idf++) {
-                Solout[idf] = u_exact[idf];
+                Solout[idf] =u_exact[idf];
             }
             return;
         }
@@ -630,4 +571,32 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
 
 
     return -1;
+}
+
+int TPZHDivErrorEstimateElasticityMaterial::NSolutionVariables(int var) const
+{
+    switch (var) {
+        case 40:
+        case 41:
+        case 42:
+        case 43:
+        case 44:
+            return 3;
+            break;
+            
+        case 100:
+        case 101:
+        case 102:
+        case 103:
+        case 104:
+        case 105:
+        case 106:
+        case 45:
+            return 1;
+            break;
+        default:
+            DebugStop();
+            break;
+    }
+    return 0;
 }

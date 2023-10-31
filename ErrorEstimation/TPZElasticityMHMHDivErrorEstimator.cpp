@@ -110,3 +110,27 @@ void TPZElasticityMHMHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::st
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
     }
 }
+void TPZElasticityMHMHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic) {
+    
+    std::ofstream outTXT("DisplacementtoStateGraph.txt");
+    cmesh->Print(outTXT);
+    
+    {
+        TPZLinearAnalysis an(cmesh, RenumType::ENone);
+        TPZStack<std::string> scalnames, vecnames;
+        if (atomic) {
+            scalnames.Push("State");
+        } else {
+            scalnames.Push("DisplacementReconstructed");
+        }
+
+        std::string plotname;
+        {
+            std::stringstream out;
+            out << filename << ".vtk";
+            plotname = out.str();
+        }
+        an.DefineGraphMesh(targetDim, scalnames, vecnames, plotname);
+        an.PostProcess(4, targetDim);
+    }
+}

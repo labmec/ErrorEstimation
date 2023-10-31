@@ -27,6 +27,7 @@ public:
     
     virtual void ComputePrimalWeights() override;
     virtual  void PostProcessing(TPZAnalysis &an, std::string &out) override;
+    virtual void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic);
     
 private:
 

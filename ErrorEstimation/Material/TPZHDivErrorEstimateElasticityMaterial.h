@@ -45,6 +45,8 @@ public:
     
     virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
     virtual int VariableIndex(const std::string &name) const override;
+    int NSolutionVariables(int var) const override;
+
 
 private:
 

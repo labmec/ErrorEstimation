@@ -416,6 +416,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeElementStiffnesses() {
         if (subcmesh) {
             subcmesh->Assemble();
         }
+        
+//        if(!subcmesh || !condense){
+//            DebugStop();
+//        }
+        
 #ifdef ERRORESTIMATION_DEBUG
         if(subcmesh && condense)
         {
