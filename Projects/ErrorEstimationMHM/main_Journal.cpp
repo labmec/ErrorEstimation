@@ -48,7 +48,7 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {3};
+    const std::set<int> nCoarseDiv = {2};
     const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
@@ -73,7 +73,7 @@ void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     config.problemname = "Smooth";
     config.dir_name = "Journal";
     config.porder = 1;
-    config.hdivmais = 2;
+    config.hdivmais = 0;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;
@@ -94,6 +94,22 @@ void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
     TPZManVector<int64_t> coarseIndexes;
     ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    // TPZManVector<int64_t> coarseIndexes(config.gmesh->NElements());
+    // int64_t count = 0;
+    // int coarselevel = 0;
+    // int64_t nel = config.gmesh->NElements();
+    // for (int64_t el=0; el<nel; el++) {
+    //     TPZGeoEl *gel = config.gmesh->Element(el);
+    //     if(gel && gel->Dimension() == config.gmesh->Dimension() && gel->Level()==coarselevel)
+    //     {
+    //         coarseIndexes[count++] = el;
+    //     }
+    // }
+    // coarseIndexes.resize(count);
+    for (int i = 0; i < coarseIndexes.size(); i++)
+    {
+        std::cout <<"Coarse indice - " << i << " = " << coarseIndexes[i] << std::endl;
+    }
     bool definePartitionByCoarseIndexes = true;
     CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
@@ -457,13 +473,13 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     // General approximation order settings
     mhm->SetInternalPOrder(config.porder);
     mhm->SetSkeletonPOrder(config.porder);
-    mhm->SetHdivmaismaisPOrder(config.hdivmais);
+    // mhm->SetHdivmaismaisPOrder(config.hdivmais);
 
     // Refine skeleton elements
     mhm->DivideSkeletonElements(0);
-    mhm->DivideBoundarySkeletonElements();
+    // mhm->DivideBoundarySkeletonElements();
     // Creates MHM mesh
-    bool substructure = false;
+    bool substructure = true;
     mhm->BuildComputationalMesh(substructure);
 }
 
@@ -471,7 +487,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
 
     TPZAutoPointer<TPZCompMesh> cmesh = mhm->CMesh();
 
-    TPZLinearAnalysis an(cmesh, RenumType::ESloan);
+    TPZLinearAnalysis an(cmesh, RenumType::ENone);
 
 #ifdef PZ_USING_MKL
     TPZSSpStructMatrix<> strmat(cmesh.operator->());
@@ -700,7 +716,7 @@ void CreateMHMCompMeshHeteroPerm(TPZMHMixedMeshControl *mhm, const ProblemConfig
 
     // Refine skeleton elements
     mhm->DivideSkeletonElements(0);
-    mhm->DivideBoundarySkeletonElements();
+    // mhm->DivideBoundarySkeletonElements();
     // Creates MHM mesh
     bool substructure = false;
     mhm->BuildComputationalMesh(substructure);
@@ -745,7 +761,7 @@ void CreateMHMCompMeshPermFunction(TPZMHMixedMeshControl &mhm) {
 
     // Refine skeleton elements
     mhm.DivideSkeletonElements(0);
-    mhm.DivideBoundarySkeletonElements();
+    // mhm.DivideBoundarySkeletonElements();
 
     // Creates MHM mesh
     bool substructure = true;

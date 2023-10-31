@@ -211,7 +211,6 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
             TPZMaterial *pressuremat = pressureMesh->FindMaterial(volumetricMatId);
             if (!pressuremat) DebugStop();
             TPZMaterialT<STATE> *press = dynamic_cast<TPZMaterialT<STATE> *>(pressuremat);
-            TPZMixedDarcyFlow *press2 = dynamic_cast<TPZMixedDarcyFlow *>(pressuremat);
 
             TPZBndCondT<STATE> *newbc = press->CreateBC(pressuremat, bc->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (bc->HasForcingFunctionBC()) {
@@ -874,6 +873,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
         if (!bc || (bc->Type() != 0)) continue;
         
         cel->CalcStiff(ekbc, efbc);
+        // ekbc.fMat.Print(std::cout);
         // ekbc.fMat.SolveDirect(efbc.fMat, ELU);
         int count = 0;
         int nc = cel->NConnects();
@@ -1767,7 +1767,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMeshes.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
         std::ofstream outMultiphysics ("DebuggingTransfer/MultiphysicsAfterTransferFromMeshes.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+        // TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 #endif
 
@@ -1784,7 +1784,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
-        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+        // TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 //    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 //    {
