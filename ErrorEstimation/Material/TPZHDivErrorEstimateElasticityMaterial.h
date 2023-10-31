@@ -33,6 +33,7 @@ public:
         return *this;
     }
 
+
     virtual int NEvalErrors() const override;
 
     virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
