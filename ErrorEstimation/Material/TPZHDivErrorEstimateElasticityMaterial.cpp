@@ -368,101 +368,79 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
      datavec[3] L2 mesh, ukE
      
      Implement the matrix
-     |Sk Ck^T |  = |bk|
-     |Ck  0   |    |uk|
-     Sk = int_K graduk.gradv dx = int_K gradphi_i.gradphi_j dx
-     CK = int_K uk dx = int_K phi_i dx
-     bk = int_K sigmafem.gradv dx = int_K sigmafem.gradphi_i dx
-     uk = int_K ukfem dx
+     (eps (u_rec),eps(v)) = (C sigma_fem,eps(v))
+     
+     int eps(u_rec): eps(v) dx = int C sigma_fem : eps(v) dx
    
      **/
 
     int H1functionposition = 0;
     H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
+    TPZManVector<REAL, 3> x = datavec[2].x;
 
-    int dim = datavec[H1functionposition].axes.Rows();
-    //defining test functions
-    // Setting the phis
+    int dim = this->fDimension;
+    int matdim = dim*dim;
+//    //defining test functions
+//    // Setting the phis
     TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
     TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
     TPZFNMatrix<9, REAL> dphiuk(3, dphiukaxes.Cols());
     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
+    
+
+    TPZFNMatrix<9, STATE> eps_phiuk(matdim, matdim, 0.);
+    TPZManVector<STATE> eps_phiukV(matdim, 0.);
+    eps_phiuk(0, 0) = dphiuk(0, 0);
+    eps_phiuk(1, 0) = eps_phiuk(0, 1) = 0.5 * (dphiuk(0, 1) + dphiuk(1, 0));
+    eps_phiuk(1, 1) = dphiuk(1, 1);
+
+    ToVoigt(eps_phiuk, eps_phiukV);
+    long nphiuk = phiuk.Rows();
+    
+    const auto &dudxreconstructed = datavec[H1functionposition].dsol[0];
+    const auto &axes = datavec[2].axes;
 
 
-    int nphiuk = phiuk.Rows();
-
-    TPZFMatrix<STATE> solsigmafem(3, nphiuk), solukfem(1, 1);
-    solsigmafem.Zero();
-    solukfem.Zero();
+    TElasticityAtPoint elast(fE_const, fnu_const);
 
 
-    //potetial fem
-    solukfem(0, 0) = datavec[3].sol[0][0];
-    //flux fem
-    for (int ip = 0; ip < 3; ip++) {
-
-        solsigmafem(ip, 0) = datavec[2].sol[0][ip];
+    if (TPZMixedElasticityND::fElasticity) {
+        
+        TPZManVector<STATE, 3> result(2);
+        TPZFNMatrix<4, STATE> Dres(0, 0);
+        fElasticity(x, result, Dres);
+        REAL E = result[0];
+        REAL nu = result[1];
+        TElasticityAtPoint modify(E, nu);
+        elast = modify;
     }
-
-
-
-    TPZFNMatrix<9, REAL> PermTensor(3, 3);
-    TPZFNMatrix<9, REAL> InvPermTensor(3, 3);
-    STATE perm = 0; //this->GetPermeability(datavec[1].x);
-    PermTensor.Diagonal(perm);
-    InvPermTensor.Diagonal(1. / perm);
-
-
-    TPZFMatrix<STATE> kgraduk(3, nphiuk, 0.);
-
-
-    for (int irow = 0; irow < nphiuk; irow++) {
-
-        //K graduk
-        for (int id = 0; id < dim; id++) {
-
-            for (int jd = 0; jd < dim; jd++) {
-
-                kgraduk(id, irow) += PermTensor(id, jd) * dphiuk(jd, irow);
-
-            }
-            //bk = (-1)*int_k sigmaukfem.grad phi_i,here dphiuk is multiplied by axes
-            //the minus sign is necessary because we are working with sigma_h = - K grad u, Mark works with sigma_h = K grad u
-
-            ef(irow, 0) += (-1.) * weight * dphiuk(id, irow) * solsigmafem(id, 0);
-        }
-
-        //matrix Sk= int_{K} K graduk.gradv
-        for (int jcol = 0; jcol < nphiuk; jcol++) {
-
-            for (int jd = 0; jd < dim; jd++) {
-                ek(irow, jcol) += weight * kgraduk(jd, irow) * dphiuk(jd, jcol);
-            }
-
-        }
-        //Ck=int_{K} phi_i e Ck^t
-        if (fNeumannLocalProblem) {
-
-            ek(irow, nphiuk) += weight * phiuk(irow, 0);
-            ek(nphiuk, irow) += weight * phiuk(irow, 0);
-
-        }
-
-    }
-    if (H1functionposition == 0) {
-
-        if (!fNeumannLocalProblem) {
-            ek(nphiuk, nphiuk) += weight;
-            ef(nphiuk, 0) += weight;
-        }
-            //muk = int_k ukfem
-
-        else {
-
-            ef(nphiuk, 0) += weight * solukfem(0, 0);
-
+    TPZFNMatrix<9, STATE> stressfem(dim, dim, 0.);
+    for (unsigned int i = 0; i < dim; i++) {
+        for (unsigned int j = 0; j < dim; j++) {
+            stressfem(i, j) = datavec[2].sol[0][j + i * dim];
         }
     }
+    //compute C(sigma)
+    TPZManVector<STATE, 9> stress_femV(matdim, 0.);
+    ToVoigt(stressfem, stress_femV);
+    
+    TPZManVector<STATE, 9> Csigma_femV(matdim, 0.);
+    ComputeDeformationVector(stress_femV, Csigma_femV, elast);
+    
+    for( int in = 0; in < nphiuk; in++ ) {
+
+            ef(2*in, 0) += weight *(Csigma_femV[in] *eps_phiuk[in]);
+
+        for( int jn = 0; jn < nphiuk; jn++ ) {
+            ek(in,jn) += weight *eps_phiuk[in]*eps_phiuk[jn];
+            
+        }
+        
+    }
+    
+    
+    
+    //-----------
 
 }
 
@@ -470,7 +448,7 @@ void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMateri
         TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) {
 
     /*
-     Add Robin boundary condition for local problem
+     Add Dirichle boundary condition for local problem
      ek+= <w,Km s_i>
      ef+= <w,Km*u_d - g + sigma_i.n>
      */
@@ -480,75 +458,50 @@ void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMateri
     TPZFMatrix<REAL> &phi_i = datavec[H1functionposition].phi;
     int nphi_i = phi_i.Rows();
 
-    TPZFMatrix<STATE> solsigmafem(3, 1);
-    solsigmafem.Zero();
 
-    TPZManVector<REAL, 3> normal = datavec[2].normal;
-
-    REAL normalsigma = datavec[2].sol[0][0];
-
-    REAL u_D;
-    REAL g = 0.;
-    REAL normflux = 0.;
-    TPZFNMatrix<9, REAL> PermTensor(3, 3);
-    TPZFNMatrix<9, REAL> InvPermTensor(3, 3);
-    STATE perm = 0; // GetPermeability(datavec[1].x);
-    PermTensor.Diagonal(perm);
-    InvPermTensor.Diagonal(1. / perm);
+    
+    const TPZVec<REAL> u_D = bc.Val2();
+    TPZFNMatrix<9, STATE> g = bc.Val1();
 
     if (bc.HasForcingFunctionBC()) {
         TPZManVector<STATE> res(3);
         TPZFNMatrix<9, STATE> gradu(dim, 1);
         bc.ForcingFunctionBC()(datavec[H1functionposition].x, res, gradu);
-        u_D = res[0];
 
+        u_D[0]=res[0];
+        u_D[1]=res[1];
 
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                normflux += datavec[2].normal[i] * PermTensor(i, j) * gradu(j, 0);
-            }
-        }
-
-        g = (-1.) * normflux;
 
     } else {
         // u_D is usually stored in val2(0, 0)
-        u_D = bc.Val2()[0];
+        u_D[0] = bc.Val2()[0];
+        u_D[1] = bc.Val2()[1];
     }
 
+    int nstate = 2;
+    
     switch (bc.Type()) {
-        case (4):
-        {
-            REAL Km = bc.Val1()(0, 0);
-            REAL robinterm = (Km * u_D - g + normalsigma);
 
-            for (int iq = 0; iq < nphi_i; iq++) {
-                //<w,Km*u_D-g+sigma_i*n>
-                ef(iq, 0) += robinterm * phi_i(iq, 0) * weight;
-                for (int jq = 0; jq < nphi_i; jq++) {
-                    //<w,Km*s_i>
-                    ek(iq, jq) += weight * Km * phi_i(iq, 0) * phi_i(jq, 0);
-                }
-            }
-            break;
-        }
 
         case (0):
         {
-            for (int iq = 0; iq < nphi_i; iq++) {
-                ef(iq, 0) += fBigNumber * u_D * phi_i(iq, 0) * weight;
-                for (int jq = 0; jq < nphi_i; jq++) {
-                    ek(iq, jq) += fBigNumber * weight * phi_i(iq, 0) * phi_i(jq, 0);
+            for(int in = 0 ; in < nphi_i; in++) {
+   
+                    ef(2*in,0)   += fBigNumber * u_D[0] * phi_i(in,0) * weight;        // forced v2 displacement
+                    ef(2*in+1,0) += fBigNumber * u_D[1] * phi_i(in,0) * weight;        // forced v2 displacement
+                for (int jn = 0 ; jn < nphi_i; jn++)
+                {
+                    ek(2*in,2*jn)     += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
+                    ek(2*in+1,2*jn+1) += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
                 }
             }
-            break;
         }
 
-        default:
-        {
-            // std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
-            break;
-        }
+//        default:
+//        {
+//             std::cout << " This material not implement BC Type " << bc.Type()<< std::endl;
+//            break;
+//        }
     }
 }
 
