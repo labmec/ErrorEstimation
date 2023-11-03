@@ -12,7 +12,8 @@
 #include <Mesh/TPZMultiphysicsInterfaceEl.h>
 #include <DarcyFlow/TPZMixedDarcyFlow.h>
 #include <Elasticity/TPZMixedElasticityND.h>
-
+#include "Projection/TPZL2Projection.h"
+#include "TPZHDivErrorEstimateElasticityMaterial.h"
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
 #endif
@@ -472,8 +473,11 @@ TPZCompMesh *TPZMHMHDivErrorEstimator<MixedMaterial>::CreateInternallyContinuous
     TPZCompMesh *reconstruction_pressure = new TPZCompMesh(gmesh);
 
     // Copies volume materials
-    original_pressure->CopyMaterials(*reconstruction_pressure);
-    RemoveMaterialObjects(reconstruction_pressure->MaterialVec());
+    // original_pressure->CopyMaterials(*reconstruction_pressure);
+    // RemoveMaterialObjects(reconstruction_pressure->MaterialVec());
+
+    TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(1,2,2);
+    reconstruction_pressure->InsertMaterialObject(l2p);
 
     // Copies BC materials
     std::set<int> bcMatIDs;
@@ -484,7 +488,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator<MixedMaterial>::CreateInternallyContinuous
             int bcID = bc->Material()->Id();
             TPZMaterial *pressure_abs = original_pressure->FindMaterial(bcID);
             TPZMaterialT<STATE> *pressure_mat = dynamic_cast<TPZMaterialT<STATE>*>(pressure_abs);
-            TPZBndCondT<STATE> *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            TPZBndCondT<STATE> *bc_mat = l2p->CreateBC(l2p, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (this->fExact) {
                 bc_mat->SetForcingFunctionBC(this->fExact->ExactSolution(),4);
             }
@@ -981,16 +985,16 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::VerifySolutionConsistency(TPZCompM
 
                     TPZManVector<REAL> pt0_vol(dim, 0);
                     sideToVolume.Apply(pt0, pt0_vol);
-                    TPZManVector<STATE> sol0(1);
-                    cel->Solution(pt0_vol, 0, sol0);
+                    TPZManVector<STATE> sol0(dim);
+                    cel->Solution(pt0_vol, 1, sol0);
 
                     TPZTransform<REAL> neighSideToVolume(dim, dim);
                     neighSideToVolume = neighbour.Element()->SideToSideTransform(cneighbour.Side(), neighbour.Element()->NSides() - 1);
 
                     TPZManVector<REAL> pt1_vol(dim, 0);
                     neighSideToVolume.Apply(pt1, pt1_vol);
-                    TPZManVector<STATE> sol1(1);
-                    cneighbour.Element()->Solution(pt1_vol, 0, sol1);
+                    TPZManVector<STATE> sol1(dim);
+                    cneighbour.Element()->Solution(pt1_vol, 1, sol1);
 
 #ifdef LOG4CXX
                     if (logger->isDebugEnabled()) {

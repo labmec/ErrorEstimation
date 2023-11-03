@@ -863,6 +863,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
     TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
     for (int iel = 0; iel < nel; iel++) {
         TPZCompEl *cel = elementvec[iel];
+        auto *celm = dynamic_cast<TPZMultiphysicsElement*>(cel);
+        
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         
@@ -874,7 +876,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
         
         cel->CalcStiff(ekbc, efbc);
         // ekbc.fMat.Print(std::cout);
-        // ekbc.fMat.SolveDirect(efbc.fMat, ELU);
+        ekbc.fMat.SolveDirect(efbc.fMat, ELU);
         int count = 0;
         int nc = cel->NConnects();
         for (int ic = 0; ic < nc; ic++) {

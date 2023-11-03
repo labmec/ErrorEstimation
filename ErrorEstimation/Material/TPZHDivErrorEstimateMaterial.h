@@ -15,10 +15,18 @@
 #include "pzvec.h"
 #include "TPZMaterialDataT.h"
 #include "TPZBndCondT.h"
+#include "TPZMatBase.h"
+#include "TPZMatSingleSpace.h"
+#include "TPZMatErrorSingleSpace.h"
+#include "TPZMatLoadCases.h"
 
 template <typename MixedMaterial>
 class TPZHDivErrorEstimateMaterial : public MixedMaterial {
-
+private:
+    using TBase= TPZMatBase<STATE,
+                            TPZMatSingleSpaceT<STATE>,
+                            TPZMatErrorSingleSpace<STATE>,
+                            TPZMatLoadCases<STATE>>;
 public:
     TPZHDivErrorEstimateMaterial(int matid, int dim);
 
