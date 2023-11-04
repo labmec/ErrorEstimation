@@ -374,38 +374,12 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
    
      **/
 
-    int H1functionposition = 0;
-    H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
-    TPZManVector<REAL, 3> x = datavec[2].x;
-
     int dim = this->fDimension;
     int matdim = dim*dim;
-//    //defining test functions
-//    // Setting the phis
-    TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
-    TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
-    TPZFNMatrix<9, REAL> dphiuk(3, dphiukaxes.Cols());
-    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
-    
-
-    TPZFNMatrix<9, STATE> eps_phiuk(matdim, matdim, 0.);
-    TPZManVector<STATE> eps_phiukV(matdim, 0.);
-    eps_phiuk(0, 0) = dphiuk(0, 0);
-    eps_phiuk(1, 0) = eps_phiuk(0, 1) = 0.5 * (dphiuk(0, 1) + dphiuk(1, 0));
-    eps_phiuk(1, 1) = dphiuk(1, 1);
-
-    ToVoigt(eps_phiuk, eps_phiukV);
-    long nphiuk = phiuk.Rows();
-    
-    const auto &dudxreconstructed = datavec[H1functionposition].dsol[0];
-    const auto &axes = datavec[2].axes;
-
+    TPZManVector<REAL, 3> x = datavec[2].x;
 
     TElasticityAtPoint elast(fE_const, fnu_const);
-
-
     if (TPZMixedElasticityND::fElasticity) {
-        
         TPZManVector<STATE, 3> result(2);
         TPZFNMatrix<4, STATE> Dres(0, 0);
         fElasticity(x, result, Dres);
@@ -423,32 +397,57 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     //compute C(sigma)
     TPZManVector<STATE, 9> stress_femV(matdim, 0.);
     ToVoigt(stressfem, stress_femV);
-    
+
     TPZManVector<STATE, 9> Csigma_femV(matdim, 0.);
     ComputeDeformationVector(stress_femV, Csigma_femV, elast);
     
-    for( int in = 0; in < nphiuk; in++ ) {
+    TPZFNMatrix<9, STATE> Csigma_fem(dim, dim, 0.);
+    FromVoigt(Csigma_femV, Csigma_fem);
 
-            ef(2*in, 0) += weight *(Csigma_femV[in] *eps_phiuk[in]);
-
-        for( int jn = 0; jn < nphiuk; jn++ ) {
-            ek(in,jn) += weight *eps_phiuk[in]*eps_phiuk[jn];
-            
-        }
+    
+//    //defining test functions
+//    // Setting the phis
+    int H1functionposition = 0;
+    H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
+    TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
+    TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
+    TPZFNMatrix<9, REAL> dphiuk(3, dphiukaxes.Cols());
+    TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
+    
+    const auto nphiuk = phiuk.Rows();
+    const auto &axes = datavec[2].axes;
+    TPZVec<TPZManVector<STATE,9>> eps_phiukV(nphiuk, TPZManVector<STATE, 9>(matdim, 0.));
+    for(int in = 0; in < nphiuk; in++ ) {
+	TPZFNMatrix<4,STATE> du(2,2);
+        du(0,0) = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
+        du(1,0) = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
         
+//        TPZFNMatrix<9, STATE> eps_phiuk(dim, dim, 0.);
+//        eps_phiuk(0, 0) = du(0, 0);
+//        eps_phiuk(1, 0) = eps_phiuk(0, 1) = 0.5 * (du(0, 1) + du(1, 0));
+//        eps_phiuk(1, 1) = du(1, 1);
+//
+//        ToVoigt(eps_phiuk, eps_phiukV[in]);
+        ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(1,0));
+        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(0,0));
+        for(int jn = 0; jn < nphiuk; jn++ ) {
+            du(0,1) = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
+            du(1,1) = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
+            
+            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + 0.5*du(1,1)*du(1,0));
+            ek(2*in,2*jn+1) += weight * 0.5*du(0,1)*du(1,0);
+            ek(2*in+1,2*jn) += weight * 0.5*du(1,1)*du(0,0);
+            ek(2*in+1,2*jn+1) += weight * (du(1,1)*du(1,0) + 0.5*du(0,1)*du(0,0));
+        }        
     }
     
-    
-    
-    //-----------
-
 }
 
 void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
         TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) {
 
     /*
-     Add Dirichle boundary condition for local problem
+     Add Dirichlet boundary condition for local problem
      ek+= <w,Km s_i>
      ef+= <w,Km*u_d - g + sigma_i.n>
      */
