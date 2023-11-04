@@ -1010,6 +1010,17 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::VerifySolutionConsistency(TPZCompM
                         LOGPZ_DEBUG(logger, sout.str())
                     }
 #endif
+                    
+{
+    std::cout << "\nSide Element =  " << gelside.Element()->Index() << "\n";
+    std::cout << "Neighbour Element =  " << neighbour.Element()->Index() << "\n";
+    std::cout << "Side solutionX =  " << sol0[0] << " Side solutionY =  " << sol0[1] <<"\n";
+    std::cout << "Neigh solutionX = " << sol1[0] << " Neigh solutionY = " << sol1[1] <<"\n";
+    std::cout << "DiffX = " << sol1[0] - sol0[0] << " DiffY = " << sol1[1] - sol0[1] <<"\n";
+    std::cout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+    std::cout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+}
+                    
 
                     // Checks pressure value on these nodes
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());

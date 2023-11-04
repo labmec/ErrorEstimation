@@ -1053,29 +1053,46 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             TPZVec<STATE> left_sol, right_sol;
             volumeNeighSides[0].Element()->Solution(pt_left_vol, 0, left_sol);
             volumeNeighSides[iskel + 1].Element()->Solution(pt_right_vol, 0, right_sol);
+            
+            //aqui temos que reimplementar levando em consideracao que as solucoes sao vetoriais deveria ter um flag aq para para nao precisar reesecrever o metodo todo na nossa classe
+           
+            //STATE average_sol = left_weight * left_sol[0] + right_weight * right_sol[0];
 
-            STATE average_sol = left_weight * left_sol[0] + right_weight * right_sol[0];
+            STATE average_solX = left_weight * left_sol[0] + right_weight * right_sol[0];
+            STATE average_solY = left_weight * left_sol[1] + right_weight * right_sol[1];
             
             TPZFNMatrix<9, REAL> jac(dim, dim), jacinv(dim, dim), axes(dim, 3);
             REAL detjac;
             integrationGeoElSide.Jacobian(pt_right_skel, jac, axes, detjac, jacinv);
-
+            
+//aqui temos que reimplementar levando em consideracao qie temso funcoes vetoriais..deveria ter um flag aq para para nao precisar reesecrever o metodo todo na nossa classe. checar se esta correto
+            
             for (int ishape = 0; ishape < nshape; ishape++) {
                 for (int istate = 0; istate < nstate; istate++) {
-                    L2Rhs(nshape*istate+ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
-                }
+//                    L2Rhs(nshape*istate+ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
+                   // L2Rhs(nshape*istate+ishape, 0) += weight *detjac*(phi(ishape, 0)  * average_solX+phi(ishape, 1)  * average_solY);      }
+                
+                L2Rhs(2*ishape, 0) += weight *detjac*phi(ishape, 0)  * average_solX;
+                L2Rhs(2*ishape+1, 0) += weight *detjac*phi(ishape, 0)  * average_solY;
+                                                        }
+                
             }
             for (int ishape = 0; ishape < nshape; ishape++) {
                 for (int jshape = 0; jshape < nshape; jshape++) {
                     for (int istate = 0; istate < nstate; istate++) {
-                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
+//                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
+//                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac *( phi(ishape, 0) * phi(jshape, 0)+phi(ishape, 1) * phi(jshape, 1));
+                        
+                        L2Mat(2*ishape,2*jshape) += weight * detjac *( phi(ishape, 0) * phi(jshape, 0));
+                        L2Mat(2*ishape+1,2*jshape+1) += weight * detjac *( phi(ishape, 0) * phi(jshape, 0));
+
                     }
                 }
             }
         }
     }
-    // L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
-    // L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
+     L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
+     L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
     int count = 0;
@@ -1361,6 +1378,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
         for (int istate = 0; istate < nstate; istate++) {
             sol[istate] = solMatrix.at(block.at(seqnum, 0, istate, 0));
         }
+        
+        std::cout << "conindex " << conindex << " weight " << weight << " state " << sol<<"\n";
 #ifdef LOG4CXX
         if(logger->isDebugEnabled())
         {
@@ -1690,14 +1709,14 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         DebugStop();
     }
 
-#ifdef ERRORESTIMATION_DEBUG
+//#ifdef ERRORESTIMATION_DEBUG
     // Create directories to store debugging files
     std::string command;
     command = "mkdir -p ReconstructionSteps";
     system(command.c_str());
     command = "mkdir -p DebuggingTransfer";
     system(command.c_str());
-#endif
+//#endif
 
     CreatePostProcessingMesh();
 
@@ -1716,11 +1735,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         //BoundaryPressurePrRojection(pressuremesh, target_dim);
     }
 
-#ifdef ERRORESTIMATION_DEBUG
+//#ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelBoundaryProjection");
     }
-#endif
+//#endif
 
     // Calculates average pressure on interface edges and vertices
     int dim = fPostProcMesh.Dimension();
@@ -1730,19 +1749,19 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         ComputeAveragePrimal(1);
     }
 
-#ifdef ERRORESTIMATION_DEBUG
+//#ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelInterfaceAverage");
     }
-#endif
+//#endif
 
     ComputeNodalAverages();
 
-#ifdef ERRORESTIMATION_DEBUG
+//#ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelNodalAverage");
     }
-#endif
+//#endif
 
     PlotState("ReconstructionSteps/VolumePressureBeforeCopyFromSkel", 2, fPostProcMesh.MeshVector()[1]);
     PlotState("ReconstructionSteps/VolumeMFPressureBeforeCopyFromSkel", 2, &fPostProcMesh, false);
@@ -1799,9 +1818,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 //    }
 
 
-#ifdef ERRORESTIMATION_DEBUG
+//#ifdef ERRORESTIMATION_DEBUG
     VerifySolutionConsistency(PrimalMesh());
-#endif
+//#endif
 
     PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure");
 

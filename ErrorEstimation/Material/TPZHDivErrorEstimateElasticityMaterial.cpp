@@ -106,7 +106,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     std::cout << " displacement fem ----\n" << displacementfem;
 
 
-    std::cout << " displacement reconstructed ----\n" << displacementreconstructed;
+    std::cout << "\n displacement reconstructed ----\n" << displacementreconstructed;
 
 
     /// calculo do erro de sigma na norma energia || sigma_fem-sigma_ex||_C
@@ -478,6 +478,7 @@ void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMateri
     }
 
     int nstate = 2;
+
     
     switch (bc.Type()) {
 
