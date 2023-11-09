@@ -167,7 +167,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     TPZManVector<TPZCompMesh *> meshvec(5);
     TPZManVector<int,5> active(5,0);
     active[1] = 1;
-
+    
     meshvec[0] = 0;
     meshvec[1] = CreateDisplacementMesh(); // CreatePressureMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
@@ -235,7 +235,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
         }
     }
 
-    SubStructurePostProcessingMesh();
+    //SubStructurePostProcessingMesh();
     ComputePrimalWeights();
 
     {
@@ -466,7 +466,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateHDivMesh()
     gmesh->ResetReference();
     TPZCompMesh *fluxmesh = OrigFlux->Clone();
     RemoveMaterialObjects(fluxmesh->MaterialVec());
-    int dim = gmesh->Dimension();
+    /*int dim = gmesh->Dimension();
     // creating a copy of all flux elements except for flux elements for the skeleton
     // this will generate a consistent H(div) space over the complete domain
     // the fluxes should be discontinuous between subdomains?
@@ -476,7 +476,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateHDivMesh()
         if(!cel) continue;
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         TPZGeoEl *gel = cel->Reference();
-        bool isbcmat = fMHM->fMaterialBCIds.find(gel->MaterialId()) != fMHM->fMaterialBCIds.end();
+        bool isbcmat = fConfig.bcmaterialids.find(gel->MaterialId()) != fConfig.bcmaterialids.end();
         // if the element is of lower dimension and is not a boundary
         // don't create a flux element
         TPZMaterial *mat = fluxmesh->FindMaterial(gel->MaterialId());
@@ -506,16 +506,18 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateHDivMesh()
             corig.RemoveDepend();
         }
     }
-    fluxmesh->ExpandSolution();
+    fluxmesh->ExpandSolution();*/
     return fluxmesh;
 }
 
 TPZCompMesh *TPZElasticityErrorEstimator::CreatePrimalMesh() {
+    return TPZHDivErrorEstimator::CreatePrimalMesh();
+    /*
     if (fPostProcesswithHDiv) {
         return CreateDiscontinuousDisplacementMesh();
     } else {
         return CreateInternallyContinuousDisplacementMesh();
-    }
+    }*/
 }
 
 
@@ -562,7 +564,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousDisplacement
     // and the corresponding computational element in the original displacement mesh.
     // The MHM domain info allows the creation of continuous space inside a MHM domain, but not globally.
     // The original displacement comp. element is used to retrieve the original approximation order.
-    int64_t nel = gmesh->NElements();
+    /*int64_t nel = gmesh->NElements();
     auto geoToMHM = fMHM->GetGeoToMHMDomain();
     assert(geoToMHM.size() == nel);
     TPZManVector<std::tuple<int64_t, int64_t, TPZCompEl*>> MHMOfEachGeoEl(nel);
@@ -607,7 +609,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousDisplacement
         }
     }
 
-    std::sort(&MHMOfEachGeoEl[0], &MHMOfEachGeoEl[nel - 1] + 1);
+    std::sort(&MHMOfEachGeoEl[0], &MHMOfEachGeoEl[nel - 1] + 1);*/
 
     // Create displacement mesh
     TPZCompMesh *reconstruction_displacement = new TPZCompMesh(gmesh);
@@ -637,7 +639,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousDisplacement
     reconstruction_displacement->SetAllCreateFunctionsContinuous();
     reconstruction_displacement->ApproxSpace().CreateDisconnectedElements(false);
     gmesh->ResetReference();
-
+/*
     // Creates elements in displacement mesh
     int64_t previousMHMDomain = -1;
     int64_t firstElemInMHMDomain = -1;
@@ -695,7 +697,7 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousDisplacement
     // Resets references of last MHM domain
     for (int j = firstElemInMHMDomain; j < MHMOfEachGeoEl.size(); j++) {
         gmesh->Element(std::get<1>(MHMOfEachGeoEl[j]))->ResetReference();
-    }
+    }*/
 
     return reconstruction_displacement;
 }
@@ -710,8 +712,8 @@ void TPZElasticityErrorEstimator::RemoveMaterialObjects(std::map<int,TPZMaterial
         for(auto iter : matvec)
         {
             int matid = iter.first;
-            if(fMHM->fMaterialIds.find(matid) == fMHM->fMaterialIds.end() &&
-               fMHM->fMaterialBCIds.find(matid) == fMHM->fMaterialBCIds.end())
+            if(fConfig.materialids.find(matid) == fConfig.materialids.end() &&
+               fConfig.bcmaterialids.find(matid) == fConfig.bcmaterialids.end())
             {
                 if (!fPostProcesswithHDiv || (fPostProcesswithHDiv
                     && matid != fMultiPhysicsInterfaceMatId
@@ -897,7 +899,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
         std::cout << "Created new pressure skeleton material of index " << fPrimalSkeletonMatId << '\n';
     }
 
-    const TPZManVector<int64_t> geoToMHM = fMHM->GetGeoToMHMDomain();
+    /*const TPZManVector<int64_t> geoToMHM = fMHM->GetGeoToMHMDomain();
 
     const int nel = gmesh->NElements();
     int dim = gmesh->Dimension();
@@ -940,6 +942,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
     }
 #endif
+     */
 }
 
 void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *displacement_mesh) {
@@ -1367,4 +1370,37 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
         }
     }
     std::cout << "Finished computing pressure weights\n";
+}
+
+void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
+
+    TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
+    int varindex = -1;
+    if (mat) varindex = mat->VariableIndex("DisplacementFem");
+    if (varindex != -1) {
+        TPZStack<std::string> scalnames, vecnames;
+        if (fExact) {
+            vecnames.Push("DisplacementExact");
+            scalnames.Push("DisplacementErrorExact");
+            scalnames.Push("EnergyErrorExact");
+            scalnames.Push("DisplacementEffectivityIndex");
+            scalnames.Push("EnergyEffectivityIndex");
+            vecnames.Push("StressExact");
+        }
+        vecnames.Push("DisplacementFem");
+        vecnames.Push("DisplacementReconstructed");
+        scalnames.Push("DisplacementErrorEstimate");
+        scalnames.Push("EnergyErrorEstimate");
+        vecnames.Push("StressFem");
+        scalnames.Push("POrder");
+        
+        int dim = fPostProcMesh.Reference()->Dimension();
+
+        an.DefineGraphMesh(dim, scalnames, vecnames, out);
+        an.PostProcess(0, dim);
+    }
+    else {
+        std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
+        DebugStop();
+    }
 }

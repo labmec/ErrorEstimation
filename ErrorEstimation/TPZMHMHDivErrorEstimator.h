@@ -22,8 +22,8 @@ class TPZMHMHDivErrorEstimator : public TPZHDivErrorEstimator<MixedMaterial> {
 
 public:
 
-    TPZMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
-        : TPZHDivErrorEstimator<MixedMaterial>(originalMesh, postProcWithHDiv), fMHM(mhm) {
+    TPZMHMHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
+        : TPZHDivErrorEstimator<MixedMaterial>(config, originalMesh, postProcWithHDiv), fMHM(mhm) {
     }
 
     // this method wont work because multiphysics meshes have no copy constructor (yet)

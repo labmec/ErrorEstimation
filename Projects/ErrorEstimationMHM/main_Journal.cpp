@@ -122,7 +122,8 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     config.dimension = 2;
     config.exactElast = new TElasticity2DAnalytic;
     // config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
-    config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EStretchx;
+    // config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EStretchx;
+    config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EThiago; 
     config.problemname = "Elasticity";
     config.dir_name = "Journal";
     config.porder = 1;
@@ -563,7 +564,7 @@ void EstimateError(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
     if (!originalMesh) DebugStop();
 
     bool postProcWithHDiv = false;
-    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
+    TPZDarcyMHMHDivErrorEstimator ErrorEstimator(config, *originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exact);
     
     ErrorEstimator.PrimalReconstruction();
@@ -596,7 +597,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMHMixedMeshControl *mhm) 
     if (!originalMesh) DebugStop();
 
     bool postProcWithHDiv = false;
-    TPZElasticityMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
+    TPZElasticityMHMHDivErrorEstimator ErrorEstimator(config, *originalMesh, mhm, postProcWithHDiv);
     ErrorEstimator.SetAnalyticSolution(config.exactElast);
     
     ErrorEstimator.PrimalReconstruction();

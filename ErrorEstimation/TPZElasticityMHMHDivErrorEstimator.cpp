@@ -14,7 +14,7 @@
 #include "TPZElasticityMHMHDivErrorEstimator.h"
 #include "Common/pzerror.h"
 
-TPZElasticityMHMHDivErrorEstimator::TPZElasticityMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv) : TPZMHMHDivErrorEstimator<TPZMixedElasticityND>(originalMesh, mhm, postProcWithHDiv) {
+TPZElasticityMHMHDivErrorEstimator::TPZElasticityMHMHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv) : TPZMHMHDivErrorEstimator<TPZMixedElasticityND>(config, originalMesh, mhm, postProcWithHDiv) {
 }
 
 TPZElasticityMHMHDivErrorEstimator::~TPZElasticityMHMHDivErrorEstimator() {
@@ -110,6 +110,7 @@ void TPZElasticityMHMHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::st
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
     }
 }
+
 void TPZElasticityMHMHDivErrorEstimator::PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic) {
     
     std::ofstream outTXT("DisplacementtoStateGraph.txt");

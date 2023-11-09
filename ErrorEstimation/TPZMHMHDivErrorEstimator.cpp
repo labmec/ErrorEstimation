@@ -32,7 +32,7 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::CreatePostProcessingMesh()
     TPZManVector<TPZCompMesh *> meshvec(4);
     TPZManVector<int,4> active(4,0);
     active[1] = 1;
-
+    
     meshvec[0] = 0;
     meshvec[1] = CreatePrimalMesh();
     meshvec[2] = this->fOriginal->MeshVector()[0];
@@ -135,8 +135,8 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::SubStructurePostProcessingMesh()
         }
     }
 
-    // create new submeshes and store a pointer of the submeshes to which the compels in 'fPostProcMesh' belongs.
-    // the map 'submeshmap' is create to store the original submesh and its correspondent in 'fPostProcMesh'.
+    // create new submeshes and store a pointer of the submeshes to which the compels in 'fPostProcMesh' belong.
+    // the 'submeshmap' map is created to store the original submesh and its correspondent in 'fPostProcMesh'.
     std::map<TPZSubCompMesh *,TPZSubCompMesh *> submeshmap;
     int64_t nel = this->fPostProcMesh.NElements();
     TPZVec<TPZSubCompMesh *> new_submesh_per_cel(nel,nullptr);
@@ -162,7 +162,7 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::SubStructurePostProcessingMesh()
             new_submesh_per_cel[el] = iter->second;
         }
     }
-
+    
     this->fPostProcMesh.ComputeNodElCon();
     // TODO  refactor here
     std::cout << "Transferring volumetric elements...\n";
@@ -261,7 +261,7 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::SubStructurePostProcessingMesh()
                 TPZCompMeshTools::CreatedCondensedElements(iter.second, keeplagrangian, keepmatrix);
             }
         }
-
+        
     } else {
         std::set<int64_t> connectlist;
         ComputeConnectsNextToSkeleton(connectlist);
@@ -299,10 +299,10 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::SubStructurePostProcessingMesh()
         }
 
     }
-
+    
     this->fPostProcMesh.ComputeNodElCon();
     this->fPostProcMesh.CleanUpUnconnectedNodes();
-
+    
     // set an analysis type for the submeshes
     {
         int64_t nel = this->fPostProcMesh.NElements();
@@ -310,7 +310,7 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::SubStructurePostProcessingMesh()
             TPZCompEl *cel = this->fPostProcMesh.Element(el);
             TPZSubCompMesh *sub = dynamic_cast<TPZSubCompMesh *>(cel);
             if (sub) {
-
+                
                 if (this->fPostProcesswithHDiv) {
                     sub->CleanUpUnconnectedNodes();
                 }
@@ -320,7 +320,7 @@ void TPZMHMHDivErrorEstimator<MixedMaterial>::SubStructurePostProcessingMesh()
                 sub->SetAnalysisSkyline(numthreads, preconditioned);
             }
         }
-    }
+    } 
     std::cout << "Finished substructuring post proc mesh\n";
 }
 
@@ -480,7 +480,6 @@ TPZCompMesh *TPZMHMHDivErrorEstimator<MixedMaterial>::CreateInternallyContinuous
     reconstruction_pressure->InsertMaterialObject(l2p);
 
     // Copies BC materials
-    std::set<int> bcMatIDs;
     for (auto it : this->fOriginal->MaterialVec()) {
         TPZMaterial *mat = it.second;
         TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
@@ -488,7 +487,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator<MixedMaterial>::CreateInternallyContinuous
             int bcID = bc->Material()->Id();
             TPZMaterial *pressure_abs = original_pressure->FindMaterial(bcID);
             TPZMaterialT<STATE> *pressure_mat = dynamic_cast<TPZMaterialT<STATE>*>(pressure_abs);
-            TPZBndCondT<STATE> *bc_mat = l2p->CreateBC(l2p, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            TPZBndCondT<STATE> *bc_mat = pressure_mat->CreateBC(l2p, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (this->fExact) {
                 bc_mat->SetForcingFunctionBC(this->fExact->ExactSolution(),4);
             }

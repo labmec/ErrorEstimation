@@ -41,9 +41,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
      error[5] - oscilatory data error (|| f - Proj_divsigma ||)
      **/
 
-    std::cout << "Computing Aposteriori Error Estimation for Linear Elasticity" << std::endl;
-
-
+    //std::cout << "Computing Aposteriori Error Estimation for Linear Elasticity" << std::endl;
 
     int dim = this->Dimension();
     errors.Resize(NEvalErrors());
@@ -91,7 +89,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         residual = (divstress[idf] - divstressfem[idf])*(divstress[idf] - divstressfem[idf]);
     }
     
-    std::cout<<"residual error "<<residual<<std::endl;
+    //std::cout<<"residual error "<<residual<<std::endl;
 
 
     TPZManVector<STATE, 3> displacementreconstructed(dim, 0.);
@@ -100,13 +98,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     TPZManVector<STATE, 3> displacementfem(dim, 0.);
     displacementfem = data[3].sol[0];
 
-    std::cout << " stressfem ----\n" << stressfem;
+    //std::cout << " stressfem ----\n" << stressfem;
 
 
-    std::cout << " displacement fem ----\n" << displacementfem;
+    //std::cout << " displacement fem ----\n" << displacementfem;
 
 
-    std::cout << "\n displacement reconstructed ----\n" << displacementreconstructed;
+    //std::cout << "\n displacement reconstructed ----\n" << displacementreconstructed;
 
 
     /// calculo do erro de sigma na norma energia || sigma_fem-sigma_ex||_C

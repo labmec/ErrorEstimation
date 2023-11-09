@@ -13,7 +13,7 @@
 
 #include "TPZDarcyMHMHDivErrorEstimator.h"
 
-TPZDarcyMHMHDivErrorEstimator::TPZDarcyMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv): TPZMHMHDivErrorEstimator<TPZMixedDarcyFlow>(originalMesh, mhm, postProcWithHDiv) {
+TPZDarcyMHMHDivErrorEstimator::TPZDarcyMHMHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv): TPZMHMHDivErrorEstimator<TPZMixedDarcyFlow>(config, originalMesh, mhm, postProcWithHDiv) {
 }
 
 TPZDarcyMHMHDivErrorEstimator::~TPZDarcyMHMHDivErrorEstimator() {

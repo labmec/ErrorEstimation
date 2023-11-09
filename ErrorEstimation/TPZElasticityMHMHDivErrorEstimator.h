@@ -21,7 +21,7 @@
 
 class TPZElasticityMHMHDivErrorEstimator : public TPZMHMHDivErrorEstimator<TPZMixedElasticityND>{
 public:
-    TPZElasticityMHMHDivErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false);
+    TPZElasticityMHMHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false);
     TPZElasticityMHMHDivErrorEstimator(const TPZElasticityMHMHDivErrorEstimator& orig)=delete;
     virtual ~TPZElasticityMHMHDivErrorEstimator();
     

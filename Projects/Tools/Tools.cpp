@@ -264,7 +264,6 @@ TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids) {
     x1[2] = 0.;
     TPZGenGrid2D gen(nx, x0, x1, 1, 0);
     // gen.SetData(nx, x0, x1,MMeshType::ETriangular, 1, 0);
-
     gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;
     gen.Read(gmesh);

@@ -22,12 +22,12 @@ class TPZElasticityErrorEstimator : public TPZHDivErrorEstimator<TPZMixedElastic
 
 public:
 
-    TPZElasticityErrorEstimator(TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
-        : TPZHDivErrorEstimator<TPZMixedElasticityND>(originalMesh, postProcWithHDiv), fMHM(mhm) {
+    TPZElasticityErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
+        : TPZHDivErrorEstimator<TPZMixedElasticityND>(config, originalMesh, postProcWithHDiv) {
     }
     
-    TPZElasticityErrorEstimator(TPZMultiphysicsCompMesh &originalMesh)
-    : TPZHDivErrorEstimator<TPZMixedElasticityND>(originalMesh, fPostProcesswithHDiv=false){
+    TPZElasticityErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh)
+    : TPZHDivErrorEstimator<TPZMixedElasticityND>(config, originalMesh, fPostProcesswithHDiv=false){
     }
 
     // this method wont work because multiphysics meshes have no copy constructor (yet)
@@ -36,6 +36,9 @@ public:
     // this method wont work because multiphysics meshes have no copy constructor (yet)
     TPZElasticityErrorEstimator &operator=(const TPZElasticityErrorEstimator &cp) = delete;
 
+    /// create graphical output of estimated and true errors using the analysis
+    virtual void PostProcessing(TPZAnalysis &an, std::string &out) override;
+    
     virtual ~TPZElasticityErrorEstimator() = default;
     
      void DisplacementReconstruction();
@@ -47,7 +50,7 @@ private:
     int fHDivWrapMatId = 0;
 
     /// a pointer to the datastructure used to generate the MHM mesh
-    TPZMHMixedMeshControl *fMHM = nullptr;
+//    TPZMHMixedMeshControl *fMHM = nullptr;
     // a method for generating the HDiv mesh
     TPZCompMesh *CreateHDivMesh() override;
     // a method for creating the displacement mesh

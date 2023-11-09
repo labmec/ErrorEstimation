@@ -19,11 +19,12 @@
 #include "TPZSimpleTimer.h"
 #include "TPZTensor.h"
 #include "TPZVTKGenerator.h"
+#include "TPZElasticityErrorEstimator.h"
 
 enum EMatid  {ENone, EDomain, EBoundary, EMHM};
 void RunElasticityProblem(int nCoarseDiv, int nInternalRef);
 void IdentifyMHMDomain(TPZGeoMesh *gmesh, TPZVec<int> &domain);
-void EstimateErrorElasticity(ProblemConfig &config, TPZMHMixedMeshControl *mhm);
+void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
 void SolveProblemDirect(TPZLinearAnalysis &an, TPZCompMesh *cmesh);
 
@@ -53,7 +54,7 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {4};
+    const std::set<int> nCoarseDiv = {5};
     const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
@@ -283,7 +284,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     // -------> Calculating error
     std::cout << "------- Starting PostProc Error -------" << std::endl;
     an.SetExact(gAnalytic->ExactSolution());
-    an.SetThreadsForError(global_nthread);
+    an.SetThreadsForError(0);
     std::ofstream ErroOut("myerrors.txt", std::ios::app);
     TPZMaterial *mat = cmesh->FindMaterial(EDomain);
     TPZMatErrorCombinedSpaces<STATE> *materr = dynamic_cast<TPZMatErrorCombinedSpaces<STATE>*>(mat);
@@ -344,10 +345,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
         vtk.Do();
     }
 
-
-
-
-
+    EstimateErrorElasticity(config, cmesh);
 }
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
@@ -365,17 +363,16 @@ TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
 
 
 
-void EstimateErrorElasticity(ProblemConfig &config, TPZMHMixedMeshControl *mhm) {
+void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
 
     std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
 
     // Error estimation
-    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     if (!originalMesh) DebugStop();
 
     bool postProcWithHDiv = false;
-    TPZElasticityMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm, postProcWithHDiv);
-    ErrorEstimator.SetAnalyticSolution(config.exactElast);
+    TPZElasticityErrorEstimator ErrorEstimator(config, *originalMesh, postProcWithHDiv);
+    ErrorEstimator.SetAnalyticSolution(*config.exactElast);
     
     ErrorEstimator.PrimalReconstruction();
 
