@@ -200,7 +200,7 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
         pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
 
         // Insert BC materials in pressure reconstruction mesh
-        std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
+        std::set<int> bcMatIDs = fConfig.bcmaterialids;// GetBCMatIDs(&fPostProcMesh);
         for (auto bcID : bcMatIDs) {
             TPZMaterial *mat = mult->FindMaterial(bcID);
             TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *> (mat);
@@ -1539,7 +1539,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeEffectivityIndices() {
     int dim = cmesh->Dimension();
     elsol.Resize(nrows, ncols + 2);
 
-    std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);
+    std::set<int> bcMatIDs = fConfig.bcmaterialids;// GetBCMatIDs(&fPostProcMesh);
 
     for (int64_t el = 0; el < nrows; el++) {
 
@@ -1644,14 +1644,14 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeEffectivityIndices() {
             REAL ErrorEstimate = elsol(el, i + 1);
             REAL ErrorExact = elsol(el, i);
 
-#ifdef LOG4CXX
-            if (logger->isDebugEnabled()) {
-                std::stringstream sout;
-                sout << "El " << el << " dim " << gel->Dimension() << " ErrorEstimate " << ErrorEstimate
+// #ifdef LOG4CXX
+            // if (logger->isDebugEnabled()) {
+                // std::stringstream sout;
+                std::cout << "El " << el << " dim " << gel->Dimension() << " ErrorEstimate " << ErrorEstimate
                         << " ErrorExact " << ErrorExact << "\n";
-                LOGPZ_DEBUG(logger, sout.str())
-            }
-#endif
+                // LOGPZ_DEBUG(logger, sout.str())
+            // }
+// #endif
 
             TPZGeoEl *gel = cel->Reference();
 
@@ -2552,6 +2552,8 @@ int TPZHDivErrorEstimator<MixedMaterial>::FindFreeMatId(TPZGeoMesh *gmesh) {
 
 template <typename MixedMaterial>
 std::set<int> TPZHDivErrorEstimator<MixedMaterial>::GetBCMatIDs(const TPZCompMesh* cmesh) {
+    // return this->fConfig.bcmaterialids;
+
     std::set<int> bc_mat_ids;
     const auto mat_vec = cmesh->MaterialVec();
     for (const auto mat : mat_vec) {

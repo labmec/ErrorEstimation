@@ -156,7 +156,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
 void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
 {
     
-    std::cout<< "To be implemented ... "<<std::endl;
+    // std::cout<< "To be implemented ... "<<std::endl;
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
 

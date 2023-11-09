@@ -55,7 +55,7 @@ int main() {
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
     const std::set<int> nCoarseDiv = {5};
-    const std::set<int> nInternalRef = {0};
+    const std::set<int> nInternalRef = {1};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
         for (const auto internal_ref : nInternalRef) {
@@ -114,7 +114,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     int DIM = config.gmesh->Dimension();
     // if (nrefinternal || nrefskel) {
         // if(nrefskel > nrefinternal) DebugStop();
-        DivideGMesh(config.gmesh, 1, 1);
+        DivideGMesh(config.gmesh, nInternalRef, 0);
     // }
     CheckBCs(config.gmesh);
     TPZVec<int> domain(config.gmesh->NElements(),-1);
@@ -137,7 +137,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     TPZAnalyticSolution *gAnalytic = 0;
     TPZMixedElasticityND* matelastic = 0;
     TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-    elas->gE = 250.;
+    elas->gE = 1.;
     elas->gPoisson = 0.;
     elas->fProblemType = config.exactElast.operator*().fProblemType;
     gAnalytic = elas;
