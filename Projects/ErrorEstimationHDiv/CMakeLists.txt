@@ -8,6 +8,9 @@ target_link_libraries(HybridHDiv Tools ErrorEstimationLib)
 add_executable(AdaptivityTest mainAdaptivity.cpp)
 target_link_libraries(AdaptivityTest Tools ErrorEstimationLib)
 
+add_executable(MixedElasticity mainMixedElasticity.cpp)
+target_link_libraries(MixedElasticity Tools ErrorEstimationLib)
+
 add_executable(SteklovProblem mainSteklov.cpp)
 target_link_libraries(SteklovProblem Tools ErrorEstimationLib)
 

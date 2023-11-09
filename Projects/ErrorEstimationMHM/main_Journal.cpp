@@ -48,7 +48,7 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {2};
+    const std::set<int> nCoarseDiv = {3};
     const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
@@ -92,20 +92,20 @@ void RunSmoothProblem(const int nCoarseDiv, const int nInternalRef) {
     }
 
     auto *mhm = new TPZMHMixedMeshControl(config.gmesh);
-    TPZManVector<int64_t> coarseIndexes;
-    ComputeCoarseIndices(config.gmesh, coarseIndexes);
-    // TPZManVector<int64_t> coarseIndexes(config.gmesh->NElements());
-    // int64_t count = 0;
-    // int coarselevel = 0;
-    // int64_t nel = config.gmesh->NElements();
-    // for (int64_t el=0; el<nel; el++) {
-    //     TPZGeoEl *gel = config.gmesh->Element(el);
-    //     if(gel && gel->Dimension() == config.gmesh->Dimension() && gel->Level()==coarselevel)
-    //     {
-    //         coarseIndexes[count++] = el;
-    //     }
-    // }
-    // coarseIndexes.resize(count);
+    // TPZManVector<int64_t> coarseIndexes;
+    // ComputeCoarseIndices(config.gmesh, coarseIndexes);
+    TPZManVector<int64_t> coarseIndexes(config.gmesh->NElements());
+    int64_t count = 0;
+    int coarselevel = 0;
+    int64_t nel = config.gmesh->NElements();
+    for (int64_t el=0; el<nel; el++) {
+        TPZGeoEl *gel = config.gmesh->Element(el);
+        if(gel && gel->Dimension() == config.gmesh->Dimension() && gel->Level()==coarselevel)
+        {
+            coarseIndexes[count++] = el;
+        }
+    }
+    coarseIndexes.resize(count);
     for (int i = 0; i < coarseIndexes.size(); i++)
     {
         std::cout <<"Coarse indice - " << i << " = " << coarseIndexes[i] << std::endl;
@@ -121,7 +121,8 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     ProblemConfig config; 
     config.dimension = 2;
     config.exactElast = new TElasticity2DAnalytic;
-    config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispx;
+    // config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
+    config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EStretchx;
     config.problemname = "Elasticity";
     config.dir_name = "Journal";
     config.porder = 1;
@@ -152,7 +153,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     CreateMHMCompMesh(mhm, config, nInternalRef, definePartitionByCoarseIndexes, coarseIndexes);
 
     SolveMHMProblem(mhm, config);
-    EstimateErrorElasticity(config, mhm);
+    // EstimateErrorElasticity(config, mhm);
 }
 
 void RunHighGradientProblem(const int nCoarseDiv, const int nInternalRef) {
@@ -473,7 +474,7 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     // General approximation order settings
     mhm->SetInternalPOrder(config.porder);
     mhm->SetSkeletonPOrder(config.porder);
-    // mhm->SetHdivmaismaisPOrder(config.hdivmais);
+    mhm->SetHdivmaismaisPOrder(config.hdivmais);
 
     // Refine skeleton elements
     mhm->DivideSkeletonElements(0);
@@ -481,6 +482,9 @@ void CreateMHMCompMesh(TPZMHMixedMeshControl *mhm, const ProblemConfig &config, 
     // Creates MHM mesh
     bool substructure = true;
     mhm->BuildComputationalMesh(substructure);
+    std::ofstream outTXT("CMESH_MHM.txt");
+    mhm->CMesh()->Print(outTXT);
+
 }
 
 void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
@@ -542,7 +546,7 @@ void SolveMHMProblem(TPZMHMixedMeshControl *mhm, const ProblemConfig &config) {
     
     std::cout << "Post Processing...\n";
 
-    int resolution = 2;
+    int resolution = 0;
     std::stringstream plotname;
     plotname << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
              << "-Results.vtk";

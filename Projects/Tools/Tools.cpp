@@ -16,7 +16,7 @@
 #include "DataStructure.h"
 #include "TPZNullMaterial.h"
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
-
+#include "MMeshType.h"
 #include "pzelementgroup.h"
 
 void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT, bool printVTK) {
@@ -263,6 +263,7 @@ TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids) {
     TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
     x1[2] = 0.;
     TPZGenGrid2D gen(nx, x0, x1, 1, 0);
+    // gen.SetData(nx, x0, x1,MMeshType::ETriangular, 1, 0);
 
     gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;

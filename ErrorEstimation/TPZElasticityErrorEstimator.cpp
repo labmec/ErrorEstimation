@@ -13,6 +13,8 @@
 #include "TPZMultiphysicsCompMesh.h"
 #include "pzmultiphysicscompel.h"
 #include "pzbuildmultiphysicsmesh.h"
+#include "Projection/TPZL2Projection.h"
+
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("ElasticityErrorEstimator"));
 #endif
@@ -613,6 +615,8 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateInternallyContinuousDisplacement
     // Copies volume materials
     original_displacement->CopyMaterials(*reconstruction_displacement);
     RemoveMaterialObjects(reconstruction_displacement->MaterialVec());
+    // TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(1,2,2);
+    // reconstruction_displacement->InsertMaterialObject(l2p);
 
     // Copies BC materials
     for (auto it : fOriginal->MaterialVec()) {

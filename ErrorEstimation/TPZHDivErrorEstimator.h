@@ -97,7 +97,7 @@ protected:
 
     /// compute the pressure/displacement weights and material weights
     // fills in the data structure primalWeights and matid_weights
-    virtual void ComputePrimalWeights() = 0;
+    virtual void ComputePrimalWeights(){};
 
     /// create the post processed multiphysics mesh (which is necessarily hybridized)
     virtual void CreatePostProcessingMesh();
