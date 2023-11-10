@@ -1095,9 +1095,9 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
     
      error[0] - error computed with exact displacement (|| u_fem-u_exact ||)
      error[1] - error computed with reconstructed displacement  (|| u_exact-u_rec ||)
-     error[2] = || u_rec - u_fem ||
-     error[3] - energy error computed with exact solution  (|| sigma_ex - sigma_fem ||_{C})
-     error[4] -  energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})
+     error[2] - energy error computed with exact solution  (|| sigma_ex - sigma_fem ||_{C})
+     error[3] -  energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})
+     error[4] = || u_rec - u_fem ||
      error[5] - oscilatory data error (|| f - Proj_divsigma ||)
      */
 
@@ -1110,17 +1110,17 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
         ss << ", AdaptivityStep = " << config.adaptivityStep;
     }
     ss << '\n';
-    ss << "|sigma_fem-Aeps(u_rec)| = " << error_vec[4] << "\n";
-    ss << "|u_fem-u_rec| = " << error_vec[2] << "\n";
+    ss << "|sigma_fem-Aeps(u_rec)| = " << error_vec[3] << "\n";
+    ss << "|u_fem-u_rec| = " << error_vec[4] << "\n";
     ss << "Residual Error L2 = " << error_vec[5] << "\n";
     if (config.exactElast) {
         //ss << "Global exact error = " << error_vec[2] << "\n";
         ss << "|u_ex-u_fem| = " << error_vec[0] << "\n";
         ss << "|u_ex-u_rec| = " << error_vec[1] << "\n";
-        ss << "|sigma_ex-sigma_fem| = " << error_vec[3] << "\n";
+        ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
         REAL global_index = 1;
-        if (!IsZero(error_vec[4] + error_vec[3]) && !IsZero(error_vec[2])) {
-            global_index = sqrt(error_vec[4] + error_vec[3]) / sqrt(error_vec[2]);
+        if (!IsZero(error_vec[5] + error_vec[3]) && !IsZero(error_vec[2])) {
+            global_index = sqrt(error_vec[5] + error_vec[3]) / sqrt(error_vec[2]);
         }
         ss << "Global Index = " << global_index << "\n\n";
     } else {

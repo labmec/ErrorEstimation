@@ -88,6 +88,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
     int64_t nelem = fPostProcMesh.NElements();
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
+    
+    
     fPostProcMesh.ElementSolution().Redim(nelem, 6);
     for (int64_t el = 0; el < nelem; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
@@ -1384,7 +1386,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
             sol[istate] = solMatrix.at(block.at(seqnum, 0, istate, 0));
         }
 
-        std::cout << "conindex " << conindex << " weight " << weight << " state " << sol << "\n";
+       // std::cout << "conindex " << conindex << " weight " << weight << " state " << sol << "\n";
 #ifdef LOG4CXX
         if (logger->isDebugEnabled()) {
             std::stringstream sout;
@@ -1522,8 +1524,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeEffectivityIndices() {
     int64_t nrows = elsol.Rows();
     int64_t ncols = elsol.Cols();
 
-    // std::ostream &out;
-    //    cmesh->ElementSolution().Print("ElSolution",std::cout);
+     std::ostream *out;
+        cmesh->ElementSolution().Print("ElSolution",std::cout);
 
     TPZFMatrix<REAL> dataIeff(nrows, 1);
     dataIeff.Zero();

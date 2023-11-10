@@ -54,8 +54,8 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {5};
-    const std::set<int> nInternalRef = {1};
+    const std::set<int> nCoarseDiv = {10};
+    const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
         for (const auto internal_ref : nInternalRef) {
@@ -74,7 +74,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EThiago;
     config.problemname = "Elasticity";
     config.dir_name = "Journal";
-    config.porder = 1;
+    config.porder = 2;
     config.hdivmais = 1;
     config.materialids.insert(EDomain);
     config.bcmaterialids.insert(EBoundary);
@@ -208,7 +208,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     }
     TPZMultiphysicsCompMesh *cmesh = cmeshmulti;
 
-    Substructure(cmesh, domain);
+ //   Substructure(cmesh, domain);
 
 
 

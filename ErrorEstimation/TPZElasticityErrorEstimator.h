@@ -95,6 +95,7 @@ private:
     // Fill a list with the connect indexes of volumetric elements sides
     // in the neighbourhood of the skeleton
     void ComputeConnectsNextToSkeleton(std::set<int64_t>& connectList);
+    void ComputeEffectivityIndices();
     
     void ComputePrimalWeights();
     

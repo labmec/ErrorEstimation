@@ -35,9 +35,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
      
      error[0] - error computed with exact displacement (|| u_fem-u_exact ||)
      error[1] - error computed with reconstructed displacement  (|| u_exact-u_rec ||)
-     error[2] = || u_rec - u_fem ||
-     error[3] - energy error computed with exact solution  (|| sigma - sigma_fem ||_{C})
-     error[4] - energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})
+     error[2] - energy error computed with exact solution  (|| sigma - sigma_fem ||_{C})
+     error[3] - energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})
+     error[4] = || u_rec - u_fem ||
      error[5] - oscilatory data error (|| f - Proj_divsigma ||)
      **/
 
@@ -168,7 +168,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         part1[i] = eps_exactV[i] - Csigma_femV[i];
         part2[i] = sigma_exactV[i] - stress_femV[i];
     }
-    errors[3] = InnerVec(part1, part2);
+    errors[2] = InnerVec(part1, part2);
 
 
     /// Como calcular do erro estimado na norma energia?  || sigma_fem - Aeps(u_rec)||_C
@@ -184,7 +184,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         part1[i] = Csigma_femV[i] - eps_reconstructedV[i];
         part2[i] = stress_femV[i] - sigma_reconstructedV[i];
     }
-    errors[4] = InnerVec(part1, part2);
+    errors[3] = InnerVec(part1, part2);
     
 
 #ifdef ERRORESTIMATION_DEBUG2
@@ -204,13 +204,15 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         errors[1] += (displacementreconstructed[idf] - u_exact[idf])*(displacementreconstructed[idf] - u_exact[idf]);
     }
     // error displacement reconstructed and displacement fem
-    errors[2] = 0;
+    errors[4] = 0;
     for (int idf = 0; idf < dim; idf++) {
-        errors[2] += (displacementreconstructed[idf] - displacementfem[idf])*(displacementreconstructed[idf] - displacementfem[idf]);
+        errors[4] += (displacementreconstructed[idf] - displacementfem[idf])*(displacementreconstructed[idf] - displacementfem[idf]);
     }
 
     //||f - Proj_divsigma||
     errors[5] = residual;
+    
+   // std::cout<<"residual "<<residual<<std::endl;
   
 
 #ifdef LOG4CXX
@@ -517,8 +519,8 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
     if (name == "EnergyErrorExact") return 102;
     if (name == "EnergyErrorEstimate") return 103;
     if (name == "ResidualError") return 104;
-    if (name == "DisplacementEffectivityIndex") return 105;
-    if (name == "EnergyEffectivityIndex") return 106;
+    if (name == "DisplacementEffectivityIndex") return 106;
+    if (name == "EnergyEffectivityIndex") return 107;
 
 
     return -1;
@@ -540,8 +542,8 @@ int TPZHDivErrorEstimateElasticityMaterial::NSolutionVariables(int var) const
         case 102:
         case 103:
         case 104:
-        case 105:
         case 106:
+        case 107:
         case 45:
             return 1;
             break;
