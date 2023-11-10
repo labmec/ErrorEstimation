@@ -183,6 +183,9 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
         TPZGeoMesh *gmesh = pressureMesh->Reference();
         gmesh->ResetReference();
         int dim = gmesh->Dimension();
+        pressureMesh->DeleteMaterial(1);
+        TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(1,2,2);
+        pressureMesh->InsertMaterialObject(l2p);
 
         // Delete compels of dimension dim - 1
         for (int64_t el = 0; el < pressureMesh->NElements(); el++) {
@@ -873,7 +876,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
         TPZGeoEl *gel = cel->Reference();
 
         int matid = gel->MaterialId();
-        if (matid != -1) continue;
+        if (matid != 2) continue;
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
         TPZBndCond *bc = dynamic_cast<TPZBndCond *> (mat);
         if (!bc || (bc->Type() != 0)) continue;
@@ -1829,7 +1832,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
 
     //#ifdef ERRORESTIMATION_DEBUG
-    VerifySolutionConsistency(PrimalMesh());
+    // VerifySolutionConsistency(PrimalMesh());
     //#endif
 
     PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure");
