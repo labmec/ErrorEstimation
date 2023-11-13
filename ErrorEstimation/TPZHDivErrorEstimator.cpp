@@ -861,9 +861,16 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
     gmesh->ResetReference();
     int64_t nel = pressuremesh->NElements();
 
-    // pressuremesh->DeleteMaterial(-1);
-    // TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(-1,1);
-    // pressuremesh->InsertMaterialObject(l2p);
+    pressuremesh->DeleteMaterial(2);
+    TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(2,1,2);
+    pressuremesh->InsertMaterialObject(l2p);
+    
+    auto exact = std::function<void (const TPZVec<REAL> &,TPZVec<STATE> &)>([this](const TPZVec<REAL> &loc,TPZVec<STATE> &result){
+        TPZFMatrix<STATE> du;
+        return fConfig.exactElast->ExactSolution()(loc, result, du);
+    });
+    
+    l2p->SetForcingFunction(exact, 4);
     TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
 
     TPZElementMatrixT<STATE> ekbc, efbc;
@@ -876,10 +883,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
         TPZGeoEl *gel = cel->Reference();
 
         int matid = gel->MaterialId();
-        if (matid != 2) continue;
+        if (fConfig.bcmaterialids.find(matid) ==fConfig.bcmaterialids.cend()) continue;
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
-        TPZBndCond *bc = dynamic_cast<TPZBndCond *> (mat);
-        if (!bc || (bc->Type() != 0)) continue;
+        //TPZBndCond *bc = dynamic_cast<TPZBndCond *> (mat);
+        //if (!bc || (bc->Type() != 0)) continue;
 
         cel->CalcStiff(ekbc, efbc);
         // ekbc.fMat.Print(std::cout);
@@ -1854,7 +1861,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PlotPrimalSkeleton(const std::string 
         //vecnames.Push("Displacement");
     } else {
         pressure = PrimalMesh();
-        //vecnames.Push("Displacement");
+        vecnames.Push("Solution");
     }
 
     TPZLinearAnalysis an(pressure, RenumType::ENone);

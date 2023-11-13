@@ -82,6 +82,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     }
     if (this->HasForcingFunction()) {
         this->ForcingFunction()(data[H1functionposition].x, divstress);
+        for (unsigned int i = 0; i < dim; ++i) {
+            divstress[i] *=-1;
+        }
     }
 
     REAL residual = 0.;
