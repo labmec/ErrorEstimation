@@ -16,11 +16,13 @@
 #include "TPZLinearAnalysis.h"
 #include "pzskylstrmatrix.h"
 #include "TPZSSpStructMatrix.h"
+#include "pzfstrmatrix.h"
 #include "pzstepsolver.h"
 #include "TPZFrontStructMatrix.h"
 #include "TPZParFrontStructMatrix.h"
 #include "TPZFrontSym.h"
 
+#include "pzvisualmatrix.h"
 #include "pzbuildmultiphysicsmesh.h"
 
 #include "TPZMaterial.h"
@@ -252,6 +254,68 @@ void TPZPostProcessError::BuildPatchStructures()
     }
 }
 
+void TPZPostProcessError::BuildPatchStructures2()
+{
+    // vector indicating which connect indices of the H1 mesh have been processed
+    TPZVec<int64_t> connectprocessed(fMeshVector[Epatch]->NConnects(),0);
+    
+    bool connectfailed = true;
+    
+    // load the references of all elements of the mixed mesh
+    fMeshVector[Emulti]->Reference()->ResetReference();
+    fMeshVector[Emulti]->LoadReferences();
+    
+    // connectfailed will be true if there is an element patch that could not be inserted
+    while (connectfailed) {
+        connectfailed = false;
+
+        int64_t numvecpatch = fVecVecPatches.size();
+        
+        // loop over all elements of the patch mesh
+        for (int64_t el=0; el<fMeshVector[Epatch]->NElements(); el++) {
+            // take an element of the H1 mesh
+            TPZCompEl *cel = fMeshVector[Epatch]->Element(el);
+            if(!cel) continue;
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            TPZGeoEl *gel = cel->Reference();
+            int ncorner = gel->NCornerNodes();
+            // patches are associated with corner nodes
+            for (int i=0; i<ncorner; i++) {
+                bool vertexfailed = false;
+                // this doesnt make sense because the connectindex of the patch
+                // mesh has no relation with the connectprocessed
+                int64_t locconnectindex = intel->ConnectIndex(i);
+                TPZConnect &c = intel->Connect(i);
+                if (c.HasDependency()) {
+                    continue;
+                }
+                if (connectprocessed[locconnectindex] == 1) {
+                    continue;
+                }
+                TPZGeoElSide gelside(gel,i);
+                TPZCompElSide celside(gelside.Reference());
+                // celside belongs to the multiphysics mesh
+                TPZPatch locpatch = BuildPatch(celside);
+                
+
+                if (connectprocessed[locconnectindex] == 0) {
+                    // all systems are go !!
+                    locpatch.fPartitionConnectIndex = intel->ConnectIndex(i);
+                    TPZManVector<REAL,3> co(3);
+                    gel->Node(i).GetCoordinates(co);
+                    locpatch.fCo = co;
+                    numvecpatch = fVecVecPatches.size();
+                    fVecVecPatches.resize(numvecpatch+1);
+                    fVecVecPatches[numvecpatch].Push(locpatch);
+
+                    connectprocessed[locconnectindex] = 1;
+                }
+            }
+        }
+        PrintPartitionDiagnostics(numvecpatch, std::cout);
+    }
+}
+
 // print the relevant information of the patches
 void TPZPostProcessError::PrintPatchInformation(std::ostream &out)
 {
@@ -391,6 +455,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         int64_t extseqcount = numintconnects;
         TPZFMatrix<STATE> &weightsol = meshpatch->Solution();
+        std::set<int64_t> boundaryconnects;
         for (int64_t patch = 0; patch < npatch; patch++) {
             {//Modifies the solution coeficients corresponding to hat functions of a color. They satisfy the unity partition property
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
@@ -433,8 +498,11 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             {//Loop over boundary connects of a patch
                 int64_t ncon = fVecVecPatches[color][patch].fBoundaryConnectIndices.size();
                 for (int64_t ic = 0; ic < ncon; ic++) {
+                    
                     int64_t cindex = fVecVecPatches[color][patch].fBoundaryConnectIndices[ic];
+                    
                     TPZConnect &c = meshmixed->ConnectVec()[cindex];
+                    c.SetCondensed(true);
                     int64_t seqnum = c.SequenceNumber();
                     if (seqnum != -1)
                     {
@@ -445,7 +513,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                         if(!c.HasDependency())
                         {
                             permute[seqnum] = extseqcount++;
-                            totalequations += consize;
+                            boundaryconnects.insert(cindex);
+                            //totalequations += consize;
                         }
                     }
                     else{
@@ -455,6 +524,11 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             }
             
         }//patch loop
+        
+        for(auto it : boundaryconnects){
+            TPZConnect &c=meshmixed->ConnectVec()[it];
+            c.SetCondensed(true);
+        }
         
 #ifdef ERRORESTIMATION_DEBUG
         {
@@ -492,6 +566,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         //Computes the number of elements connected to each connect
         meshmixed->ComputeNodElCon();
+        //meshmixed->CleanUpUnconnectedNodes();
+        //meshmixed->SaddlePermute();
         
         if(0){
             std::ofstream out("../meshmixedcolor.txt");
@@ -514,20 +590,23 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         std::cout << "Color " << color << " Number of active elements " << nactiveel << " Number of equations " << nequations
         << "\nNumber of internal equations " << nintequations << std::endl;
         // PrintPartitionDiagnostics(color, std::cout);
+        
+        
+        
         nequations = meshmixed->NEquations();
         
         std::cout<<"Solving mixed problem"<<std::endl;
         TPZLinearAnalysis an(meshmixed,RenumType::ENone);
          
-        TPZSkylineStructMatrix<STATE> strmat(meshmixed);
+        //TPZSkylineStructMatrix<STATE> strmat(meshmixed);
+        TPZFStructMatrix<STATE> strmat(meshmixed);
+        //TPZSSpStructMatrix<STATE> strmat(meshmixed);
+        
         int numthreads = 0;
         strmat.SetNumThreads(numthreads);
-        //        strmat.SetEquationRange(0, nequations);
         
         strmat.SetEquationRange(0, nequations);
         an.SetStructuralMatrix(strmat);
-        //		TPZSkylineStructMatrix strmat3(cmesh);
-        //        strmat3.SetNumThreads(8);
         
         TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
         direct->SetDirect(ELDLt);
@@ -535,10 +614,19 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         delete direct;
         direct = 0;
         
+        if(0){// TODO: iterative solver
+            //TPZMatrixSolver<double> *precond{nullptr};
+            TPZStepSolver<STATE> *iterative = new TPZStepSolver<STATE>;
+            iterative->SetSOR(40, 100.0, 0.0000001, 0);
+            an.SetSolver(*iterative);
+            delete iterative;
+            iterative = 0;
+        }
+        
         an.Assemble();
         
         TPZMatrixSolver<STATE> &matsolver = an.MatrixSolver<STATE>();
-        TPZAutoPointer<TPZMatrix<STATE> > globmat = matsolver.Matrix();
+        TPZAutoPointer<TPZMatrix<STATE>> globmat = matsolver.Matrix();
         
         if(0){
             std::stringstream matname, rhsname;
@@ -550,8 +638,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             rhsname << "colorrhs_" << color << ".nb";
             std::ofstream outrhs(rhsname.str());
             globalrhs.Print("F=",outrhs,EMathematicaInput);
+            
+//            { //Print matrix for VTK
+//                TPZFMatrix<REAL> mat(100,100);
+//                meshmixed->ComputeFillIn(100, mat);
+//                VisualMatrix(mat, "MatrixColor.vtk");
+//            }
         }
-        
         
         for (int64_t p = 0; p < npatch; p++) {
             TPZPatch &patch = fVecVecPatches[color][p];
@@ -583,15 +676,15 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         an.LoadSolution();
         
-        {
+        if(0){
             std::stringstream outt;
-            outt << "patch" << color << ".txt";
+            outt << "compMeshColor" << color << ".txt";
             auto* fluxmesh = meshmixed->MeshVector()[0];
             std::ofstream out(outt.str());
             fluxmesh->Print(out);
         }
         
-        if(1){
+        if(0){
             // now we have a partial solution (only in one color of the colors loop)
             /** Variable names for post processing */
             TPZStack<std::string> scalnames, vecnames;
@@ -611,17 +704,22 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
             an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
             an.PostProcess(0,meshmixed->Dimension());
-            
+            TPZFMatrix<STATE> sol;
+            sol=meshmixed->Solution();
+            std::stringstream name;
+            name << "solution_" << color << ".nb";
+            std::ofstream outt(name.str());
+            sol.Print("pzsol=",outt,EMathematicaInput);
         }
         
         if(0){ //just to plot hat functions of one color
-            if(color == 6 and meshpatch->NElements() > 60){
+            if(color == 6 and meshpatch->NElements() > 12){
                 //meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
                 
                 TPZStack<std::string> scalnames2, vecnames2;
                 scalnames2.Push("Solution");
                 std::stringstream sout;
-                sout << "Hatfunctions" << ".vtk";
+                sout << "Hatfunction" << ".vtk";
                 TPZLinearAnalysis an2(meshpatch);
                 an2.DefineGraphMesh(meshpatch->Dimension(), scalnames2, vecnames2, sout.str());
                 int resolution = 0;
@@ -642,6 +740,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             auto* fluxmesh = meshmixed->MeshVector()[0];
             std::ofstream out("hdivsol.txt");
             fluxmesh->Print(out);
+        }
+        
+        
+        for(auto it : boundaryconnects){
+            TPZConnect &c=meshmixed->ConnectVec()[it];
+            c.SetCondensed(false);
         }
         
         ResetState();
@@ -870,6 +974,8 @@ void TPZPostProcessError::ResetState()
     for (int64_t i=0; i<fConnectSeqNumbers.size(); i++) {
         int64_t seqnum = fConnectSeqNumbers[i];
         TPZConnect &c = multiphysics->ConnectVec()[i];
+        int64_t prevseqnumber = c.SequenceNumber();
+        int prevblocksize = this->fBlock.Size(prevseqnumber);
         c.SetSequenceNumber(seqnum);
         int blsize = this->fBlock.Size(seqnum);
         int neq = c.NShape()*c.NState();
@@ -940,7 +1046,6 @@ void TPZPostProcessError::CreateFluxMesh()
             cmesh->InsertMaterialObject(bc);
         }
     }
-    
     
     cmesh->SetDimModel(dim);
     
@@ -1015,8 +1120,7 @@ void TPZPostProcessError::CreatePressureMesh()
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     cmesh->ApproxSpace().CreateDisconnectedElements(true);
-    //    TPZCompMeshReferred *cmesh = new TPZCompMeshReferred(gmesh);
-    //    cmesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
+
     for (auto it:fluxmesh->MaterialVec()) {
         TPZMaterial *mat = it.second;
         int matdim = mat->Dimension();
@@ -1031,6 +1135,9 @@ void TPZPostProcessError::CreatePressureMesh()
         }
     }
     
+//    cmesh->AutoBuild();
+//    cmesh->CleanUpUnconnectedNodes();
+//    cmesh->ExpandSolution();
     gmesh->ResetReference();
     
     int64_t nel = fluxmesh->NElements();
@@ -1044,8 +1151,11 @@ void TPZPostProcessError::CreatePressureMesh()
         }
         int nconnects = intel->NConnects();
         TPZConnect &c = intel->Connect(nconnects-1);
-        cmesh->SetDefaultOrder(c.Order());
+        //cmesh->SetDefaultOrder(c.Order());
         TPZCompEl *cel = cmesh->ApproxSpace().CreateCompEl(gel, *cmesh);
+        TPZInterpolatedElement *intel2 = dynamic_cast<TPZInterpolatedElement*>(cel);
+        if(!intel) continue;
+        intel2->PRefine(c.Order());
         cel->Reference()->ResetReference();
     }
     //    cmesh->LoadReferred(fMeshVector[0]);
@@ -1130,10 +1240,11 @@ void TPZPostProcessError::CreateMixedMesh()
                 material = locmat;
                 locmat->SetForcingFunction(mat->ForcingFunction(),mat->ForcingFunctionPOrder());
                 
-                if(fExact){
+                if(fExact){ //compel setintegrationrule new int...
                     locmat->SetExactSol(fExact->ExactSolution(), mat->ForcingFunctionPOrder());
-                    auto exactsol= locmat->ExactSol();
+                    
                     if(0){
+                        auto exactsol= locmat->ExactSol();
                         TPZVec<STATE> x(3,0);
                         x[0]=0.5;
                         x[1]=0.5;
@@ -1164,7 +1275,11 @@ void TPZPostProcessError::CreateMixedMesh()
             TPZMaterialT<STATE> *matorig = dynamic_cast<TPZMaterialT<STATE> *>(bnd->Material());
             int matid = matorig->Id();
             TPZMaterialT<STATE> *matmixed = dynamic_cast<TPZMaterialT<STATE> *>(mphysics->FindMaterial(matid));
+            //matmixed->SetForcingFunction(matorig->ForcingFunction(),10);
+            //bnd->IntegrationRuleOrder(10);
             TPZBndCondT<STATE> *bc = matmixed->CreateBC(matmixed, bnd->Id(), bnd->Type(), bnd->Val1(), bnd->Val2());
+            //bc->IntegrationRuleOrder(15);
+            //bc->SetForcingFunctionBC(matorig->ForcingFunction(),10);
             mphysics->InsertMaterialObject(bc);
         }
     }
@@ -1215,7 +1330,7 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
         }
     }
     
-    BuildPatchStructures();
+    BuildPatchStructures2(); // Use BuildPatchStructures2() for one patch by color
     
 #ifdef ERRORESTIMATION_DEBUG
     {

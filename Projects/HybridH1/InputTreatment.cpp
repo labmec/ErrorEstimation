@@ -333,13 +333,15 @@ void ReadEntry(ProblemConfig &config, PreConfig &preConfig){
     //config.exact.operator*().fExact = *ChooseAnaliticSolution(preConfig);
     config.exact->fExact = ChooseAnaliticSolution(preConfig);
 
-    TPZVec<STATE> x(3,0);
-    x[0]=0.5;
-    x[1]=0.5;
-    TPZFMatrix<STATE> du(3,1,0);
-    TPZVec<STATE> u(3,0);
-    config.exact->ExactSolution()(x,u,du);
-    std::cout << "u(0)=" << u[0] << std::endl;
+    if(0){
+        TPZVec<STATE> x(3,0);
+        x[0]=0.5;
+        x[1]=0.5;
+        TPZFMatrix<STATE> du(3,1,0);
+        TPZVec<STATE> u(3,0);
+        config.exact->ExactSolution()(x,u,du);
+        std::cout << "u(0)=" << u[0] << std::endl;
+    }
     
     config.k = preConfig.k;
     config.n = preConfig.n;

@@ -35,6 +35,8 @@ struct TPZPatch
     // vector of closed set of connect indexes included in the elements
     TPZManVector<int64_t,30> fBoundaryConnectIndices;
     
+    bool fpatchIsBoundary = true;
+    
     void ClosedSet(std::set<int64_t> &closed)
     {
 //        std::copy (bar.begin(),bar.end(),std::inserter(foo,it));
@@ -75,7 +77,7 @@ struct TPZPatch
     int64_t FirstLagrangeEquation(TPZCompMesh *cmesh) const;
     
 };
- 
+//Epressureaverage = 3
 enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
 
 class TPZPostProcessError
@@ -97,6 +99,8 @@ private:
     
     // build vector of patches of a same color
     void BuildPatchStructures();
+    void BuildPatchStructures2();
+
     
     // print the relevant information of the patches
     void PrintPatchInformation(std::ostream &out);

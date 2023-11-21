@@ -652,17 +652,17 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
             mix->SetExactSol(config.exact->ExactSolution(), pConfig.integrationorder);
             mix->SetForcingFunction(config.exact->ForceFunc(), pConfig.integrationorder);
 
+
             if (!mat) mat = mix;
             cmesh->InsertMaterialObject(mix);
         }
 
-        //int pOrder=18;
         for (auto matid : config.bcmaterialids) {
             TPZFNMatrix<1, REAL> val1(1, 1, 0.);
-            TPZManVector<STATE, 2> val2(11, 0.);
-            int bctype = 0;
+            TPZManVector<STATE, 2> val2(1, 0.); //Dirichlet
+            int bctype = 0; //Dirichlet
             auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            bc->SetForcingFunctionBC(config.exact->ExactSolution(),pConfig.integrationorder);
+            //bc->SetForcingFunctionBC(config.exact->ExactSolution(),pConfig.integrationorder);
             cmesh->InsertMaterialObject(bc);
         }
     }
