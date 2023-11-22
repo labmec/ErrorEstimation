@@ -137,8 +137,8 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     TPZAnalyticSolution *gAnalytic = 0;
     TPZMixedElasticityND* matelastic = 0;
     TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-    elas->gE = 1.;
-    elas->gPoisson = 0.;
+    //elas->gE = 1.;
+    //elas->gPoisson = 0.;
     elas->fProblemType = config.exactElast.operator*().fProblemType;
     gAnalytic = elas;
     matelastic = new TPZMixedElasticityND(EDomain, elas->gE, elas->gPoisson, 0, 0, 0 /*planestress*/, 2);
