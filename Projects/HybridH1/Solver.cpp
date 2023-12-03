@@ -219,7 +219,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         std::cout << "max estimated error within elements = " << maxerror <<"\n";
         
         // Select elements to hp refinement
-        if(1){
+        if(0){
             std::set<int64_t> gelstohref;
             std::map<int64_t,int> gelstoPplus;
             gelstohref.clear();
@@ -254,7 +254,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
             config.fElIndexDivide.push_back(gelstohref);
             config.fElIndexPplus.push_back(gelstoPplus);
         }
-        else{// h-ref to singular node adjacent elements and posible p-ref in ohers
+        else{// h-ref to singular node adjacent elements and posible p-ref in others
             std::set<int64_t> gelstohref;
             std::map<int64_t,int> gelstoPplus;
             gelstohref.clear();
@@ -546,7 +546,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
             plotname = out.str();
         }
-        int resolution=0;
+        int resolution=4;
         
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(resolution,dim);

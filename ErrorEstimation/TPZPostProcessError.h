@@ -35,7 +35,7 @@ struct TPZPatch
     // vector of closed set of connect indexes included in the elements
     TPZManVector<int64_t,30> fBoundaryConnectIndices;
     
-    bool fpatchIsBoundary = true;
+    bool fPatchIsBoundary;
     
     void ClosedSet(std::set<int64_t> &closed)
     {
@@ -49,7 +49,7 @@ struct TPZPatch
     }
     
     TPZPatch(const TPZPatch &copy) : fPartitionConnectIndex(copy.fPartitionConnectIndex), fCo(copy.fCo), fElIndices(copy.fElIndices),
-    fConnectIndices(copy.fConnectIndices), fBoundaryConnectIndices(copy.fBoundaryConnectIndices)
+    fConnectIndices(copy.fConnectIndices), fBoundaryConnectIndices(copy.fBoundaryConnectIndices), fPatchIsBoundary(copy.fPatchIsBoundary)
     {
         
     }
@@ -61,6 +61,7 @@ struct TPZPatch
         fElIndices = copy.fElIndices;
         fConnectIndices = copy.fConnectIndices;
         fBoundaryConnectIndices = copy.fBoundaryConnectIndices;
+        fPatchIsBoundary = copy.fPatchIsBoundary;
         return *this;
     }
     
@@ -77,8 +78,8 @@ struct TPZPatch
     int64_t FirstLagrangeEquation(TPZCompMesh *cmesh) const;
     
 };
-//Epressureaverage = 3
-enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
+
+enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4, Epressureaverage = 5};
 
 class TPZPostProcessError
 {
@@ -99,7 +100,7 @@ private:
     
     // build vector of patches of a same color
     void BuildPatchStructures();
-    void BuildPatchStructures2();
+    void BuildPatchStructures2();//one patch by color
 
     
     // print the relevant information of the patches
@@ -145,6 +146,8 @@ private:
     /// create the lagrange mesh corresponding to the flux mesh
     void CreatePressureMesh();
 
+    void CreateAveragePressureMesh();
+    
     /// create the multiphysics mesh that will compute the projection matrix
     void CreateMixedMesh();
 

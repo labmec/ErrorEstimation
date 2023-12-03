@@ -229,9 +229,7 @@ void ProblemConfig::PorderIncrement() {
             if (!cel || cel->Dimension() != cmeshH1->Dimension()){
                 continue;
             }
-            
-            //if(order > maxPrefine-1) continue;
-            
+                        
             TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
             if(!intel) continue;
             //int order = cel->GetgOrder();
@@ -241,7 +239,7 @@ void ProblemConfig::PorderIncrement() {
     }
     
     //Adjustments to smooth the distribution of polynomial orders
-    AdjustH1PorderDistrib();
+    //AdjustH1PorderDistrib();
     
     //cmeshH1->AdjustBoundaryElements();
     cmeshH1->CleanUpUnconnectedNodes();

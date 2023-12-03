@@ -49,7 +49,7 @@ void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDa
 {
     MixedMat::FillDataRequirements(datavec);
     
-    for( int i = 0; i<4; i++){
+    for( int i = 0; i<5; i++){
         datavec[i].SetAllRequirements(true);
         datavec[i].fNeedsSol = true;
     }
@@ -68,7 +68,7 @@ void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDa
 template<class MixedMat>
 void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
-    if (datavec.size() != 4  )
+    if (datavec.size() != 5  )
     {
         DebugStop();
     }
@@ -142,7 +142,25 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
             
         }
     }
-
+    
+    int nactive = 0;
+    for (int i=0; i<datavec.size(); i++) {
+        if (datavec[i].fActiveApproxSpace) {
+            nactive++;
+        }
+    }
+    
+    if(nactive == 3)
+    {
+        for(int ip=0; ip<phrp; ip++)
+        {
+            ek(phrq+ip,phrq+phrp) += phip(ip,0)*weight;
+            ek(phrq+phrp,phrq+ip) += phip(ip,0)*weight;
+        }
+        ek(phrp+phrq,phrq+phrp) += -weight;
+        //ek(phrq+phrp,phrp+phrq+1) += -weight;
+    }
+    
 }
 
 /// make a contribution to the error computation
