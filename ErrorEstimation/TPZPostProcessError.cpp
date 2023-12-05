@@ -397,8 +397,6 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     
     TPZMultiphysicsCompMesh *meshmixed = dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]);
     if(1){
-        std::ofstream out4("../CMeshH1.txt");
-        fMeshVector[Eorigin]->Print(out4);
         std::ofstream out0("../CMeshMixed.txt");
         meshmixed->Print(out0);
         std::ofstream out1("../FluxCMesh.txt");
@@ -407,6 +405,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         fMeshVector[Epressure]->Print(out2);
         std::ofstream out3("../PartitionCMesh.txt");
         fMeshVector[Epatch]->Print(out3);
+        std::ofstream out4("../CMeshH1.txt");
+        fMeshVector[Eorigin]->Print(out4);
         std::ofstream out5("../AveragePressureCMesh.txt");
         fMeshVector[Epressureaverage]->Print(out5);
     }
@@ -526,8 +526,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                     }
                 }
             }
-            
-            {//MARK: Activate/deactivate average pressure space
+
+            if(1){//MARK: Activate/deactivate average pressure space
                 TPZPatch& Patch = fVecVecPatches[color][patch];
                 std::cout << "fpatchIsBoundary: " << Patch.fPatchIsBoundary << std::endl;
                 if(!Patch.fPatchIsBoundary){
@@ -546,6 +546,28 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                     for(int i=0; i<nel; i++){
                         int64_t index = Patch.fElIndices[i];
                         TPZCompEl* cel = meshmixed->ElementVec()[index];
+                        TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(cel);
+                        multicel->SetActiveApproxSpaces(activ2);
+                    }
+                }
+            }
+            if(0){//MARK: Activate/deactivate average pressure space
+                TPZPatch& Patch = fVecVecPatches[color][patch];
+                std::cout << "fpatchIsBoundary: " << Patch.fPatchIsBoundary << std::endl;
+                if(!Patch.fPatchIsBoundary){
+                    TPZManVector<int,5> activ = {1,1,0,0,1};
+                    int nel = meshmixed->NElements();
+                    for(int64_t iel=0; iel<nel; iel++){
+                        TPZCompEl* cel = meshmixed->Element(iel);
+                        TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(cel);
+                        multicel->SetActiveApproxSpaces(activ);
+                    }
+                }
+                else{
+                    TPZManVector<int,5> activ2 = {1,1,0,0,0};
+                    int nel = meshmixed->NElements();
+                    for(int64_t iel=0; iel<nel; iel++){
+                        TPZCompEl* cel = meshmixed->Element(iel);
                         TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(cel);
                         multicel->SetActiveApproxSpaces(activ2);
                     }
@@ -770,10 +792,19 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             fluxmesh->Print(out);
         }
         
-        
         for(auto it : boundaryconnects){
             TPZConnect &c=meshmixed->ConnectVec()[it];
             c.SetCondensed(false);
+        }
+        
+        if(1){
+            TPZManVector<int,5> activ={1,1,0,0,1};
+            for(auto it:activel){
+                if(!it) continue;
+                TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(it);
+                
+                multicel->SetActiveApproxSpaces(activ);
+            }
         }
         
         ResetState();

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     pConfig.maxIter = 15;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
     pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 1;                      //// How many uniform refinements
+    pConfig.refLevel = 3;                      //// How many uniform refinements
     pConfig.numberAdapativitySteps = 0;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).

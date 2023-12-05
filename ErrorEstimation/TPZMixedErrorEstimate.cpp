@@ -86,7 +86,7 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
     
     //REAL solpatch = datavec[2].sol[0][0];
     //TPZFMatrix<STATE> &gradH1 = datavec[3].dsol[0];
-    
+    ek.Resize(ek.Rows()-1, ek.Cols()-1);
     MixedMat::Contribute(datavec,weight,ek,ef);
 //    {
 //        std::stringstream sout;
@@ -143,6 +143,8 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
         }
     }
     
+    ek.Resize(ek.Rows()+1, ek.Cols()+1);
+    
     int nactive = 0;
     for (int i=0; i<datavec.size(); i++) {
         if (datavec[i].fActiveApproxSpace) {
@@ -160,7 +162,9 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
         ek(phrp+phrq,phrq+phrp) += -weight;
         //ek(phrq+phrp,phrp+phrq+1) += -weight;
     }
-    
+    else{
+        ek(phrp+phrq,phrq+phrp) += weight;
+    }
 }
 
 /// make a contribution to the error computation
