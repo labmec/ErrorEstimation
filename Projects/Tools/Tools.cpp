@@ -257,12 +257,13 @@ TPZGeoMesh* Tools::CreateNewGeoMesh(int nel, TPZVec<int>& bcids) {
     return gmesh;
 }
 
-TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids) {
+TPZGeoMesh* Tools::CreateGeoMesh(int nel, TPZVec<int>& bcids, REAL distortion) {
 
     TPZManVector<int> nx(2, nel);
     TPZManVector<REAL> x0(3, 0.), x1(3, 1.);
     x1[2] = 0.;
     TPZGenGrid2D gen(nx, x0, x1, 1, 0);
+    gen.SetDistortion(distortion);
     // gen.SetData(nx, x0, x1,MMeshType::ETriangular, 1, 0);
     gen.SetRefpatternElements(true);
     TPZGeoMesh* gmesh = new TPZGeoMesh;

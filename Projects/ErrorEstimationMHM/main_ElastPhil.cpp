@@ -25,7 +25,7 @@ enum EMatid  {ENone, EDomain, EBoundary, EMHM};
 void RunElasticityProblem(int nCoarseDiv, int nInternalRef);
 void IdentifyMHMDomain(TPZGeoMesh *gmesh, TPZVec<int> &domain);
 void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
-TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
+TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef, REAL distortion=0);
 void SolveProblemDirect(TPZLinearAnalysis &an, TPZCompMesh *cmesh);
 
 void AdjustSkelSideOrient(TPZCompMesh *hdivmesh);
@@ -83,7 +83,8 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
 
     config.ndivisions = nCoarseDiv;
     config.ninternalref = nInternalRef;
-    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
+    REAL distortion = 0.25; // 0 for triangles and rectangles; 0.25 for trapezoids;
+    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef, distortion);
 
     auto nEL = config.gmesh->NElements();
     for (auto i = 0; i < nEL; i++){
@@ -348,10 +349,10 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     EstimateErrorElasticity(config, cmesh);
 }
 
-TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
+TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef, REAL distortion) {
 
     TPZManVector<int, 4> bcIDs(4, EBoundary);
-    TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs);
+    TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs, distortion);
     gmesh->SetDimension(2);
 
     Tools::UniformRefinement(nInternalRef, gmesh);

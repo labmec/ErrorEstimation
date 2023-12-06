@@ -23,7 +23,7 @@ void RunHighGradientProblem(int nCoarseDiv, int nInternalRef);
 void RunInnerSingularityProblem(int nCoarseDiv, int nInternalRef);
 void RunPeriodicPermProblem(int nCoarseDiv, int nInternalRef);
 
-TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef);
+TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef, REAL distortion=0);
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef, int nInternalRef, TPZStack<int64_t> &mhmIndexes);
 
 void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfig &config);
@@ -48,7 +48,7 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {3};
+    const std::set<int> nCoarseDiv = {10};
     const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
@@ -135,7 +135,8 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
 
     config.ndivisions = nCoarseDiv;
     config.ninternalref = nInternalRef;
-    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef);
+    REAL distortion = 0; // 0 for triangles and rectangles; 0.25 for trapezoids;
+    config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef, distortion);
 
     std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
@@ -332,10 +333,10 @@ void RunPeriodicPermProblem(const int nCoarseDiv, const int nInternalRef) {
     EstimateError(config, mhm);
 }
 
-TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef) {
+TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef, REAL distortion) {
 
     TPZManVector<int, 4> bcIDs(4, -1);
-    TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs);
+    TPZGeoMesh *gmesh = Tools::CreateGeoMesh(nCoarseDiv, bcIDs, distortion);
     gmesh->SetDimension(2);
 
     Tools::UniformRefinement(nInternalRef, gmesh);
