@@ -86,7 +86,7 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
     
     //REAL solpatch = datavec[2].sol[0][0];
     //TPZFMatrix<STATE> &gradH1 = datavec[3].dsol[0];
-    ek.Resize(ek.Rows()-1, ek.Cols()-1);
+    
     MixedMat::Contribute(datavec,weight,ek,ef);
 //    {
 //        std::stringstream sout;
@@ -108,13 +108,17 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
     
     TPZFNMatrix<3,REAL> fluxprimal;
 
+    STATE soloriginal = datavec[Eorigin].sol[0][0];
+    REAL psival = datavec[Epatch].sol[0][0];
     {
-        REAL psival = datavec[Epatch].sol[0][0]; //datavec[1].sol[0][1]??
+        //REAL psival = datavec[Epatch].sol[0][0]; //datavec[1].sol[0][1]??
         //TPZFNMatrix<9,STATE> dsolprimal(3,1);
         TPZFNMatrix<9,REAL> gradpsi(3,1),gradpressure(3,1);
         TPZAxesTools<STATE>::Axes2XYZ(datavec[Epatch].dsol[0], gradpsi, datavec[Epatch].axes); //datavec[1].axes
         TPZAxesTools<STATE>::Axes2XYZ(datavec[Eorigin].dsol[0], gradpressure, datavec[Eorigin].axes); //datavec[1].axes
 
+        //STATE soloriginal = datavec[Eorigin].sol[0][0];
+        
         fluxprimal = perm*gradpressure;
         
         for (int64_t jq=0; jq<phrq; jq++)
@@ -143,7 +147,7 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
         }
     }
     
-    ek.Resize(ek.Rows()+1, ek.Cols()+1);
+    //ek.Resize(ek.Rows()+1, ek.Cols()+1);
     
     int nactive = 0;
     for (int i=0; i<datavec.size(); i++) {
@@ -152,19 +156,15 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
         }
     }
     
-    if(nactive == 3)
-    {
-        for(int ip=0; ip<phrp; ip++)
-        {
-            ek(phrq+ip,phrq+phrp) += phip(ip,0)*weight;
-            ek(phrq+phrp,phrq+ip) += phip(ip,0)*weight;
+    if(nactive!=3) DebugStop();
+    
+        {//for internal patches we insert additional blocks
+            for(int j=0; j<phrp; j++){
+                ek(phrq+j,phrq+phrp) += phip(j,0)*weight;
+                ek(phrq+phrp,phrq+j) += phip(j,0)*weight;
+            }
+            ef(phrq+phrp,0)+= weight*psival*soloriginal;
         }
-        ek(phrp+phrq,phrq+phrp) += -weight;
-        //ek(phrq+phrp,phrp+phrq+1) += -weight;
-    }
-    else{
-        ek(phrp+phrq,phrq+phrp) += weight;
-    }
 }
 
 /// make a contribution to the error computation

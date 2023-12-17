@@ -395,10 +395,10 @@ using namespace std;
 void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {//elementerrors isn't being filled
     
-    TPZMultiphysicsCompMesh *meshmixed = dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]);
+    TPZMultiphysicsCompMesh *multiphysicsmesh = dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]);
     if(1){
         std::ofstream out0("../CMeshMixed.txt");
-        meshmixed->Print(out0);
+        multiphysicsmesh->Print(out0);
         std::ofstream out1("../FluxCMesh.txt");
         fMeshVector[Eflux]->Print(out1);
         std::ofstream out2("../PressureCMesh.txt");
@@ -411,29 +411,31 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         fMeshVector[Epressureaverage]->Print(out5);
     }
     
+    int64_t averagepressureconnindex = fMeshVector[Eflux]->NConnects()+fMeshVector[Epressure]->NConnects();
+    
     TPZCompMesh *meshpatch = fMeshVector[Epatch];
     
-    //Vector of pointers to the computational elements of meshmixed will be used to activate elements
-    TPZVec<TPZCompEl *> elpointers(meshmixed->NElements());
-    int64_t nelem = meshmixed->NElements();
+    //Vector of pointers to the computational elements of multiphysicsmesh will be used to activate elements
+    TPZVec<TPZCompEl *> elpointers(multiphysicsmesh->NElements());
+    int64_t nelem = multiphysicsmesh->NElements();
     for (int64_t i = 0; i < nelem; i++) {
-        elpointers[i] = meshmixed->Element(i);
+        elpointers[i] = multiphysicsmesh->Element(i);
     }
     
     //Take the sequence number of each connect (origseqnum is not used)
-    int64_t ncon = meshmixed->NConnects();
-    int64_t nblocks = meshmixed->Block().NBlocks();
+    int64_t ncon = multiphysicsmesh->NConnects();
+    int64_t nblocks = multiphysicsmesh->Block().NBlocks();
     TPZManVector<int64_t> origseqnum(ncon);
     for (int64_t ic = 0; ic < ncon; ic++) {
-        origseqnum[ic] = meshmixed->ConnectVec()[ic].SequenceNumber();
+        origseqnum[ic] = multiphysicsmesh->ConnectVec()[ic].SequenceNumber();
     }
     
     //For each color compute the contribution to equilibrate flux reconstruction
     int64_t ncolors = fVecVecPatches.size();
     for (int color = 0; color < ncolors; color++){
-        meshmixed->Solution().Zero();
+        multiphysicsmesh->Solution().Zero();
         for (int64_t el = 0; el < nelem; el++) {
-            meshmixed->ElementVec()[el] = elpointers[el];
+            multiphysicsmesh->ElementVec()[el] = elpointers[el];
         }
         
         TPZVec<TPZCompEl *> activel(nelem,0); //to activate/deactivate elements
@@ -450,7 +452,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         for (int64_t patch = 0; patch < npatch; patch++) {
             for(auto cindex:fVecVecPatches[color][patch].fConnectIndices)
             {
-                TPZConnect &c = meshmixed->ConnectVec()[cindex];
+                TPZConnect &c = multiphysicsmesh->ConnectVec()[cindex];
                 if(!c.HasDependency()){
                     numintconnects++;
                 }
@@ -468,7 +470,28 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
             }
             
-            {//Define the activ computational elements of the meshmixed
+            {//Define the activ computational elements of the multiphysicsmesh
+                int64_t nel = fVecVecPatches[color][patch].fElIndices.size();
+                for (int64_t el = 0; el < nel; el++) {
+                    int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
+                    TPZCompEl* cel = multiphysicsmesh->Element(elindex);
+                    if(cel->Material()->Id()==1){
+                        int64_t ncon = cel->NConnects();
+                        cel->SetConnectIndex(ncon-1, averagepressureconnindex+patch);
+                    }
+                }
+                TPZPatch& Patch = fVecVecPatches[color][patch];
+                std::cout << "fpatchIsBoundary: " << Patch.fPatchIsBoundary << std::endl;
+                if(Patch.fPatchIsBoundary){
+                    multiphysicsmesh->ConnectVec()[averagepressureconnindex+patch].SetCondensed(true);
+                    extseqcount --;
+                }
+                else{
+                    multiphysicsmesh->ConnectVec()[averagepressureconnindex+patch].SetCondensed(false);
+                }
+            }
+            
+            {//Define the activ computational elements of the multiphysicsmesh
                 int64_t nel = fVecVecPatches[color][patch].fElIndices.size();
                 for (int64_t el = 0; el < nel; el++) {
                     int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
@@ -480,18 +503,19 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 int64_t ncon = fVecVecPatches[color][patch].fConnectIndices.size();
                 for (int64_t ic = 0; ic < ncon; ic++) {
                     int64_t cindex = fVecVecPatches[color][patch].fConnectIndices[ic];
-                    TPZConnect &c = meshmixed->ConnectVec()[cindex];
+                    TPZConnect &c = multiphysicsmesh->ConnectVec()[cindex];
                     int64_t seqnum = c.SequenceNumber();
                     if (seqnum != -1)
                     {
-                        int64_t consize = meshmixed->ConnectVec()[cindex].NShape() * meshmixed->ConnectVec()[cindex].NState();
+                        int64_t consize = multiphysicsmesh->ConnectVec()[cindex].NShape() * multiphysicsmesh->ConnectVec()[cindex].NState();
                         nintequations += consize;
-                        if(!c.HasDependency())
+                        if(!c.HasDependency() && !c.IsCondensed())
                         {
                             if(permute[seqnum] != -1) DebugStop();
                             
                             permute[seqnum] = seqcount++;
                             totalequations += consize;
+                            
                         }
                     }
                 }
@@ -505,7 +529,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                     
                     int64_t cindex = fVecVecPatches[color][patch].fBoundaryConnectIndices[ic];
                     
-                    TPZConnect &c = meshmixed->ConnectVec()[cindex];
+                    TPZConnect &c = multiphysicsmesh->ConnectVec()[cindex];
                     c.SetCondensed(true);
                     int64_t seqnum = c.SequenceNumber();
                     if (seqnum != -1)
@@ -513,7 +537,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                         if (permute[seqnum] != -1) {
                             DebugStop();
                         }
-                        int64_t consize = meshmixed->ConnectVec()[cindex].NShape() * meshmixed->ConnectVec()[cindex].NState();
+                        int64_t consize = multiphysicsmesh->ConnectVec()[cindex].NShape() * multiphysicsmesh->ConnectVec()[cindex].NState();
                         if(!c.HasDependency())
                         {
                             permute[seqnum] = extseqcount++;
@@ -527,47 +551,15 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 }
             }
 
-            if(1){//MARK: Activate/deactivate average pressure space
+            if(0){//MARK: Deactivate average pressure space on boundary patch
                 TPZPatch& Patch = fVecVecPatches[color][patch];
                 std::cout << "fpatchIsBoundary: " << Patch.fPatchIsBoundary << std::endl;
-                if(!Patch.fPatchIsBoundary){
-                    TPZManVector<int,5> activ = {1,1,0,0,1};
-                    int nel = Patch.fElIndices.size();
-                    for(int i=0; i<nel; i++){
-                        int64_t index = Patch.fElIndices[i];
-                        TPZCompEl* cel = meshmixed->ElementVec()[index];
-                        TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(cel);
-                        multicel->SetActiveApproxSpaces(activ);
-                    }
-                }
-                else{
+                if(Patch.fPatchIsBoundary){
                     TPZManVector<int,5> activ2 = {1,1,0,0,0};
                     int nel = Patch.fElIndices.size();
                     for(int i=0; i<nel; i++){
                         int64_t index = Patch.fElIndices[i];
-                        TPZCompEl* cel = meshmixed->ElementVec()[index];
-                        TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(cel);
-                        multicel->SetActiveApproxSpaces(activ2);
-                    }
-                }
-            }
-            if(0){//MARK: Activate/deactivate average pressure space
-                TPZPatch& Patch = fVecVecPatches[color][patch];
-                std::cout << "fpatchIsBoundary: " << Patch.fPatchIsBoundary << std::endl;
-                if(!Patch.fPatchIsBoundary){
-                    TPZManVector<int,5> activ = {1,1,0,0,1};
-                    int nel = meshmixed->NElements();
-                    for(int64_t iel=0; iel<nel; iel++){
-                        TPZCompEl* cel = meshmixed->Element(iel);
-                        TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(cel);
-                        multicel->SetActiveApproxSpaces(activ);
-                    }
-                }
-                else{
-                    TPZManVector<int,5> activ2 = {1,1,0,0,0};
-                    int nel = meshmixed->NElements();
-                    for(int64_t iel=0; iel<nel; iel++){
-                        TPZCompEl* cel = meshmixed->Element(iel);
+                        TPZCompEl* cel = multiphysicsmesh->ElementVec()[index];
                         TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(cel);
                         multicel->SetActiveApproxSpaces(activ2);
                     }
@@ -577,7 +569,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }//patch loop
         
         for(auto it : boundaryconnects){
-            TPZConnect &c=meshmixed->ConnectVec()[it];
+            TPZConnect &c=multiphysicsmesh->ConnectVec()[it];
             c.SetCondensed(true);
         }
         
@@ -605,27 +597,27 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         if(extseqcount != nblocks) DebugStop();
         
-        meshmixed->Permute(permute);//Renumbering the equations
+        multiphysicsmesh->Permute(permute);//Renumbering the equations
         
         int64_t nactiveel = 0;
-        //Activates meshmixed comp. elements of a color, and counts them
+        //Activates multiphysicsmesh comp. elements of a color, and counts them
         for (int64_t el = 0; el < nelem; el++) {
-            meshmixed->ElementVec()[el] = activel[el];
+            multiphysicsmesh->ElementVec()[el] = activel[el];
             if (activel[el]) {
                 nactiveel++;
             }
         }
         //Computes the number of elements connected to each connect
-        meshmixed->ComputeNodElCon();
-        //meshmixed->CleanUpUnconnectedNodes();
-        //meshmixed->SaddlePermute();
+        multiphysicsmesh->ComputeNodElCon();
+        //multiphysicsmesh->CleanUpUnconnectedNodes();
+        //multiphysicsmesh->SaddlePermute();
         
         if(0){
-            std::ofstream out("../meshmixedcolor.txt");
-            meshmixed->Print(out);
+            std::ofstream out("../multiphysicsmeshcolor.txt");
+            multiphysicsmesh->Print(out);
         }
         
-        int64_t nequations = meshmixed->NEquations();
+        int64_t nequations = multiphysicsmesh->NEquations();
         std::cout << "nequations: " << nequations << std::endl;
         std::cout << "totalequations: " << totalequations << std::endl;
 
@@ -634,23 +626,23 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         
         // Saddle permute would put the pressure equations after the boundary equations (and break the code)
-        //        meshmixed->SaddlePermute();
+        //        multiphysicsmesh->SaddlePermute();
         
-        meshmixed->ExpandSolution();
+        multiphysicsmesh->ExpandSolution();
         
         std::cout << "Color " << color << " Number of active elements " << nactiveel << " Number of equations " << nequations
         << "\nNumber of internal equations " << nintequations << std::endl;
         // PrintPartitionDiagnostics(color, std::cout);
         
         
-        nequations = meshmixed->NEquations();
+        nequations = multiphysicsmesh->NEquations();
         
         std::cout<<"Solving mixed problem"<<std::endl;
-        TPZLinearAnalysis an(meshmixed,RenumType::ENone);
+        TPZLinearAnalysis an(multiphysicsmesh,RenumType::ENone);
          
-        //TPZSkylineStructMatrix<STATE> strmat(meshmixed);
-        TPZFStructMatrix<STATE> strmat(meshmixed);
-        //TPZSSpStructMatrix<STATE> strmat(meshmixed);
+        //TPZSkylineStructMatrix<STATE> strmat(multiphysicsmesh);
+        TPZFStructMatrix<STATE> strmat(multiphysicsmesh);
+        //TPZSSpStructMatrix<STATE> strmat(multiphysicsmesh);
         
         int numthreads = 0;
         strmat.SetNumThreads(numthreads);
@@ -664,14 +656,14 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         delete direct;
         direct = 0;
         
-        if(0){// TODO: iterative solver
-            //TPZMatrixSolver<double> *precond{nullptr};
-            TPZStepSolver<STATE> *iterative = new TPZStepSolver<STATE>;
-            iterative->SetSOR(40, 100.0, 0.0000001, 0);
-            an.SetSolver(*iterative);
-            delete iterative;
-            iterative = 0;
-        }
+//        if(0){// Iterative solver
+//            //TPZMatrixSolver<double> *precond{nullptr};
+//            TPZStepSolver<STATE> *iterative = new TPZStepSolver<STATE>;
+//            iterative->SetSOR(40, 100.0, 0.0000001, 0);
+//            an.SetSolver(*iterative);
+//            delete iterative;
+//            iterative = 0;
+//        }
         
         an.Assemble();
         
@@ -691,7 +683,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
 //            { //Print matrix for VTK
 //                TPZFMatrix<REAL> mat(100,100);
-//                meshmixed->ComputeFillIn(100, mat);
+//                multiphysicsmesh->ComputeFillIn(100, mat);
 //                VisualMatrix(mat, "MatrixColor.vtk");
 //            }
         }
@@ -700,7 +692,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             TPZPatch &patch = fVecVecPatches[color][p];
             if (!PatchHasBoundary(patch))
             {
-                int64_t firstlagrangeequation = patch.FirstLagrangeEquation(meshmixed);
+                int64_t firstlagrangeequation = patch.FirstLagrangeEquation(multiphysicsmesh);
                 STATE diag = globmat->GetVal(firstlagrangeequation, firstlagrangeequation);
                 diag += 1.;
                 globmat->Put(firstlagrangeequation, firstlagrangeequation, diag);
@@ -729,9 +721,15 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         if(0){
             std::stringstream outt;
             outt << "compMeshColor" << color << ".txt";
-            auto* fluxmesh = meshmixed->MeshVector()[0];
+            auto* fluxmesh = multiphysicsmesh->MeshVector()[0];
             std::ofstream out(outt.str());
             fluxmesh->Print(out);
+            
+            std::stringstream outtt;
+            outtt << "CMeshPatch_color_" << color << ".txt";
+            std::ofstream outt2(outtt.str());
+            multiphysicsmesh->Print(outt2);
+            
         }
         
         if(0){
@@ -745,17 +743,17 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             an.SetStep(color); //
             
             TPZVec<REAL> errorscolor(6,0);
-            int n = meshmixed->NElements();
-            meshmixed->ElementSolution().Resize(n,6);
+            int n = multiphysicsmesh->NElements();
+            multiphysicsmesh->ElementSolution().Resize(n,6);
             bool storeerrors = true;
             an.PostProcessError(errorscolor,storeerrors);
-            int ModelDimension = meshmixed->Dimension();
+            int ModelDimension = multiphysicsmesh->Dimension();
             std::stringstream sout;
             sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
             an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
-            an.PostProcess(0,meshmixed->Dimension());
+            an.PostProcess(0,multiphysicsmesh->Dimension());
             TPZFMatrix<STATE> sol;
-            sol=meshmixed->Solution();
+            sol=multiphysicsmesh->Solution();
             std::stringstream name;
             name << "solution_" << color << ".nb";
             std::ofstream outt(name.str());
@@ -779,30 +777,29 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         //Recovery the initial comp. elements
         for (int64_t el = 0; el < nelem; el++) {
-            meshmixed->ElementVec()[el] = elpointers[el];
+            multiphysicsmesh->ElementVec()[el] = elpointers[el];
         }
         
-        meshmixed->ComputeNodElCon();
+        multiphysicsmesh->ComputeNodElCon();
         
-        TransferAndSumSolution(meshmixed);
+        TransferAndSumSolution(multiphysicsmesh);
         
-        {
-            auto* fluxmesh = meshmixed->MeshVector()[0];
+        if(1){
+            auto* fluxmesh = multiphysicsmesh->MeshVector()[0];
             std::ofstream out("hdivsol.txt");
             fluxmesh->Print(out);
         }
         
         for(auto it : boundaryconnects){
-            TPZConnect &c=meshmixed->ConnectVec()[it];
+            TPZConnect &c=multiphysicsmesh->ConnectVec()[it];
             c.SetCondensed(false);
         }
         
-        if(1){
+        if(0){//MARK: Activate average pressure space
             TPZManVector<int,5> activ={1,1,0,0,1};
             for(auto it:activel){
                 if(!it) continue;
                 TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(it);
-                
                 multicel->SetActiveApproxSpaces(activ);
             }
         }
@@ -816,18 +813,18 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             scalnames.Push("POrder");
             scalnames.Push("Pressure");
             vecnames.Push("Flux");
-            int ModelDimension = meshmixed->Dimension();
+            int ModelDimension = multiphysicsmesh->Dimension();
             std::stringstream sout;
             sout << "../" << "FullPoisson" << ModelDimension << "HDiv" << ".vtk";
             an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
-            an.PostProcess(3,meshmixed->Dimension());
+            an.PostProcess(3,multiphysicsmesh->Dimension());
         }
         
         fMeshVector[Epressure]->Solution().Zero();
         fMeshVector[Epatch]->Solution().Zero();
-        //meshmixed->Solution().Print("solu1");
+        //multiphysicsmesh->Solution().Print("solu1");
         an.Solution().Zero();
-        //meshmixed->Solution().Print("solu2");
+        //multiphysicsmesh->Solution().Print("solu2");
     }// colors loop
     
     if(0){// Just to check the property of the partition of unity
@@ -852,7 +849,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         an2.PostProcess(resolution, meshpatch->Dimension());
     }
     
-    TPZLinearAnalysis an(meshmixed,RenumType::ENone);
+    TPZLinearAnalysis an(multiphysicsmesh,RenumType::ENone);
     an.Solution() = fSolution;
     an.LoadSolution();
     
@@ -861,22 +858,22 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     scalnames.Push("Pressure");
     vecnames.Push("Flux");
     std::stringstream sout;
-    sout << "../" << "Reconstructed Flux" << meshmixed->Dimension() << "HDiv" << ".vtk";
-    an.DefineGraphMesh(meshmixed->Dimension(),scalnames,vecnames,sout.str());
-    an.PostProcess(1,meshmixed->Dimension());
+    sout << "../" << "Reconstructed Flux" << multiphysicsmesh->Dimension() << "HDiv" << ".vtk";
+    an.DefineGraphMesh(multiphysicsmesh->Dimension(),scalnames,vecnames,sout.str());
+    an.PostProcess(1,multiphysicsmesh->Dimension());
     
     
     TPZManVector<TPZCompMesh *,2> mixed(2);
     mixed[0] = fMeshVector[Epressure];
     mixed[1] = fMeshVector[Epatch];
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, meshmixed);
+    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, multiphysicsmesh);
 
     std::ofstream outfmesh("Fluxmesh.txt");
     fMeshVector[Eflux]->Print(outfmesh);
     
     {
-        int64_t nels = meshmixed->ElementVec().NElements();
-        meshmixed->ElementSolution().Redim(nels, 6);
+        int64_t nels = multiphysicsmesh->ElementVec().NElements();
+        multiphysicsmesh->ElementSolution().Redim(nels, 6);
     }
     
     TPZManVector<REAL,6> errors(6,0.);
@@ -888,8 +885,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     myfile.open("ArquivosErros_estimate.txt", ios::app);
     myfile << "\n\n Estimator errors  \n";
     myfile << "\n-------------------------------------------------- \n";
-    myfile << "Order = " << meshmixed->GetDefaultOrder() << "\n";
-    myfile << "DOF Total = " << meshmixed->NEquations() << "\n";
+    myfile << "Order = " << multiphysicsmesh->GetDefaultOrder() << "\n";
+    myfile << "DOF Total = " << multiphysicsmesh->NEquations() << "\n";
     myfile << "Global flux estimated error = " << errors[2] << "\n";
     myfile << "Global residual estimate error " << errors[3] << "\n";
 
@@ -900,7 +897,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 // print partition diagnostics
 void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream &out) const
 {
-    TPZCompMesh *meshmixed = fMeshVector[Emulti];
+    TPZCompMesh *multiphysicsmesh = fMeshVector[Emulti];
     if (color < 0 || color >= fVecVecPatches.size()) {
         DebugStop();
     }
@@ -928,7 +925,7 @@ void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream 
         
         out << "Internal connects sequence numbers ";
         for (int64_t ci=0; ci < patch.fConnectIndices.size(); ci++) {
-            TPZConnect &c = meshmixed->ConnectVec()[patch.fConnectIndices[ci]];
+            TPZConnect &c = multiphysicsmesh->ConnectVec()[patch.fConnectIndices[ci]];
             if (c.HasDependency()) {
                 out << "*";
             }
@@ -940,7 +937,7 @@ void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream 
         out << std::endl;
         out << "Boundary connects sequence numbers ";
         for (int64_t ci=0; ci < patch.fBoundaryConnectIndices.size(); ci++) {
-            TPZConnect &c = meshmixed->ConnectVec()[patch.fBoundaryConnectIndices[ci]];
+            TPZConnect &c = multiphysicsmesh->ConnectVec()[patch.fBoundaryConnectIndices[ci]];
             if (c.HasDependency()) {
                 out << "*ERROR*";
             }
@@ -1241,7 +1238,7 @@ void TPZPostProcessError::CreateAveragePressureMesh(){
             averagepressuremesh->InsertMaterialObject(nullmat);
         }
     }
-    
+    //averagepressuremesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     averagepressuremesh->ApproxSpace().SetAllCreateFunctionsDiscontinuous();
     averagepressuremesh->SetDefaultOrder(0);
     averagepressuremesh->AutoBuild();

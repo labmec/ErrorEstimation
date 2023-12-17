@@ -42,7 +42,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
         case 0: //H1
             config.gmesh->ResetReference();
             cmesh = InsertCMeshH1(config,preConfig);
-            //config.PorderIncrement();
+            config.PorderIncrement();
             //TPZCompMeshTools::CreatedCondensedElements(cmesh, false, false);
             SolveH1Problem(cmesh, config, preConfig);
             if (preConfig.estimateError){
@@ -219,7 +219,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         std::cout << "max estimated error within elements = " << maxerror <<"\n";
         
         // Select elements to hp refinement
-        if(0){
+        if(1){
             std::set<int64_t> gelstohref;
             std::map<int64_t,int> gelstoPplus;
             gelstohref.clear();
@@ -231,7 +231,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     TPZCompEl* cel = cmeshH1->Element(i);
                     TPZGeoEl* gel = cel->Reference();
                     gelstohref.insert(gel->Index());
-                } else if (threshold*maxerror >= elementerror && elementerror >(1-threshold)*maxerror){
+                } else if (0.2*threshold*maxerror >= elementerror ){
                     TPZCompEl* cel = cmeshH1->Element(i);
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                     int porder = intel->GetPreferredOrder();
@@ -796,8 +796,8 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
     std::cout<<"***** Computing effectivity index *****"<<std::endl;
     
     {
-        REAL sum = 0.;
-        REAL sum2 = 0.;
+        STATE sum = 0.;
+        STATE sum2 = 0.;
 
         int64_t nel = true_elerror.Rows();
         for (int64_t el=0; el<nel; el++) {
@@ -806,13 +806,15 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
             TPZGeoEl *gel = cel->Reference();
             TPZCompEl *mphys = gel->Reference();
             int64_t elindex2 = mphys->Index();
-            REAL aux =  estimate_elerror(elindex2,2) + estimate_elerror(elindex2,3);
+            STATE aux =  estimate_elerror(elindex2,2) + estimate_elerror(elindex2,3);
+            //STATE residual = estimate_elerror(elindex2,3);
             sum += aux*aux; // To compute global effectivity index
             sum2 += estimate_elerror(elindex2,3)*estimate_elerror(elindex2,3);
             true_elerror(el,0) = estimate_elerror(elindex2,2);
             true_elerror(el,1) = true_elerror(el,2);
             if (true_elerror(el,1) > 1.e-10) {
                 true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
+                //true_elerror(el,2) = (true_elerror(el,0)+residual)/true_elerror(el,1);
             }
         }
         
@@ -820,7 +822,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
         
         TPZManVector<REAL> errorsum(5, 0.);
         cmeshH1->EvaluateError(false, errorsum);
-        REAL globeffind = sqrt(sum)/errorsum[2];
+        STATE globeffind = sqrt(sum)/errorsum[2];
         
         std::cout << "Global full residual error: "<<sqrt(sum2)<<std::endl;
         std::cout << "Global full error estimate: "<<sqrt(sum)<<std::endl;
@@ -828,6 +830,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
         
         std::ofstream fileouput;
         fileouput.open("adaptivityresults.txt",ios::app);
+        fileouput << std::setw(15) << config.problemname;
         fileouput << std::setw(15) << config.k;
         fileouput << std::setw(15) << cmeshH1->NEquations();
         fileouput << std::setw(15) << errorsum[2];

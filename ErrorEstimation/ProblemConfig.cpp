@@ -239,7 +239,7 @@ void ProblemConfig::PorderIncrement() {
     }
     
     //Adjustments to smooth the distribution of polynomial orders
-    //AdjustH1PorderDistrib();
+    AdjustH1PorderDistrib();
     
     //cmeshH1->AdjustBoundaryElements();
     cmeshH1->CleanUpUnconnectedNodes();
