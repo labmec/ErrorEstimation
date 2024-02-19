@@ -3,6 +3,7 @@
 # CLion files
 .idea/*
 cmake-build-*/
+build-cmake/*
 # Sourcetrail files
 *.srctrl*
 
