@@ -104,7 +104,6 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
         force = fSignConvention*res[0];
     }
     STATE perm = MixedMat::GetPermeability(datavec[Epressure].x);
-    //int rtens = 2*fDim;
     
     TPZFNMatrix<3,REAL> fluxprimal;
 
@@ -146,25 +145,23 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
             
         }
     }
-    
-    //ek.Resize(ek.Rows()+1, ek.Cols()+1);
-    
+        
     int nactive = 0;
     for (int i=0; i<datavec.size(); i++) {
         if (datavec[i].fActiveApproxSpace) {
             nactive++;
         }
     }
-    
+
     if(nactive!=3) DebugStop();
     
-        {//for internal patches we insert additional blocks
-            for(int j=0; j<phrp; j++){
-                ek(phrq+j,phrq+phrp) += phip(j,0)*weight;
-                ek(phrq+phrp,phrq+j) += phip(j,0)*weight;
-            }
-            ef(phrq+phrp,0)+= weight*psival*soloriginal;
+    if(phrq+phrp > 10){//for internal patches we insert additional blocks
+        for(int j=0; j<phrp; j++){
+            ek(phrq+j,phrq+phrp) += 1000000*phip(j,0)*weight;
+            ek(phrq+phrp,phrq+j) += 1000000*phip(j,0)*weight;
         }
+        ef(phrq+phrp,0)+= 0; //weight*psival*soloriginal;
+    }
 }
 
 /// make a contribution to the error computation

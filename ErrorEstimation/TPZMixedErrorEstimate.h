@@ -25,7 +25,7 @@ template<class MixedMat>
 class TPZMixedErrorEstimate : public MixedMat
 {
  
-    enum MMeshPositions {Eflux = 0, Epressure = 1, Epatch = 2, Eorigin = 3};
+    enum MMeshPositions {Eflux = 0, Epressure = 1, Epatch = 2, Eorigin = 3, Eaveragepressure = 4};
     /// sign convention adopted by MixedMat
     int fSignConvention = 1;
     

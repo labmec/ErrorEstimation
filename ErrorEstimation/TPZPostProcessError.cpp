@@ -139,14 +139,16 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
             nelconnected[nodelist[ic]]++;
         }
     }
+    //index of first average pressure connect
+    int64_t averagepressureindex = fMeshVector[Eflux]->NConnects()+fMeshVector[Epressure]->NConnects();
     // distinguish between internal nodes and external nodes
     for (std::map<int64_t,int>::iterator it = nelconnected.begin(); it != nelconnected.end(); it++) {
         int64_t cindex = it->first;
         int nelc = it->second;
-        if (nelc == cmesh->ConnectVec()[cindex].NElConnected()) {
+        if (nelc == cmesh->ConnectVec()[cindex].NElConnected() && cindex < averagepressureindex ) {
             internalconnectset.insert(cindex);
         }
-        else
+        else if(cindex < averagepressureindex)
         {
             boundaryconnectset.insert(cindex);
         }
@@ -448,38 +450,46 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         int64_t totalequations = 0;
         int64_t numintconnects = 0; // Number of connects associated to a color
         
+        //volumetric elements of the patch should share a single average pressure connect
         for (int64_t patch = 0; patch < npatch; patch++){
-            //volumetric elements of the patch should share a single average pressure connect
-            int ncontocondensed = 0;
             int64_t nel = fVecVecPatches[color][patch].fElIndices.size();
             for (int64_t el = 0; el < nel; el++) {
                 int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
                 TPZCompEl* cel = multiphysicsmesh->Element(elindex);
-                if(cel->Material()->Id()==1){
+                if(cel->Material()->Id() == 1){
                     int64_t ncon = cel->NConnects();
+                    //int64_t conindex = cel->ConnectIndex(ncon-1);
                     cel->SetConnectIndex(ncon-1, averagepressureconnindex+patch);
-                    ncontocondensed++;
-                    std::cout << "pressure average connect index: " << cel->ConnectIndex(ncon-1) << std::endl;
+                    
+                    //std::cout << "pressure average connect index: " << cel->ConnectIndex(ncon-1) << std::endl;
+                    
                 }
             }
+            
             TPZPatch& Patch = fVecVecPatches[color][patch];
-            std::cout << "fpatchIsBoundary: " << Patch.fPatchIsBoundary << std::endl;
+            {
+                int64_t newsize = Patch.fConnectIndices.size()+1;
+                Patch.fConnectIndices.Resize(newsize);
+                Patch.fConnectIndices[newsize-1] = averagepressureconnindex+patch;
+            }
+            //std::cout << "patchIsBoundary: " << Patch.fPatchIsBoundary << std::endl;
+            
             if(Patch.fPatchIsBoundary){
                 std::set<int64_t> averagepressure;
                 int64_t nel = fVecVecPatches[color][patch].fElIndices.size();
                 for (int64_t el = 0; el < nel; el++) {
                     int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
                     TPZCompEl* cel = multiphysicsmesh->Element(elindex);
-                    if(cel->Material()->Id()==1){
+                    if(cel->Material()->Id() == 1){
                         
                         int64_t ncon = cel->NConnects();
                         averagepressure.insert(cel->ConnectIndex(ncon-1));
-                        TPZConnect &con=cel->Connect(ncon-1);
+                        TPZConnect& con = cel->Connect(ncon-1);
                         con.SetCondensed(true);
-                        
                     }
                 }
-                if(averagepressure.size()!=1) DebugStop();
+                if(averagepressure.size() != 1) DebugStop();
+                //std::cout << "Patch.fConnectIndices.size(): " <<Patch.fConnectIndices.size() << std::endl;
             }
             else{
                 std::set<int64_t> averagepressure;
@@ -491,7 +501,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                         
                         int64_t ncon = cel->NConnects();
                         averagepressure.insert(cel->ConnectIndex(ncon-1));
-                        TPZConnect &con=cel->Connect(ncon-1);
+                        TPZConnect &con = cel->Connect(ncon-1);
                         con.SetCondensed(false);
                         
                     }
@@ -521,7 +531,6 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 int64_t seqnum = c.SequenceNumber(); 
                 weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
             }
-            
             
             
             {//Define the activ computational elements of the multiphysicsmesh
@@ -651,8 +660,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         
         int64_t nequations = multiphysicsmesh->NEquations();
-        std::cout << "nequations: " << nequations << std::endl;
-        std::cout << "totalequations: " << totalequations << std::endl;
+        //std::cout << "nequations: " << nequations << std::endl;
+        //std::cout << "totalequations: " << totalequations << std::endl;
 
         if (nequations != totalequations) {
             DebugStop();
@@ -703,7 +712,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         TPZMatrixSolver<STATE> &matsolver = an.MatrixSolver<STATE>();
         TPZAutoPointer<TPZMatrix<STATE>> globmat = matsolver.Matrix();
 
-        if(1){
+        if(0){
             std::stringstream matname, rhsname;
             matname << "colormatrix_" << color << ".nb";
             std::ofstream outmat(matname.str());
@@ -765,8 +774,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
         }
         
-        if(0){
-            // now we have a partial solution (only in one color of the colors loop)
+        if(0){// now we have a partial solution (only in one color of the colors loop)
             /** Variable names for post processing */
             TPZStack<std::string> scalnames, vecnames;
             scalnames.Push("POrder");
@@ -818,14 +826,18 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         TransferAndSumSolution(multiphysicsmesh);
         
         if(1){
-            auto* fluxmesh = multiphysicsmesh->MeshVector()[0];
-            std::ofstream out("hdivsol.txt");
+            TPZCompMesh* fluxmesh = multiphysicsmesh->MeshVector()[0];
+            std::ofstream out("fluxmesh_withSol.txt");
             fluxmesh->Print(out);
+            
+            TPZCompMesh* avpressuremesh = multiphysicsmesh->MeshVector()[4];
+            std::ofstream out2("averagepressure_withSol.txt");
+            avpressuremesh->Print(out2);
         }
         
         for(auto it : boundaryconnects){
-            TPZConnect &c=multiphysicsmesh->ConnectVec()[it];
-            c.SetCondensed(false);
+            TPZConnect &con = multiphysicsmesh->ConnectVec()[it];
+            con.SetCondensed(false);
         }
         
         if(0){//MARK: Activate average pressure space
@@ -853,8 +865,11 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             an.PostProcess(3,multiphysicsmesh->Dimension());
         }
         
+        fMeshVector[Eflux]->Solution().Zero();
         fMeshVector[Epressure]->Solution().Zero();
         fMeshVector[Epatch]->Solution().Zero();
+        fMeshVector[Epressureaverage]->Solution().Zero();
+        //multiphysicsmesh->Solution().Zero();
         //multiphysicsmesh->Solution().Print("solu1");
         an.Solution().Zero();
         //multiphysicsmesh->Solution().Print("solu2");
