@@ -18,6 +18,7 @@
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "MMeshType.h"
 #include "pzelementgroup.h"
+#include "TPZElasticityErrorEstimator.h"
 
 void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT, bool printVTK) {
     if (printTXT) {
@@ -1130,4 +1131,65 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
 
     out << ss.str();
     std::cout << ss.str();
+}
+
+void Tools::PrintElasticityErrorsFEM(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec) {
+    
+    /* error[0] = error_sigma
+     error[1] = error_energy
+     error[2] = error_div_sigma
+     error[3] = error_u
+     error[4] = error_r
+     error[5] = error_as
+     error[6] = energy_norm_exact_sol
+     */
+
+    std::stringstream ss;
+    ss << "\nEstimator FEM errors for Problem " << config.problemname;
+    ss << "\n-------------------------------------------------- \n";
+    ss << "Ndiv = " << config.ndivisions << ", NIntRef = " << config.ninternalref <<
+            ", Order k = " << config.porder << ", Order n = " << config.hdivmais;
+    if (config.adaptivityStep != -1) {
+        ss << ", AdaptivityStep = " << config.adaptivityStep;
+    }
+    ss << '\n';
+    ss << "|sigma_ex-sigma_fem|_0 = " << error_vec[0] << "\n";
+    ss << "|sigma_ex-sigma_fem|_E = " << error_vec[1] << "\n";
+    ss << "Residual Error L2 = " << error_vec[2] << "\n";
+    ss << "|u_ex-u_fem| = " << error_vec[3] << "\n";
+
+
+    out << ss.str();
+    std::cout << ss.str();
+}
+
+void Tools::EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
+
+    std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
+
+    // Error estimation
+    if (!originalMesh) DebugStop();
+
+    bool postProcWithHDiv = false;
+    TPZElasticityErrorEstimator ErrorEstimator(config, *originalMesh, postProcWithHDiv);
+    ErrorEstimator.SetAnalyticSolution(*config.exactElast);
+    
+    ErrorEstimator.PrimalReconstruction();
+
+    std::string command = "mkdir -p " + config.dir_name;
+    system(command.c_str());
+
+    TPZManVector<REAL, 6> errors;
+    TPZManVector<REAL, 6> elementerrors;
+    std::stringstream outVTK;
+    outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
+           << "-Errors.vtk";
+    std::string outVTKstring = outVTK.str();
+    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
+
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
+        std::ofstream file(fileName, std::ios::app);
+        Tools::PrintElasticityErrors(file, config, errors);
+    }
 }

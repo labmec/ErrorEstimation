@@ -47,6 +47,7 @@ void DivideGMesh(TPZGeoMesh *gmesh, int internaldiv, int skeletondiv);
 void CheckNormalFluxes(TPZMultiphysicsCompMesh* cmesh, TPZAnalyticSolution* analy);
 
 void Project(TPZCompEl* cel, TPZAnalyticSolution* analy, TPZFMatrix<REAL>& normalmat);
+void RunFEMElasticity(const int nCoarseDiv, const int nInternalRef);
 
 
 int main() {
@@ -54,12 +55,13 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {10};
+    const std::set<int> nCoarseDiv = {2};//4,8,16,32,64};
     const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
         for (const auto internal_ref : nInternalRef) {
             RunElasticityProblem(coarse_div, internal_ref);
+        
         }
     }
 
@@ -83,7 +85,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
 
     config.ndivisions = nCoarseDiv;
     config.ninternalref = nInternalRef;
-    REAL distortion = 0.25; // 0 for triangles and rectangles; 0.25 for trapezoids;
+    REAL distortion = 0; // 0 for triangles and rectangles; 0.25 for trapezoids;
     config.gmesh = CreateQuadGeoMesh(nCoarseDiv, nInternalRef, distortion);
 
     auto nEL = config.gmesh->NElements();
@@ -173,47 +175,9 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
         int lagLevelCounter = 1;
         TPZManVector<TPZCompMesh*,7> meshvec(5);
         hdivCreator.CreateAtomicMeshes(meshvec,lagLevelCounter);
-        
-        // {
-        //     TPZCompMesh *hdivmesh = meshvec[0];
-        //     if(nInternalRef == 0) AdjustSkelSideOrient(hdivmesh);
-        //     CheckRestraintConsistencies(hdivmesh, domain);
-        // }
-
-        // possibly decrease polynomial order of skeleton
-        // TPZCompMesh* cmeshflux = meshvec[0];
-        // config.gmesh->ResetReference();
-        // cmeshflux->LoadReferences();
-        // if(pord != pordskel){
-        //     if(pordskel > pord) DebugStop(); // cannot happen!
-        //     for (int el = 0; el < cmeshflux->NElements(); el++) {
-        //         TPZCompEl* cel = cmeshflux->Element(el);
-        //         if(!cel) continue;
-        //         TPZGeoEl* gel = cel->Reference();
-        //         if (gel->MaterialId() != EMHM) continue;
-                
-        //         TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-        //         if(!intel) DebugStop();
-                
-        //         intel->PRefine(pordskel);
-        //     }
-
-//             {
-//                 TPZCompMesh *hdivmesh = meshvec[0];
-// //                AdjustSkelSideOrient(hdivmesh);
-//                 CheckRestraintConsistencies(hdivmesh, domain);
-//             }
-        // }
-        // cmeshflux->ExpandSolution();
         hdivCreator.CreateMultiPhysicsMesh(meshvec,lagLevelCounter,cmeshmulti);
     }
     TPZMultiphysicsCompMesh *cmesh = cmeshmulti;
-
- //   Substructure(cmesh, domain);
-
-
-
-
 
 
     std::cout << "NEquations " << cmesh->NEquations() << std::endl;
@@ -305,6 +269,9 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     }
     std::chrono::steady_clock::time_point begin2 = std::chrono::steady_clock::now();
     an.PostProcessError(Errors, store_errors, ErroOut);
+    
+    Tools::PrintElasticityErrorsFEM(ErroOut,config,Errors);
+    /*
     std::chrono::steady_clock::time_point end2 = std::chrono::steady_clock::now();
     std::cout << "Time PostProc Error = " << std::chrono::duration_cast<std::chrono::milliseconds>(end2 - begin2).count()/1000. << " s" << std::endl;
     
@@ -325,10 +292,11 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     //    std::cout << Errors[i] << std::endl;
     //  }
 //    cmesh->ElementSolution().Print("element error");
+     */
     {
         TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(cmesh->MeshVector(), cmesh);
         TPZSimpleTimer postProc("Post processing2");
-        const std::string plotfile = "solution";
+        const std::string plotfile = "solutionFEM";
         constexpr int vtkRes{0};
         
         
@@ -1095,3 +1063,4 @@ void SolveProblemDirect(TPZLinearAnalysis &an, TPZCompMesh *cmesh)
     std::chrono::steady_clock::time_point end2 = std::chrono::steady_clock::now();
     std::cout << "Time Solve = " << std::chrono::duration_cast<std::chrono::milliseconds>(end2 - begin2).count()/1000. << " s" << std::endl;
 }
+

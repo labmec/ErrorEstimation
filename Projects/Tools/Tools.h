@@ -98,6 +98,8 @@ namespace Tools {
 
     void PrintErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
 void PrintElasticityErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
+void PrintElasticityErrorsFEM(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
+void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
 }
 
 #endif

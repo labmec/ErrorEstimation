@@ -48,7 +48,7 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {10};
+    const std::set<int> nCoarseDiv = {2};
     const std::set<int> nInternalRef = {0};
     // const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
