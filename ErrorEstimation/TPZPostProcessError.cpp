@@ -312,7 +312,7 @@ void TPZPostProcessError::BuildPatchStructures2()
                     fVecVecPatches[numvecpatch].Push(locpatch);
 
                     connectprocessed[locconnectindex] = 1;
-                    PrintPartitionDiagnostics(numvecpatch, std::cout);
+                    //PrintPartitionDiagnostics(numvecpatch, std::cout);
                 }
             }
         }
@@ -363,7 +363,7 @@ void TPZPostProcessError::ComputeHDivSolution()
 //    TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(meshmixed);
 //    strmat.SetNumThreads(numthreads);
 //    strmat.SetDecomposeType(ELDLt);
-    //		TPZSkylineStructMatrix strmat3(cmesh);
+    //        TPZSkylineStructMatrix strmat3(cmesh);
     //        strmat3.SetNumThreads(8);
 #endif
     
@@ -398,7 +398,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {//elementerrors isn't being filled
     
     TPZMultiphysicsCompMesh *multiphysicsmesh = dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]);
-    if(1){
+    if(0){
         std::ofstream out0("../CMeshMixed.txt");
         multiphysicsmesh->Print(out0);
         std::ofstream out1("../FluxCMesh.txt");
@@ -436,6 +436,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     int64_t ncolors = fVecVecPatches.size();
     for (int color = 0; color < ncolors; color++){
         multiphysicsmesh->Solution().Zero();
+        
         for (int64_t el = 0; el < nelem; el++) {
             multiphysicsmesh->ElementVec()[el] = elpointers[el];
         }
@@ -462,7 +463,6 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                     cel->SetConnectIndex(ncon-1, averagepressureconnindex+patch);
                     
                     //std::cout << "pressure average connect index: " << cel->ConnectIndex(ncon-1) << std::endl;
-                    
                 }
             }
             
@@ -510,7 +510,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             }
         }
         
-        // Counts the number of internal connects associated with a color
+        // Counts the number of internal non condensed connects associated with a color
         for (int64_t patch = 0; patch < npatch; patch++) {
             for(auto cindex:fVecVecPatches[color][patch].fConnectIndices)
             {
@@ -528,7 +528,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             {//Modifies the solution coeficients corresponding to hat functions of a color. They satisfy the unity partition property
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
                 TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
-                int64_t seqnum = c.SequenceNumber(); 
+                int64_t seqnum = c.SequenceNumber();
                 weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
             }
             
@@ -573,6 +573,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                     
                     TPZConnect &c = multiphysicsmesh->ConnectVec()[cindex];
                     c.SetCondensed(true);
+                    
                     int64_t seqnum = c.SequenceNumber();
                     if (seqnum != -1)
                     {
@@ -668,7 +669,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         
         // Saddle permute would put the pressure equations after the boundary equations (and break the code)
-        //        multiphysicsmesh->SaddlePermute();
+        //multiphysicsmesh->SaddlePermute();
         
         multiphysicsmesh->ExpandSolution();
         
@@ -676,12 +677,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         << "\nNumber of internal equations " << nintequations << std::endl;
         // PrintPartitionDiagnostics(color, std::cout);
         
-        
         nequations = multiphysicsmesh->NEquations();
         
         std::cout<<"Solving mixed problem"<<std::endl;
         TPZLinearAnalysis an(multiphysicsmesh,RenumType::ENone);
-         
+        //TPZLinearAnalysis an(multiphysicsmesh,RenumType::ESloan);
+
         //TPZSkylineStructMatrix<STATE> strmat(multiphysicsmesh);
         TPZFStructMatrix<STATE> strmat(multiphysicsmesh);
         //TPZSSpStructMatrix<STATE> strmat(multiphysicsmesh);
@@ -693,7 +694,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         an.SetStructuralMatrix(strmat);
         
         TPZStepSolver<STATE> *direct = new TPZStepSolver<STATE>;
-        direct->SetDirect(ELDLt);
+        direct->SetDirect(ELDLt); //ELDLt, ELU
         an.SetSolver(*direct);
         delete direct;
         direct = 0;
@@ -720,8 +721,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
             TPZFMatrix<STATE> globalrhs = an.Rhs();
             rhsname << "colorrhs_" << color << ".nb";
-            std::ofstream outrhs(rhsname.str());
-            globalrhs.Print("F=",outrhs,EMathematicaInput);
+            //std::ofstream outrhs(rhsname.str());
+            globalrhs.Print("GF=",outmat,EMathematicaInput);
             
 //            { //Print matrix for VTK
 //                TPZFMatrix<REAL> mat(100,100);
@@ -730,16 +731,17 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 //            }
         }
         
-        for (int64_t p = 0; p < npatch; p++) {
-            TPZPatch &patch = fVecVecPatches[color][p];
-            if (!PatchHasBoundary(patch))
-            {
-                int64_t firstlagrangeequation = patch.FirstLagrangeEquation(multiphysicsmesh);
-                STATE diag = globmat->GetVal(firstlagrangeequation, firstlagrangeequation);
-                diag += 1.;
-                globmat->Put(firstlagrangeequation, firstlagrangeequation, diag);
-            }
-        }
+//        for (int64_t p = 0; p < npatch; p++) {
+//            TPZPatch &patch = fVecVecPatches[color][p];
+//            if (!PatchHasBoundary(patch))
+//            {
+//                int64_t firstlagrangeequation = patch.FirstLagrangeEquation(multiphysicsmesh);
+//                STATE diag = globmat->GetVal(firstlagrangeequation, firstlagrangeequation);
+//                diag += 1.;
+//                globmat->Put(firstlagrangeequation, firstlagrangeequation, diag);
+//            }
+//        }
+        
         
         an.Solve();
         
@@ -790,30 +792,32 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             an.PostProcessError(errorscolor,storeerrors);
             int ModelDimension = multiphysicsmesh->Dimension();
             std::stringstream sout;
-            sout << "../" << "Poisson" << ModelDimension << "HDiv" << ".vtk";
+            sout << "../" << "Poisson" << ModelDimension << "HDiv_" << color <<".vtk";
             an.DefineGraphMesh(ModelDimension,scalnames,vecnames,sout.str());
             an.PostProcess(0,multiphysicsmesh->Dimension());
             TPZFMatrix<STATE> sol;
-            sol=multiphysicsmesh->Solution();
+            //sol=multiphysicsmesh->Solution();
+            sol = an.Solution();
             std::stringstream name;
             name << "solution_" << color << ".nb";
             std::ofstream outt(name.str());
             sol.Print("pzsol=",outt,EMathematicaInput);
+            //sol.Print(std::cout << "sol:\n");
+            //std::ofstream out("../CMeshMixedColor.txt");
+            //multiphysicsmesh->Print(out);
         }
         
         if(0){ //just to plot hat functions of one color
-            if(color == 6 and meshpatch->NElements() > 12){
-                //meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
-                
-                TPZStack<std::string> scalnames2, vecnames2;
-                scalnames2.Push("Solution");
-                std::stringstream sout;
-                sout << "Hatfunction" << ".vtk";
-                TPZLinearAnalysis an2(meshpatch);
-                an2.DefineGraphMesh(meshpatch->Dimension(), scalnames2, vecnames2, sout.str());
-                int resolution = 0;
-                an2.PostProcess(resolution, meshpatch->Dimension());
-            }
+            //meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
+            
+            TPZStack<std::string> scalnames2, vecnames2;
+            scalnames2.Push("Solution");
+            std::stringstream sout;
+            sout << "Hatfunction" << ".vtk";
+            TPZLinearAnalysis an2(meshpatch);
+            an2.DefineGraphMesh(meshpatch->Dimension(), scalnames2, vecnames2, sout.str());
+            int resolution = 0;
+            an2.PostProcess(resolution, meshpatch->Dimension());
         }
         
         //Recovery the initial comp. elements

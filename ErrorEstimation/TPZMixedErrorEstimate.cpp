@@ -142,7 +142,6 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
         for (int ip=0; ip<phrp; ip++) {
             ef(phrq+ip,0) += (-1.)*weight*psival*force*phip(ip,0) + weight*inner2*phip(ip,0);
             //            ef(phrq+ip,0) += (-1.)*weight*phip(ip,0);
-            
         }
     }
         
@@ -155,12 +154,12 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
 
     if(nactive!=3) DebugStop();
     
-    if(phrq+phrp > 10){//for internal patches we insert additional blocks
+    if(1){//for internal patches we insert additional blocks
         for(int j=0; j<phrp; j++){
-            ek(phrq+j,phrq+phrp) += 1000000*phip(j,0)*weight;
-            ek(phrq+phrp,phrq+j) += 1000000*phip(j,0)*weight;
+            ek(phrq+j,phrq+phrp) += phip(j,0)*weight;
+            ek(phrq+phrp,phrq+j) += phip(j,0)*weight;
         }
-        ef(phrq+phrp,0)+= 0; //weight*psival*soloriginal;
+        ef(phrq+phrp,0) += weight*psival*soloriginal;
     }
 }
 

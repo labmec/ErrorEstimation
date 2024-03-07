@@ -228,7 +228,8 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "ESteepWave") pConfig.type = 9;
         else if (pConfig.problem == "ESinMarkHom") pConfig.type = 10;
         else if (pConfig.problem == "EBubble2DTemp") pConfig.type = 11;
-
+        else if (pConfig.problem == "ESteepMountain2D") pConfig.type = 12;
+        
         else DebugStop();
     }
 
@@ -304,7 +305,7 @@ void InitializeOutstream(PreConfig &pConfig, char *argv[]){
             DebugStop();
             break;
     }
-    pConfig.plotfile = pConfig.FEMoutput + pConfig.plotfile; 
+    pConfig.plotfile = pConfig.FEMoutput + pConfig.plotfile;
     std::string command = "mkdir -p " +  pConfig.plotfile;
     system(command.c_str());
 
@@ -391,6 +392,9 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             break;
         case 11:
             solutionCase = TLaplaceExample1::EBubble2DTemp;
+            break;
+        case 12:
+            solutionCase = TLaplaceExample1::ESteepMountain2D;
             break;
             
         default:

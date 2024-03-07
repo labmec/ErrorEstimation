@@ -111,7 +111,7 @@ void PostProcessHybMix(TPZMultiphysicsCompMesh *multHybMix,PreConfig &pConfig, P
     std::cout << "Post Processing ""Hyb - Mix"" difference " << std::endl;
     an.SetExact(config.exact.operator*().ExactSolution());
 
-    TPZVec<REAL> errorVec; 
+    TPZVec<REAL> errorVec;
     //The following line suddenly breaks. NEvalErrors no longer belongs to the Material class.
     int64_t nErrorCols = -1;DebugStop();
     errorVec.resize(nErrorCols);
@@ -425,7 +425,7 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     TPZCreateMultiphysicsSpace createspace(config.gmesh, spaceType);
     //TPZCreateMultiphysicsSpace createspace(config.gmesh);
     std::cout << cmesh_H1Hybrid->NEquations();
-    (pConfig.type == 2) ? 
+    (pConfig.type == 2) ?
         createspace.SetMaterialIds({2,3}, {-6,-5}) :
         createspace.SetMaterialIds({1,}, {-2,-1});
 
@@ -546,7 +546,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
             plotname = out.str();
         }
-        int resolution=4;
+        int resolution = 3;
         
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(resolution,dim);
@@ -733,8 +733,8 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
 
     an.PostProcessError(Errors, store_errors, Erro);
 
-    std::cout << "||u_h-u||:                   \t" <<Errors[0] << 
-               "\n||Grad(u_h)-Grad(u)||:       \t" << Errors[1]<< 
+    std::cout << "||u_h-u||:                   \t" <<Errors[0] <<
+               "\n||Grad(u_h)-Grad(u)||:       \t" << Errors[1]<<
                "\nError[0]+Error[1]:           \t"<< Errors[2]<<
                "\n||K^0.5(Grad(u_h)-Grad(u))||:\t"<< Errors[3]<<"\n\n";
 
@@ -807,15 +807,19 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> true_elerror, TPZFM
             TPZCompEl *mphys = gel->Reference();
             int64_t elindex2 = mphys->Index();
             STATE aux =  estimate_elerror(elindex2,2) + estimate_elerror(elindex2,3);
-            //STATE residual = estimate_elerror(elindex2,3);
+            STATE residual = estimate_elerror(elindex2,3);
             sum += aux*aux; // To compute global effectivity index
             sum2 += estimate_elerror(elindex2,3)*estimate_elerror(elindex2,3);
             true_elerror(el,0) = estimate_elerror(elindex2,2);
             true_elerror(el,1) = true_elerror(el,2);
-            if (true_elerror(el,1) > 1.e-10) {
-                true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
-                //true_elerror(el,2) = (true_elerror(el,0)+residual)/true_elerror(el,1);
+            if (true_elerror(el,1) > 1.e-11) {
+                //true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
+                true_elerror(el,2) = (true_elerror(el,0)+residual)/true_elerror(el,1);
+                if(0){
+                std::cout << "est_elerror: " << true_elerror(el,0)<< "  " << "true_elerror: " << true_elerror(el,1) << "  EI: " << true_elerror(el,2) << std::endl;
+                }
             }
+            
         }
         
         cmeshH1->ElementSolution() = true_elerror;

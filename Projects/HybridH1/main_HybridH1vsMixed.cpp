@@ -19,14 +19,14 @@ int main(int argc, char *argv[]) {
 #endif
     
     PreConfig pConfig;
-    pConfig.k = 1; // Porder for H1
+    pConfig.k = 2; // Porder for H1
     pConfig.n = 2;
-    pConfig.problem = "ESinSin";         //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb","ESinMarkHom", "EBubble2DTemp"}
+    pConfig.problem = "EBubble2DTemp";         //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb","ESinMarkHom", "EBubble2DTemp"}
     pConfig.integrationorder = 11;
     pConfig.maxIter = 15;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
-    pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 1;                      //// How many uniform refinements
+    pConfig.topology = "Hexahedral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
+    pConfig.refLevel = 2;                      //// How many uniform refinements
     pConfig.numberAdapativitySteps = 0;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
     pConfig.debugger = true;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
