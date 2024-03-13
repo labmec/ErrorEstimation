@@ -237,7 +237,7 @@ public:
     {
         T par = firstpos + (lastpos-firstpos)*(loc[0]+1.)/2.;
         result[2] = 0.;
-        std::cout << " firstpos " << firstpos << " lastpos " << lastpos << " loc[0] " << loc[0] << " par " << par << " uplow " << uplow << "\n";
+        // std::cout << " firstpos " << firstpos << " lastpos " << lastpos << " loc[0] " << loc[0] << " par " << par << " uplow " << uplow << "\n";
         if(uplow == 1)
         {
             result[0] = xua(par);
@@ -248,7 +248,7 @@ public:
             result[0] = xla(par);
             result[1] = yla(par);
         }
-        std::cout << "result " << result << std::endl;
+        // std::cout << "result " << result << std::endl;
     }   
 
     template<class T>
