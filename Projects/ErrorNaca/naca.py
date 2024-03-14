@@ -1,6 +1,7 @@
 #%% Importing the libraries
 from TPZMeshModeling import TPZMeshModeling
 from numpy import cos, pi 
+import gmsh
 
 def main():
     #%% Initial gmsh settings 
@@ -44,7 +45,8 @@ def main():
     # Creating points
     p1, p2, p3, p4, p5, p6, p7, p8, p9, p10 = TPZMeshModeling.CreatePoints(point_coord, lc)
 
-    # Creating lines  
+
+    # Creating lines on the surface of the profile
     lines: list[int] = [
         [p1, p2], # l1
         [p2, p3], # l2
@@ -96,7 +98,7 @@ def main():
 
     l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24 = TPZMeshModeling.CreateLines(lines_boundary)
 
-    #%% Creating inner lines
+    #%% Creating inner lines, from the profile to the boundary
     inner_lines: list[int] = [
         [p1, p11], # l25
         [p2, p12], # l26
@@ -143,6 +145,14 @@ def main():
     #%% -------- PHYSICAL GROUPS --------
     # No physical group has been created yet for the boundary conditions
     # to do so, use the following command:
+    dim = 0 # dimension of the entity
+    tag = [p1] # tag of the entity
+    ID = 4 
+    gp = [
+#        [(dim, tag), ID, "name"]
+        [(dim, tag), ID, "FixPoint"]
+    ]
+    TPZMeshModeling.CreatePhysicalGroup(gp)
 
     dim = 1 # dimension of the entity
     tag = [l1,l2,l3,l4,l5,l6,l7,l8,l9,l10] # tag of the entity
@@ -152,7 +162,14 @@ def main():
         [(dim, tag), ID, "Profile"]
     ]
     TPZMeshModeling.CreatePhysicalGroup(gp)
-
+    IDcut = 5
+    tagcut = [l25] # tag of the entity
+    gp = [
+#        [(dim, tag), ID, "name"]
+        [(dim, tagcut), IDcut, "Cut"]
+    ]
+    TPZMeshModeling.CreatePhysicalGroup(gp)
+ 
     dim = 1 # dimension of the entity
     tag = [l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24] # tag of the entity
     ID = 3 
