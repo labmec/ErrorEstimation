@@ -398,8 +398,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {//elementerrors isn't being filled
     
     TPZMultiphysicsCompMesh *multiphysicsmesh = dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]);
-    if(0){
-        std::ofstream out0("../CMeshMixed.txt");
+    if(1){
+        std::ofstream out0("../multiphysicsmesh.txt");
         multiphysicsmesh->Print(out0);
         std::ofstream out1("../FluxCMesh.txt");
         fMeshVector[Eflux]->Print(out1);
@@ -687,7 +687,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         TPZFStructMatrix<STATE> strmat(multiphysicsmesh);
         //TPZSSpStructMatrix<STATE> strmat(multiphysicsmesh);
         
-        int numthreads = 0;
+        int numthreads = 6;
         strmat.SetNumThreads(numthreads);
         
         strmat.SetEquationRange(0, nequations);
@@ -829,7 +829,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         TransferAndSumSolution(multiphysicsmesh);
         
-        if(1){
+        if(0){
             TPZCompMesh* fluxmesh = multiphysicsmesh->MeshVector()[0];
             std::ofstream out("fluxmesh_withSol.txt");
             fluxmesh->Print(out);
@@ -844,14 +844,14 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             con.SetCondensed(false);
         }
         
-        if(0){//MARK: Activate average pressure space
-            TPZManVector<int,5> activ={1,1,0,0,1};
-            for(auto it:activel){
-                if(!it) continue;
-                TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(it);
-                multicel->SetActiveApproxSpaces(activ);
-            }
-        }
+//        if(0){//MARK: Activate average pressure space
+//            TPZManVector<int,5> activ={1,1,0,0,1};
+//            for(auto it:activel){
+//                if(!it) continue;
+//                TPZMultiphysicsElement* multicel = dynamic_cast<TPZMultiphysicsElement*>(it);
+//                multicel->SetActiveApproxSpaces(activ);
+//            }
+//        }
         
         ResetState();
         an.SetStep(color);
@@ -902,6 +902,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     }
     
     TPZLinearAnalysis an(multiphysicsmesh,RenumType::ENone);
+    
+//    std::ofstream outtt("fsolution.txt");
+//    fSolution.Print(outtt);
+    
     an.Solution() = fSolution;
     an.LoadSolution();
     
@@ -910,23 +914,24 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     scalnames.Push("Pressure");
     vecnames.Push("Flux");
     std::stringstream sout;
-    sout << "../" << "Reconstructed Flux" << multiphysicsmesh->Dimension() << "HDiv" << ".vtk";
-    an.DefineGraphMesh(multiphysicsmesh->Dimension(),scalnames,vecnames,sout.str());
-    an.PostProcess(1,multiphysicsmesh->Dimension());
-    
+    sout << "../" << "Reconstructed_Flux" << multiphysicsmesh->Dimension() << "HDiv" << ".vtk";
+
     
     TPZManVector<TPZCompMesh *,2> mixed(2);
     mixed[0] = fMeshVector[Epressure];
     mixed[1] = fMeshVector[Epatch];
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, multiphysicsmesh);
 
-    std::ofstream outfmesh("Fluxmesh.txt");
-    fMeshVector[Eflux]->Print(outfmesh);
+//    std::ofstream outfmesh("Fluxmesh.txt");
+//    fMeshVector[Eflux]->Print(outfmesh);
     
     {
         int64_t nels = multiphysicsmesh->ElementVec().NElements();
         multiphysicsmesh->ElementSolution().Redim(nels, 6);
     }
+    
+    an.DefineGraphMesh(multiphysicsmesh->Dimension(),scalnames,vecnames,sout.str());
+    an.PostProcess(3,multiphysicsmesh->Dimension());
     
     TPZManVector<REAL,6> errors(6,0.);
     an.PostProcessError(errors);

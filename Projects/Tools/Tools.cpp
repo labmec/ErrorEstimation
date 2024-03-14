@@ -213,6 +213,52 @@ void Tools::UniformRefinement(int nDiv, TPZGeoMesh* gmesh) {
     }
 }
 
+void Tools::UniformRefinementHangingNodes(int nDiv, TPZGeoMesh *gmesh) {
+    
+    TPZManVector<TPZGeoEl*> children;
+    int64_t count = 0;
+    for(int division = 0; division < nDiv; division++) {
+        
+        int64_t nels = gmesh->NElements();
+        for(int64_t elem = 0; elem < nels; elem++) {
+            
+            TPZGeoEl * gel = gmesh->ElementVec()[elem];
+            
+            if(!gel || gel->HasSubElement()) continue;
+            if(gel->Dimension() == 0) continue;
+            
+            if (division < nDiv-1){
+                gel->Divide(children);
+            }
+            else {
+                if (elem > count & elem % 2 == 0 ){
+                    gel->Divide(children);
+                }
+            }
+            
+            //gel->Divide(children);
+        }
+        count = nels;
+
+    }
+    
+    int nels = gmesh->NElements();
+    for(int64_t elem = 0; elem < nels; elem++) {
+
+        TPZGeoEl * gel = gmesh->ElementVec()[elem];
+
+        if(!gel || gel->HasSubElement()) continue;
+        if(gel->Dimension() != 1) continue;
+        TPZGeoElSide geoelside(gel);
+        TPZGeoElSide neig = geoelside.Neighbour();
+
+        if(neig.Element()->HasSubElement()){
+            gel->Divide(children);
+        }
+    }
+};
+
+
 // This overload takes the dimension of the elements to be refined.
 // The function DivideLowerDimensionalElements must be called afterwards to guarantee mesh consistency.
 void Tools::UniformRefinement(int nDiv, int dim, TPZGeoMesh* gmesh) {

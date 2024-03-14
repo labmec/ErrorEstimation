@@ -61,7 +61,7 @@ namespace Tools {
     TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem);
 
     void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
-
+    void UniformRefinementHangingNodes(int nDiv, TPZGeoMesh *gmesh);
     void UniformRefinement(int nDiv, int dim, TPZGeoMesh *gmesh);
 
 /// Divide lower dimensional elements

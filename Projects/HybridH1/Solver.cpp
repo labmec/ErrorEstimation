@@ -231,13 +231,24 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     TPZCompEl* cel = cmeshH1->Element(i);
                     TPZGeoEl* gel = cel->Reference();
                     gelstohref.insert(gel->Index());
-                } else if (0.2*threshold*maxerror >= elementerror ){
+                } else if (0.2*threshold*maxerror >= elementerror){
+                    TPZCompEl* cel = cmeshH1->Element(i);
+                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+                    int porder = intel->GetPreferredOrder();
+                    TPZGeoEl* gel = cel->Reference();
+                    if (gel->Dimension() != cmeshH1->Dimension()) continue;
+                    if(porder<1){
+                        gelstoPplus[gel->Index()] = porder+1;
+                    }
+                }
+                else{
                     TPZCompEl* cel = cmeshH1->Element(i);
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                     int porder = intel->GetPreferredOrder();
                     TPZGeoEl* gel = cel->Reference();
                     if (gel->Dimension() != cmeshH1->Dimension()) continue;
                     gelstoPplus[gel->Index()] = porder+1;
+                    
                 }
                 
                 //Selects elements adjacent to the selected node
@@ -516,7 +527,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
     cmeshH1->ExpandSolution();
     cmeshH1->ElementSolution().Redim(nelem, 10);
 
-    {
+    if(0){
         std::ofstream out("cmeshH1.txt");
         cmeshH1->Print(out);
     }

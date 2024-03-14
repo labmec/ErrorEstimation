@@ -27,7 +27,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
     
     if(1){ //Square shape domain quadrilateral mesh
-        isOriginCentered = 0;
+        isOriginCentered = 1;
         gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
@@ -40,12 +40,13 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
     
     Tools::UniformRefinement(config.ndivisions, gmesh);
+    //Tools::UniformRefinementHangingNodes(config.ndivisions, gmesh);
     std::ofstream out("mallarefinada.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     Tools::DrawGeoMesh(config, pConfig);
     config.ApplyDivision();
 
-    {
+    if(0){
         std::ofstream salida("mallageometricaAdap.txt");
         gmesh->Print(salida);
     }
