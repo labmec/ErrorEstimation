@@ -7,6 +7,7 @@
 #include "pzstepsolver.h"
 #include "TPZBndCondT.h"
 #include "DarcyFlow/TPZDarcyFlow.h"
+#include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "pzgeoelbc.h"
 #include "TPZSSpStructMatrix.h"
 #include "pzskylstrmatrix.h"
@@ -48,6 +49,12 @@ TPZGeoMesh *ReadGmsh(const std::string &filename, const TPZNacaProfile &naca);
 /// @brief Create a computational mesh with H1 elements
 TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh);
 
+/// @brief Create de computational mesh with HDiv elements
+TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh);
+
+/// @brief Simulate the NACA profile using H1 approximation
+TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh);
+
 /// @brief Check the NACA profile, generate coordinates and write to a file
 void CheckNacaProfile(const TPZNacaProfile &naca);
 
@@ -73,20 +80,8 @@ int main() {
         std::ofstream out("gmesh.txt");
         gmesh->Print(out);
     }
-    auto cmesh = CreateH1CompMesh(gmesh);
+    auto cmeshH1 = SimulateNacaProfileH1(gmesh);
 
-    {
-        std::ofstream out("cmesh.txt");
-        cmesh->Print(out);
-    }
-
-    TPZLinearAnalysis an(cmesh);
-    TPZSkylineStructMatrix<STATE> strmat(cmesh);
-    an.SetStructuralMatrix(strmat);
-    TPZStepSolver<STATE> step;
-    step.SetDirect(ECholesky);
-    an.SetSolver(step);
-    an.Run();
 
     std::ofstream out3("nacacoarse.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
@@ -102,10 +97,10 @@ int main() {
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
 
     {
-        int64_t nnod = cmesh->NConnects();
+        int64_t nnod = cmeshH1->NConnects();
         for(int64_t i=0; i<nnod; i++)
         {
-            TPZConnect &c = cmesh->ConnectVec()[i];
+            TPZConnect &c = cmeshH1->ConnectVec()[i];
             if(c.HasDependency())
             {
                 std::cout << "Connect " << i << " has dependency\n";
@@ -113,7 +108,7 @@ int main() {
             }
         }    
     }
-    delete cmesh;
+    delete cmeshH1;
     delete gmesh;
     return 0;
 }
@@ -285,7 +280,11 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh)
     cmesh->InsertMaterialObject(bnd2);
     auto bnd3 = material->CreateBC(material, pointmat, 0, val1, val2);
     cmesh->InsertMaterialObject(bnd3);
-    cmesh->AutoBuild();
+    std::set<int> matidshdiv = {volmat,profilemat,boundmat};
+    cmesh->AutoBuild(matidshdiv);
+    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    std::set<int> matidpoint = {pointmat};
+    cmesh->AutoBuild(matidpoint);
     // insert the cut boundary condition
     int64_t newcon = cmesh->AllocateNewConnect(1,1,1);
     std::cout << "newcon " << newcon << std::endl;
@@ -333,4 +332,103 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh)
     cmesh->ExpandSolution();
     cmesh->ComputeNodElCon();
     return cmesh;
+}
+
+/// @brief Create a computational mesh with HDiv elements
+TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh)
+{
+    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
+    int dim = 2;
+    cmesh->ApproxSpace().SetAllCreateFunctionsHDiv(dim);
+    HDivFamily hdiv = HDivFamily::EHDivKernel;
+    cmesh->ApproxSpace().SetHDivFamily(hdiv);
+    auto material = new TPZMixedDarcyFlow(volmat,dim);
+    cmesh->InsertMaterialObject(material);
+    TPZFMatrix<STATE> val1(1,1,0.);
+    TPZManVector<STATE> val2(1,0.);
+    // we set a Neumann condition on the profile
+    // this will be modified later
+    auto bnd = material->CreateBC(material, profilemat, 0, val1, val2);
+    TPZBndCondT<STATE> *bndcond = dynamic_cast<TPZBndCondT<STATE> *>(bnd);
+    cmesh->InsertMaterialObject(bnd);
+//        std::function<void (const TPZVec<REAL> &loc,
+//                                                   TPZVec<TVar> &rhsVal,
+//                                                   TPZFMatrix<TVar> &matVal)>;
+
+    auto f = [](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal)
+    {
+        rhsVal[0] = 0.;
+        matVal(0,0) = 1.;
+        matVal(1,0) = 1.;
+    };
+    cmesh->SetDimModel(dim);
+    cmesh->SetDefaultOrder(1);
+    auto bnd2 = material->CreateBC(material, boundmat, 1, val1, val2);
+    bnd2->SetForcingFunctionBC(f,1);
+    cmesh->InsertMaterialObject(bnd2);
+    auto bnd3 = material->CreateBC(material, pointmat, 0, val1, val2);
+    cmesh->InsertMaterialObject(bnd3);
+    cmesh->AutoBuild();
+        // insert the cut boundary condition
+    int64_t newcon = cmesh->AllocateNewConnect(1,1,1);
+    std::cout << "newcon " << newcon << std::endl;
+    int64_t nel = gmesh->NElements();
+    // loop over the geometric cut elements
+    for(int64_t el = 0; el<nel; el++)
+    {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(gel->MaterialId() != profilemat) continue;
+        TPZCompEl *cel = gel->Reference();
+        if(!cel) DebugStop();
+        int nsidenodes = gel->NCornerNodes();
+        // loop over the connects of the computational element
+        // if the connect has no dependency, make it dependent on the new connect
+        for(int is=0; is<nsidenodes; is++)
+        {
+            int64_t cindex = cel->ConnectIndex(is);
+            TPZConnect &c = cel->Connect(is);
+            if(c.HasDependency()) continue;
+            // insert the dependency
+            TPZFNMatrix<1,STATE> val(1,1,1.);
+            c.AddDependency(cindex,newcon,val,0,0,1,1);
+        }
+        // make sure the connect on the profile is of order 1
+        {
+            int64_t cindex = cel->ConnectIndex(2);
+            TPZConnect &c = cel->Connect(2);
+            if(c.HasDependency()) DebugStop();
+            int64_t seq = c.SequenceNumber();
+            c.SetOrder(1,cindex);
+            c.SetNState(1);
+            c.SetNShape(0);
+            // reset the size of the block of the connect
+            cmesh->Block().Set(seq,0);
+        }
+    }
+    cmesh->ExpandSolution();
+    return cmesh;
+}
+
+/// @brief Simulate the NACA profile using H1 approximation
+TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh)
+{
+    auto cmeshH1 = CreateH1CompMesh(gmesh);
+    {
+        std::ofstream out("cmeshH1.txt");
+        cmeshH1->Print(out);
+    }
+
+    {
+        std::ofstream out("cmesh.txt");
+        cmeshH1->Print(out);
+    }
+
+    TPZLinearAnalysis an(cmeshH1);
+    TPZSkylineStructMatrix<STATE> strmat(cmeshH1);
+    an.SetStructuralMatrix(strmat);
+    TPZStepSolver<STATE> step;
+    step.SetDirect(ECholesky);
+    an.SetSolver(step);
+    an.Run();
+    return cmeshH1;
 }
