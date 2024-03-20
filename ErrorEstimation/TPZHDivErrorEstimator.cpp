@@ -205,7 +205,7 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
         pressureMesh->ApproxSpace().CreateDisconnectedElements(true);
 
         // Insert BC materials in pressure reconstruction mesh
-        std::set<int> bcMatIDs = fConfig.bcmaterialids;// GetBCMatIDs(&fPostProcMesh);
+        std::set<int> bcMatIDs = GetBCMatIDs(&fPostProcMesh);//fConfig.bcmaterialids;// GetBCMatIDs(&fPostProcMesh);
         for (auto bcID : bcMatIDs) {
             TPZMaterial *mat = mult->FindMaterial(bcID);
             TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *> (mat);
@@ -846,69 +846,171 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAveragePrimal(int target_dim) 
 
 template <typename MixedMaterial>
 void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int target_dim) {
-    std::cout << "Computing boundary L2 projection\n";
+  /*
     TPZCompMesh* pressuremesh = PrimalMesh();
-    {
-        std::ofstream out("PressureBeforeL2Projection.txt");
-        pressuremesh->Print(out);
-    }
-    if (target_dim == 2) {
-        std::cout << "Not implemented for 2D interface" << std::endl;
-        DebugStop();
-    }
-
+    
     TPZGeoMesh *gmesh = pressuremesh->Reference();
     gmesh->ResetReference();
+    fOriginal->LoadReferences();
+    
     int64_t nel = pressuremesh->NElements();
-
-    pressuremesh->DeleteMaterial(2);
-    TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(2,1,2);
-    pressuremesh->InsertMaterialObject(l2p);
-    
-    auto exact = std::function<void (const TPZVec<REAL> &,TPZVec<STATE> &)>([this](const TPZVec<REAL> &loc,TPZVec<STATE> &result){
-        TPZFMatrix<STATE> du;
-        return fConfig.exactElast->ExactSolution()(loc, result, du);
-    });
-    
-    l2p->SetForcingFunction(exact, 4);
-    TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
-
-    TPZElementMatrixT<STATE> ekbc, efbc;
-    TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
     for (int iel = 0; iel < nel; iel++) {
-        TPZCompEl *cel = elementvec[iel];
-        auto *celm = dynamic_cast<TPZMultiphysicsElement*> (cel);
-
+        TPZCompEl *cel = pressuremesh->ElementVec()[iel];
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
-
+        int dim = gel->Dimension();
+        
         int matid = gel->MaterialId();
-        if (fConfig.bcmaterialids.find(matid) ==fConfig.bcmaterialids.cend()) continue;
         TPZMaterial *mat = pressuremesh->FindMaterial(matid);
-        //TPZBndCond *bc = dynamic_cast<TPZBndCond *> (mat);
-        //if (!bc || (bc->Type() != 0)) continue;
-
-        cel->CalcStiff(ekbc, efbc);
-        // ekbc.fMat.Print(std::cout);
-        ekbc.fMat.SolveDirect(efbc.fMat, ELU);
-        int count = 0;
+        
+        TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if (!bc) continue;
+        
+        if(bc->Type()==4 && IsZero(bc->Val1()(0,0))) continue;
+        
         int nc = cel->NConnects();
+        int order = cel->Connect(nc - 1).Order();
+        TPZGeoElSide gelside(gel, gel->NSides() - 1);
+        TPZAutoPointer<TPZIntPoints> intp =
+        gel->CreateSideIntegrationRule(gel->NSides() - 1, 2 * order);
+        
+        TPZInterpolatedElement *intel =
+        dynamic_cast<TPZInterpolatedElement *>(cel);
+        int nshape = intel->NShapeF();
+        
+        TPZFNMatrix<20, REAL> ekbc(nshape, nshape, 0.), efbc(nshape, dim, 0.);
+        TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dshape(dim, nshape);
+        
+        int64_t npoints = intp->NPoints();
+        for (int64_t ip = 0; ip < npoints; ip++) {
+            TPZManVector<REAL, 3> pt(dim, 0.);
+            REAL weight;
+            intp->Point(ip, pt, weight);
+            intel->Shape(pt, phi, dshape);
+            REAL u_D = 0.;
+            REAL g = 0.;
+            TPZManVector<STATE> result(3);
+            if (bc->HasForcingFunctionBC()) {
+                
+                TPZFNMatrix<9, STATE> gradu(dim, 1);
+                TPZManVector<REAL, 3> x(3,0);
+                gel->X(pt, x);
+                bc->ForcingFunctionBC()(x, result, gradu);
+                
+            }
+            
+            int bcType = bc->Type();
+            switch (bcType) {
+                case 0: {
+                    for (int iq = 0; iq < nshape; iq++) {
+                        for (int jq = 0; jq < nshape; jq++) {
+                            for (int idim = 0; idim < dim; idim++) {
+                                ekbc(iq, jq) += weight * ( phi(iq, idim) * phi(jq, idim) );
+                            }
+                        }
+                    }
+                    for (int iq = 0; iq < nshape; iq++) {
+                        for (int idim = 0; idim < dim; idim++) {
+                            efbc(iq, 0) +=  result[dim] * phi(iq, idim) * weight;
+                        }
+                    }
+                    break;
+            }
+                default:
+                        std::cout << "Invalid BC type.\n";
+                        DebugStop();
+                    }
+                }
+        
+                    ekbc.Print(std::cout);
+                    efbc.Print(std::cout);
+        //
+                    ekbc.SolveDirect(efbc, ELU);
+                efbc.Print(std::cout << "Solution ");
+        //
+        int count = 0;
+        TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
         for (int ic = 0; ic < nc; ic++) {
             TPZConnect &c = cel->Connect(ic);
             int64_t seqnum = c.SequenceNumber();
             int64_t pos = pressuremesh->Block().Position(seqnum);
             int ndof = c.NShape() * c.NState();
             for (int idf = 0; idf < ndof; idf++) {
-                mesh_sol(pos + idf, 0) = efbc.fMat(count++);
+                mesh_sol(pos + idf, 0) = efbc(count++);
             }
         }
     }
 
+
     {
-        std::ofstream out("PressureAfterL2Projection.txt");
+        std::ofstream out("PressureAfterL2Projection_2.txt");
         pressuremesh->Print(out);
     }
-    std::cout << "Finished computing boundary L2 projection\n";
+    
+  */
+    
+    
+    
+    //-------
+    
+    std::cout << "Computing boundary L2 projection\n";
+    TPZCompMesh* pressuremesh = PrimalMesh();
+        {
+            std::ofstream out("PressureBeforeL2Projection.txt");
+            pressuremesh->Print(out);
+        }
+        if (target_dim == 2) {
+            std::cout << "Not implemented for 2D interface" << std::endl;
+            DebugStop();
+        }
+        
+        TPZGeoMesh *gmesh = pressuremesh->Reference();
+        gmesh->ResetReference();
+        int64_t nel = pressuremesh->NElements();
+        
+        pressuremesh->DeleteMaterial(2);
+    
+    
+    TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(2,1,2);
+   
+    
+        pressuremesh->InsertMaterialObject(l2p);
+        TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
+        
+        TPZElementMatrixT<STATE> ekbc, efbc;
+        TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
+        for (int iel = 0; iel < nel; iel++) {
+            TPZCompEl *cel = elementvec[iel];
+            if (!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            
+            int matid = gel->MaterialId();
+            TPZMaterial *mat = pressuremesh->FindMaterial(matid);
+            if (matid != 2) continue;
+            // TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+            // if (!bc || (bc->Type() != 0)) continue;
+            
+            cel->CalcStiff(ekbc, efbc);
+            ekbc.fMat.SolveDirect(efbc.fMat, ELU);
+            int count = 0;
+            int nc = cel->NConnects();
+            for (int ic = 0; ic < nc; ic++) {
+                TPZConnect &c = cel->Connect(ic);
+                int64_t seqnum = c.SequenceNumber();
+                int64_t pos = pressuremesh->Block().Position(seqnum);
+                int ndof = c.NShape() * c.NState();
+                for (int idf = 0; idf < ndof; idf++) {
+                    mesh_sol(pos + idf, 0) = efbc.fMat(count++);
+                }
+            }
+        }
+        
+        {
+            std::ofstream out("PressureAfterL2Projection.txt");
+            pressuremesh->Print(out);
+        }
+        std::cout << "Finished computing boundary L2 projection\n";
+
 }
 
 // compute the average of an element iel in the pressure mesh looking at its neighbors

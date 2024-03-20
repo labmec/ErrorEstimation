@@ -887,19 +887,52 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
     gmesh->ResetReference();
     cmesh->LoadReferences();
 
-#ifdef ERRORESTIMATION_DEBUG
+//#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
     }
-#endif
+//#endif
 
     if (fPrimalSkeletonMatId == 0) {
         fPrimalSkeletonMatId = FindFreeMatId(this->GMesh());
         std::cout << "Created new pressure skeleton material of index " << fPrimalSkeletonMatId << '\n';
     }
+    
+    //%%%%5
+    
+//    // Creation of geometric elements
+//    int dim = gmesh->Dimension();
+//    int nel = gmesh->NElements();
+//    for (int64_t iel = 0; iel < nel; iel++) {
+//        TPZGeoEl *gel = gmesh->Element(iel);
+//        TPZCompEl* cel = gel->Reference();
+//        if (!cel) continue;
+//        if (gel->Dimension() != dim) continue;
+//        
+//        // Iterates through the sides of the element
+//        int nsides = gel->NSides();
+//        for (int iside = 0; iside < nsides; iside++) {
+//            TPZGeoElSide gelside(gel, iside);
+//            
+//            // Filters boundary sides
+//            if (gelside.Dimension() != dim - 1) continue;
+//            
+//            //Create Geometric element if there is no boundary neighbour and no skeleton neighbour were created.
+//            std::set<int> matIDs;
+//            matIDs.insert(fPrimalSkeletonMatId);
+//            TPZGeoElSide neighSide = gelside.HasNeighbour(matIDs);
+//            if(!neighSide.Exists())
+//            {
+//                TPZGeoElBC gbc(gelside, fPrimalSkeletonMatId);
+//            }
+//        }
+//    }
+    
+    
+    //%%%%
 
-    /*const TPZManVector<int64_t> geoToMHM = fMHM->GetGeoToMHMDomain();
+  //  const TPZManVector<int64_t> geoToMHM = fMHM->GetGeoToMHMDomain();
 
     const int nel = gmesh->NElements();
     int dim = gmesh->Dimension();
@@ -926,23 +959,24 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
 
                 int64_t gel_index = gel->Index();
                 int64_t neigh_gel_index = neighbour.Element()->Index();
-                if (geoToMHM[gel_index] != geoToMHM[neigh_gel_index]) {
+               // if (geoToMHM[gel_index] != geoToMHM[neigh_gel_index]) {
                     if (!gelside.HasNeighbour(fPrimalSkeletonMatId)) {
                         TPZGeoElBC gbc(gelside, fPrimalSkeletonMatId);
                         break;
                     }
-                }
+               // }
             }
         }
     }
 
-#ifdef ERRORESTIMATION_DEBUG
+
+     
+//ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
     }
-#endif
-     */
+//#endif
 }
 
 void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *displacement_mesh) {

@@ -124,9 +124,9 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs;
-    TPZVec<int> divs = {2,4,8,16,32,64};//{2,5,10,20,50,100};
+    TPZVec<int> divs = {2};//,4,8,16,32,64};//{2,5,10,20,50,100};
     // TPZVec<int> divs = {5};
-    int pend = 3;
+    int pend = 2;//3;
 
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -340,10 +340,13 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                         << std::scientific << std::setprecision(15) << error[0] << ", "
                         << error[3] << std::endl;
         
-            
+            EstimateErrorElasticity(config, cmesh);
             
         }
+        
     }
+    
+   
 }
 
 
@@ -385,10 +388,10 @@ CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId)
     constexpr bool createBoundEls{true};
     TPZVec<int> matIds(nMats,bcId);
     matIds[0] = volId;
-    // matIds[1] = bcId;
-    // matIds[2] = EBoundary1;
-    // matIds[3] = EBoundary1;
-    // matIds[4] = EBoundary1;
+     matIds[1] = bcId;
+    matIds[2] = EBoundary;
+    matIds[3] = EBoundary;
+    matIds[4] = EBoundary;
     
     TPZGeoMesh* gmesh = TPZGeoMeshTools::CreateGeoMeshOnGrid(dim, minX, maxX,
                         matIds, nDivs, meshType,createBoundEls);
