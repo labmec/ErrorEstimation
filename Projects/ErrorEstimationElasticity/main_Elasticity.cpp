@@ -10,6 +10,7 @@
 #include "DataStructure.h"
 #include "Tools.h"
 #include <tuple>
+#include <fenv.h>
 
 //%%%%%%
 
@@ -71,6 +72,8 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh);
 
 
 int main() {
+    
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
     
 //    //----
     ProblemConfig pConfig;
@@ -144,7 +147,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     //of the internal functions are the same as the default order
     hdivCreator.SetExtraInternalOrder(0);
     //Sets if the resulting problem should or not be condensed
-    hdivCreator.SetShouldCondense(true);
+    hdivCreator.SetShouldCondense(false);
     // hdivCreator.SetShouldCondense(false);
     
     //Sets the type of hybridizantion desired.

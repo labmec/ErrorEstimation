@@ -201,7 +201,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
         IncreaseSideOrders(meshvec[0]);//malha da tensão
     }
 
-    RemoveMaterialObjects(fPostProcMesh.MaterialVec());
+    //RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
 

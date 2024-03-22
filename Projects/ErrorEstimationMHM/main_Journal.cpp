@@ -126,8 +126,8 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EThiago; 
     config.problemname = "Elasticity";
     config.dir_name = "Journal";
-    config.porder = 1;
-    config.hdivmais = 1;
+    config.porder = 3;
+    config.hdivmais = 0;
     config.materialids.insert(1);
     config.bcmaterialids.insert(-1);
     config.makepressurecontinuous = true;

@@ -99,6 +99,11 @@ int main() {
 
     ProblemConfig pConfig;
 
+    pConfig.exactElast = new TElasticity2DAnalytic;
+    //config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
+    //pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EDispy;
+    
     const int xdiv = 3; //Number of elements in each direction
     const int pOrder = 1; // Polynomial degree
     pConfig.porder = pOrder;
@@ -124,7 +129,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs;
-    TPZVec<int> divs = {2};//,4,8,16,32,64};//{2,5,10,20,50,100};
+    TPZVec<int> divs = {8};//,4,8,16,32,64};//{2,5,10,20,50,100};
     // TPZVec<int> divs = {5};
     int pend = 2;//3;
 
@@ -187,7 +192,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
             elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
             elas->gPoisson = 0.5*lambda/(lambda+mu);
             // elas->fProblemType = TElasticity2DAnalytic::EDispx;
-            elas->fProblemType = TElasticity2DAnalytic::EThiago;
+            elas->fProblemType = config.exactElast->fProblemType;
             // elas->fPlaneStress = 0;
             gAnalytic = elas;
         } else if (DIM == 3){

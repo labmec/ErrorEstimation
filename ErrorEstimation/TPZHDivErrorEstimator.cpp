@@ -971,10 +971,16 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
         pressuremesh->DeleteMaterial(2);
     
     
-    TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(2,1,2);
+        TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(2,1,2);
    
     
         pressuremesh->InsertMaterialObject(l2p);
+        auto exact = std::function<void (const TPZVec<REAL> &,TPZVec<STATE> &)>([this](const TPZVec<REAL> &loc,TPZVec<STATE> &result){
+            TPZFMatrix<STATE> du;
+            return fConfig.exactElast->ExactSolution()(loc, result, du);
+        }); 
+        l2p->SetForcingFunction(exact, 4);
+        
         TPZAdmChunkVector<TPZCompEl *> &elementvec = pressuremesh->ElementVec();
         
         TPZElementMatrixT<STATE> ekbc, efbc;
@@ -1208,8 +1214,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             }
         }
     }
-    L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
-    L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
+//    L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
+//    L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
     int count = 0;

@@ -55,9 +55,9 @@ int main() {
     gRefDBase.InitializeAllUniformRefPatterns();
 
     // const std::set<int> nCoarseDiv = {3, 4, 5, 6};
-    const std::set<int> nCoarseDiv = {2};//4,8,16,32,64};
-    const std::set<int> nInternalRef = {0};
-    // const std::set<int> nInternalRef = {0, 1, 2, 3};
+    const std::set<int> nCoarseDiv = {2};
+    //const std::set<int> nInternalRef = {0};
+    const std::set<int> nInternalRef = {0, 1, 2, 3};
     for (const auto coarse_div : nCoarseDiv) {
         for (const auto internal_ref : nInternalRef) {
             RunElasticityProblem(coarse_div, internal_ref);
@@ -132,7 +132,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
     hdivCreator.ProbType() = ProblemType::EElastic;
     hdivCreator.IsRigidBodySpaces() = true;
     hdivCreator.SetDefaultOrder(config.porder);
-    hdivCreator.SetExtraInternalOrder(0);
+    hdivCreator.SetExtraInternalOrder(config.hdivmais); // 0?
     hdivCreator.SetShouldCondense(false);
     //  hdivCreator.HybridType() = HybridizationType::EStandard;
     hdivCreator.HybridType() = HybridizationType::ENone;
@@ -314,7 +314,7 @@ void RunElasticityProblem(const int nCoarseDiv, const int nInternalRef) {
         vtk.Do();
     }
 
-    EstimateErrorElasticity(config, cmesh);
+    //EstimateErrorElasticity(config, cmesh);
 }
 
 TPZGeoMesh *CreateQuadGeoMesh(int nCoarseDiv, int nInternalRef, REAL distortion) {
@@ -430,7 +430,7 @@ void IdentifyMHMDomain(TPZGeoMesh *gmesh, TPZVec<int> &domain)
             SetSubdomain(gel, currentdomain, domain);
             found = true;
             process.insert(el);
-            std::cout << "Inserting " << el << " d " << currentdomain << std::endl;
+            //std::cout << "Inserting " << el << " d " << currentdomain << std::endl;
             ProcessElements(gmesh, domain);
             break;
         }

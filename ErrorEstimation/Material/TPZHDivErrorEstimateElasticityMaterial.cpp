@@ -51,7 +51,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     for (unsigned int i = 0; i < dim; i++) {
         for (unsigned int j = 0; j < dim; j++) {
             // stressfem(i, j) = data[2].sol[i][j];
-            stressfem(i, j) = data[2].sol[0][j + i * dim];
+            stressfem(i, j) = data[2].sol[0][j + i * 3];
         }
     }
 
@@ -127,13 +127,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     eps_exact(1, 1) = du_exact(1, 1);
     
     //eps(exact displacement)
-    eps_reconstructed(0, 0) = du_exact(0, 0);
-    eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
-    eps_reconstructed(1, 1) = du_exact(1, 1);
+//    eps_reconstructed(0, 0) = du_exact(0, 0);
+//    eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
+//    eps_reconstructed(1, 1) = du_exact(1, 1);
 
     //eps(reconstructed displacement)
     const auto &dudxreconstructed = data[H1functionposition].dsol[0];
-    const auto &axes = data[2].axes;
+    const auto &axes = data[H1functionposition].axes;
 
     TPZFNMatrix<6, STATE> du(3, 3);
     TPZAxesTools<STATE>::Axes2XYZ(dudxreconstructed, du, axes);
@@ -144,6 +144,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     ToVoigt(eps_exact, eps_exactV);
 
     TPZManVector<REAL, 3> x = data[2].x;
+
     TElasticityAtPoint elast(fE_const, fnu_const);
 
 
