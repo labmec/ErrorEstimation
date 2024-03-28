@@ -181,6 +181,7 @@ public:
 
     void Initialize(TPZGeoEl *refel)
     {
+        if(fFourDigits == 0) return;
         auto firstnode = refel->NodePtr(0);
         TPZManVector<REAL,3> firstcoord(3,0.), lastcoord(3,0.);
         firstnode->GetCoordinates(firstcoord);

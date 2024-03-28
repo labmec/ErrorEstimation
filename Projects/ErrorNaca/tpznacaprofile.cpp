@@ -62,7 +62,7 @@ toto TPZNacaProfile::TT()
     int aux = fFourDigits - ((int)(fFourDigits/100))*100;
     toto result;
     result = (toto)(aux/100.)*fCord;
-    std::cout << "TT = " << result << std::endl;
+    // std::cout << "TT = " << result << std::endl;
     return result;
 }
 template REAL TPZNacaProfile::TT();
@@ -139,23 +139,61 @@ template <class toto>
 toto TPZNacaProfile::xu(toto t) const
 {
     toto x = xp(t);
-    return TPZBlendNACA::xu(x);
+    toto val = x-yt(t)*sin(atan(tgphi(t)));
+    return val;
+    // toto x = xp(t);
+    // std::cout << "t = " << t << " x = " << x << std::endl;
+    // toto val = TPZBlendNACA::xu(x);
+    // std::cout << "t = " << t << " x = " << x << " xu = " << val << std::endl;
 }
 
 template REAL TPZNacaProfile::xu(REAL t) const;
 //*********
+template <class toto>
+toto TPZNacaProfile::xl(toto t) const
+{
+    toto x = xp(t);
+    return x+yt(t)*sin(atan(tgphi(t)));
+}
+template REAL TPZNacaProfile::xl(REAL t) const;
+
 
 //********
 template <class toto>
 toto TPZNacaProfile::dxu(toto t) const
 {
     toto x = xp(t);
-    auto resp = TPZBlendNACA::dxu(x)*dxp(t);
-    return resp;
-}
+    toto dx = dxp(t);
+    toto tg = tgphi(t);
+    toto val = dx-(dyt(t)*sin(atan(tg))+
+        yt(t)/(1+tg*tg)/sqrt(1.+tg*tg)*dtgphi(t));
+    return val;
 
+    // toto x = xp(t);
+    // toto dxuv = 0.;
+    // if(x > 0.) {
+    //     dxuv = TPZBlendNACA::dxu(x);
+    // }
+    // auto dxpv = dxp(t);
+    // if(dxpv == 0.) dxuv = 0.;
+    // auto resp = dxuv*dxpv;
+    // // std::cout << " x = " << x << " dxu = " << dxuv << " dxp = " << dxpv << std::endl;
+    // return resp;
+}
 template REAL TPZNacaProfile::dxu(REAL t) const;
 //*********
+template <class toto>
+toto TPZNacaProfile::dxl(toto t) const
+{
+    toto x = xp(t);
+    toto dx = dxp(t);
+    toto tg = tgphi(t);
+    toto val = dx+dyt(t)*sin(atan(tg))+
+        yt(t)/(1+tg*tg)/sqrt(1.+tg*tg)*dtgphi(t);
+    return val;
+}
+template REAL TPZNacaProfile::dxl(REAL t) const;
+
 
 
 template <class toto>
@@ -176,25 +214,6 @@ toto TPZNacaProfile::dyu(toto t) const
 }
 template REAL TPZNacaProfile::dyu(REAL t) const;
 //********
-
-template <class toto>
-toto TPZNacaProfile::xl(toto t) const
-{
-    toto x = xp(t);
-    return x+yt(t)*sin(atan(tgphi(t)));
-}
-template REAL TPZNacaProfile::xl(REAL t) const;
-
-template <class toto>
-toto TPZNacaProfile::dxl(toto t) const
-{
-    toto x = xp(t);
-    toto dx = dxp(t);
-    toto tg = tgphi(t);
-    return dx+dyt(t)*sin(atan(tg))+
-        yt(t)/(1+tg*tg)/sqrt(1.+tg*tg)*dtgphi(t);
-}
-template REAL TPZNacaProfile::dxl(REAL t) const;
 
 //********
 template <class toto>
@@ -310,7 +329,9 @@ template REAL TPZNacaProfile::xua(REAL t) const;
 template <class toto>
 toto TPZNacaProfile::yua(toto t) const
 {
-    return fX0[1]+yu(t)*cos(fAngle) - (xu(t)-fCord/2.) * sin(fAngle);
+    toto val = fX0[1]+yu(t)*cos(fAngle) - (xu(t)-fCord/2.) * sin(fAngle);
+    // std::cout << "yua = " << val << std::endl;
+    return val;
 }
 template REAL TPZNacaProfile::yua(REAL t) const;
 
@@ -333,7 +354,10 @@ template REAL TPZNacaProfile::yla(REAL) const;
 template <class toto>
 toto TPZNacaProfile::dxua(toto t) const
 {
-    return fX0[0]+(dxu(t))*cos(fAngle) + dyu(t) * sin(fAngle);
+    toto dxuval = dxu(t);
+    toto dyuval = dyu(t);
+    // std::cout << " t " << t << " dxu " << dxuval << " dyu " << dyuval << std::endl;
+    return fX0[0]+(dxuval*cos(fAngle) + dyuval * sin(fAngle));
 }
 template REAL TPZNacaProfile::dxua(REAL t) const;
 
