@@ -92,7 +92,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         residual = (divstress[idf] - divstressfem[idf])*(divstress[idf] - divstressfem[idf]);
     }
     
-    //std::cout<<"residual error "<<residual<<std::endl;
+    std::cout<<"residual error "<<residual<<std::endl;
 
 
     TPZManVector<STATE, 3> displacementreconstructed(dim, 0.);
@@ -525,6 +525,8 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
     if (name == "ResidualError") return 104;
     if (name == "DisplacementEffectivityIndex") return 106;
     if (name == "EnergyEffectivityIndex") return 107;
+    
+ 
 
 
     return -1;

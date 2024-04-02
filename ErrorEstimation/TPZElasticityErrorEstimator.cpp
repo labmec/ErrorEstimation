@@ -1428,6 +1428,8 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
         vecnames.Push("StressFem");
         scalnames.Push("POrder");
         
+        //vecnames.Push("State");
+        
         int dim = fPostProcMesh.Reference()->Dimension();
 
         an.DefineGraphMesh(dim, scalnames, vecnames, out);

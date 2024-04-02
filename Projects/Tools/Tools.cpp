@@ -1104,7 +1104,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
      */
 
     std::stringstream ss;
-    ss << "\nEstimator errors for Problem " << config.problemname;
+    ss << "\nEstimator errors for Problem " << config.problemtype;
     ss << "\n-------------------------------------------------- \n";
     ss << "Ndiv = " << config.ndivisions << ", NIntRef = " << config.ninternalref <<
             ", Order k = " << config.porder << ", Order n = " << config.hdivmais;

@@ -101,13 +101,15 @@ int main() {
 
     pConfig.exactElast = new TElasticity2DAnalytic;
     //config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
-    //pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EDispy;
+   // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
     
     const int xdiv = 3; //Number of elements in each direction
     const int pOrder = 1; // Polynomial degree
     pConfig.porder = pOrder;
     pConfig.ndivisions = xdiv;
+    pConfig.hdivmais = 2;// internal order
+   
     // Family of HDiv approximation spaces.
     // The possible choices are HDivFamily::EHDivStandard, HDivFamily::EHDivConstant and HDivFamily::EHDivKernel
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
@@ -129,13 +131,20 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs;
-    TPZVec<int> divs = {8};//,4,8,16,32,64};//{2,5,10,20,50,100};
-    // TPZVec<int> divs = {5};
-    int pend = 2;//3;
+    TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
+    
+    int pend = 3;
 
     
     for (int iorder = 1; iorder < pend; iorder++){
+        
+        printerrors <<  " porder " << " h " <<   " error stress "<< " error diplacement"<<std::endl;
+                    
+        
+        
         for (int idiv = 0; idiv < divs.size(); idiv++){
+            config.ndivisions =divs[idiv];
+            config.porder= iorder;
         int divx = divs[idiv];
 
 
@@ -143,9 +152,14 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     if (DIM == 3) nDivs = {divx,divx,divx};
     
     // Creates/import a geometric mesh
-    auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
+  //  auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
+            
+            TPZVec<int> bcids(8,EBoundary);
             
             
+            auto gmesh =  Tools::CreateQuadLShapeMesh(bcids);
+            int uniref= divx/2;
+            Tools::UniformRefinement(uniref, gmesh);
 
     // Creates an hdivApproxCreator object. It is an environment developped to
     // help creating H(div)-family possible approximation spaces.
@@ -160,7 +174,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     hdivCreator.SetDefaultOrder(iorder);
     //Set the extra polynomial order for the bubble functions. If zero, the polynomial degree
     //of the internal functions are the same as the default order
-    hdivCreator.SetExtraInternalOrder(1);
+    hdivCreator.SetExtraInternalOrder(config.hdivmais);
     //Sets if the resulting problem should or not be condensed
     hdivCreator.SetShouldCondense(true);
     // hdivCreator.SetShouldCondense(false);
@@ -172,7 +186,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     // hdivCreator.HybridType() = HybridizationType::EStandard;
 
     // Prints gmesh mesh properties
-    std::string vtk_name = "geoMesh.vtk";
+    std::string vtk_name = "geoMeshLshape.vtk";
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
             
@@ -187,8 +201,8 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     } else if (hdivCreator.ProbType() == ProblemType::EElastic){
         if (DIM == 2){
             TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-            double lambda = 123.;
-            double mu = 79.3;
+            double lambda = 5;//123.;
+            double mu = 1;//79.3;
             elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
             elas->gPoisson = 0.5*lambda/(lambda+mu);
             // elas->fProblemType = TElasticity2DAnalytic::EDispx;
@@ -327,15 +341,15 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     
     // //Print Errors
-     std::cout << "POrder = " << iorder << std::endl;
-     std::cout << "h = " << std::fixed <<  1./double(divx) << std::endl;
-     std::cout << "L2 Stress = " << std::scientific << std::setprecision(15) << error[0] << std::endl;
-     std::cout << "En Stress = " << error[1] << std::endl;
-     std::cout << "L2 DivStr = " << error[2] << std::endl;
-     std::cout << "L2 Displa = " << error[3] << std::endl;
-     std::cout << "L2 Rotati = " << error[4] << std::endl;
-     std::cout << "L2 Symmet = " << error[5] << std::endl;
-     std::cout << "En Displa = " << error[6] << std::endl;
+//     std::cout << "POrder = " << iorder << std::endl;
+//     std::cout << "h = " << std::fixed <<  1./double(divx) << std::endl;
+//     std::cout << "L2 Stress = " << std::scientific << std::setprecision(15) << error[0] << std::endl;
+//     std::cout << "En Stress = " << error[1] << std::endl;
+//     std::cout << "L2 DivStr = " << error[2] << std::endl;
+//     std::cout << "L2 Displa = " << error[3] << std::endl;
+//     std::cout << "L2 Rotati = " << error[4] << std::endl;
+//     std::cout << "L2 Symmet = " << error[5] << std::endl;
+//     std::cout << "En Displa = " << error[6] << std::endl;
 //     printerrors << iorder << " " << std::fixed << std::setprecision(5) <<  1./double(divx) << " "
 //                 << std::scientific << std::setprecision(15) << error[0] << " "
 //                 << error[1] << " " << error[2] << " " << error[3] << " " << error[4]
@@ -431,7 +445,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
             elas2D = dynamic_cast<TElasticity2DAnalytic*> (fAn) ;
             matelas = new TPZMixedElasticityND(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress, dim);
             matelas->SetExactSol(elas2D->ExactSolution(),4);
-            matelas->SetForcingFunction(elas2D->ForceFunc(),4);
+         //   matelas->SetForcingFunction(elas2D->ForceFunc(),4);
             hdivCreator.InsertMaterialObject(matelas);
 
             TPZFMatrix<STATE> val1(dim,dim,0.);
