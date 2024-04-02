@@ -6,7 +6,10 @@ cmake-build-*/
 build-cmake/*
 # Sourcetrail files
 *.srctrl*
+build/*
+Projects/ErrorNaca/__pycache__/*
 
+Projects/ErrorNaca/ErrorEstimation.code-workspace
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/settings.json

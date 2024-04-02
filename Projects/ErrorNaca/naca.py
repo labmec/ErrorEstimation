@@ -13,7 +13,7 @@ def main():
     # Any changes you wann do, do it here
 
     # file name
-    file_name: str = "NACA" 
+    file_name: str = "naca" 
 
     # z-coordinate
     depth: float = 0. 
@@ -100,13 +100,13 @@ def main():
 
     #%% Creating inner lines, from the profile to the boundary
     inner_lines: list[int] = [
-        [p1, p11], # l25
+        [p1, p11], # l25  Discontinuty - first try
         [p2, p12], # l26
         [p3, p13], # l27
         [p4, p14], # l28
         [p5, p15], # l29
         [p6, p16], # l30
-        [p6, p18], # l31
+        [p6, p18], # l31 Discontinuty - second try
         [p6, p20], # l32
         [p7, p21], # l33
         [p8, p22], # l34
@@ -163,7 +163,7 @@ def main():
     ]
     TPZMeshModeling.CreatePhysicalGroup(gp)
     IDcut = 5
-    tagcut = [l25] # tag of the entity
+    tagcut = [l31] # tag of the entity
     gp = [
 #        [(dim, tag), ID, "name"]
         [(dim, tagcut), IDcut, "Cut"]
@@ -209,10 +209,13 @@ def main():
     TPZMeshModeling.CreateMesh(mesh_dim) 
 
     # showing model on gmsh
-    TPZMeshModeling.ShowModel()
+    # TPZMeshModeling.ShowModel()
 
     # writing .msh file
     TPZMeshModeling.WriteMeshFiles(file_name, ".msh")
+
+    path = "/home/cordeiro/projects/ErrorEstimation/build/Projects/ErrorNaca/"
+    TPZMeshModeling.MoveFiles(file_name, None, path, ".msh")
 
     # closing gmsh
     TPZMeshModeling.End()
