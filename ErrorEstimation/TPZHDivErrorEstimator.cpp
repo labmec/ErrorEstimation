@@ -1692,7 +1692,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeEffectivityIndices() {
     }
 
     globalIeff = sqrt(globalRight / globalLeft);
-    std::cout << "GlobalIeff: " << globalIeff << "\n";
+   /* std::cout << "GlobalIeff: " << globalIeff << "\n";
 
     {
         std::ofstream out("IeffPerElement.nb");
@@ -1705,7 +1705,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeEffectivityIndices() {
         BoundExact.Print("BoundExact = ", out3, EMathematicaInput);
         std::ofstream out4("BoundEstimated.nb");
         BoundEstimated.Print("BoundEstimated = ", out4, EMathematicaInput);
-    }
+    }*/
+    
 }
 
 /// returns true if the material associated with the element is a boundary condition

@@ -1632,7 +1632,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     else{
         globalIeff = sqrt(globalRight / globalLeft);
     }
-    std::cout << "GlobalIeff: " << globalIeff << "\n";
+   // std::cout << "GlobalIeff: " << globalIeff << "\n";
 
     {
         std::ofstream out("IeffPerElement.nb");

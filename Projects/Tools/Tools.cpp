@@ -694,7 +694,7 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
     return cmesh;
 }
 
-void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, ProblemConfig& config) {
+void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, const ProblemConfig& config) {
 
     // Column of the flux error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;

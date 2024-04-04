@@ -100,7 +100,7 @@ int main() {
     ProblemConfig pConfig;
 
     pConfig.exactElast = new TElasticity2DAnalytic;
-    //config.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
+    //pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
    // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
     pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
     
@@ -131,235 +131,258 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs;
-    TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
+    TPZVec<int> divs = {8};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
-    int pend = 3;
-
+    int pend = 2;
+    
+    TPZVec<int> bcids(8,EBoundary);
+    
+    
+    auto gmesh =  Tools::CreateQuadLShapeMesh(bcids);
+      int uniref= 3;
+      Tools::UniformRefinement(uniref, gmesh);
+    
+    // Prints gmesh mesh properties
+    std::string vtk_name = "geoMesBeforeAdapt.vtk";
+    std::ofstream vtkfile(vtk_name.c_str());
+    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
+    
+    int nsteps =3;
+    config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
         
         printerrors <<  " porder " << " h " <<   " error stress "<< " error diplacement"<<std::endl;
                     
+        for(int refsteps = 1; refsteps< nsteps; refsteps ++){
         
-        
-        for (int idiv = 0; idiv < divs.size(); idiv++){
-            config.ndivisions =divs[idiv];
-            config.porder= iorder;
-        int divx = divs[idiv];
-
-
-    if (DIM == 2) nDivs = {divx,divx};
-    if (DIM == 3) nDivs = {divx,divx,divx};
-    
-    // Creates/import a geometric mesh
-  //  auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
-            
-            TPZVec<int> bcids(8,EBoundary);
-            
-            
-            auto gmesh =  Tools::CreateQuadLShapeMesh(bcids);
-            int uniref= divx/2;
-            Tools::UniformRefinement(uniref, gmesh);
-
-    // Creates an hdivApproxCreator object. It is an environment developped to
-    // help creating H(div)-family possible approximation spaces.
-    TPZHDivApproxCreator hdivCreator(gmesh);
-    //Set the family of H(div) functions: Standard, Constant or Kernel
-    hdivCreator.HdivFamily() = hdivfamily;
-    //Set the problem type to be solved: Only EDarcy and EElastic are currently available
-    hdivCreator.ProbType() = ProblemType::EElastic;
-    //Includes the rigid body spaces (constant flux and pressure) if set as true
-    hdivCreator.IsRigidBodySpaces() = false;
-    //Set the default polynomial order
-    hdivCreator.SetDefaultOrder(iorder);
-    //Set the extra polynomial order for the bubble functions. If zero, the polynomial degree
-    //of the internal functions are the same as the default order
-    hdivCreator.SetExtraInternalOrder(config.hdivmais);
-    //Sets if the resulting problem should or not be condensed
-    hdivCreator.SetShouldCondense(true);
-    // hdivCreator.SetShouldCondense(false);
-    
-    //Sets the type of hybridizantion desired.
-    //The current options are HybridizationType::ENone, HybridizationType::EStandard
-    //and HybridizationType::ESemi (the last only works with H(div)-constant spaces)
-    hdivCreator.HybridType() = HybridizationType::ENone;
-    // hdivCreator.HybridType() = HybridizationType::EStandard;
-
-    // Prints gmesh mesh properties
-    std::string vtk_name = "geoMeshLshape.vtk";
-    std::ofstream vtkfile(vtk_name.c_str());
-    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
-            
-            config.gmesh=gmesh;
-
-    //Creates an analytical solution to test
-    TPZAnalyticSolution *gAnalytic = 0;
-    if (hdivCreator.ProbType() == ProblemType::EDarcy){
-        TLaplaceExample1 *lap = new TLaplaceExample1;
-        lap->fExact = TLaplaceExample1::EHarmonic;
-        gAnalytic = lap;
-    } else if (hdivCreator.ProbType() == ProblemType::EElastic){
-        if (DIM == 2){
-            TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-            double lambda = 5;//123.;
-            double mu = 1;//79.3;
-            elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
-            elas->gPoisson = 0.5*lambda/(lambda+mu);
-            // elas->fProblemType = TElasticity2DAnalytic::EDispx;
-            elas->fProblemType = config.exactElast->fProblemType;
-            // elas->fPlaneStress = 0;
-            gAnalytic = elas;
-        } else if (DIM == 3){
-            TElasticity3DAnalytic *elas = new TElasticity3DAnalytic;
-            elas->fE = 1.;
-            elas->fPoisson = 0.0;
-            elas->fProblemType = TElasticity3DAnalytic::ELoadedBeam;
-            gAnalytic = elas;
-        }
-    } else {
-        DebugStop();
-    }
-         //   config.exact2 = gAnalytic;
-            
-    //Insert Materials
-    InsertMaterials(DIM,hdivCreator,gAnalytic);
-
-    //Gets the Multiphysics mesh from the HdivApproxCreator
-    TPZMultiphysicsCompMesh *cmesh = hdivCreator.CreateApproximationSpace();
-    //Here the cmesh is printed
-    // std::string txt = "cmesh.txt";
-    // std::ofstream myfile(txt);
-    // cmesh->Print(myfile);
-
-    //Create the analysis environment
-    TPZLinearAnalysis an(cmesh,RenumType::ESloan);
-    // TPZLinearAnalysis an(cmesh,RenumType::EMetis);
-    an.SetExact(gAnalytic->ExactSolution(),4);
-    // if (hdivCreator.ProbType() == ProblemType::EDarcy){
-        
-    // } else if (hdivCreator.ProbType() == ProblemType::EElastic){
-    //     an.SetExact(gAnalytic,solOrder);
-    // } else {
-    //     DebugStop();
-    // }
-            
-            //----
-            
+            for (int idiv = 0; idiv < divs.size(); idiv++){
+                config.ndivisions =divs[idiv];
+                config.porder= iorder;
+                int divx = divs[idiv];
+                
+                
+                //    if (DIM == 2) nDivs = {divx,divx};
+                //    if (DIM == 3) nDivs = {divx,divx,divx};
+                
+                // Creates/import a geometric mesh
+                //  auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
+                
+                
+                //  int uniref= divx/2;
+                //  Tools::UniformRefinement(uniref, gmesh);
+                
+                // Prints gmesh mesh properties
+                std::string vtk_name3 = "geoMeshLshape0.vtk";
+                std::ofstream vtkfile3(vtk_name3.c_str());
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile3, true);
+                
+                // Creates an hdivApproxCreator object. It is an environment developped to
+                // help creating H(div)-family possible approximation spaces.
+                TPZHDivApproxCreator hdivCreator(gmesh);
+                //Set the family of H(div) functions: Standard, Constant or Kernel
+                hdivCreator.HdivFamily() = hdivfamily;
+                //Set the problem type to be solved: Only EDarcy and EElastic are currently available
+                hdivCreator.ProbType() = ProblemType::EElastic;
+                //Includes the rigid body spaces (constant flux and pressure) if set as true
+                hdivCreator.IsRigidBodySpaces() = false;
+                //Set the default polynomial order
+                hdivCreator.SetDefaultOrder(iorder);
+                //Set the extra polynomial order for the bubble functions. If zero, the polynomial degree
+                //of the internal functions are the same as the default order
+                hdivCreator.SetExtraInternalOrder(config.hdivmais);
+                //Sets if the resulting problem should or not be condensed
+                hdivCreator.SetShouldCondense(true);
+                // hdivCreator.SetShouldCondense(false);
+                
+                //Sets the type of hybridizantion desired.
+                //The current options are HybridizationType::ENone, HybridizationType::EStandard
+                //and HybridizationType::ESemi (the last only works with H(div)-constant spaces)
+                hdivCreator.HybridType() = HybridizationType::ENone;
+                // hdivCreator.HybridType() = HybridizationType::EStandard;
+                
+                // Prints gmesh mesh properties
+                std::string vtk_name2 = "geoMeshLshape.vtk";
+                std::ofstream vtkfile2(vtk_name2.c_str());
+                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile2, true);
+                
+              //  config.gmesh=gmesh;
+                
+                //Creates an analytical solution to test
+                TPZAnalyticSolution *gAnalytic = 0;
+                if (hdivCreator.ProbType() == ProblemType::EDarcy){
+                    TLaplaceExample1 *lap = new TLaplaceExample1;
+                    lap->fExact = TLaplaceExample1::EHarmonic;
+                    gAnalytic = lap;
+                } else if (hdivCreator.ProbType() == ProblemType::EElastic){
+                    if (DIM == 2){
+                        TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
+                        double lambda = 5;//123.;
+                        double mu = 1;//79.3;
+                        elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
+                        elas->gPoisson = 0.5*lambda/(lambda+mu);
+                        // elas->fProblemType = TElasticity2DAnalytic::EDispx;
+                        elas->fProblemType = config.exactElast->fProblemType;
+                        // elas->fPlaneStress = 0;
+                        gAnalytic = elas;
+                    } else if (DIM == 3){
+                        TElasticity3DAnalytic *elas = new TElasticity3DAnalytic;
+                        elas->fE = 1.;
+                        elas->fPoisson = 0.0;
+                        elas->fProblemType = TElasticity3DAnalytic::ELoadedBeam;
+                        gAnalytic = elas;
+                    }
+                } else {
+                    DebugStop();
+                }
+                //   config.exact2 = gAnalytic;
+                
+                //Insert Materials
+                InsertMaterials(DIM,hdivCreator,gAnalytic);
+                
+                //Gets the Multiphysics mesh from the HdivApproxCreator
+                TPZMultiphysicsCompMesh *cmesh = hdivCreator.CreateApproximationSpace();
+                //Here the cmesh is printed
+                // std::string txt = "cmesh.txt";
+                // std::ofstream myfile(txt);
+                // cmesh->Print(myfile);
+                
+                //Create the analysis environment
+                TPZLinearAnalysis an(cmesh,RenumType::ESloan);
+                // TPZLinearAnalysis an(cmesh,RenumType::EMetis);
+                an.SetExact(gAnalytic->ExactSolution(),4);
+                // if (hdivCreator.ProbType() == ProblemType::EDarcy){
+                
+                // } else if (hdivCreator.ProbType() == ProblemType::EElastic){
+                //     an.SetExact(gAnalytic,solOrder);
+                // } else {
+                //     DebugStop();
+                // }
+                
+                //----
+                
 #ifdef PZ_USING_MKL
-    TPZSSpStructMatrix<> strmat(cmesh);
-    strmat.SetNumThreads(8);
+                TPZSSpStructMatrix<> strmat(cmesh);
+                strmat.SetNumThreads(8);
 #else
-    TPZSkylineStructMatrix<STATE> strmat(cmesh);
-    strmat.SetNumThreads(0);
+                TPZSkylineStructMatrix<STATE> strmat(cmesh);
+                strmat.SetNumThreads(0);
 #endif
-
-    an.SetStructuralMatrix(strmat);
-    TPZStepSolver<STATE> step;
-    step.SetDirect(ELDLt);
-    an.SetSolver(step);
-    std::cout << "Assembling\n";
-    an.Assemble();
-
-    std::cout << "Solving\n";
-    an.Solve();
-    std::cout << "Finished\n";
-    an.LoadSolution(); // compute internal dofs
-
-
-           
-  
-    //Printing results in a vtk file
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(cmesh->MeshVector(), an.Mesh());
-            cmesh->LoadSolution(cmesh->Solution());
-    std::string plotfile = "res_h"+std::to_string(idiv)+"p"+std::to_string(iorder);//sem o .vtk no final
-    constexpr int vtkRes{0};//Resolution
-    {
-        //Fields to be printed
-        TPZVec<std::string> fields;
-        if (hdivCreator.ProbType() == ProblemType::EDarcy){
-            fields = {"Pressure","ExactPressure","Flux","ExactFlux"};
-        } else if (hdivCreator.ProbType() == ProblemType::EElastic){
-            fields = {"Displacement","SigmaX","SigmaY","TauXY","ExactDisplacement","ExactStress"};
-        } else {
-            DebugStop();
-        }
-        
-        auto vtk = TPZVTKGenerator( an.Mesh(), fields, plotfile, vtkRes);
-        vtk.Do();
-    }
-
-    // //Compute error
-    std::ofstream anPostProcessFile("postprocess.txt");
-    TPZManVector<REAL,7> error;
-    an.LoadSolution();
-    // cmesh->LoadSolution(cmesh->Solution());
-    // cmesh->ExpandSolution();
-    int64_t nelem = 0;
-    for (int64_t i = 0; i < an.Mesh()->NElements(); i++)
-    {
-        auto el = an.Mesh()->ElementVec()[i];
-        if (el->Dimension() == DIM) nelem++;
-    }
-        
-    an.Mesh()->ElementSolution().Redim(nelem, 7);
-    an.SetExact(gAnalytic->ExactSolution(),5);
-    an.PostProcessError(error,true,anPostProcessFile);
-
-    std::ofstream postVTK(plotfile+".0.vtk",std::ios::app);
-    TPZFMatrix<STATE> SolMatrix = an.Mesh()->ElementSolution();
-    postVTK << "CELL_DATA " << nelem << std::endl;
-    postVTK << "SCALARS ErrorStress float \nLOOKUP_TABLE default" << std::endl;
-    for (int64_t iel = 0; iel < nelem; iel++){
-        postVTK << SolMatrix.GetVal(iel,0) << " ";
-    }
-    postVTK << std::endl;
-    postVTK << "SCALARS ErrorEnergy float \nLOOKUP_TABLE default" << std::endl;
-    for (int64_t iel = 0; iel < nelem; iel++){
-        postVTK << SolMatrix.GetVal(iel,1) << " ";
-    }
-    postVTK << std::endl;
-    postVTK << "SCALARS ErrorDivStress float \nLOOKUP_TABLE default" << std::endl;
-    for (int64_t iel = 0; iel < nelem; iel++){
-        postVTK << SolMatrix.GetVal(iel,2) << " ";
-    }
-    postVTK << std::endl;
-    postVTK << "SCALARS ErrorDisplacement float \nLOOKUP_TABLE default" << std::endl;
-    for (int64_t iel = 0; iel < nelem; iel++){
-        postVTK << SolMatrix.GetVal(iel,3) << " ";
-    }
-    postVTK << std::endl;
-    postVTK << "SCALARS ErrorRotation float \nLOOKUP_TABLE default" << std::endl;
-    for (int64_t iel = 0; iel < nelem; iel++){
-        postVTK << SolMatrix.GetVal(iel,4) << " ";
-    }
-    postVTK << std::endl;
-    postVTK << "SCALARS ErrorSymmetry float \nLOOKUP_TABLE default" << std::endl;
-    for (int64_t iel = 0; iel < nelem; iel++){
-        postVTK << SolMatrix.GetVal(iel,5) << " ";
-    }
-    postVTK << std::endl;
-    
-    
-    // //Print Errors
-//     std::cout << "POrder = " << iorder << std::endl;
-//     std::cout << "h = " << std::fixed <<  1./double(divx) << std::endl;
-//     std::cout << "L2 Stress = " << std::scientific << std::setprecision(15) << error[0] << std::endl;
-//     std::cout << "En Stress = " << error[1] << std::endl;
-//     std::cout << "L2 DivStr = " << error[2] << std::endl;
-//     std::cout << "L2 Displa = " << error[3] << std::endl;
-//     std::cout << "L2 Rotati = " << error[4] << std::endl;
-//     std::cout << "L2 Symmet = " << error[5] << std::endl;
-//     std::cout << "En Displa = " << error[6] << std::endl;
-//     printerrors << iorder << " " << std::fixed << std::setprecision(5) <<  1./double(divx) << " "
-//                 << std::scientific << std::setprecision(15) << error[0] << " "
-//                 << error[1] << " " << error[2] << " " << error[3] << " " << error[4]
-//                 << " " << error[5] << " " << error[6] << std::endl;
-            
-            printerrors << iorder << ", " << std::fixed << std::setprecision(5) <<  1./double(divx) << ", "
-                        << std::scientific << std::setprecision(15) << error[0] << ", "
-                        << error[3] << std::endl;
-        
-            EstimateErrorElasticity(config, cmesh);
+                
+                an.SetStructuralMatrix(strmat);
+                TPZStepSolver<STATE> step;
+                step.SetDirect(ELDLt);
+                an.SetSolver(step);
+                std::cout << "Assembling\n";
+                an.Assemble();
+                
+                std::cout << "Solving\n";
+                an.Solve();
+                std::cout << "Finished\n";
+                an.LoadSolution(); // compute internal dofs
+                
+                
+                
+                
+                //Printing results in a vtk file
+                TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(cmesh->MeshVector(), an.Mesh());
+                cmesh->LoadSolution(cmesh->Solution());
+                std::string plotfile = "res_h"+std::to_string(idiv)+"p"+std::to_string(iorder);//sem o .vtk no final
+                constexpr int vtkRes{0};//Resolution
+                {
+                    //Fields to be printed
+                    TPZVec<std::string> fields;
+                    if (hdivCreator.ProbType() == ProblemType::EDarcy){
+                        fields = {"Pressure","ExactPressure","Flux","ExactFlux"};
+                    } else if (hdivCreator.ProbType() == ProblemType::EElastic){
+                        fields = {"Displacement","SigmaX","SigmaY","TauXY","ExactDisplacement","ExactStress"};
+                    } else {
+                        DebugStop();
+                    }
+                    
+                    auto vtk = TPZVTKGenerator( an.Mesh(), fields, plotfile, vtkRes);
+                    vtk.Do();
+                }
+                
+                // //Compute error
+                std::ofstream anPostProcessFile("postprocess.txt");
+                TPZManVector<REAL,7> error;
+                an.LoadSolution();
+                // cmesh->LoadSolution(cmesh->Solution());
+                // cmesh->ExpandSolution();
+                int64_t nelem = 0;
+                for (int64_t i = 0; i < an.Mesh()->NElements(); i++)
+                {
+                    auto el = an.Mesh()->ElementVec()[i];
+                    if (el->Dimension() == DIM) nelem++;
+                }
+                
+                an.Mesh()->ElementSolution().Redim(nelem, 7);
+                an.SetExact(gAnalytic->ExactSolution(),5);
+                an.PostProcessError(error,true,anPostProcessFile);
+                
+                std::ofstream postVTK(plotfile+".0.vtk",std::ios::app);
+                TPZFMatrix<STATE> SolMatrix = an.Mesh()->ElementSolution();
+                postVTK << "CELL_DATA " << nelem << std::endl;
+                postVTK << "SCALARS ErrorStress float \nLOOKUP_TABLE default" << std::endl;
+                for (int64_t iel = 0; iel < nelem; iel++){
+                    postVTK << SolMatrix.GetVal(iel,0) << " ";
+                }
+                postVTK << std::endl;
+                postVTK << "SCALARS ErrorEnergy float \nLOOKUP_TABLE default" << std::endl;
+                for (int64_t iel = 0; iel < nelem; iel++){
+                    postVTK << SolMatrix.GetVal(iel,1) << " ";
+                }
+                postVTK << std::endl;
+                postVTK << "SCALARS ErrorDivStress float \nLOOKUP_TABLE default" << std::endl;
+                for (int64_t iel = 0; iel < nelem; iel++){
+                    postVTK << SolMatrix.GetVal(iel,2) << " ";
+                }
+                postVTK << std::endl;
+                postVTK << "SCALARS ErrorDisplacement float \nLOOKUP_TABLE default" << std::endl;
+                for (int64_t iel = 0; iel < nelem; iel++){
+                    postVTK << SolMatrix.GetVal(iel,3) << " ";
+                }
+                postVTK << std::endl;
+                postVTK << "SCALARS ErrorRotation float \nLOOKUP_TABLE default" << std::endl;
+                for (int64_t iel = 0; iel < nelem; iel++){
+                    postVTK << SolMatrix.GetVal(iel,4) << " ";
+                }
+                postVTK << std::endl;
+                postVTK << "SCALARS ErrorSymmetry float \nLOOKUP_TABLE default" << std::endl;
+                for (int64_t iel = 0; iel < nelem; iel++){
+                    postVTK << SolMatrix.GetVal(iel,5) << " ";
+                }
+                postVTK << std::endl;
+                
+                
+                // //Print Errors
+                //     std::cout << "POrder = " << iorder << std::endl;
+                //     std::cout << "h = " << std::fixed <<  1./double(divx) << std::endl;
+                //     std::cout << "L2 Stress = " << std::scientific << std::setprecision(15) << error[0] << std::endl;
+                //     std::cout << "En Stress = " << error[1] << std::endl;
+                //     std::cout << "L2 DivStr = " << error[2] << std::endl;
+                //     std::cout << "L2 Displa = " << error[3] << std::endl;
+                //     std::cout << "L2 Rotati = " << error[4] << std::endl;
+                //     std::cout << "L2 Symmet = " << error[5] << std::endl;
+                //     std::cout << "En Displa = " << error[6] << std::endl;
+                //     printerrors << iorder << " " << std::fixed << std::setprecision(5) <<  1./double(divx) << " "
+                //                 << std::scientific << std::setprecision(15) << error[0] << " "
+                //                 << error[1] << " " << error[2] << " " << error[3] << " " << error[4]
+                //                 << " " << error[5] << " " << error[6] << std::endl;
+                
+                printerrors << iorder << ", " << std::fixed << std::setprecision(5) <<  1./double(divx) << ", "
+                << std::scientific << std::setprecision(15) << error[0] << ", "
+                << error[3] << std::endl;
+                
+                EstimateErrorElasticity(config, cmesh);
+                
+                // Prints gmesh mesh properties
+                std::string vtk_name = "geoMeshAfterAdapt.vtk";
+                std::ofstream vtkfile(vtk_name.c_str());
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+                
+            }
             
         }
         
@@ -481,6 +504,7 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
 
     // Error estimation
     if (!originalMesh) DebugStop();
+    
 
     bool postProcWithHDiv = false;
     TPZElasticityErrorEstimator ErrorEstimator(config, *originalMesh, postProcWithHDiv);
@@ -498,10 +522,17 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
            << "-Errors.vtk";
     std::string outVTKstring = outVTK.str();
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
+    
+    Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
 
-    {
-        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
-        std::ofstream file(fileName, std::ios::app);
-        Tools::PrintElasticityErrors(file, config, errors);
-    }
+//    {
+//        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
+//        std::ofstream file(fileName, std::ios::app);
+//        Tools::PrintElasticityErrors(file, config, errors);
+//    }
+    
+    // Prints gmesh mesh properties
+    std::string vtk_name = "geoMeshAfterAdapt_1.vtk";
+    std::ofstream vtkfile(vtk_name.c_str());
+    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
 }

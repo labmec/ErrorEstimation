@@ -84,7 +84,7 @@ namespace Tools {
 
     TPZCompMesh *CMeshH1(ProblemConfig problem);
 
-    void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, ProblemConfig &config);
+    void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, const ProblemConfig &config);
 
     void Print(const FADREAL& a, std::ostream& out);
 
