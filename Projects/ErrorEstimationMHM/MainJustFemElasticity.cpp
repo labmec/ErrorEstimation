@@ -81,7 +81,7 @@ enum EMatid  {ENone, EDomain, EBoundary};
 */
 template<class tshape>
 TPZGeoMesh*
-CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId);
+CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId, REAL distortion);
 
 // The test function
 template<class tshape>
@@ -98,11 +98,19 @@ int main() {
     
 
     ProblemConfig pConfig;
-
+    pConfig.geometry = ProblemConfig::EGeometry::ELShape;
     pConfig.exactElast = new TElasticity2DAnalytic;
     //pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
-   // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
+    switch (pConfig.geometry){
+        case ProblemConfig::EGeometry::ELShape:
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
+            break;
+        case ProblemConfig::EGeometry::EQuad:
+        case ProblemConfig::EGeometry::ETrap:
+        default:
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
+            break;
+    }
     
     const int xdiv = 3; //Number of elements in each direction
     const int pOrder = 1; // Polynomial degree
@@ -135,13 +143,32 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int pend = 2;
     
-    TPZVec<int> bcids(8,EBoundary);
+    TPZGeoMesh *gmesh;
     
-    
-    auto gmesh =  Tools::CreateQuadLShapeMesh(bcids);
-      int uniref= 3;
-      Tools::UniformRefinement(uniref, gmesh);
-    
+    switch(config.geometry) {
+        case ProblemConfig::EGeometry::ELShape:
+        {
+            TPZVec<int> bcids(8, EBoundary);
+            gmesh = Tools::CreateQuadLShapeMesh(bcids);
+
+            int uniref = 3;
+            Tools::UniformRefinement(uniref, gmesh);
+            break;
+        }
+        case ProblemConfig::EGeometry::ETrap:
+        {
+            REAL distortion = 1. / 3;
+            gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
+            break;
+        }
+        case ProblemConfig::EGeometry::EQuad:
+        {
+            REAL distortion = 0;
+            gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
+            break;
+        }
+    }
+   
     // Prints gmesh mesh properties
     std::string vtk_name = "geoMesBeforeAdapt.vtk";
     std::ofstream vtkfile(vtk_name.c_str());
@@ -395,7 +422,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 //Create
 template <class tshape>
 TPZGeoMesh*
-CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId)
+CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId, REAL distortion)
 {
     
     MMeshType meshType;
@@ -430,13 +457,13 @@ CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId)
     constexpr bool createBoundEls{true};
     TPZVec<int> matIds(nMats,bcId);
     matIds[0] = volId;
-     matIds[1] = bcId;
+    matIds[1] = bcId;
     matIds[2] = EBoundary;
     matIds[3] = EBoundary;
     matIds[4] = EBoundary;
     
     TPZGeoMesh* gmesh = TPZGeoMeshTools::CreateGeoMeshOnGrid(dim, minX, maxX,
-                        matIds, nDivs, meshType,createBoundEls);
+                        matIds, nDivs, meshType,createBoundEls, distortion);
     // TPZGeoMesh* gmesh = TPZGeoMeshTools::CreateGeoMeshSingleEl(meshType,
     //                     volId,createBoundEls, bcId);
     

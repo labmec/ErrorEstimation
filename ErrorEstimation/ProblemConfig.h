@@ -15,6 +15,7 @@
 /// class to guide the error estimator
 struct ProblemConfig
 {
+    enum EGeometry {EQuad, ETrap, ELShape};
     enum TProbType {EDarcy,EElasticity};
 
     virtual ~ProblemConfig() = default;
@@ -45,6 +46,7 @@ struct ProblemConfig
     bool TensorNonConst = false;
     bool MeshNonConvex = false;
     TProbType problemtype = EDarcy;
+    EGeometry geometry = ELShape;
     
     STATE alpha=1;
     STATE Km = 0.;
