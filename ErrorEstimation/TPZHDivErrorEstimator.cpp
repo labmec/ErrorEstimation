@@ -2371,7 +2371,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::CreateSkeletonElements(TPZCompMesh *p
     // Assigns a material ID that has not been used yet // TODO move this to IdentifyPeripheralMatIds
     const int nel = gmesh->NElements();
 
-    if (fPrimalSkeletonMatId == 0) {
+    if (fPrimalSkeletonMatId != 3) {
         fPrimalSkeletonMatId = FindFreeMatId(gmesh);
     }
 

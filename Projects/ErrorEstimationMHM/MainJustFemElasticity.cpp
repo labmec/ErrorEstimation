@@ -139,12 +139,12 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs;
-    TPZVec<int> divs = {8};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
+    TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
     int pend = 2;
     
     TPZGeoMesh *gmesh;
-    
+
     switch(config.geometry) {
         case ProblemConfig::EGeometry::ELShape:
         {
@@ -183,10 +183,10 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                     
         for(int refsteps = 1; refsteps< nsteps; refsteps ++){
         
-            for (int idiv = 0; idiv < divs.size(); idiv++){
-                config.ndivisions =divs[idiv];
-                config.porder= iorder;
-                int divx = divs[idiv];
+//            for (int idiv = 0; idiv < divs.size(); idiv++){
+//                config.ndivisions =divs[idiv];
+//                config.porder= iorder;
+//                int divx = divs[idiv];
                 
                 
                 //    if (DIM == 2) nDivs = {divx,divx};
@@ -314,7 +314,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 //Printing results in a vtk file
                 TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(cmesh->MeshVector(), an.Mesh());
                 cmesh->LoadSolution(cmesh->Solution());
-                std::string plotfile = "res_h"+std::to_string(idiv)+"p"+std::to_string(iorder);//sem o .vtk no final
+                std::string plotfile = "res_h"+std::to_string(refsteps)+"p"+std::to_string(iorder);//sem o .vtk no final
                 constexpr int vtkRes{0};//Resolution
                 {
                     //Fields to be printed
@@ -335,52 +335,52 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 std::ofstream anPostProcessFile("postprocess.txt");
                 TPZManVector<REAL,7> error;
                 an.LoadSolution();
-                // cmesh->LoadSolution(cmesh->Solution());
-                // cmesh->ExpandSolution();
-                int64_t nelem = 0;
-                for (int64_t i = 0; i < an.Mesh()->NElements(); i++)
-                {
-                    auto el = an.Mesh()->ElementVec()[i];
-                    if (el->Dimension() == DIM) nelem++;
-                }
+                 cmesh->LoadSolution(cmesh->Solution());
+                 cmesh->ExpandSolution();
+                int64_t nelem = an.Mesh()->NElements();//0;
+//                for (int64_t i = 0; i < an.Mesh()->NElements(); i++)
+//                {
+//                    auto el = an.Mesh()->ElementVec()[i];
+//                    if (el->Dimension() == DIM) nelem++;
+//                }
                 
                 an.Mesh()->ElementSolution().Redim(nelem, 7);
                 an.SetExact(gAnalytic->ExactSolution(),5);
                 an.PostProcessError(error,true,anPostProcessFile);
                 
-                std::ofstream postVTK(plotfile+".0.vtk",std::ios::app);
-                TPZFMatrix<STATE> SolMatrix = an.Mesh()->ElementSolution();
-                postVTK << "CELL_DATA " << nelem << std::endl;
-                postVTK << "SCALARS ErrorStress float \nLOOKUP_TABLE default" << std::endl;
-                for (int64_t iel = 0; iel < nelem; iel++){
-                    postVTK << SolMatrix.GetVal(iel,0) << " ";
-                }
-                postVTK << std::endl;
-                postVTK << "SCALARS ErrorEnergy float \nLOOKUP_TABLE default" << std::endl;
-                for (int64_t iel = 0; iel < nelem; iel++){
-                    postVTK << SolMatrix.GetVal(iel,1) << " ";
-                }
-                postVTK << std::endl;
-                postVTK << "SCALARS ErrorDivStress float \nLOOKUP_TABLE default" << std::endl;
-                for (int64_t iel = 0; iel < nelem; iel++){
-                    postVTK << SolMatrix.GetVal(iel,2) << " ";
-                }
-                postVTK << std::endl;
-                postVTK << "SCALARS ErrorDisplacement float \nLOOKUP_TABLE default" << std::endl;
-                for (int64_t iel = 0; iel < nelem; iel++){
-                    postVTK << SolMatrix.GetVal(iel,3) << " ";
-                }
-                postVTK << std::endl;
-                postVTK << "SCALARS ErrorRotation float \nLOOKUP_TABLE default" << std::endl;
-                for (int64_t iel = 0; iel < nelem; iel++){
-                    postVTK << SolMatrix.GetVal(iel,4) << " ";
-                }
-                postVTK << std::endl;
-                postVTK << "SCALARS ErrorSymmetry float \nLOOKUP_TABLE default" << std::endl;
-                for (int64_t iel = 0; iel < nelem; iel++){
-                    postVTK << SolMatrix.GetVal(iel,5) << " ";
-                }
-                postVTK << std::endl;
+//                std::ofstream postVTK(plotfile+".0.vtk",std::ios::app);
+//                TPZFMatrix<STATE> SolMatrix = an.Mesh()->ElementSolution();
+//                postVTK << "CELL_DATA " << nelem << std::endl;
+//                postVTK << "SCALARS ErrorStress float \nLOOKUP_TABLE default" << std::endl;
+//                for (int64_t iel = 0; iel < nelem; iel++){
+//                    postVTK << SolMatrix.GetVal(iel,0) << " ";
+//                }
+//                postVTK << std::endl;
+//                postVTK << "SCALARS ErrorEnergy float \nLOOKUP_TABLE default" << std::endl;
+//                for (int64_t iel = 0; iel < nelem; iel++){
+//                    postVTK << SolMatrix.GetVal(iel,1) << " ";
+//                }
+//                postVTK << std::endl;
+//                postVTK << "SCALARS ErrorDivStress float \nLOOKUP_TABLE default" << std::endl;
+//                for (int64_t iel = 0; iel < nelem; iel++){
+//                    postVTK << SolMatrix.GetVal(iel,2) << " ";
+//                }
+//                postVTK << std::endl;
+//                postVTK << "SCALARS ErrorDisplacement float \nLOOKUP_TABLE default" << std::endl;
+//                for (int64_t iel = 0; iel < nelem; iel++){
+//                    postVTK << SolMatrix.GetVal(iel,3) << " ";
+//                }
+//                postVTK << std::endl;
+//                postVTK << "SCALARS ErrorRotation float \nLOOKUP_TABLE default" << std::endl;
+//                for (int64_t iel = 0; iel < nelem; iel++){
+//                    postVTK << SolMatrix.GetVal(iel,4) << " ";
+//                }
+//                postVTK << std::endl;
+//                postVTK << "SCALARS ErrorSymmetry float \nLOOKUP_TABLE default" << std::endl;
+//                for (int64_t iel = 0; iel < nelem; iel++){
+//                    postVTK << SolMatrix.GetVal(iel,5) << " ";
+//                }
+//                postVTK << std::endl;
                 
                 
                 // //Print Errors
@@ -398,7 +398,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 //                 << error[1] << " " << error[2] << " " << error[3] << " " << error[4]
                 //                 << " " << error[5] << " " << error[6] << std::endl;
                 
-                printerrors << iorder << ", " << std::fixed << std::setprecision(5) <<  1./double(divx) << ", "
+                printerrors << iorder << ", " << std::fixed << std::setprecision(5) <<  1./double(refsteps) << ", "
                 << std::scientific << std::setprecision(15) << error[0] << ", "
                 << error[3] << std::endl;
                 
@@ -409,7 +409,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 std::ofstream vtkfile(vtk_name.c_str());
                 TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
                 
-            }
+ //           }
             
         }
         
@@ -551,6 +551,18 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
     
     Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
+    //TODO
+    int nel=config.gmesh->NElements();
+    for (int iel=0; iel<nel; iel++) {
+        TPZGeoEl * geo =config.gmesh->ElementVec()[iel];
+        if (!geo) {
+            continue;
+        }
+        int matId = geo->MaterialId();
+        if (matId==3) {
+            config.gmesh-> DeleteElement(geo);
+        }
+    }
 
 //    {
 //        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";

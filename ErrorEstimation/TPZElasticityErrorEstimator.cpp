@@ -1634,16 +1634,16 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     }
    // std::cout << "GlobalIeff: " << globalIeff << "\n";
 
-    {
-        std::ofstream out("IeffPerElement.nb");
-        dataIeff.Print("Ieff = ", out, EMathematicaInput);
-        std::ofstream out1("InnerEstimated.nb");
-        InnerEstimated.Print("InnerEstimated = ", out1, EMathematicaInput);
-        std::ofstream out2("InnerExact.nb");
-        InnerExact.Print("InnerExact = ", out2, EMathematicaInput);
-        std::ofstream out3("BoundExact.nb");
-        BoundExact.Print("BoundExact = ", out3, EMathematicaInput);
-        std::ofstream out4("BoundEstimated.nb");
-        BoundEstimated.Print("BoundEstimated = ", out4, EMathematicaInput);
-    }
+//    {
+//        std::ofstream out("IeffPerElement.nb");
+//        dataIeff.Print("Ieff = ", out, EMathematicaInput);
+//        std::ofstream out1("InnerEstimated.nb");
+//        InnerEstimated.Print("InnerEstimated = ", out1, EMathematicaInput);
+//        std::ofstream out2("InnerExact.nb");
+//        InnerExact.Print("InnerExact = ", out2, EMathematicaInput);
+//        std::ofstream out3("BoundExact.nb");
+//        BoundExact.Print("BoundExact = ", out3, EMathematicaInput);
+//        std::ofstream out4("BoundEstimated.nb");
+//        BoundEstimated.Print("BoundEstimated = ", out4, EMathematicaInput);
+//    }
 }
