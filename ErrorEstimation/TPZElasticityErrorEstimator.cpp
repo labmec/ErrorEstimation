@@ -6,6 +6,7 @@
 #include "pzintel.h"
 #include "pzsubcmesh.h"
 #include <Material/TPZLagrangeMultiplierCS.h>
+#include <Material/TPZLagrangeMultiplier.h>
 #include <Mesh/TPZCompMeshTools.h>
 #include <Mesh/TPZGeoElSideAncestors.h>
 #include <Mesh/pzmultiphysicscompel.h>
@@ -14,6 +15,7 @@
 #include "pzmultiphysicscompel.h"
 #include "pzbuildmultiphysicsmesh.h"
 #include "Projection/TPZL2Projection.h"
+#include "TPZGeoElSidePartition.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("ElasticityErrorEstimator"));
@@ -179,7 +181,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
         active[0] = 1;
     }
 
-    CreateSkeletonElements(meshvec[1]);
+    // CreateSkeletonElements(meshvec[1]);
     CreateSkeletonApproximationSpace(meshvec[1]);
 
     // If we reconstruct in H(div) we need to create an additional skeleton for the multiphysics interfaces
@@ -204,6 +206,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     //RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
+    
 
     if(fPostProcesswithHDiv) {
         // Create multiphysics interface computational elements
@@ -928,14 +931,13 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
 //            }
 //        }
 //    }
-    
-    
-    //%%%%
+
 
   //  const TPZManVector<int64_t> geoToMHM = fMHM->GetGeoToMHMDomain();
-
     const int nel = gmesh->NElements();
     int dim = gmesh->Dimension();
+
+    
     for (int iel = 0; iel < nel; iel++) {
 
         TPZGeoEl *gel = gmesh->Element(iel);
@@ -945,31 +947,33 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
         if (!cel) continue;
         if (gel->Dimension() != dim) continue;
 
-        // Iterates through the sides of the element
-        int nsides = gel->NSides();
-        for (int iside = 0; iside < nsides; iside++) {
-            TPZGeoElSide gelside(gel, iside);
+        if (gel->Father()){
+            // Iterates through the sides of the element
+            int nsides = gel->NSides();
+            for (int iside = 0; iside < nsides; iside++) {
+                TPZGeoElSide gelside(gel, iside);
 
-            // Filters boundary sides
-            if (gelside.Dimension() != dim - 1) continue;
+                // Filters boundary sides
+                if (gelside.Dimension() != dim - 1) continue;
 
-            for (TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour++) {
-                TPZGeoEl *neigh_gel = neighbour.Element();
-                if (neigh_gel->Dimension() != dim) continue;
+                for (TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour++) {
+                    TPZGeoEl *neigh_gel = neighbour.Element();
+                    if (neigh_gel->Dimension() != dim) continue;
 
-                int64_t gel_index = gel->Index();
-                int64_t neigh_gel_index = neighbour.Element()->Index();
-               // if (geoToMHM[gel_index] != geoToMHM[neigh_gel_index]) {
-                    if (!gelside.HasNeighbour(fPrimalSkeletonMatId)) {
-                        TPZGeoElBC gbc(gelside, fPrimalSkeletonMatId);
-                        break;
-                    }
-               // }
+                    int64_t gel_index = gel->Index();
+                    int64_t neigh_gel_index = neighbour.Element()->Index();
+                // if (geoToMHM[gel_index] != geoToMHM[neigh_gel_index]) {
+                        if (!gelside.HasNeighbour(fPrimalSkeletonMatId)) {
+                            TPZGeoElBC gbc(gelside, fPrimalSkeletonMatId);
+                            break;
+                        }
+                // }
+                }
             }
         }
     }
 
-
+   
      
 //ifdef ERRORESTIMATION_DEBUG
     {
@@ -985,12 +989,17 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPrimalSkeletonMatId);
+    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fConfig.fWrapMaterialId);
     skeletonMat->SetDimension(dim - 1);
-    skeletonMat->SetNStateVariables(2);
+    skeletonMat->SetNStateVariables(dim);
     displacement_mesh->InsertMaterialObject(skeletonMat);
 
-    std::set<int> matIdSkeleton = { fPrimalSkeletonMatId };
+    TPZNullMaterial<> *LagmultMat = new TPZNullMaterial<>(fConfig.fLagMultiplierMaterialId);
+    LagmultMat->SetDimension(dim - 1);
+    LagmultMat->SetNStateVariables(dim);
+    displacement_mesh->InsertMaterialObject(LagmultMat);
+
+    std::set<int> matIdSkeleton = { fConfig.fWrapMaterialId, fConfig.fLagMultiplierMaterialId};
     gmesh->ResetReference();
 
     displacement_mesh->ApproxSpace().CreateDisconnectedElements(true);
@@ -1029,7 +1038,8 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
         if (!intel) DebugStop();
         TPZGeoEl* gel = cel->Reference();
         // filters just (d-1) dimensional elements
-        if (gel->Dimension() == dim) continue;
+        // if (gel->Dimension() != dim) continue;
+        if (gel->MaterialId() != fConfig.fInterfaceMaterialId) continue;
 
         int nsides = gel->NSides();
         for (int is = 0; is < nsides; is++) {
@@ -1362,7 +1372,7 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
         TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
-        if (matid == fPrimalSkeletonMatId || matid == fHybridizer.fLagrangeInterface) {
+        if (matid == fConfig.fLagMultiplierMaterialId || matid == fHybridizer.fLagrangeInterface) {
             fPrimalWeights[el] = 0.;
             fMatid_weights[matid] = 0.;
             continue;
@@ -1389,7 +1399,7 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
             }
         } else {
             TPZMixedElasticityND *mixedElasticityMaterial = dynamic_cast<TPZMixedElasticityND *>(mat);
-            if (!mixedElasticityMaterial) DebugStop();
+            if (!mixedElasticityMaterial) continue;
 
             STATE weight;
             TPZVec<REAL> xi(gel->Dimension(), 0.);

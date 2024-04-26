@@ -47,6 +47,10 @@ struct ProblemConfig
     bool MeshNonConvex = false;
     TProbType problemtype = EDarcy;
     EGeometry geometry = ELShape;
+
+    int fWrapMaterialId = 0;
+    int fInterfaceMaterialId = 0;
+    int fLagMultiplierMaterialId = 0;
     
     STATE alpha=1;
     STATE Km = 0.;

@@ -174,7 +174,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps =3;
+    int nsteps =4;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -225,8 +225,8 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 //Sets the type of hybridizantion desired.
                 //The current options are HybridizationType::ENone, HybridizationType::EStandard
                 //and HybridizationType::ESemi (the last only works with H(div)-constant spaces)
-                hdivCreator.HybridType() = HybridizationType::ENone;
-                // hdivCreator.HybridType() = HybridizationType::EStandard;
+                // hdivCreator.HybridType() = HybridizationType::ENone;
+                hdivCreator.HybridType() = HybridizationType::EStandard;
                 
                 // Prints gmesh mesh properties
                 std::string vtk_name2 = "geoMeshLshape.vtk";
@@ -273,6 +273,10 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 // std::string txt = "cmesh.txt";
                 // std::ofstream myfile(txt);
                 // cmesh->Print(myfile);
+
+                config.fWrapMaterialId = hdivCreator.HybridData().fWrapMatId;
+                config.fInterfaceMaterialId = hdivCreator.HybridData().fInterfaceMatId;
+                config.fLagMultiplierMaterialId = hdivCreator.HybridData().fLagrangeMatId;
                 
                 //Create the analysis environment
                 TPZLinearAnalysis an(cmesh,RenumType::ESloan);

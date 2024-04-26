@@ -636,8 +636,10 @@ void Tools::DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
                 TPZGeoElSide neighbour(gelside.Neighbour());
                 bool found = false;
                 while (neighbour != gelside) {
-                    if (neighbour.HasSubElement()) {
-                        if (neighbour.NSubElements() > 1) {
+                    if (neighbour.HasSubElement())
+                    {
+                        if(neighbour.NSubElements() > 1)
+                        {
                             geldivide.Push(gel);
                             found = true;
                             break;
@@ -768,6 +770,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         }
     }
     DivideLowerDimensionalElements(gmeshToRefine);
+    gmeshToRefine->BuildConnectivity();
 }
 
 TPZGeoMesh* Tools::CreateLCircleGeoMesh() {

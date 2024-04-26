@@ -184,6 +184,7 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
         gmesh->ResetReference();
         int dim = gmesh->Dimension();
         pressureMesh->DeleteMaterial(1);
+        pressureMesh->DeleteMaterial(fConfig.fLagMultiplierMaterialId);
         TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(1,2,2);
         pressureMesh->InsertMaterialObject(l2p);
 
@@ -281,7 +282,7 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
         }
         // #endif
 
-        CreateSkeletonElements(pressureMesh);
+        // CreateSkeletonElements(pressureMesh);
 
         return pressureMesh;
     }
@@ -958,9 +959,44 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
     // neighbours
     TPZStack<TPZGeoElSide> smallerSkelSides;
     bool noHangingSide = true;
+    // if (volumeNeighSides.size() == 1) {
+    //     noHangingSide = false;
+    //     TPZGeoElSidePartition partition(largeSkeletonSide);
+    //     auto a = partition.HasHigherLevelNeighbour(fPrimalSkeletonMatId);
+    //     // partition.HigherLevelNeighbours(smallerSkelSides, fPrimalSkeletonMatId);
+    //     partition.HigherLevelNeighbours(smallerSkelSides, 1);
+    //     if (smallerSkelSides.size() == 1) {
+    //         DebugStop();
+    //     } else {
+    //         std::cout << "Smaller skel sides size = " << smallerSkelSides.size() << std::endl;
+    //     }
+    //     volumeNeighSides.resize(2);
+    //     // volumeNeighSides[0] = smallerSkelSides[0].Reference();
+    //     volumeNeighSides[1] = smallerSkelSides[1].Reference();
+
+    //     //      TPZCompElSide side(volumeNeighSides[0].Element(),volumeNeighSides[0].Side());
+    //     // side.HigherLevelElementList(neigh,1,0);
+    //     // volumeNeighSides.resize(2);
+    //     // // volumeNeighSides[0] = smallerSkelSides[0].Reference();
+    //     // int sideright = smallerSkelSides[0].Element()->FatherIndex();
+    //     // auto kkk = smallerSkelSides[0].Father2();
+    //     // auto kkk2 = kkk.Reference();
+    
+    //     // // volumeNeighSides[1] = smallerSkelSides[1].Father2().Reference();
+    //     // auto celright = pressuremesh->Element(sideright);
+    //     // TPZCompElSide volright(celright,volumeNeighSides[0].Side());
+        
+    //     // volumeNeighSides[1] = volright;
+
+
+
+    // }
+
     if (volumeNeighSides.size() == 1) {
         noHangingSide = false;
         TPZGeoElSidePartition partition(largeSkeletonSide);
+        TPZStack<TPZGeoElSide> allneigh;
+        largeSkeletonSide.AllNeighbours(allneigh);
         partition.HigherLevelNeighbours(smallerSkelSides, fPrimalSkeletonMatId);
         if (smallerSkelSides.size() == 1) DebugStop();
         for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
@@ -1335,7 +1371,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverages() {
 
 template <typename MixedMaterial>
 void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &node_celside) {
-    int skeletonMatId = fPrimalSkeletonMatId;
+    int skeletonMatId = fConfig.fWrapMaterialId;
     TPZCompMesh *pressure_mesh = PrimalMesh();
     int dim = pressure_mesh->Dimension();
 
