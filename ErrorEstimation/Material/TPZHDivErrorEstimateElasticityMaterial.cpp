@@ -172,7 +172,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         part1[i] = eps_exactV[i] - Csigma_femV[i];
         part2[i] = sigma_exactV[i] - stress_femV[i];
     }
-    errors[2] = InnerVec(part1, part2);
+    errors[2] = TPZMixedElasticityND::InnerVec(part1, part2);
 
 
     /// Como calcular do erro estimado na norma energia?  || sigma_fem - Aeps(u_rec)||_C
@@ -188,7 +188,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         part1[i] = Csigma_femV[i] - eps_reconstructedV[i];
         part2[i] = stress_femV[i] - sigma_reconstructedV[i];
     }
-    errors[3] = InnerVec(part1, part2);
+    errors[3] = TPZMixedElasticityND::InnerVec(part1, part2);
     
 
 #ifdef ERRORESTIMATION_DEBUG2

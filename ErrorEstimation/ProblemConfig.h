@@ -15,7 +15,7 @@
 /// class to guide the error estimator
 struct ProblemConfig
 {
-    enum EGeometry {EQuad, ETrap, ELShape};
+    enum EGeometry {EQuad, ETrap, ELShape, ECrack};
     enum TProbType {EDarcy,EElasticity};
 
     virtual ~ProblemConfig() = default;

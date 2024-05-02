@@ -69,6 +69,7 @@
 #include "TPZElasticityErrorEstimator.h"
 //
 
+TPZGeoMesh* ReadMeshFromGmsh(std::string file_name);
 std::ofstream printerrors("results_errors2.txt",std::ios::app);
 
 enum EMatid  {ENone, EDomain, EBoundary};
@@ -98,12 +99,12 @@ int main() {
     
 
     ProblemConfig pConfig;
-    pConfig.geometry = ProblemConfig::EGeometry::ELShape;
+    pConfig.geometry = ProblemConfig::EGeometry::ECrack;
     pConfig.exactElast = new TElasticity2DAnalytic;
     //pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
     switch (pConfig.geometry){
-        case ProblemConfig::EGeometry::ELShape:
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
+        case ProblemConfig::EGeometry::ECrack:
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ECrack;
             break;
         case ProblemConfig::EGeometry::EQuad:
         case ProblemConfig::EGeometry::ETrap:
@@ -146,6 +147,16 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     TPZGeoMesh *gmesh;
 
     switch(config.geometry) {
+        case ProblemConfig::EGeometry::ECrack:
+        {
+            gmesh = ReadMeshFromGmsh("../../../Crack.msh");
+            // TPZVec<int> bcids(8, EBoundary);
+            // gmesh = Tools::CreateQuadLShapeMesh(bcids);
+
+            // int uniref = 3;
+            // Tools::UniformRefinement(uniref, gmesh);
+            break;
+        }
         case ProblemConfig::EGeometry::ELShape:
         {
             TPZVec<int> bcids(8, EBoundary);
@@ -248,9 +259,12 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                         double mu = 1;//79.3;
                         elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
                         elas->gPoisson = 0.5*lambda/(lambda+mu);
+                        //Crack
+                        elas->gE = 100.;
+                        elas->gPoisson = 0.3;
                         // elas->fProblemType = TElasticity2DAnalytic::EDispx;
                         elas->fProblemType = config.exactElast->fProblemType;
-                        // elas->fPlaneStress = 0;
+                        elas->fPlaneStress = 0;
                         gAnalytic = elas;
                     } else if (DIM == 3){
                         TElasticity3DAnalytic *elas = new TElasticity3DAnalytic;
@@ -578,4 +592,25 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     std::string vtk_name = "geoMeshAfterAdapt_1.vtk";
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+}
+
+TPZGeoMesh*
+ReadMeshFromGmsh(std::string file_name)
+{
+    //read mesh from gmsh
+    TPZGeoMesh *gmesh;
+    gmesh = new TPZGeoMesh();
+    {
+        TPZGmshReader reader;
+        // essa interface permite voce mapear os nomes dos physical groups para
+        // o matid que voce mesmo escolher
+        TPZManVector<std::map<std::string,int>,4> stringtoint(4);
+        stringtoint[2]["Domain"] = 1;
+        stringtoint[1]["Boundaries"] = 2;
+
+        reader.SetDimNamePhysical(stringtoint);
+        reader.GeometricGmshMesh(file_name,gmesh);
+    }
+
+    return gmesh;
 }
