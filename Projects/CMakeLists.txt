@@ -3,7 +3,7 @@ add_subdirectory(Tools)
 
 # Created executable targets
 add_subdirectory(ErrorNaca)
-add_subdirectory(ErrorNacaH1HDiv)
+add_subdirectory(ErrorH1HDiv)
 add_subdirectory(ErrorEstimationH1)
 add_subdirectory(ErrorEstimationH1New)
 add_subdirectory(ErrorEstimationHDiv)
