@@ -54,6 +54,8 @@ namespace Tools {
 
     TPZGeoMesh *CreateQuadLShapeMesh(TPZVec<int> &bcids);
 
+    TPZGeoMesh *CreateTriangLShapeMesh(int nel, TPZVec<int>& bcids);
+
     TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
 
     TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);

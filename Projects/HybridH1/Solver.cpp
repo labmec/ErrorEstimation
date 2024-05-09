@@ -231,23 +231,26 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     TPZCompEl* cel = cmeshH1->Element(i);
                     TPZGeoEl* gel = cel->Reference();
                     gelstohref.insert(gel->Index());
-                } else if (0.2*threshold*maxerror >= elementerror){
+                } else if (0.4*threshold*maxerror >= elementerror){
                     TPZCompEl* cel = cmeshH1->Element(i);
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                     int porder = intel->GetPreferredOrder();
                     TPZGeoEl* gel = cel->Reference();
                     if (gel->Dimension() != cmeshH1->Dimension()) continue;
-                    if(porder<1){
+                    if(porder<2){
                         gelstoPplus[gel->Index()] = porder+1;
                     }
                 }
-                else{
+                else
+                {
                     TPZCompEl* cel = cmeshH1->Element(i);
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                     int porder = intel->GetPreferredOrder();
                     TPZGeoEl* gel = cel->Reference();
                     if (gel->Dimension() != cmeshH1->Dimension()) continue;
-                    gelstoPplus[gel->Index()] = porder+1;
+                    if(porder < 6){
+                        gelstoPplus[gel->Index()] = porder+1;
+                    }
                     
                 }
                 
@@ -557,7 +560,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
             plotname = out.str();
         }
-        int resolution = 3;
+        int resolution = 0;
         
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(resolution,dim);

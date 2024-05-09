@@ -26,15 +26,17 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[1] = bcids[3] = -2;
     }
     
-    if(1){ //Square shape domain quadrilateral mesh
+    if(0){ //Square shape domain quadrilateral mesh
         isOriginCentered = 1;
         gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
+        
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
     }
     else{ //Lshape domain quadrilateral mesh
     TPZManVector<int, 8> Lshape_bcids(8, -1);
-    gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
+    //gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
+    gmesh = Tools::CreateTriangLShapeMesh(1, Lshape_bcids);
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
     }

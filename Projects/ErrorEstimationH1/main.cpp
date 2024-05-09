@@ -102,11 +102,11 @@ int main(int argc, char *argv[]) {
             
         }
         else {
-            gmesh = CreateGeoMesh2(); //[0,1]x[0,1] quadrilateral
+            //gmesh = CreateGeoMesh2(); //[0,1]x[0,1] quadrilateral
             //gmesh = CreateGeoMesh(); //[-1,1]x[-1,1] quadrilateral
 
             TPZManVector<int, 4> bcids(8, -1);
-            //gmesh = CreateLShapeMesh(1, bcids);//CreateGeoCircleMesh();
+            gmesh = CreateLShapeMesh(1, bcids);//CreateGeoCircleMesh();
             //gmesh = CreateSquareShapeMesh2(1, bcids);//[0,1]x[0,1] triangular
             //gmesh = CreateSquareShapeMesh(1, bcids);//[-1,1]x[-1,1] triangular
         }
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
         SimulationCase Case1;
         
         Case1.nthreads = 0;
-        Case1.numinitialrefine = 3;//ndiv;
+        Case1.numinitialrefine = 0;//ndiv;
         Case1.porder = 2;
         Case1.dir_name = "QuadCase1";
         Case1.gmesh = gmesh;
@@ -563,16 +563,16 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
             if(!gel || gel->HasSubElement()) continue;
             if(gel->Dimension() == 0) continue;
             
-            if (division < nDiv-1){
-                gel->Divide(children);
-            }
-            else {
-                if (elem > count & elem % 2 == 0 ){
-                    gel->Divide(children);
-                }
-            }
+//            if (division < nDiv-1){
+//                gel->Divide(children);
+//            }
+//            else {
+//                if (elem > count & elem % 2 == 0 ){
+//                    gel->Divide(children);
+//                }
+//            }
             
-            //gel->Divide(children);
+            gel->Divide(children);
         }
         count = nels;
 

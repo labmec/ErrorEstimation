@@ -529,7 +529,9 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
                 TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
                 int64_t seqnum = c.SequenceNumber();
+                
                 weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
+                                
             }
             
             
@@ -807,19 +809,6 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             //multiphysicsmesh->Print(out);
         }
         
-        if(0){ //just to plot hat functions of one color
-            //meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
-            
-            TPZStack<std::string> scalnames2, vecnames2;
-            scalnames2.Push("Solution");
-            std::stringstream sout;
-            sout << "Hatfunction" << ".vtk";
-            TPZLinearAnalysis an2(meshpatch);
-            an2.DefineGraphMesh(meshpatch->Dimension(), scalnames2, vecnames2, sout.str());
-            int resolution = 0;
-            an2.PostProcess(resolution, meshpatch->Dimension());
-        }
-        
         //Recovery the initial comp. elements
         for (int64_t el = 0; el < nelem; el++) {
             multiphysicsmesh->ElementVec()[el] = elpointers[el];
@@ -879,7 +868,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         //multiphysicsmesh->Solution().Print("solu2");
     }// colors loop
     
-    if(0){// Just to check the property of the partition of unity
+    if(0){// Just to check the property of the partition of unity/plot one hat function
         TPZFMatrix<STATE> &weightsol = meshpatch->Solution();
         for (int color_ = 0; color_ < ncolors; color_++){
             int npatch = fVecVecPatches[color_].size();
@@ -887,7 +876,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 int64_t partitionindex = fVecVecPatches[color_][patch_].fPartitionConnectIndex;
                 TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
                 int64_t seqnum = c.SequenceNumber();
-                weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
+                if(partitionindex == 11){
+                    weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
+                    
+                }else{
+                    weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 0.;
+                }
             }
         }
         meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
@@ -897,7 +891,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         sout << "SumHatfunctions" << ".vtk";
         TPZLinearAnalysis an2(meshpatch);
         an2.DefineGraphMesh(meshpatch->Dimension(), scalnames2, vecnames2, sout.str());
-        int resolution = 0;
+        int resolution = 4;
         an2.PostProcess(resolution, meshpatch->Dimension());
     }
     
