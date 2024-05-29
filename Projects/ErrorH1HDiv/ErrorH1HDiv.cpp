@@ -23,7 +23,8 @@
 #include "pzcheckgeom.h"
 #include <TPZSimpleTimer.h>
 #include "TPZVTKGenerator.h"
-#include "Projection/TPZL2ProjectionCS.h"                   
+#include "Projection/TPZL2ProjectionCS.h"            
+#include "TPZHDivApproxCreator.h"       
 
 #include <fstream>
 #include <ctime>
@@ -32,6 +33,7 @@
 
 //#include "pzgengrid.h"
 #include "TPZGenGrid2D.h"
+
 
 #include "tpzarc3d.h"
 #include "tpzgeoblend.h"
@@ -53,14 +55,21 @@ void VerifyDerivative(TPZBlendNACA &naca, REAL point);
 /// @return a geometric mesh
 TPZGeoMesh *ReadGmsh(const std::string &filename, const TPZNacaProfile &naca);
 
+TPZGeoMesh *ReadGmshSimple(const std::string &filename);
+
 /// @brief Create a computational mesh with H1 elements
 TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon);
+
+/// @brief Create a computational mesh with H1 elements
+TPZCompMesh *CreateH1CompMeshQuadMesh(TPZGeoMesh *gmesh, int64_t porder);
 
 /// @brief Create a computational mesh with L2 elements
 TPZCompMesh *CreateL2CompMesh(TPZGeoMesh *gmesh);
 
 /// @brief Create the computational mesh with HDiv elements
 TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh);
+
+TPZCompMesh* CreateHDivMultiphysicsCompQuadMesh(TPZGeoMesh* gmesh, const int porder);
 
 /// @brief Create the computational "multiphysics" mesh with only HDiv elements
 TPZMultiphysicsCompMesh *CreateMultiphysicsMesh(TPZCompMesh *cmeshHDiv, TPZCompMesh *cmeshL2, TPZGeoMesh *gmesh);
@@ -94,6 +103,8 @@ void ComputeBeta(TPZGeoMesh *gmesh, TPZCompMesh *cmesh, TPZFMatrix<STATE> &phi_0
 // void ComputeBeta(TPZGeoMesh *gmesh, TPZCompMesh *cmesh, TPZFMatrix<STATE> *phi_0, TPZFMatrix<STATE> *phi_1, REAL &Beta);
 
 
+void SolveSyst(TPZLinearAnalysis &an, TPZCompMesh *cmesh, DecomposeType dtype);
+
 int volmat = 1;
 int cutmat = 2;
 int profilemat = 3;
@@ -101,6 +112,8 @@ int boundmat = 4;
 int pointmat = 5;
 int trailingedgemat = 6;
 int blendmat = 7;
+
+enum EMatId {ENone = 0, EDOMAIN = 1, EBCL = 2, EBCR = 3, EBCT = 4, EBCD = 5};
 
 // int volmat = 1;
 // int cutplusmat = 2;
@@ -120,6 +133,62 @@ auto f = [](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &m
 };
 
 int main() {
+
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
+#endif
+
+    const bool isHDiv = true;
+
+    TPZGeoMesh *gmesh = ReadGmshSimple("quadmesh.msh");
+
+    {
+        std::ofstream out("gmesh.txt");
+        gmesh->Print(out);
+
+        std::ofstream out2("gmesh.vtk"); 
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
+    }
+
+    // TPZCheckGeom check(gmesh);
+    // check.UniformRefine(4);
+
+    // {
+    //     std::ofstream out4("gmeshfine.txt");
+    //     gmesh->Print(out4);
+
+    //     std::ofstream out5("gmeshfine.vtk"); 
+    //     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
+    // }
+
+    const int porder = 1;
+    TPZCompMesh* cmesh = nullptr;
+    DecomposeType dtype = ECholesky;
+    if (isHDiv){
+        dtype = ELDLt;
+        cmesh = CreateHDivMultiphysicsCompQuadMesh(gmesh,porder);
+        std::cout << "\nRunning with hdiv" << std::endl;
+    }
+    else{
+        cmesh = CreateH1CompMeshQuadMesh(gmesh,porder);
+    }
+
+    TPZLinearAnalysis an(cmesh,RenumType::EDefault);
+    SolveSyst(an,cmesh,dtype);
+
+    PrintResults(an,cmesh);
+
+    // {
+    //     std::ofstream out("cmesh.txt");
+    //     cmesh->Print(out);
+    // }
+
+    delete cmesh;
+    delete gmesh;
+    return 0;
+}
+
+int oldmain() {
 
 #ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
@@ -322,6 +391,63 @@ TPZGeoMesh *ReadGmsh(const std::string &meshfilename, const TPZNacaProfile &naca
 
 }
 
+TPZGeoMesh *ReadGmshSimple(const std::string &meshfilename)
+{
+    TPZGmshReader gmsh;
+    gmsh.SetVerbose(1);
+    gmsh.GetDimNamePhysical()[2]["dom"] = EDOMAIN;
+    gmsh.GetDimNamePhysical()[1]["bcL"] = EBCL;
+    gmsh.GetDimNamePhysical()[1]["bcR"] = EBCR;
+    gmsh.GetDimNamePhysical()[1]["bcT"] = EBCT;  
+    gmsh.GetDimNamePhysical()[1]["bcD"] = EBCD;
+    auto gmesh = gmsh.GeometricGmshMesh(meshfilename);
+
+    return gmesh;
+
+}
+
+TPZCompMesh *CreateH1CompMeshQuadMesh(TPZGeoMesh *gmesh, int64_t porder) {
+
+    // Mesh creation
+    TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
+    int dim = 2;
+    cmesh->SetDimModel(dim);
+    cmesh->SetDefaultOrder(porder);
+
+    // Inserting darcy flow material in the mesh
+    TPZDarcyFlow *material = new TPZDarcyFlow(EDOMAIN,dim);
+    cmesh->InsertMaterialObject(material);
+
+    // Data structure for bcs
+    TPZFMatrix<STATE> val1(1,1,0.);
+    TPZManVector<STATE> val2(1,0.);
+
+    // Inserting boundary conditions
+    // Left of domain
+    const int dirichlet = 0, neumann = 1;
+    val2[0] = 1;
+    auto bndL = material->CreateBC(material, EBCL, dirichlet, val1, val2);
+    cmesh->InsertMaterialObject(bndL);
+
+    // Right of domain
+    val2[0] = 0;
+    auto bndR = material->CreateBC(material, EBCR, dirichlet, val1, val2);
+    cmesh->InsertMaterialObject(bndR);
+
+    // Down (bottom) of domain
+    auto bndD = material->CreateBC(material, EBCD, neumann, val1, val2);
+    cmesh->InsertMaterialObject(bndD);
+
+    // Top of domain
+    auto bndT = material->CreateBC(material, EBCT, neumann, val1, val2);
+    cmesh->InsertMaterialObject(bndT);  
+
+    cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    cmesh->AutoBuild();
+
+    return cmesh;
+}
+
 /// @brief Create a computational mesh with H1 elements
 TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
 {
@@ -522,6 +648,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh)
      std::set<int> materialIDs;
      const int dim = cmeshHDiv->Dimension();
      TPZMixedDarcyFlow *material = new TPZMixedDarcyFlow(volmat,dim);
+     
      cmesh_m->InsertMaterialObject(material);
      materialIDs.insert(volmat);
 
@@ -842,5 +969,50 @@ void ComputeBeta(TPZGeoMesh *gmesh, TPZCompMesh *cmesh, TPZFMatrix<STATE> &phi_0
     }
 }
 
+void SolveSyst(TPZLinearAnalysis &an, TPZCompMesh *cmesh, DecomposeType dtype)
+{
+    TPZSSpStructMatrix<STATE> strmat(cmesh);
+    an.SetStructuralMatrix(strmat);
+    TPZStepSolver<STATE> step;
 
+    step.SetDirect(dtype);
+    an.SetSolver(step);
+    an.Run();
+}
 
+TPZCompMesh* CreateHDivMultiphysicsCompQuadMesh(TPZGeoMesh* gmesh, const int porder) {
+    TPZHDivApproxCreator approxCreator(gmesh);
+    approxCreator.HdivFamily() = HDivFamily::EHDivStandard;
+    approxCreator.ProbType() = ProblemType::EDarcy;
+    approxCreator.SetDefaultOrder(porder);
+
+    const int dim = approxCreator.GeoMesh()->Dimension();
+
+    // Creating domain material
+    TPZMixedDarcyFlow* matdarcy = nullptr;
+    matdarcy = new TPZMixedDarcyFlow(EDOMAIN,dim);
+    matdarcy->SetConstantPermeability(1.);
+    approxCreator.InsertMaterialObject(matdarcy);
+
+    // ========> Boundary Conditions
+    // -----------------------------
+    TPZBndCondT<STATE> *BCond1 = nullptr, *BCond2 = nullptr, *BCond3 = nullptr, *BCond4 = nullptr;
+    const int dirType = 0, neuType = 1;
+
+    TPZFMatrix<STATE> val1(1,1,0.);
+    TPZManVector<STATE> val2(1,1.);
+    BCond1 = matdarcy->CreateBC(matdarcy, EBCL, dirType, val1, val2);
+    val2[0] = 0.;
+    BCond2 = matdarcy->CreateBC(matdarcy, EBCR, dirType, val1, val2);
+    BCond3 = matdarcy->CreateBC(matdarcy, EBCD, neuType, val1, val2);
+    BCond4 = matdarcy->CreateBC(matdarcy, EBCT, neuType, val1, val2);
+    
+    
+    if(BCond1) approxCreator.InsertMaterialObject(BCond1);
+    if(BCond2) approxCreator.InsertMaterialObject(BCond2);
+    if(BCond3) approxCreator.InsertMaterialObject(BCond3);
+    if(BCond4) approxCreator.InsertMaterialObject(BCond4);
+    
+    TPZMultiphysicsCompMesh *cmesh = approxCreator.CreateApproximationSpace();
+    return cmesh;
+}
