@@ -132,6 +132,8 @@ auto f = [](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &m
     matVal(1,0) = 0.5;
 };
 
+TLaplaceExample1 laplaceex1;
+
 int main() {
 
 #ifdef PZ_LOG
@@ -139,6 +141,7 @@ int main() {
 #endif
 
     const bool isHDiv = true;
+    laplaceex1.fExact = TLaplaceExample1::EBubble2D;
 
     TPZGeoMesh *gmesh = ReadGmshSimple("quadmesh.msh");
 
@@ -161,29 +164,35 @@ int main() {
     //     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
     // }
 
-    const int porder = 1;
-    TPZCompMesh* cmesh = nullptr;
+    const int porder = 2;
     DecomposeType dtype = ECholesky;
-    if (isHDiv){
+    {
+        TPZCompMesh* cmesh = nullptr;
         dtype = ELDLt;
         cmesh = CreateHDivMultiphysicsCompQuadMesh(gmesh,porder);
         std::cout << "\nRunning with hdiv" << std::endl;
+        TPZLinearAnalysis an(cmesh,RenumType::EDefault);
+        SolveSyst(an,cmesh,dtype);
+
+        PrintResults(an,cmesh);
+        delete cmesh;
     }
-    else{
+    {
+        TPZCompMesh* cmesh = nullptr;
         cmesh = CreateH1CompMeshQuadMesh(gmesh,porder);
+        TPZLinearAnalysis an(cmesh,RenumType::EDefault);
+        SolveSyst(an,cmesh,dtype);
+
+        PrintResults(an,cmesh);
+        delete cmesh;
     }
 
-    TPZLinearAnalysis an(cmesh,RenumType::EDefault);
-    SolveSyst(an,cmesh,dtype);
-
-    PrintResults(an,cmesh);
 
     // {
     //     std::ofstream out("cmesh.txt");
     //     cmesh->Print(out);
     // }
 
-    delete cmesh;
     delete gmesh;
     return 0;
 }
@@ -416,6 +425,7 @@ TPZCompMesh *CreateH1CompMeshQuadMesh(TPZGeoMesh *gmesh, int64_t porder) {
 
     // Inserting darcy flow material in the mesh
     TPZDarcyFlow *material = new TPZDarcyFlow(EDOMAIN,dim);
+    material->SetForcingFunction(laplaceex1.ForceFunc(),3);
     cmesh->InsertMaterialObject(material);
 
     // Data structure for bcs
@@ -426,20 +436,24 @@ TPZCompMesh *CreateH1CompMeshQuadMesh(TPZGeoMesh *gmesh, int64_t porder) {
     // Left of domain
     const int dirichlet = 0, neumann = 1;
     val2[0] = 1;
-    auto bndL = material->CreateBC(material, EBCL, dirichlet, val1, val2);
+    auto bndL = material->CreateBC(material, EBCL, neumann, val1, val2);
+    bndL->SetForcingFunctionBC(laplaceex1.ExactSolution(),1);
     cmesh->InsertMaterialObject(bndL);
 
     // Right of domain
     val2[0] = 0;
     auto bndR = material->CreateBC(material, EBCR, dirichlet, val1, val2);
+    bndR->SetForcingFunctionBC(laplaceex1.ExactSolution(),1);
     cmesh->InsertMaterialObject(bndR);
 
     // Down (bottom) of domain
-    auto bndD = material->CreateBC(material, EBCD, neumann, val1, val2);
+    auto bndD = material->CreateBC(material, EBCD, dirichlet, val1, val2);
+    bndD->SetForcingFunctionBC(laplaceex1.ExactSolution(),1);
     cmesh->InsertMaterialObject(bndD);
 
     // Top of domain
-    auto bndT = material->CreateBC(material, EBCT, neumann, val1, val2);
+    auto bndT = material->CreateBC(material, EBCT, dirichlet, val1, val2);
+    bndT->SetForcingFunctionBC(laplaceex1.ExactSolution(),1);
     cmesh->InsertMaterialObject(bndT);  
 
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
@@ -770,9 +784,17 @@ void PrintResults(TPZLinearAnalysis &an, TPZCompMesh *cmesh)
     TPZSimpleTimer postProc("Post processing time");
     //declara uma variável chamada postProc, do tipo TPZSimpleTimer, chamando um construtor com uma string como argumento, igual a "Post processing time".
     //inicializa um temporizador chamado postProc que será usado para medir o tempo gasto no pós-processamento.
-    const std::string plotfile = "postprocess";
+    TPZMultiphysicsCompMesh *mphysics = dynamic_cast<TPZMultiphysicsCompMesh *>(cmesh);
+    std::stringstream sout;
+    sout << "Darcy_" << laplaceex1.Name() << "_p" << cmesh->GetDefaultOrder();
+    if(mphysics) {
+        sout << "_Hdiv";
+    } else {
+        sout << "_H1";
+    }
+    const std::string plotfile = sout.str();
     //define o nome base do arquivo de saída para o pós-processamento. O nome base é "postprocess".
-    constexpr int vtkRes{0};
+    constexpr int vtkRes{2};
     //define a variável do tipo inteiro denominada vtkRes, do tipo constexpr, que significa que é uma expressão constante, ou seja,  vtkRes é um valor constante e não pode ser alterado. Ainda, {0} indica o valor associado a essa constante, e portanto não será alterado, com valor determinado na hora de compilação.
     //define a resolução para o formato de arquivo VTK. Neste caso, a resolução é definida como 0, o que geralmente significa que a resolução será automática.
     TPZVec<std::string> fields = {
@@ -971,7 +993,7 @@ void ComputeBeta(TPZGeoMesh *gmesh, TPZCompMesh *cmesh, TPZFMatrix<STATE> &phi_0
 
 void SolveSyst(TPZLinearAnalysis &an, TPZCompMesh *cmesh, DecomposeType dtype)
 {
-    TPZSSpStructMatrix<STATE> strmat(cmesh);
+    TPZSkylineStructMatrix<STATE> strmat(cmesh);
     an.SetStructuralMatrix(strmat);
     TPZStepSolver<STATE> step;
 
@@ -992,6 +1014,8 @@ TPZCompMesh* CreateHDivMultiphysicsCompQuadMesh(TPZGeoMesh* gmesh, const int por
     TPZMixedDarcyFlow* matdarcy = nullptr;
     matdarcy = new TPZMixedDarcyFlow(EDOMAIN,dim);
     matdarcy->SetConstantPermeability(1.);
+    matdarcy->SetForcingFunction(laplaceex1.ForceFunc(),3);
+    matdarcy->SetExactSol(laplaceex1.ExactSolution(),3);
     approxCreator.InsertMaterialObject(matdarcy);
 
     // ========> Boundary Conditions
@@ -1002,10 +1026,14 @@ TPZCompMesh* CreateHDivMultiphysicsCompQuadMesh(TPZGeoMesh* gmesh, const int por
     TPZFMatrix<STATE> val1(1,1,0.);
     TPZManVector<STATE> val2(1,1.);
     BCond1 = matdarcy->CreateBC(matdarcy, EBCL, dirType, val1, val2);
+    BCond1->SetForcingFunctionBC(laplaceex1.ExactSolution(),3);
     val2[0] = 0.;
     BCond2 = matdarcy->CreateBC(matdarcy, EBCR, dirType, val1, val2);
+    BCond2->SetForcingFunctionBC(laplaceex1.ExactSolution(),3);
     BCond3 = matdarcy->CreateBC(matdarcy, EBCD, neuType, val1, val2);
+    BCond3->SetForcingFunctionBC(laplaceex1.ExactSolution(),3);
     BCond4 = matdarcy->CreateBC(matdarcy, EBCT, neuType, val1, val2);
+    BCond4->SetForcingFunctionBC(laplaceex1.ExactSolution(),3);
     
     
     if(BCond1) approxCreator.InsertMaterialObject(BCond1);
