@@ -141,7 +141,9 @@ int main() {
 #endif
 
     const bool isHDiv = true;
+    const int porder = 1;
     laplaceex1.fExact = TLaplaceExample1::EBubble2D;
+    laplaceex1.fExact = TLaplaceExample1::ESinSin;
 
     TPZGeoMesh *gmesh = ReadGmshSimple("quadmesh.msh");
 
@@ -164,7 +166,7 @@ int main() {
     //     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
     // }
 
-    const int porder = 2;
+    
     DecomposeType dtype = ECholesky;
     {
         TPZCompMesh* cmesh = nullptr;
@@ -425,6 +427,7 @@ TPZCompMesh *CreateH1CompMeshQuadMesh(TPZGeoMesh *gmesh, int64_t porder) {
 
     // Inserting darcy flow material in the mesh
     TPZDarcyFlow *material = new TPZDarcyFlow(EDOMAIN,dim);
+    material->SetExactSol(laplaceex1.ExactSolution(),5);
     material->SetForcingFunction(laplaceex1.ForceFunc(),3);
     cmesh->InsertMaterialObject(material);
 
@@ -799,7 +802,8 @@ void PrintResults(TPZLinearAnalysis &an, TPZCompMesh *cmesh)
     //define a resolução para o formato de arquivo VTK. Neste caso, a resolução é definida como 0, o que geralmente significa que a resolução será automática.
     TPZVec<std::string> fields = {
         "Pressure",
-        "Flux"
+        "Flux",
+        "TrueError"
     };
     //nesse conjunto de linhas de código, temos que TPZVec é uma estrutura do tipo vetor que contém como argumento uma variável chamda "fields" que é uma lista de strings, que, pelo que se chamam, são relacionadas à pressão e ao fluxo.
     //cria um vetor de strings chamado fields que contém os nomes dos campos que serão pós-processados. Neste caso, os campos incluem "Pressure" (pressão) e "Flux" (fluxo). Esses campos representam propriedades do problema que desejamos visualizar após a simulação.
@@ -1000,6 +1004,20 @@ void SolveSyst(TPZLinearAnalysis &an, TPZCompMesh *cmesh, DecomposeType dtype)
     step.SetDirect(dtype);
     an.SetSolver(step);
     an.Run();
+    TPZMultiphysicsCompMesh *mphysics = dynamic_cast<TPZMultiphysicsCompMesh *>(cmesh);
+    int nerrors = 5;
+    if(!mphysics) nerrors = 6;
+    TPZManVector<REAL,6> errorsum(nerrors,0.);
+    int64_t nelem = cmesh->NElements();
+    cmesh->ElementSolution().Redim(nelem,nerrors);
+    cmesh->EvaluateError(true, errorsum);
+    int errindex = 2;
+    if(mphysics) errindex = 1;
+    TPZFMatrix<STATE> &elsol = cmesh->ElementSolution();
+    for(int64_t el = 0; el < nelem; el++)
+    {
+        elsol(el,1) = elsol(el,errindex);
+    }
 }
 
 TPZCompMesh* CreateHDivMultiphysicsCompQuadMesh(TPZGeoMesh* gmesh, const int porder) {
