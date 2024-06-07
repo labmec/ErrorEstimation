@@ -76,6 +76,7 @@ void SolveSyst(TPZLinearAnalysis &an, TPZCompMesh *cmesh, DecomposeType dtype);
 
 enum EMatId {ENone = 0, EDOMAIN = 1, EBCL = 2, EBCR = 3, EBCT = 4, EBCD = 5};
 
+REAL ComputeDifference(TPZMultiphysicsCompMesh *cmeshHDiv, TPZCompMesh *cmeshH1);
 
 TLaplaceExample1 laplaceex1;
 
@@ -127,8 +128,8 @@ int main() {
         SolveSyst(an,cmeshH1,dtype);
         PrintResults(an,cmeshH1);
     }
-
-
+    REAL errestimate = ComputeDifference(cmeshHDiv,cmeshH1);
+    std::cout << "Error estimate " << errestimate << std::endl;
     // {
     //     std::ofstream out("cmesh.txt");
     //     cmesh->Print(out);
@@ -183,7 +184,9 @@ void PrintResults(TPZLinearAnalysis &an, TPZCompMesh *cmesh)
     TPZVec<std::string> fields = {
         "Pressure",
         "Flux",
-        "TrueError"
+        "EstimatedError",
+        "TrueError",
+        "EffectivityIndex"
     };
     //nesse conjunto de linhas de código, temos que TPZVec é uma estrutura do tipo vetor que contém como argumento uma variável chamda "fields" que é uma lista de strings, que, pelo que se chamam, são relacionadas à pressão e ao fluxo.
     //cria um vetor de strings chamado fields que contém os nomes dos campos que serão pós-processados. Neste caso, os campos incluem "Pressure" (pressão) e "Flux" (fluxo). Esses campos representam propriedades do problema que desejamos visualizar após a simulação.
@@ -319,3 +322,66 @@ TPZCompMesh *CreateH1CompMeshQuadMesh(TPZGeoMesh *gmesh, int64_t porder) {
     return cmesh;
 }
 
+#include "pzintel.h"
+#include "pzvec_extras.h"
+#include "pzcondensedcompel.h"
+
+REAL ComputeDifference(TPZMultiphysicsCompMesh *cmeshHDiv, TPZCompMesh *cmeshH1)
+{
+    REAL error = 0.;
+    TPZGeoMesh *gmesh = cmeshHDiv->Reference();
+    int dim = gmesh->Dimension();
+    gmesh->ResetReference();
+    cmeshH1->LoadReferences();
+    int64_t nel = cmeshHDiv->NElements();
+
+    for(int64_t el = 0; el < nel; el++)
+    {
+        TPZCompEl *cel = cmeshHDiv->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(gel->Dimension() != gmesh->Dimension()) continue;
+        TPZCompEl *celH1 = gel->Reference();
+        if(!cel || !celH1) continue;
+        TPZCondensedCompEl *condense = dynamic_cast<TPZCondensedCompEl *>(cel);
+        if(!condense) DebugStop();
+        TPZMultiphysicsElement *intelHDiv = dynamic_cast<TPZMultiphysicsElement *>(condense->ReferenceCompEl());
+        TPZInterpolatedElement *intelH1 = dynamic_cast<TPZInterpolatedElement *>(celH1);
+        if( !intelH1) DebugStop();
+        TPZManVector<STATE,3> dataHDiv(3,0.), dataH1(3,0.),diff(3,0.);
+        TPZFNMatrix<9,REAL> gradx(3,dim);
+        TPZFNMatrix<9,REAL> jac(dim,dim), jacinv(dim,dim), axes(3,dim);
+        REAL detjac;
+        TPZIntPoints &intpoints = intelHDiv->GetIntegrationRule();
+        int np = intpoints.NPoints();
+        REAL w;
+        TPZManVector<REAL,3> pos(gmesh->Dimension(),0.);
+        REAL errorEstimate = 0.;
+
+        for(int ip = 0; ip < np; ip++) {
+            intpoints.Point(ip,pos,w);
+            gel->GradX(pos,gradx);
+            gel->Jacobian(gradx,jac,axes,detjac,jacinv);
+            intelHDiv->Solution(pos,1,dataHDiv);
+            intelH1->Solution(pos,7,dataH1);
+            REAL diffnorm = 0.;
+            for (int i=0; i<3; i++) {
+                diff[i] = dataHDiv[i] - dataH1[i];
+                diffnorm += diff[i]*diff[i];
+            }
+            errorEstimate += w*detjac*diffnorm;
+        }
+        error += errorEstimate;
+        TPZFMatrix<REAL> &hdivelsol = cmeshHDiv->ElementSolution();
+        hdivelsol(el,0) = sqrt(errorEstimate);
+        TPZFMatrix<REAL> &h1elsol = cmeshH1->ElementSolution();
+        h1elsol(celH1->Index(),0) = sqrt(errorEstimate);
+        REAL effHDiv = hdivelsol(el,0)/hdivelsol(el,1);
+        if(effHDiv > 10) effHDiv = 10;
+        REAL effH1 = h1elsol(celH1->Index(),0)/h1elsol(celH1->Index(),1);
+        if(effH1 > 10) effH1 = 10;
+        hdivelsol(el,2) = effHDiv;
+        h1elsol(celH1->Index(),2) = effH1;
+    }
+    return sqrt(error);
+}
