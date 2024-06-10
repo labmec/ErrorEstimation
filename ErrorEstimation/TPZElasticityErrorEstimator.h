@@ -68,6 +68,7 @@ private:
     // Creates TPZMultiphysicsInterface elements between subdomains if reconstructing with H(div)
     void CreateFluxSkeletonElements(TPZCompMesh *flux_mesh);
     void CreateMultiphysicsInterfaces();
+    void CreateMultiphysicsInterfaces(TPZCompMesh *pressuremesh);
 
     // a method for generating the hybridized multiphysics post processing mesh
     void CreatePostProcessingMesh() override;

@@ -941,7 +941,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
     TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
 
     int target_dim = gel->Dimension();
-    if (target_dim == dim - 1 && gel->MaterialId() != fPrimalSkeletonMatId) {
+    if (target_dim == dim - 1 && gel->MaterialId() != fConfig.fWrapMaterialId) {
         DebugStop();
     }
 
@@ -997,7 +997,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
         TPZGeoElSidePartition partition(largeSkeletonSide);
         TPZStack<TPZGeoElSide> allneigh;
         largeSkeletonSide.AllNeighbours(allneigh);
-        partition.HigherLevelNeighbours(smallerSkelSides, fPrimalSkeletonMatId);
+        partition.HigherLevelNeighbours(smallerSkelSides, fConfig.fWrapMaterialId);
         if (smallerSkelSides.size() == 1) DebugStop();
         for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
             smallerSkelSides[iskel].EqualLevelCompElementList(volumeNeighSides, 1, 0);
@@ -1144,8 +1144,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             }
         }
     }
-//    L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
-//    L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
+    L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
+    L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
     int count = 0;
@@ -1156,8 +1156,12 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
         int ndof = c.NShape() * c.NState();
         for (int idf = 0; idf < ndof; idf++) {
             mesh_sol(pos + idf, 0) = L2Rhs(count++);
+            std::cout << "mesh_sol(pos + idf, 0) = " << pos + idf << " " << mesh_sol(pos + idf, 0) << std::endl;
+            std::cout << "L2rhs = " << L2Rhs(count-1) << std::endl;
         }
     }
+    pressuremesh->LoadSolution(mesh_sol);
+
 }
 
 
@@ -1394,6 +1398,12 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
     TPZBlock &block = pressure_mesh->Block();
     TPZFMatrix<STATE> &solMatrix = pressure_mesh->Solution();
 
+
+    // cellstack está armazenando os elementos vizinhos ao nó busca.
+    // Se usamos como nó busca um pertencente ao WrapMatId, este nó está desconectado
+    // das arestas adjacentes. A estrutura de dados deve ser alterada para que 
+
+
     // This map stores the connects, the weight associated with the element
     // and the solution of that connect. The weight of Dirichlet condition is
     // higher and will be used later to impose the value of the BC in the
@@ -1402,9 +1412,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
     for (int elc = 0; elc < celstack.size(); elc++) {
         TPZCompElSide celside = celstack[elc];
         TPZGeoElSide gelside = celside.Reference();
-        if (gelside.Element()->Dimension() != dim - 1) {
+        if (gelside.Dimension() != dim - 1) {
             continue;
         }
+        if (gelside.Element()->MaterialId() == fConfig.fInterfaceMaterialId) continue;
 
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (celside.Element());
         if (!intel) DebugStop();
@@ -1414,7 +1425,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
         if (IsZero(weight)) {
             TPZMaterial *mat = intel->Material();
             TPZBndCond *bc = dynamic_cast<TPZBndCond *> (mat);
-            if (!bc) DebugStop();
+            if (!bc && gelside.Element()->MaterialId() != fConfig.fLagMultiplierMaterialId) DebugStop();
 
             continue;
         }
@@ -1477,16 +1488,16 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
 
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         for (int istate = 0; istate < nstate; istate++) {
-#ifdef LOG4CXX
-            if (logger->isDebugEnabled()) {
-                std::stringstream sout;
-                sout << "value before " << pressure_mesh->Block()(seqnum, 0, istate, 0) <<
+// #ifdef LOG4CXX
+//             if (logger->isDebugEnabled()) {
+//                 std::stringstream sout;
+                std::cout << "value before " << solMatrix.at(block.at(seqnum, 0, istate, 0)) <<
                         " value after " << averageSol[istate] << " diff "
-                        << pressure_mesh->Block()(seqnum, 0, istate, 0) - averageSol[istate];
+                        << solMatrix.at(block.at(seqnum, 0, istate, 0)) - averageSol[istate] << std::endl;  
                 //                        res2.Print("Residual",sout);
-                LOGPZ_DEBUG(logger, sout.str())
-            }
-#endif
+//                 LOGPZ_DEBUG(logger, sout.str())
+//             }
+// #endif
             solMatrix.at(block.at(seqnum, 0, istate, 0)) = averageSol[istate];
         }
     }
@@ -1813,6 +1824,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         PlotPrimalSkeleton("ReconstructionSteps/SkelInterfaceAverage");
     }
     //#endif
+
+    {
+        std::ofstream outVTK("CompMesh.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(fPostProcMesh.MeshVector()[1], outVTK);
+    }
 
     ComputeNodalAverages();
 

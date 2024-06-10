@@ -16,6 +16,8 @@
 #include "pzbuildmultiphysicsmesh.h"
 #include "Projection/TPZL2Projection.h"
 #include "TPZGeoElSidePartition.h"
+#include "pzelchdivbound2.h"
+#include "pzshapelinear.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("ElasticityErrorEstimator"));
@@ -207,6 +209,9 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
     
+    // Create the multiphysics interface elements
+    CreateMultiphysicsInterfaces(meshvec[1]);
+
 
     if(fPostProcesswithHDiv) {
         // Create multiphysics interface computational elements
@@ -830,16 +835,19 @@ void TPZElasticityErrorEstimator::ComputeAveragePrimal(int target_dim)
         if(!gel) continue;
         if(gel->Dimension() == target_dim)
         {
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
-            if(!intel) DebugStop();
+            //Not needed because interface elements are not interpolated elements
+            // TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            // if(!intel) DebugStop();
             
             int matId = gel->MaterialId();
-            if(matId != fPrimalSkeletonMatId) continue;
-            int64_t index = intel->Index();
+            // if(matId != fConfig.fLagMultiplierMaterialId) continue;
+            if(matId != fConfig.fWrapMaterialId) continue;
+            int64_t index = cel->Index();
             ComputeAverage(postpressuremesh,index);
         }
     }
-    
+    std::ofstream out("solution.nb");
+    postpressuremesh->Solution().Print("Solution = ", out, EMathematicaInput);;
 }
 /// compute the average pressure over corners
 /// set the cornernode values equal to the averages
@@ -866,15 +874,19 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
     // compute the averages
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
+        auto *celhdiv = dynamic_cast<TPZCompElHDivBound2<pzshape::TPZShapeLinear> *>(cel);
+        if (celhdiv) DebugStop();
         if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if(!gel || !gel->Reference()) continue;
-        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
-        if(!intel) DebugStop();
+        //Not needed because interface elements are not interpolated elements
+        // TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        // if(!intel) DebugStop();
         if (gel->Dimension() == dim-1) {
             int ncorner = gel->NCornerNodes();
             for (int side = 0; side<ncorner; side++) {
                 TPZCompElSide celside(cel,side);
+                int nsides = gel->NSides();
                 ComputeNodalAverage(celside);
             }
         }
@@ -1021,7 +1033,7 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
         TPZCompEl* cel = pressuremesh->Element(el);
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!cel) continue;
-        if(!intel) DebugStop();
+        // if(!intel) DebugStop();
         // load just d dimensional elements
         if (cel->Dimension() != dim) continue;
         cel->LoadElementReference();
@@ -1034,19 +1046,19 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl* cel = pressuremesh->Element(el);
         if (!cel) continue;
-        TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-        if (!intel) DebugStop();
+        // TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+        // if (!intel) DebugStop();
         TPZGeoEl* gel = cel->Reference();
         // filters just (d-1) dimensional elements
         // if (gel->Dimension() != dim) continue;
-        if (gel->MaterialId() != fConfig.fInterfaceMaterialId) continue;
+        if (gel->MaterialId() != fConfig.fWrapMaterialId) continue;
 
         int nsides = gel->NSides();
         for (int is = 0; is < nsides; is++) {
             TPZGeoElSide gelside(gel, is);
             int matgelSide = gelside.Element()->MaterialId();
             
-            TPZConnect &c = intel->Connect(is);
+            TPZConnect &c = cel->Connect(is);
             int64_t c_gelSide_seqnum  = c.SequenceNumber();
             int c_blocksize = c.NShape() * c.NState();
             TPZStack<TPZCompElSide> celstack;
@@ -1304,6 +1316,7 @@ void TPZElasticityErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_m
 
 }
 
+
 void TPZElasticityErrorEstimator::CreateMultiphysicsInterfaces() {
 
     fPostProcMesh.LoadReferences();
@@ -1345,6 +1358,63 @@ void TPZElasticityErrorEstimator::CreateMultiphysicsInterfaces() {
             if (!neighSide) DebugStop();
 
             auto *interface = new TPZMultiphysicsInterfaceElement(fPostProcMesh, gbc.CreatedElement(), skelCelSide, neighSide);
+        }
+        if (count != 2) DebugStop();
+    }
+    {
+        std::ofstream file("GmeshAfterInterfaces.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(this->GMesh(), file);
+    }
+}
+
+void TPZElasticityErrorEstimator::CreateMultiphysicsInterfaces(TPZCompMesh *pressuremesh) {
+
+    fPostProcMesh.LoadReferences();
+    TPZGeoMesh *gmesh = this->GMesh();
+    int dim = gmesh->Dimension();
+
+    if (fMultiPhysicsInterfaceMatId == 0) {
+        fMultiPhysicsInterfaceMatId = fConfig.fInterfaceMaterialId;
+        // fMultiPhysicsInterfaceMatId = FindFreeMatId(this->GMesh());
+    }
+
+    TPZLagrangeMultiplierCS<> *interfaceMat = new TPZLagrangeMultiplierCS<>(fMultiPhysicsInterfaceMatId, dim - 1, 1);
+    pressuremesh->InsertMaterialObject(interfaceMat);
+    std::cout << "Created interface material of index " << fMultiPhysicsInterfaceMatId << '\n';
+
+    // Iterates over geometric elements
+    int64_t nel = gmesh->NElements();
+    for (int64_t iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gel = gmesh->Element(iel);
+
+        if (gel->MaterialId() != fConfig.fLagMultiplierMaterialId) continue;
+
+        // Get side of largest dimension of the skeleton
+        TPZGeoElSide skelSide = TPZGeoElSide(gel);
+        TPZCompEl *skelCel = gel->Reference();
+        if (!skelCel) DebugStop();
+
+        int count = 0;
+        for (TPZGeoElSide neigh = skelSide.Neighbour(); neigh != skelSide; neigh++) {
+            TPZCompElSide skelCelSide = skelSide.Reference();
+            if (!skelCelSide) DebugStop();
+
+            TPZGeoEl *neighGel = neigh.Element();
+            if (neighGel->MaterialId() != fConfig.fWrapMaterialId) continue;
+
+            TPZGeoElBC gbc(skelSide, fMultiPhysicsInterfaceMatId);
+            count++;
+
+            TPZCompElSide neighSide = neigh.Reference();
+            if (!neighSide) DebugStop();
+
+            auto *interface = new TPZMultiphysicsInterfaceElement(*pressuremesh, gbc.CreatedElement(), skelCelSide, neighSide);
+            std::cout << "New element = " << interface->Index() << '\n';
+            for (int i = 0; i < interface->NConnects(); i++)
+            {
+                std::cout << interface->ConnectIndex(i) << ' ';
+            }
+            std::cout<<std::endl;
         }
         if (count != 2) DebugStop();
     }
@@ -1411,6 +1481,27 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
             if (IsZero(weight)) DebugStop();
             this->fPrimalWeights[el] = weight;
             fMatid_weights[matid] = weight;
+
+            //Sets the same weight for all neighbours with matid = wrap
+            for (int iside = 0; iside < gel->NSides(); iside++){
+                TPZGeoElSide gelside(gel,iside);
+                int sidedim = gelside.Dimension();
+                if (sidedim != dim-1) continue;
+
+                TPZStack<TPZGeoElSide> allneig;
+                gelside.AllNeighbours(allneig);
+
+                // O erro está aqui. Alguns elementos do tipo wrap tem peso 0.
+
+                for (int ineigh = 0; ineigh < allneig.size(); ineigh++){
+                    TPZGeoElSide neigh = allneig[ineigh];
+                    if (neigh.Element()->MaterialId() == fConfig.fWrapMaterialId){
+                        int ind = neigh.Element()->Reference()->Index();
+                        this->fPrimalWeights[neigh.Element()->Reference()->Index()] = 0;
+                        fMatid_weights[neigh.Element()->MaterialId()] = 0;
+                    }
+                }
+            }
         }
     }
     std::cout << "Finished computing pressure weights\n";
