@@ -100,16 +100,16 @@ def main():
 
     #%% Creating inner lines, from the profile to the boundary
     inner_lines: list[int] = [
-        [p1, p11], # l25  Discontinuty - first try
-        [p10, p12], # l26
+        [p1, p11], # l25  Discontinuity - Not Trailingedge 1 try
+        [p10, p12], #l26
         [p9, p13], # l27
-        [p8, p14], # l28
+        [p8, p14], # l28 Discontinuity - Not Trailingedge 2 try
         [p7, p15], # l29
-        [p6, p16], # l30
-        [p6, p18], # l31 Discontinuty - second try
-        [p6, p20], # l32
-        [p5, p21], # l33
-        [p4, p22], # l34
+        [p6, p16], # l30 Discontinuity - Trailingedge 2 try 
+        [p6, p18], # l31 Discontinuity - Trailingedge 1 try 
+        [p6, p20], # l32 Discontinuity - Trailingedge 3 try 
+        [p5, p21], # l33 Discontinuity - Not Trailingedge 4 try
+        [p4, p22], # l34 Discontinuity - Not Trailingedge 3 try 
         [p3, p23], # l35
         [p2, p24] # l36
     ]
@@ -172,7 +172,7 @@ def main():
     TPZMeshModeling.CreatePhysicalGroup(gp)
 
     dim = 1 # dimension of the entity
-    tag = [l31] # tag of the entity
+    tag = [l34] # tag of the entity
     ID = 5
     gp = [
 #        [(dim, tag), ID, "name"]
