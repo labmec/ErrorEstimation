@@ -718,6 +718,7 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
     }
 
     cmesh->SetDefaultOrder(config.k);//ordem
+
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
 
     cmesh->AutoBuild();

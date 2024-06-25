@@ -80,12 +80,17 @@ struct ProblemConfig
     void ApplyDivision();
     
     void ApplyTwoonOneRestraint();
+    void ApplyTwoonOneRestraint2();
+
     
     void DivideEncircledElements();
     
     void DivideBoundaryElements();
     
     void PorderIncrement();
+    
+    void PorderIncrement2();
+
     
     //Adjustments to smooth the distribution of polynomial orders
     void AdjustH1PorderDistrib();

@@ -26,27 +26,31 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[1] = bcids[3] = -2;
     }
     
-    if(0){ //Square shape domain quadrilateral mesh
+    if(1){ //Square shape domain quadrilateral mesh
         isOriginCentered = 1;
         gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
+        //gmesh->Print();
         
-    if(config.gmesh) delete config.gmesh;
-    config.gmesh = gmesh;
+        if(config.gmesh) delete config.gmesh;
+        config.gmesh = gmesh;
     }
     else{ //Lshape domain quadrilateral mesh
     TPZManVector<int, 8> Lshape_bcids(8, -1);
-    //gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
-    gmesh = Tools::CreateTriangLShapeMesh(1, Lshape_bcids);
+    gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
+    //gmesh = Tools::CreateTriangLShapeMesh(1, Lshape_bcids);
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
     }
     
     Tools::UniformRefinement(config.ndivisions, gmesh);
+    //gmesh->Print();
     //Tools::UniformRefinementHangingNodes(config.ndivisions, gmesh);
+    config.ApplyDivision();
+    //gmesh->Print();
+
     std::ofstream out("mallarefinada.vtk");
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     Tools::DrawGeoMesh(config, pConfig);
-    config.ApplyDivision();
 
     if(0){
         std::ofstream salida("mallageometricaAdap.txt");
@@ -232,6 +236,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "ESinMarkHom") pConfig.type = 10;
         else if (pConfig.problem == "EBubble2DTemp") pConfig.type = 11;
         else if (pConfig.problem == "ESteepMountain2D") pConfig.type = 12;
+        else if (pConfig.problem == "ESharpGaussian2D") pConfig.type = 13;
         
         else DebugStop();
     }
@@ -399,7 +404,9 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
         case 12:
             solutionCase = TLaplaceExample1::ESteepMountain2D;
             break;
-            
+        case 13:
+            solutionCase = TLaplaceExample1::ESharpGaussian2D;
+            break;
         default:
             DebugStop();
             break;

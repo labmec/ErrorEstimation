@@ -13,7 +13,7 @@ void ProblemConfig::ApplyDivision()
             TPZStack<TPZGeoEl *> subels;
             gmesh->Element(eleindex)->Divide(subels);
         }
-        ApplyTwoonOneRestraint();
+        ApplyTwoonOneRestraint2();
         DivideEncircledElements();
         DivideBoundaryElements();
     }
@@ -76,6 +76,38 @@ void ProblemConfig::ApplyTwoonOneRestraint()
     }
 }
 
+void ProblemConfig::ApplyTwoonOneRestraint2()
+{
+    bool change = true;
+    while (change) {
+        change = false;
+        
+        int64_t nel = gmesh->NElements();
+        int dim = gmesh->Dimension();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(!gel || gel->Dimension() != dim || gel->HasSubElement()) continue;
+            int mylev = gel->Level();
+            for (int side = gel->NCornerNodes(); side < gel->NSides()-1; side++) {
+                if(gel->HasSubElement()) break;
+                TPZGeoElSide gelside(gel,side);
+                TPZGeoElSide neighbour = gelside.Neighbour();
+                
+                while(neighbour != gelside) {
+                    int maxlev = MaxLevel(neighbour);
+                    if(maxlev > mylev+1) {
+                        TPZStack<TPZGeoEl *> subs;
+                        std::cout << "gel index " << gel->Index() << " level " << gel->Level() << " maxlev " << maxlev << " needs divide " << std::endl;
+                        gel->Divide(subs);
+                        change = true;
+                        break;
+                    }
+                    neighbour = neighbour.Neighbour();
+                }
+            }
+        }
+    }
+}
 void ProblemConfig::DivideEncircledElements()
 {
     int64_t nel = gmesh->NElements();
@@ -143,11 +175,10 @@ void ProblemConfig::AdjustH1PorderDistrib(){
             TPZCompEl* cel = cmeshH1->Element(el);
             int celorder = CelOrder(cel);
             TPZGeoEl* gel = cel->Reference();
-            
+                        
             for (int side = 0; side < gel->NSides()-1; side++) {
                 TPZGeoElSide gelside(gel,side);
                 TPZCompElSide celsidebig = gelside.LowerLevelCompElementList2(1);
-                
                 if(celsidebig){
                     int orderbig = CelOrder(celsidebig.Element());
                     if(orderbig > celorder + 1){
@@ -160,11 +191,12 @@ void ProblemConfig::AdjustH1PorderDistrib(){
                 }
                 
                 TPZInterpolatedElement* intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-                
-                TPZGeoElSide neighbour = gelside.Neighbour();
-                while(neighbour != gelside){
-                    TPZGeoEl* gelneigh = neighbour.Element();
+                TPZGeoElSide neighborside = gelside.Neighbour();
+                while(neighborside != gelside){
+                    TPZGeoEl* gelneigh = neighborside.Element();
                     TPZCompEl* celneigh = gelneigh->Reference();
+                    
+                   //if(neighborside.Dimension()!=cmeshH1->Dimension()-1) continue;
                     
                     if(celneigh){
                         TPZInterpolatedElement* intelneigh = dynamic_cast<TPZInterpolatedElement*>(celneigh);
@@ -174,6 +206,7 @@ void ProblemConfig::AdjustH1PorderDistrib(){
                         if(celorder > orderneigh + 1) {
                             intelneigh->PRefine(celorder - 1);
                             change = true;
+                            //orderneigh = celorder - 1;
                             //break;
                         }
                         
@@ -184,13 +217,15 @@ void ProblemConfig::AdjustH1PorderDistrib(){
                             
                         }
                     }
-                    neighbour = neighbour.Neighbour();
+                    neighborside = neighborside.Neighbour();
                 }
+                
                 TPZStack<TPZCompElSide> celsidestack;
-                gelside.HigherLevelCompElementList2(celsidestack, 1, 1);
+                gelside.HigherLevelCompElementList2(celsidestack,1,1);
                 for(int i = 0; i < celsidestack.size(); i++ ){
                     TPZCompElSide celside_i = celsidestack[i];
                     TPZGeoElSide gelside_i = celside_i.Reference();
+                    
                     if(gelside_i.Dimension() != cmeshH1->Dimension()-1){
                         continue;
                     }
@@ -204,6 +239,7 @@ void ProblemConfig::AdjustH1PorderDistrib(){
                         TPZInterpolatedElement* intel_i = dynamic_cast<TPZInterpolatedElement*>(celside_i.Element());
                         intel_i->PRefine(celorder - 1);
                         change = true;
+                        //order_i = celorder - 1;
                     }
                 }
             }
@@ -229,12 +265,52 @@ void ProblemConfig::PorderIncrement() {
             if (!cel || cel->Dimension() != cmeshH1->Dimension()){
                 continue;
             }
-                        
+            
             TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
             if(!intel) continue;
             //int order = cel->GetgOrder();
             intel->PRefine(eleindex.second);
             
+        }
+    }
+    
+    //Adjustments to smooth the distribution of polynomial orders
+    //AdjustH1PorderDistrib();
+    
+    //cmeshH1->AdjustBoundaryElements();
+    cmeshH1->CleanUpUnconnectedNodes();
+    
+}
+
+void ProblemConfig::PorderIncrement2() {
+    TPZCompMesh *cmeshH1 = gmesh->Reference();
+    if (!fElIndexPplus.size() || !cmeshH1) {
+        return;
+    }
+    
+    int64_t nels = cmeshH1->NElements();
+    for(int iel=0; iel<nels; iel++){
+        TPZCompEl* cel = cmeshH1->Element(iel);
+        if(!cel || cel->Dimension() < cmeshH1->Dimension()){
+            continue;
+        }
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+        if(!intel){
+            continue;
+        }
+        
+        TPZGeoEl* gel = cel->Reference();
+        auto &lastmapindexpplus = fElIndexPplus.back();
+        
+        //If the element was born by refinement at the current level its parent belongs to lastmapindexpplus
+        auto it = lastmapindexpplus.find(gel->FatherIndex());
+        
+        if(it != lastmapindexpplus.end()){//if gel was born by refinement
+            int64_t fatherindex = gel->FatherIndex();
+            intel->PRefine(lastmapindexpplus[fatherindex]);
+        }
+        else{// maintains or increases its order
+            intel->PRefine(lastmapindexpplus[gel->Index()]);
         }
     }
     

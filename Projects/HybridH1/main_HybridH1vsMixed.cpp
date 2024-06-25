@@ -21,11 +21,11 @@ int main(int argc, char *argv[]) {
     PreConfig pConfig;
     pConfig.k = 1; // Porder for H1
     pConfig.n = 2;
-    pConfig.problem = "ESinMarkHom";         //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb","ESinMarkHom", "EBubble2DTemp"}
+    pConfig.problem = "ESteepWave";         //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb","ESinMarkHom", "EBubble2DTemp", "ESteepWave","ESharpGaussian2D"}
     pConfig.integrationorder = 11;
     pConfig.maxIter = 15;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "H1";                 //// {"H1","Hybrid", "Mixed"}
-    pConfig.topology = "Triangular";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
+    pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
     pConfig.refLevel = 1;                      //// How many uniform refinements
     pConfig.numberAdapativitySteps = 10;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
@@ -37,13 +37,14 @@ int main(int argc, char *argv[]) {
     InitializeOutstream(pConfig,argv);
 
     ProblemConfig config;
-    config.division_threshold = 0.7;
+    config.division_threshold = 0.6;
     for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps+1; config.adaptivityStep++) { //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
         
         Configure(config,pConfig.refLevel,pConfig,argv);
         
         Solve(config,pConfig);
+        
     }
     
     std::string command = "cp Erro.txt " + pConfig.plotfile + "/Erro.txt";

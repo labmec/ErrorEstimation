@@ -620,7 +620,7 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
                     gel->Divide(children);
                 }
                 else {
-                    if (elem % 4 == 2){
+                    if (elem % 2 == 1 & gel->Dimension() != 1){
                         gel->Divide(children);
                     }
                 }
@@ -655,7 +655,7 @@ void UniformRefinement(int nDiv, TPZGeoMesh *gmesh) {
 //        if(!gel || gel->HasSubElement()) continue;
 //        if(gel->Dimension() != 1) continue;
 //        TPZGeoElSide geoelside(gel);
-//        TPZGeoElSide neig=geoelside.Neighbour();
+//        TPZGeoElSide neig = geoelside.Neighbour();
 //        if(neig.Element()->HasSubElement()){
 //            gel->Divide(children);
 //        }
