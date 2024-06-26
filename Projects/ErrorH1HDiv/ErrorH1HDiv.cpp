@@ -569,6 +569,14 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh)
     }
 
     TPZLinearAnalysis an(cmeshH1,RenumType::EMetis);
+    TPZStructMatrixT<STATE> *str;
+#if defined(USING_MKL) || defined(USING_EIGEN)
+    std::cout<<"sparse(non-symmetric)"<<std::endl;
+    str = new TPZSpStructMatrix<TVar>(fCompMesh);
+#else
+    std::cout<<"skyline(non-symmetric)"<<std::endl;
+    str = new TPZSkylineStructMatrix<STATE>(cmeshH1);
+#endif
     TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     an.SetStructuralMatrix(strmat);
     TPZStepSolver<STATE> step;
