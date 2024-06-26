@@ -9,12 +9,14 @@
 #include <pzbuildmultiphysicsmesh.h>
 #include "pzgeoelbc.h"
 #include "pzskylstrmatrix.h"
+#include "pzskylmat.h"
 #include "TPZLinearAnalysis.h"
 #include "TPZBndCondT.h"
 #include <TPZNullMaterial.h>
 #include <TPZMultiphysicsCompMesh.h>
 #include "TPZSSpStructMatrix.h"
 #include "TPZSYSMPMatrix.h"
+#include "pzskylstrmatrix.h"
 #include "TPZRefPatternDataBase.h"
 #include "TPZVTKGeoMesh.h"
 #include "TPZGmshReader.h"
@@ -55,28 +57,31 @@ void VerifyDerivative(TPZBlendNACA &naca, REAL point);
 TPZGeoMesh *ReadGmsh(const std::string &filename, const TPZNacaProfile &naca);
 
 /// @brief Create a computational mesh with H1 elements
-TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon);
+TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &newcon);
 
 /// @brief Create a computational mesh with L2 elements
 TPZCompMesh *CreateL2CompMesh(TPZGeoMesh *gmesh);
 
 /// @brief Create the computational mesh with HDiv elements
-TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, int64_t &newcon);
+TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &newcon);
 
 /// @brief Create the computational "multiphysics" mesh with only HDiv elements
 TPZMultiphysicsCompMesh *CreateMultiphysicsMesh(TPZCompMesh *cmeshHDiv, TPZCompMesh *cmeshL2, TPZGeoMesh *gmesh);
 
 /// @brief Simulate the NACA profile using H1 approximation
-TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh);
+TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders);
 
 /// @brief Simulate the NACA profile using H(div) approximation
-TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh);
+TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders);
 
 /// @brief Compute the error as an average error per element and save as an elemental solution 
 void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> &ErrorEstimator);
 
 /// @brief Compute the error as an average error per element and save as an elemental solution 
 void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> &ErrorEstimator,TPZVec<REAL> &RefinementIndicator);
+
+/// @brief Performe h-refinements at the computational meshes "cmesh" and "cmesh_m" based on the ErrorEstimator  
+void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, int minh, TPZVec<REAL> &RefinementIndicator, TPZVec<int> &porders);
 
 /// @brief Check the NACA profile, generate coordinates and write to a file
 void CheckNacaProfile(const TPZNacaProfile &naca);
@@ -162,7 +167,8 @@ int main() {
     }
 
     TPZCheckGeom check(gmesh);
-    check.UniformRefine(4);
+    int uniform = 4;
+    check.UniformRefine(uniform);
 
     {
         std::ofstream out4("gmeshfine.txt");
@@ -172,17 +178,25 @@ int main() {
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
     }
 
-    int nrefinements = 5;
+    int nrefinements = 3;
+    int minh = uniform+1;
+    // indicating the flux order
+    int defaultporder = 1;
+    int64_t nel = gmesh->NElements();
+    TPZVec<int> porders(nel,defaultporder);
     for(int64_t i=0; i<nrefinements; i++)
     {
-        auto cmesh = SimulateNacaProfileH1(gmesh);
-        auto cmesh_m = SimulateNacaProfileHDiv(gmesh);
+        auto cmesh = SimulateNacaProfileH1(gmesh,porders);
+        auto cmesh_m = SimulateNacaProfileHDiv(gmesh,porders);
         TPZVec<REAL> Error;
         ComputeErrorEstimator(cmesh,cmesh_m,Error);
         TPZVec<REAL> RefinementIndicator;
-        Hrefinement(cmesh_m,Error,RefinementIndicator);
-        std::ofstream out6("ErrorEstimator.vtk"); 
-        TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m,out6,Error,"Error");  
+        HPrefinement(cmesh_m,Error,minh,RefinementIndicator,porders);
+//        Hrefinement(cmesh_m,Error,RefinementIndicator);
+        {
+            std::ofstream out6("ErrorEstimator.vtk"); 
+            TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m,out6,Error,"Error");  
+        }
         {
             const std::string plotfile = "postprocess_H1";
             constexpr int vtkRes{0};
@@ -208,13 +222,23 @@ int main() {
                 TPZConnect &c = cmesh->ConnectVec()[i];
                 if(c.HasDependency())
                 {
-                    std::cout << "Connect " << i << " has dependency\n";
                     c.RemoveDepend();
                 }
             }    
         }
         delete cmesh;
         TPZVec<TPZCompMesh*> meshvec = cmesh_m->MeshVector();
+        {
+            int64_t nnod = meshvec[0]->NConnects();
+            for(int64_t i=0; i<nnod; i++)
+            {
+                TPZConnect &c = meshvec[0]->ConnectVec()[i];
+                if(c.HasDependency())
+                {
+                    c.RemoveDepend();
+                }
+            }    
+        }
         delete cmesh_m;
         delete meshvec[0];
         delete meshvec[1];
@@ -367,9 +391,88 @@ TPZGeoMesh *ReadGmsh(const std::string &meshfilename, const TPZNacaProfile &naca
 
 }
 
+void BuildBlueRedElements(TPZGeoMesh *gmesh, std::set<int64_t> &blue, std::set<int64_t> &red) {
+    int64_t nel = gmesh->NElements();
+    std::set<TPZGeoEl *> cutelements;
+    for(int64_t el = 0; el<nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(gel->MaterialId() == cutmat) {
+            cutelements.insert(gel);
+            TPZGeoElSide gelside(gel);
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            int nfound = 0;
+            // look at the neighbours of the cut elements
+            // compute the parameter transformation. If the det is positive
+            while(neighbour != gelside)
+            {
+                int64_t neighindex = neighbour.Element()->Index();
+                if(neighbour.Element()->MaterialId() == volmat)
+                {
+                    TPZTransform<REAL> tr(1);
+                    gelside.SideTransform3(neighbour, tr);
+                    if(tr.Mult()(0,0) > 0.) {
+                        blue.insert(neighindex);
+                    } else {
+                        red.insert(neighindex);
+                    }
+                    nfound++;
+                }
+                neighbour = neighbour.Neighbour();
+            }
+            if(nfound != 2) DebugStop();
+        }
+    }
+    // loop over the dim-1 sides of the cut elements
+    for(auto gelcut : cutelements) {
+        for(int side = gelcut->FirstSide(1); side < gelcut->NSides()-1; side++) {
+            bool change = true;
+            while(change) {
+                TPZGeoElSide gelside(gelcut,side);
+                // loop over the neighbours of the dim-1 sides of the gelcut element
+                for(auto neighbour = gelside.Neighbour(); neighbour != gelside; neighbour++) {
+                    int64_t neighindex = neighbour.Element()->Index();
+                    if(blue.find(neighindex) != blue.end() || red.find(neighindex) != red.end()) {
+                        continue;
+                    }
+                    // loop over the face sides of the neighbour element. 
+                    // if there is a neighbour of a colour, adopt that colour
+                    bool found = false;
+                    for(int faceside = neighbour.Element()->FirstSide(1); faceside < neighbour.Element()->NSides()-1; faceside++) {
+                        TPZGeoElSide face(neighbour.Element(),faceside);
+                        for(auto neighbourface = face.Neighbour(); neighbourface != face; neighbourface++) {
+                            int64_t neighfaceindex = neighbourface.Element()->Index();
+                            if(blue.find(neighfaceindex) != blue.end()) {
+                                blue.insert(neighindex);
+                                found = true;
+                                change = true;
+                            }
+                            if(red.find(neighfaceindex) != red.end()) {
+                                red.insert(neighindex);
+                                found = true;
+                                change=true;
+                            }
+                            if(found) break;
+                        }
+                        if(found) break;
+                    }
+                }
+                // if no change was made, the all neighours should be either blue or red
+                if(change == false) {
+                    for(auto neighbour = gelside.Neighbour(); neighbour != gelside; neighbour++) {
+                        int64_t neighindex = neighbour.Element()->Index();
+                        if(blue.find(neighindex) == blue.end() && red.find(neighindex) == red.end()) {
+                            DebugStop();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 /// @brief Create a computational mesh with H1 elements
-TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
+TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &newcon)
 {
+    if(porders.size() != gmesh->NElements()) DebugStop();
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
     int dim = 2;
     TPZDarcyFlow *material = new TPZDarcyFlow(volmat,dim);
@@ -390,7 +493,30 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
     cmesh->InsertMaterialObject(bnd3);
 
     std::set<int> matidsh1 = {volmat,profilemat,boundmat};
-    cmesh->AutoBuild(matidsh1);
+    {
+        int64_t nel = gmesh->NElements();
+        TPZStack<int64_t > gelstack;
+        TPZStack<int> elp;
+        for(int64_t el = 0; el<nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(gel->HasSubElement()) continue;
+            int matid = gel->MaterialId();
+            if(matidsh1.find(matid) != matidsh1.end()) {
+                gelstack.Push(gel->Index());
+                if(porders[el] < 0) DebugStop();
+                elp.Push(porders[el]+1);
+            }
+        }
+        cmesh->ApproxSpace().BuildMesh(*cmesh, gelstack, elp);
+    }
+    cmesh->ExpandSolution();
+    cmesh->ComputeNodElCon();
+    {
+        std::fstream out("cmesh.txt");
+        cmesh->Print(out);
+    }
+
+    // cmesh->AutoBuild(matidsh1);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
     std::set<int> matidpoint = {pointmat};
     cmesh->AutoBuild(matidpoint);
@@ -398,22 +524,25 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
     newcon = cmesh->AllocateNewConnect(1,1,1);
     std::cout << "newcon " << newcon << std::endl;
     int64_t nel = gmesh->NElements();
-    // // loop over the geometric cut elements
-    for(int64_t el = 0; el<nel; el++)
-    {
+    // // loop over the geometric cut elements to duplicate the connects
+    // now we are debugging!
+    // Create a map of the connect indexes to the new connect indexes
+    // create a set of computational element indexes which are one the side of the cut boundary
+    std::map<int64_t,int64_t> connectmap, connectmapinverse;
+    std::set<int64_t> blueelements, redelements;
+    BuildBlueRedElements(gmesh, blueelements, redelements);
+    for(int64_t el = 0; el<nel; el++) {
         TPZGeoEl *gel = gmesh->Element(el);
         if(gel->MaterialId() != cutmat) continue;
         TPZGeoElSide gelside(gel);
         TPZGeoElSide neighbour = gelside.Neighbour();
         // look at the neighbours of the cut elements
-        // compute the parameter transformation. If the det is positive
+        // compute the parameter transformation. If the det is positive then the element is blue
         while(neighbour != gelside)
         {
-            if(neighbour.Element()->MaterialId() == volmat)
-            {
-                TPZTransform<REAL> tr(1);
-                gelside.SideTransform3(neighbour, tr);
-                if(tr.Mult()(0,0) > 0.) break;
+            int64_t neighindex = neighbour.Element()->Index();
+            if(blueelements.find(neighindex) != blueelements.end()) {
+                break;
             }
             neighbour = neighbour.Neighbour();
         }
@@ -421,49 +550,47 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
         TPZCompEl *cel = neighbour.Element()->Reference();
         if(!cel) continue;
         int nsidenodes = gel->NSideNodes(gelside.Side());
-        // loop over the connects of the computational element
-        // if the connect has no dependency, create a new connect
+        // put the connect indexes in the map
         for(int is=0; is<nsidenodes; is++)
         {
             int nodelocindex = neighbour.Element()->SideNodeLocIndex(neighbour.Side(),is);
             int64_t cindex = cel->ConnectIndex(nodelocindex);
             TPZConnect &c = cel->Connect(nodelocindex);
-            if(c.HasDependency()) continue;
-            // insert the dependency
-            int64_t cindex2 = cmesh->AllocateNewConnect(c.NShape(),c.NState(),c.Order());
-            TPZConnect &c2 = cmesh->ConnectVec()[cindex2];
-            TPZFNMatrix<1,STATE> val(1,1,1.);
-            c2.AddDependency(cindex2,cindex,val,0,0,1,1);
-            c2.AddDependency(cindex2,newcon,val,0,0,1,1);
-            cel->SetConnectIndex(nodelocindex,cindex2);
+            if(c.HasDependency()) DebugStop();
+            connectmap[cindex] = -1;
         }
-        auto sidecut = neighbour.Side();
-        TPZGeoEl *neighel = neighbour.Element();
-        TPZCompEl*neighcel = neighel->Reference();
-        int ncorner = neighel->NCornerNodes();
-        for(int side = ncorner; side<neighel->NSides()-1; side++)
+    }
+    // duplicate the connects and initialize the dependency
+    for(auto it : connectmap)
+    {
+        int64_t cindex = it.first;
+        int64_t cindex2 = cmesh->AllocateNewConnect(1,1,1);
+        TPZConnect &c2 = cmesh->ConnectVec()[cindex2];
+        TPZFNMatrix<1,STATE> val(1,1,1.);
+        c2.AddDependency(cindex2,cindex,val,0,0,1,1);
+        c2.AddDependency(cindex2,newcon,val,0,0,1,1);
+        connectmap[cindex] = cindex2;
+        connectmapinverse[cindex2] = cindex;
+    }
+    // change the connect indexes of the blue elements
+    for(auto blue : blueelements) {
+        TPZGeoEl *gel = gmesh->Element(blue);
+        TPZCompEl *cel = gel->Reference();
+        if(!cel) continue;
+        int nc = gel->NCornerNodes();
+        for(int ic=0; ic<nc; ic++)
         {
-            if(side == sidecut) continue;
-            TPZGeoElSide neighneigh = neighel->Neighbour(side);
-            if(neighneigh.NSideNodes()!=2) DebugStop();
-            {
-                int indexneighneigh = neighneigh.SideNodeLocIndex(0);
-                int indexneigh = neighel->SideNodeLocIndex(side,1);
-                int64_t cindex = neighcel->ConnectIndex(indexneigh); 
-                TPZCompEl *neighneighcel = neighneigh.Element()->Reference(); 
-                neighneighcel->SetConnectIndex(indexneighneigh,cindex);  
-            }
-            {
-                int indexneighneigh = neighneigh.SideNodeLocIndex(1);
-                int indexneigh = neighel->SideNodeLocIndex(side,0);
-                int64_t cindex = neighcel->ConnectIndex(indexneigh); 
-                TPZCompEl *neighneighcel = neighneigh.Element()->Reference(); 
-                neighneighcel->SetConnectIndex(indexneighneigh,cindex);
-            }
+            int64_t cindex = cel->ConnectIndex(ic);
+            if(connectmap.find(cindex) == connectmap.end()) continue;
+            cel->SetConnectIndex(ic,connectmap[cindex]);
         }
     }
     cmesh->ExpandSolution();
     cmesh->ComputeNodElCon();
+    {
+        std::fstream out("cmesh.txt");
+        cmesh->Print(out);
+    }
     cmesh->CleanUpUnconnectedNodes();
     return cmesh;
 }
@@ -487,7 +614,7 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
  }
 
 /// @brief Create a computational mesh with HDiv elements
-TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
+TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &newcon)
 {
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
     int dim = 2;
@@ -514,7 +641,24 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
     cmesh->InsertMaterialObject(bnd2);
 
     std::set<int> matidshdiv = {volmat,profilemat,boundmat};
-    cmesh->AutoBuild(matidshdiv);
+    {
+        int64_t nel = gmesh->NElements();
+        TPZStack<int64_t > gelstack;
+        TPZStack<int> elp;
+        for(int64_t el = 0; el<nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(gel->HasSubElement()) continue;
+            int matid = gel->MaterialId();
+            if(matidshdiv.find(matid) != matidshdiv.end()) {
+                gelstack.Push(gel->Index());
+                if(porders[el] < 0) DebugStop();
+                elp.Push(porders[el]);
+            }
+        }
+        cmesh->ApproxSpace().BuildMesh(*cmesh, gelstack, elp);
+    }
+
+    // cmesh->AutoBuild(matidshdiv);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
 
     // Fixed point condition   
@@ -616,10 +760,10 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, int64_t &newcon)
  }
 
 /// @brief Simulate the NACA profile using H1 approximation
-TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh)
+TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
 {
     int64_t newcon;
-    auto cmeshH1 = CreateH1CompMesh(gmesh, newcon);
+    auto cmeshH1 = CreateH1CompMesh(gmesh, porders, newcon);
     if (1)
     {
         std::ofstream out("cmeshH1.txt");
@@ -627,7 +771,8 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh)
     }
 
     TPZLinearAnalysis an(cmeshH1,RenumType::EMetis);
-    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
+    TPZSkylineStructMatrix<STATE> strmat(cmeshH1);
+    // TPZSSpStructMatrix<STATE> strmat(cmeshH1);
     an.SetStructuralMatrix(strmat);
     TPZStepSolver<STATE> step;
     step.SetDirect(ECholesky);
@@ -669,11 +814,11 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh)
 }
 
 /// @brief Simulate the NACA profile using H(div) approximation
- TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh)
+ TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders)
  {
     int64_t newcon;
     gmesh->ResetReference();
-     auto cmeshHDiv = CreateHDivCompMesh(gmesh, newcon);
+     auto cmeshHDiv = CreateHDivCompMesh(gmesh, porders, newcon);
      auto cmeshL2 = CreateL2CompMesh(gmesh);
 
      TPZMultiphysicsCompMesh* cmesh_m = CreateMultiphysicsMesh(cmeshHDiv,cmeshL2, gmesh);
@@ -685,7 +830,8 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh)
      }
 
     TPZLinearAnalysis an(cmesh_m,RenumType::EMetis);
-    TPZSSpStructMatrix<STATE> strmat(cmesh_m);
+//    TPZSSpStructMatrix<STATE> strmat(cmesh_m);
+    TPZSkylineStructMatrix<STATE> strmat(cmesh_m);
     an.SetStructuralMatrix(strmat);
     TPZStepSolver<STATE> step;
     step.SetDirect(ECholesky);
@@ -780,21 +926,22 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
     int64_t nel = gmesh->NElements();
     RefinementIndicator.Resize(nel,0.);
     RefinementIndicator = 0.;
-    auto tol = std::max_element(ErrorEstimator.begin(), ErrorEstimator.end());
-    *tol = *tol/5.0;
+    auto tolel = std::max_element(ErrorEstimator.begin(), ErrorEstimator.end());
+    REAL tol = *tolel/5.0;
 
     for (int64_t iel = 0; iel < nel_m; iel++) 
     {
         TPZCompEl *cel = cmesh_m->Element(iel);
         TPZGeoEl *gel = cel->Reference();
         int64_t index = gel->Index();
-        if(ErrorEstimator[iel]>*tol)
+        if(ErrorEstimator[iel]> tol)
         {
             RefinementIndicator[iel] = 1.0;
             TPZManVector<TPZGeoEl*> subel; 
             gel->Divide(subel);
         } 
     }//loop over cemsh_m elements
+    // refinar os elementos de contorno
     nel = gmesh->NElements();
     for (int64_t iel = 0; iel < nel; iel++) 
     {
@@ -825,7 +972,267 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
     }
 }
+
+void DivideTrailingEdgeNeighbours(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, REAL tol, TPZVec<REAL> &RefinementIndicator) {
+    auto gmesh = cmesh_m->Reference();
+    int64_t nel = gmesh->NElements();
+    // compute the set of elements neighbouring the trailing edge
+    std::set<int64_t> trailel;
+    for(int64_t el = 0; el < nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(gel->MaterialId() == trailingedgemat) {
+            TPZGeoElSide gelside(gel);
+            for(TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour = neighbour.Neighbour()) {
+                TPZGeoEl *neighgel = neighbour.Element();
+                if(neighgel->Reference() && neighgel->MaterialId() == volmat) {
+                    trailel.insert(neighgel->Index());
+                }
+            }
+        }
+    }
+    // divide the trailing edge element neighbours if necessary
+    for(int64_t el : trailel) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        TPZCompEl *cel = gel->Reference();
+        int64_t index = cel->Index();
+        if(ErrorEstimator[index] > tol) {
+            RefinementIndicator[index] = 1.;
+            TPZManVector<TPZGeoEl*> subel;
+            gel->Divide(subel);
+        }
+    }
+}
+
+void DivideProfileNeighbours(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, REAL tol, int minlevel, TPZVec<REAL> &RefinementIndicator) {
+    auto gmesh = cmesh_m->Reference();
+    int64_t nel = gmesh->NElements();
+    // compute the set of elements neighbouring the trailing edge
+    std::set<int64_t> profileel;
+    for(int64_t el = 0; el < nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(gel->MaterialId() == profilemat) {
+            int nsides = gel->NSides();
+            for(int is = 0; is < nsides; is++) {
+                TPZGeoElSide gelside(gel,is);
+                for(TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour = neighbour.Neighbour()) {
+                    TPZGeoEl *neighgel = neighbour.Element();
+                    if(neighgel->Reference() && neighgel->MaterialId() == volmat) {
+                        profileel.insert(neighgel->Index());
+                    }
+                }
+            }
+        }
+    }
+    // divide the trailing edge element neighbours if necessary
+    for(int64_t el : profileel) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        int level = gel->Level();
+        if(level >= minlevel) continue;
+        TPZCompEl *cel = gel->Reference();
+        int64_t index = cel->Index();
+        if(ErrorEstimator[index] > tol) {
+            RefinementIndicator[index] = 1.;
+            TPZManVector<TPZGeoEl*> subel;
+            gel->Divide(subel);
+        }
+    }
+
+    // smoothen the neighbours of the cut elements
+    // first divide the cut elements if necessary
+    bool changed = true;
+    while(changed) {
+        changed = false;
+        nel = gmesh->NElements();
+        for(int64_t el = 0; el < nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(gel->MaterialId() != cutmat) continue;
+            if(gel->HasSubElement()) continue;
+            TPZGeoElSide gelside(gel);
+            bool shoulddivide = false;
+            for(TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour = neighbour.Neighbour()) {
+                TPZGeoEl *neighgel = neighbour.Element();
+                if(neighgel->HasSubElement()) shoulddivide = true;
+            }
+            if(shoulddivide) {
+                TPZManVector<TPZGeoEl*> subel;
+                gel->Divide(subel);
+                changed = true;
+            }
+        }
+    }
+    // if the cut elements are divided, make sure the neighbours are divided
+    changed = true;
+    while(changed) {
+        changed = false;
+        nel = gmesh->NElements();
+        for(int64_t el = 0; el < nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(gel->MaterialId() != cutmat) continue;
+            // if the element is not divided, nothing to check
+            if(!gel->HasSubElement()) continue;
+            TPZGeoElSide gelside(gel);
+            for(TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour = neighbour.Neighbour()) {
+                TPZGeoEl *neighgel = neighbour.Element();
+                if(!neighgel->HasSubElement()) {
+                    TPZManVector<TPZGeoEl*> subel;
+                    neighgel->Divide(subel);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+}
+
+void SmoothenGeometry(TPZGeoMesh *gmesh) {
+    int64_t nel = gmesh->NElements();
+    // enforce the two on one constraint
+    for(int64_t el = 0; el < nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(gel->Dimension() != 2) continue;
+        if(gel->HasSubElement()) continue;
+        int level = gel->Level();
+        bool shouldrefine = false;
+        for(int is = gel->FirstSide(1); is < gel->NSides()-1; is++) {
+            TPZGeoElSide gelside(gel,is);
+            for(TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour = neighbour.Neighbour()) {
+                TPZGeoEl *neighgel = neighbour.Element();
+                if(!neighgel->HasSubElement()) continue;
+                TPZStack<TPZGeoElSide> subel;
+                neighgel->GetSubElements2(neighbour.Side(),subel,2);
+                if(subel.size() <= 1 ) continue;
+//                neighgel->YoungestChildren(subel);
+                for(TPZGeoElSide &sub : subel) {
+                    TPZStack<TPZGeoElSide> subel;
+                    sub.GetSubElements2(subel);
+                    if(subel.size()>1) {
+                        shouldrefine = true;
+                        break;
+                    }
+                }
+                if(shouldrefine) break;
+            }
+            if(shouldrefine) break;
+        }
+        if(shouldrefine) {
+            TPZManVector<TPZGeoEl *> subel;
+            gel->Divide(subel);
+        }
+    }
+    // divide an element that has more than half of its neighbours divided
+    nel = gmesh->NElements();
+    for(int el = 0; el < nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        int nside1 = gel->NSides(1);
+        int nneighdiv = 0;
+        for(int is = gel->FirstSide(1); is < gel->FirstSide(2); is++) {
+            TPZGeoElSide gelside(gel,is);
+            bool found = false;
+            for(TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour = neighbour.Neighbour()) {
+                TPZGeoEl *neighgel = neighbour.Element();
+                if(neighgel->HasSubElement()) found = true;
+            }
+            if(found) nneighdiv++;
+        }
+        if(nneighdiv > nside1/2) {
+            TPZManVector<TPZGeoEl *> subel;
+            gel->Divide(subel);
+        }
+    }
+    // adjust the boundary elements
+    // this code assume that the level imbalance is not too large
+    bool changed = true;
+    while(changed) {
+        changed = false;
+        nel = gmesh->NElements();
+        for(int64_t el = 0; el < nel; el++) {
+            TPZGeoEl *gel = gmesh->Element(el);
+            if(gel->HasSubElement()) continue;
+            if(gel->Dimension() != 1) continue;
+            //Percorrer os Neighbors de gel e encontar os volumetricos que tem subelementos
+            TPZGeoElSide gelside(gel); 
+            auto Neighbor = gelside.Neighbour();
+            for(; Neighbor != gelside; Neighbor++) {
+                if(!Neighbor.Element()) DebugStop();
+                if(Neighbor.HasSubElement()) {
+                    TPZManVector<TPZGeoEl *> subel;
+                    gel->Divide(subel);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+    }
+}
   
+/// @brief Performe h-refinements at the computational meshes "cmesh" and "cmesh_m" based on the ErrorEstimator  
+void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, int minh, TPZVec<REAL> &RefinementIndicator, TPZVec<int> &porders)
+{
+    int64_t nel_m = cmesh_m->NElements();
+
+    auto gmesh = cmesh_m->Reference();
+    gmesh->ResetReference();
+    cmesh_m->LoadReferences();
+    int64_t nel = gmesh->NElements();
+    RefinementIndicator.Resize(nel,0.);
+    RefinementIndicator = 0.;
+    auto tolel = std::max_element(ErrorEstimator.begin(), ErrorEstimator.end());
+    REAL tol = *tolel/5.0;
+    DivideTrailingEdgeNeighbours(cmesh_m, ErrorEstimator, tol, RefinementIndicator);
+    DivideProfileNeighbours(cmesh_m, ErrorEstimator, tol, minh, RefinementIndicator);
+    SmoothenGeometry(gmesh);
+    nel = gmesh->NElements();
+    RefinementIndicator.Resize(nel,0.);
+    porders.Resize(nel);
+    porders.Fill(-1);
+
+    for (int64_t iel = 0; iel < nel_m; iel++) 
+    {
+        TPZCompEl *cel = cmesh_m->Element(iel);
+        TPZMultiphysicsElement *mfcel = dynamic_cast<TPZMultiphysicsElement *>(cel);
+        if(!mfcel) {
+            DebugStop();
+        }
+        TPZInterpolationSpace *msp = dynamic_cast<TPZInterpolationSpace *>(mfcel->Element(0));
+        if(!msp) DebugStop();
+        int porder = msp->GetPreferredOrder();
+        TPZGeoEl *gel = cel->Reference();
+        int64_t index = gel->Index();
+        if(ErrorEstimator[iel] > tol)
+        {
+            RefinementIndicator[iel] = 1.0;
+            if(gel->HasSubElement()) {
+                TPZManVector<TPZGeoEl*> subel; 
+                gel->Divide(subel);
+                for(auto sub : subel) {
+                    porders[sub->Index()] = porder;
+                }
+            } else {
+                porders[index] = porder+1;
+            }
+        } else {
+            if(gel->HasSubElement()) {
+                TPZManVector<TPZGeoEl*> subel; 
+                gel->Divide(subel);
+                for(auto sub : subel) {
+                    porders[sub->Index()] = porder;
+                }
+            } else {
+                porders[index] = porder;
+            }
+        }
+    }//loop over cemsh_m elements
+    if(gmesh->NElements() != nel) DebugStop();
+    if(porders.size() != gmesh->NElements()) DebugStop();
+    {
+        std::ofstream out1("RefinementIndicator.vtk"); 
+        TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m,out1,RefinementIndicator,"RefinementIndicator");
+    }
+    {
+        std::ofstream out2("gmesh_HPrefinement.vtk"); 
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2, porders, "Porders",true);
+    }
+}
 void PrintResults(TPZLinearAnalysis &an, TPZCompMesh *cmesh)
 //Define a função do tipo void chamada PrintResults, que recebe como parâmetros TPZLinearAnalysis &an e  TPZCompMesh *cmesh
 {
@@ -874,8 +1281,13 @@ void AdjustSystemofEquations (TPZLinearAnalysis &an, TPZCompMesh *cmesh, int64_t
     TPZMatrixSolver<STATE>* matsolv = dynamic_cast<TPZMatrixSolver<STATE>*>(solver);
     if(!matsolv) DebugStop();
     auto mat = matsolv->Matrix();
+#if defined(USING_MKL) || defined(USING_EIGEN)
     TPZSYsmpMatrix<STATE>* spmat = dynamic_cast<TPZSYsmpMatrix<STATE>*> (mat.operator->());
     if(!spmat) DebugStop();
+#else
+    TPZSkylMatrix<STATE> *spmat = dynamic_cast<TPZSkylMatrix<STATE>*>(mat.operator->());
+    if(!spmat) DebugStop();
+#endif
     TPZFMatrix<STATE> &rhs = an.Rhs(); 
 
     ///Variables
@@ -892,7 +1304,6 @@ void AdjustSystemofEquations (TPZLinearAnalysis &an, TPZCompMesh *cmesh, int64_t
         if (row == eqbeta)
         {
             rhs(row,1) = 1.0;
-            std::cout << "rhs before " << rhs(row,0) << std::endl;
             rhs(row,0) = 0.;
             spmat->PutVal(row,row,1.);
         } else
@@ -914,7 +1325,7 @@ void GetTrailingEdgeElements(TPZGeoMesh *gmesh, TPZGeoElSide &Geosideminus, TPZG
     TPZStack<int, 2> NeighborNacaElementsSide;
     TPZGeoElSide TrailingSide;
 
-    // First coment;
+    // First comment;
     for (int64_t el = 0; el < nel; el++) 
     {
         TPZGeoEl *gel = gmesh->Element(el);
