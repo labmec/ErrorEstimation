@@ -396,13 +396,16 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             solutionCase = TLaplaceExample1::ESteepWave;
             break;
         case 10:
-            solutionCase = TLaplaceExample1::ESinMarkHom;
+            DebugStop();
+            // solutionCase = TLaplaceExample1::ESinMarkHom;
             break;
         case 11:
-            solutionCase = TLaplaceExample1::EBubble2DTemp;
+            DebugStop();
+            // solutionCase = TLaplaceExample1::EBubble2DTemp;
             break;
         case 12:
-            solutionCase = TLaplaceExample1::ESteepMountain2D;
+            DebugStop();
+            // solutionCase = TLaplaceExample1::ESteepMountain2D;
             break;
         case 13:
             solutionCase = TLaplaceExample1::ESharpGaussian2D;
