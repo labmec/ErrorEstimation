@@ -224,7 +224,7 @@ def main():
     # writing .msh file
     TPZMeshModeling.WriteMeshFiles(file_name, ".msh")
 
-    path = "/home/cordeiro/projects/ErrorEstimation/build/Projects/ErrorNaca/"
+    path = "./"
     TPZMeshModeling.MoveFiles(file_name, None, path, ".msh")
 
     # closing gmsh
