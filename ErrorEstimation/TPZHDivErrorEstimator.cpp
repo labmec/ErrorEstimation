@@ -941,9 +941,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
     TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
 
     int target_dim = gel->Dimension();
-    if (target_dim == dim - 1 && gel->MaterialId() != fConfig.fWrapMaterialId) {
-        DebugStop();
-    }
+    // if (target_dim == dim - 1) {
+    //     DebugStop();
+    // }
 
     // We denote large the skeleton element passed to this method, which is whether the skeleton between two elements
     // of the same level or the larger skeleton in the region of a hanging node.
@@ -1078,6 +1078,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
         } else {
             integrationGeoElSide = smallerSkelSides[iskel];
         }
+
+        
         std::unique_ptr<TPZIntPoints> intpoints(gel->CreateSideIntegrationRule(integrationGeoElSide.Side(), 2 * order));
 
         REAL left_weight = fMatid_weights[leftVolumeGel->MaterialId()] / sum_weights;
@@ -1099,7 +1101,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
 
             // Get shape at integration point
             intel->Shape(pt_left_skel, phi, dphi);
-
+            TPZVec<REAL> normal(dim, 0.);
+            // integrationGeoElSide.Side().Normal(pt_right_skel, normal);
             // Get solution from left/right sides
             leftSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_left_vol);
             rightSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_right_vol);
@@ -1110,9 +1113,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             //aqui temos que reimplementar levando em consideracao que as solucoes sao vetoriais deveria ter um flag aq para para nao precisar reesecrever o metodo todo na nossa classe
 
             //STATE average_sol = left_weight * left_sol[0] + right_weight * right_sol[0];
-
-            STATE average_solX = left_weight * left_sol[0] + right_weight * right_sol[0];
-            STATE average_solY = left_weight * left_sol[1] + right_weight * right_sol[1];
+            //Jeferson: verificar se isso faz sentido. A solução está sendo multiplicada pelo vetor normal,
+            // para corrigir a solução HDiv que tem a normal multiplicada.  
+            double signl = 1.;//std::copysign(1.0, leftSkelToVolumeTrans[iskel].Mult()(0,0)+leftSkelToVolumeTrans[iskel].Mult()(1,0));
+            double signr = 1.;//std::copysign(1.0, rightSkelToVolumeTrans[iskel].Mult()(0,0)+rightSkelToVolumeTrans[iskel].Mult()(1,0));
+            
+            STATE average_solX = (left_weight * left_sol[0]*signl + right_weight * right_sol[0]*signr);
+            STATE average_solY = (left_weight * left_sol[1]*signl + right_weight * right_sol[1]*signr);
 
             TPZFNMatrix<9, REAL> jac(dim, dim), jacinv(dim, dim), axes(dim, 3);
             REAL detjac;
@@ -1144,8 +1151,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             }
         }
     }
-    L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
-    L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
+    // L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
+    // L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
     int count = 0;
@@ -1156,11 +1163,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
         int ndof = c.NShape() * c.NState();
         for (int idf = 0; idf < ndof; idf++) {
             mesh_sol(pos + idf, 0) = L2Rhs(count++);
-            std::cout << "mesh_sol(pos + idf, 0) = " << pos + idf << " " << mesh_sol(pos + idf, 0) << std::endl;
-            std::cout << "L2rhs = " << L2Rhs(count-1) << std::endl;
+            // std::cout << "mesh_sol(pos + idf, 0) = " << pos + idf << " " << mesh_sol(pos + idf, 0) << std::endl;
+            // std::cout << "L2rhs = " << L2Rhs(count-1) << std::endl;
         }
     }
-    pressuremesh->LoadSolution(mesh_sol);
+    // pressuremesh->LoadSolution(mesh_sol);
 
 }
 
@@ -1491,9 +1498,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
 // #ifdef LOG4CXX
 //             if (logger->isDebugEnabled()) {
 //                 std::stringstream sout;
-                std::cout << "value before " << solMatrix.at(block.at(seqnum, 0, istate, 0)) <<
-                        " value after " << averageSol[istate] << " diff "
-                        << solMatrix.at(block.at(seqnum, 0, istate, 0)) - averageSol[istate] << std::endl;  
+                // std::cout << "value before " << solMatrix.at(block.at(seqnum, 0, istate, 0)) <<
+                //         " value after " << averageSol[istate] << " diff "
+                //         << solMatrix.at(block.at(seqnum, 0, istate, 0)) - averageSol[istate] << std::endl;  
                 //                        res2.Print("Residual",sout);
 //                 LOGPZ_DEBUG(logger, sout.str())
 //             }
@@ -1916,6 +1923,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PlotPrimalSkeleton(const std::string 
         //vecnames.Push("Displacement");
     } else {
         pressure = PrimalMesh();
+        // scalnames.Push("Solution");
         vecnames.Push("Solution");
     }
 
@@ -1929,6 +1937,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::PlotPrimalSkeleton(const std::string 
             out << filename << ".vtk";
             plotname = out.str();
         }
+        // std::set<int> matids = {fConfig.fWrapMaterialId};
+        // an.DefineGraphMesh(dim, matids, scalnames, vecnames, plotname);
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(0, dim);
     }

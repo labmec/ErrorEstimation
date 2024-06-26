@@ -99,18 +99,19 @@ int main() {
     
 
     ProblemConfig pConfig;
-    pConfig.geometry = ProblemConfig::EGeometry::ECrack;
+    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
     pConfig.exactElast = new TElasticity2DAnalytic;
-    // pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
+    // pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::ECrack;
     switch (pConfig.geometry){
         case ProblemConfig::EGeometry::ECrack:
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ECrack;
             break;
         case ProblemConfig::EGeometry::EQuad:
-        case ProblemConfig::EGeometry::ETrap:
+        case ProblemConfig::EGeometry::ETrap: 
         default:
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
-            // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EStretchx;
+            // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
+            // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::Etest1;
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
             break;
     }
     
@@ -514,7 +515,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
             elas2D = dynamic_cast<TElasticity2DAnalytic*> (fAn) ;
             matelas = new TPZMixedElasticityND(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress, dim);
             matelas->SetExactSol(elas2D->ExactSolution(),4);
-         //   matelas->SetForcingFunction(elas2D->ForceFunc(),4);
+            matelas->SetForcingFunction(elas2D->ForceFunc(),4);
             hdivCreator.InsertMaterialObject(matelas);
 
             TPZFMatrix<STATE> val1(dim,dim,0.);

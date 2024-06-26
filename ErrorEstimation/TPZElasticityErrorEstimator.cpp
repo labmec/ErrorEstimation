@@ -841,13 +841,14 @@ void TPZElasticityErrorEstimator::ComputeAveragePrimal(int target_dim)
             
             int matId = gel->MaterialId();
             // if(matId != fConfig.fLagMultiplierMaterialId) continue;
-            if(matId != fConfig.fWrapMaterialId) continue;
+            if(matId != fConfig.fWrapMaterialId && matId != fConfig.fLagMultiplierMaterialId) continue;
+            // if(matId != fConfig.fWrapMaterialId) continue;
             int64_t index = cel->Index();
             ComputeAverage(postpressuremesh,index);
         }
     }
-    std::ofstream out("solution.nb");
-    postpressuremesh->Solution().Print("Solution = ", out, EMathematicaInput);;
+    // std::ofstream out("solution.nb");
+    // postpressuremesh->Solution().Print("Solution = ", out, EMathematicaInput);
 }
 /// compute the average pressure over corners
 /// set the cornernode values equal to the averages
@@ -1001,12 +1002,14 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fConfig.fWrapMaterialId);
+    // TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fConfig.fWrapMaterialId);
+    TPZL2Projection<> *skeletonMat = new TPZL2Projection<STATE>(fConfig.fWrapMaterialId,1,2);
     skeletonMat->SetDimension(dim - 1);
     skeletonMat->SetNStateVariables(dim);
     displacement_mesh->InsertMaterialObject(skeletonMat);
 
-    TPZNullMaterial<> *LagmultMat = new TPZNullMaterial<>(fConfig.fLagMultiplierMaterialId);
+    // TPZNullMaterial<> *LagmultMat = new TPZNullMaterial<>(fConfig.fLagMultiplierMaterialId);
+    TPZL2Projection<> *LagmultMat = new TPZL2Projection<STATE>(fConfig.fLagMultiplierMaterialId,1,2);
     LagmultMat->SetDimension(dim - 1);
     LagmultMat->SetNStateVariables(dim);
     displacement_mesh->InsertMaterialObject(LagmultMat);
@@ -1035,7 +1038,7 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
         if (!cel) continue;
         // if(!intel) DebugStop();
         // load just d dimensional elements
-        if (cel->Dimension() != dim) continue;
+        // if (cel->Dimension() != dim) continue;
         cel->LoadElementReference();
     }
 
@@ -1063,13 +1066,24 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
             int c_blocksize = c.NShape() * c.NState();
             TPZStack<TPZCompElSide> celstack;
 
-            gelside.EqualLevelCompElementList(celstack, 1, 0);
-
-            int nst = celstack.NElements();
+            // gelside.EqualLevelCompElementList(celstack, 1, 0);
+            // gelside.ConnectedCompElementList(celstack, 1, 0);
+// 
+            TPZStack<TPZGeoElSide> allneighs;
+            gelside.AllNeighbours(allneighs);
+            // for (int i = 0; i < allneighs.size(); i++)
+            // {
+            //     std::cout<< "Neighs = " << allneighs[i].Element()->MaterialId() << "\n";
+            // }
+            
+            // Fazer a conta com base nos elmentos vizinhos e nao em relação aos elementos conectados.
+            int nst = allneighs.NElements();
             if(nst==0) DebugStop();
             for (int ist = 0; ist < nst; ist++) {
-                TPZCompElSide cneigh = celstack[ist];
-                TPZGeoElSide gneigh = cneigh.Reference();
+                // std::cout << "Neighs = " << allneighs[ist].Element()->MaterialId() << "\n";
+                TPZGeoElSide gneigh = allneighs[ist];
+                TPZCompElSide cneigh = gneigh.Reference();
+                if (gneigh.Element()->Dimension() != dim+1) continue;
 
                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                 if (!intelneigh) DebugStop();
@@ -1078,6 +1092,7 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
                 int con_size = con_neigh.NState() * con_neigh.NShape();
                 if (con_size != c_blocksize) DebugStop();
                 for (int ibl = 0; ibl < con_size; ibl++) {
+                    // std::cout << "WrapSol = " << sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0)) << " PrevSol = " << sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) << std::endl;
                     sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) = sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0));
                 }
             }
@@ -1416,7 +1431,7 @@ void TPZElasticityErrorEstimator::CreateMultiphysicsInterfaces(TPZCompMesh *pres
             }
             std::cout<<std::endl;
         }
-        if (count != 2) DebugStop();
+        // if (count != 2) DebugStop();
     }
     {
         std::ofstream file("GmeshAfterInterfaces.vtk");
