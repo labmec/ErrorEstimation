@@ -408,7 +408,8 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             // solutionCase = TLaplaceExample1::ESteepMountain2D;
             break;
         case 13:
-            solutionCase = TLaplaceExample1::ESharpGaussian2D;
+            // solutionCase = TLaplaceExample1::ESharpGaussian2D;
+            DebugStop();
             break;
         default:
             DebugStop();

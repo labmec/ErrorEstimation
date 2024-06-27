@@ -531,6 +531,14 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &
     std::map<int64_t,int64_t> connectmap, connectmapinverse;
     std::set<int64_t> blueelements, redelements;
     BuildBlueRedElements(gmesh, blueelements, redelements);
+
+    {
+        TPZVec<int> elcolor(nel,0);
+        for(auto el : blueelements) elcolor[el] = 1;
+        for(auto el : redelements) elcolor[el] = -1;
+        std::ofstream out("cutcolor.txt");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, elcolor);
+    }
     for(int64_t el = 0; el<nel; el++) {
         TPZGeoEl *gel = gmesh->Element(el);
         if(gel->MaterialId() != cutmat) continue;
@@ -581,6 +589,17 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &
         for(int ic=0; ic<nc; ic++)
         {
             int64_t cindex = cel->ConnectIndex(ic);
+            TPZConnect &c = cmesh->ConnectVec()[cindex];
+            if(c.HasDependency()) {
+                auto dep = c.FirstDepend();
+                while(dep) {
+                    int64_t cindex2 = dep->fDepConnectIndex;
+                    if(connectmap.find(cindex2) != connectmap.end()) {
+                        dep->fDepConnectIndex = connectmap[cindex2];
+                    }
+                    dep = dep->fNext;
+                }
+            }
             if(connectmap.find(cindex) == connectmap.end()) continue;
             cel->SetConnectIndex(ic,connectmap[cindex]);
         }
@@ -592,6 +611,21 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &
         cmesh->Print(out);
     }
     cmesh->CleanUpUnconnectedNodes();
+    {
+        std::fstream out("cutsol.vtk");
+        TPZConnect &c = cmesh->ConnectVec()[newcon];
+        int64_t pos = cmesh->Block().Position(c.SequenceNumber());
+        TPZFMatrix<STATE> &meshsol = cmesh->Solution();
+        meshsol(pos,0) = 1;
+        cmesh->LoadSolution(meshsol);
+        TPZVec<std::string> fields = {
+            "Pressure",
+            "Flux"
+        };
+        auto vtk = TPZVTKGenerator(cmesh, fields, "cutsolution", 0);
+        vtk.SetNThreads(0);
+        vtk.Do();
+    }
     return cmesh;
 }
 
