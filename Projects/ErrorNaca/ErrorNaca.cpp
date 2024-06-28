@@ -825,7 +825,7 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
     fsol = an.Solution();
     for (int64_t eq = 0; eq < numeq; eq++) 
     {
-        phi_0(eq) =  fsol(eq,0);
+        phi_0(eq) =  -fsol(eq,0);
         phi_1(eq) =  fsol(eq,1);
     }
 
@@ -1606,7 +1606,7 @@ void ComputeBetaH1(TPZGeoMesh *gmesh, TPZCompMesh *cmesh, TPZFMatrix<STATE> &phi
     REAL C = grad_phi0_plus[0]*grad_phi0_plus[0]+grad_phi0_plus[1]*grad_phi0_plus[1]-grad_phi0_minus[0]*grad_phi0_minus[0]-grad_phi0_minus[1]*grad_phi0_minus[1];
     REAL Delta = B*B-4.0*A*C;
 
-    if ((-B+sqrt(Delta))/(2*A)>(-B-sqrt(Delta))/(2*A))
+    if (abs((-B+sqrt(Delta))/(2*A))<abs((-B-sqrt(Delta))/(2*A)))
     {
         Beta = (-B+sqrt(Delta))/(2*A);
     }
@@ -1638,7 +1638,7 @@ void ComputeBetaHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, TPZFMa
     REAL C = u0_plus[0]*u0_plus[0]+u0_plus[1]*u0_plus[1]-u0_minus[0]*u0_minus[0]-u0_minus[1]*u0_minus[1];
     REAL Delta = B*B-4.0*A*C;
 
-    if ((-B+sqrt(Delta))/(2*A)<(-B-sqrt(Delta))/(2*A))
+    if (abs((-B+sqrt(Delta))/(2*A))<abs((-B-sqrt(Delta))/(2*A)))
     {
         Beta = (-B+sqrt(Delta))/(2*A);
     }
