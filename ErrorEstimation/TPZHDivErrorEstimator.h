@@ -49,6 +49,8 @@ protected:
     
     const ProblemConfig &fConfig;
 
+    std::map<int64_t,int64_t> fGeoElIndexToCompElIndex;
+
 public:
     explicit TPZHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
         : fConfig(config), fOriginal(&originalMesh), fPostProcMesh(nullptr), fExact(nullptr) {
@@ -185,7 +187,7 @@ protected:
     // computes the average of the element iel in the pressure/displacement mesh looking at its neighbours
     void ComputeAverage(TPZCompMesh *primalmesh, int64_t iel);
 
-    void PrepareElementsForH1Reconstruction();
+    void PrepareElementsForH1Reconstruction(); 
 
     bool IsAdjacentToHangingNode(const TPZCompElSide &celside);
 

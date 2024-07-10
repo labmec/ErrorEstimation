@@ -723,7 +723,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     std::cout << "max error " << maxError << "\n";
 
     // Refines elements which error are bigger than 20% of the maximum error
-    REAL threshold = 0.3 * maxError;
+    REAL threshold = 0.9 * maxError;
 
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];

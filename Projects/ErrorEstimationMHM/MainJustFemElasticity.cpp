@@ -187,7 +187,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps =2;
+    int nsteps =3;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -241,10 +241,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 // hdivCreator.HybridType() = HybridizationType::ENone;
                 hdivCreator.HybridType() = HybridizationType::EStandard;
                 
-                // Prints gmesh mesh properties
-                std::string vtk_name2 = "geoMeshLshape.vtk";
-                std::ofstream vtkfile2(vtk_name2.c_str());
-                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile2, true);
+                
                 
               //  config.gmesh=gmesh;
                 
@@ -289,6 +286,11 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 // std::string txt = "cmesh.txt";
                 // std::ofstream myfile(txt);
                 // cmesh->Print(myfile);
+                // Prints gmesh mesh properties
+
+                std::string vtk_name2 = "geoMeshLshape.vtk";
+                std::ofstream vtkfile2(vtk_name2.c_str());
+                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile2, true);
 
                 config.fWrapMaterialId = hdivCreator.HybridData().fWrapMatId;
                 config.fInterfaceMaterialId = hdivCreator.HybridData().fInterfaceMatId;
@@ -428,6 +430,16 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 std::string vtk_name = "geoMeshAfterAdapt.vtk";
                 std::ofstream vtkfile(vtk_name.c_str());
                 TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+
+                //Delete geo elements with wrap, interface and lagrange material id
+                for (auto i = 0; i < config.gmesh->NElements(); i++){
+                    auto gel = config.gmesh->ElementVec()[i];
+                    if (!gel) continue;
+                    if (gel->MaterialId() == config.fWrapMaterialId || gel->MaterialId() == config.fInterfaceMaterialId || gel->MaterialId() == config.fLagMultiplierMaterialId){
+                        config.gmesh->DeleteElement(gel);
+                    }
+                }
+                
                 
  //           }
             

@@ -246,6 +246,23 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     //SubStructurePostProcessingMesh();
     ComputePrimalWeights();
 
+    fPostProcMesh.MeshVector()[1]->LoadReferences();
+    for (auto i = 0; i < fPostProcMesh.MeshVector()[1]->Reference()->NElements(); i++){
+        TPZGeoEl * gel = fPostProcMesh.MeshVector()[1]->Reference()->Element(i);
+        if (!gel) continue;
+        if (gel->MaterialId() == fConfig.fInterfaceMaterialId) continue;
+        auto cel = gel->Reference();
+        if (!cel) continue;
+        auto gelindex = gel->Index();
+        auto celindex = cel->Index();
+
+        fGeoElIndexToCompElIndex[gelindex] = celindex;
+    }
+    
+
+
+
+
     {
         std::ofstream file("GmeshAfterCreatePostProcessing.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(this->GMesh(), file);
@@ -828,6 +845,7 @@ void TPZElasticityErrorEstimator::ComputeAveragePrimal(int target_dim)
     }
     // compute the averages one element at a time
     nel = postpressuremesh->NElements();
+    // postpressuremesh->LoadReferences();
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = postpressuremesh->Element(el);
         if(!cel) continue;
@@ -846,7 +864,10 @@ void TPZElasticityErrorEstimator::ComputeAveragePrimal(int target_dim)
             int64_t index = cel->Index();
             ComputeAverage(postpressuremesh,index);
         }
-    }
+    } 
+    
+
+
     // std::ofstream out("solution.nb");
     // postpressuremesh->Solution().Print("Solution = ", out, EMathematicaInput);
 }
@@ -873,6 +894,7 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
 
     nel = pressuremesh->NElements();
     // compute the averages
+    TPZStack<TPZCompElSide> nodesToImposeSolution;
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
         auto *celhdiv = dynamic_cast<TPZCompElHDivBound2<pzshape::TPZShapeLinear> *>(cel);
@@ -888,9 +910,73 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             for (int side = 0; side<ncorner; side++) {
                 TPZCompElSide celside(cel,side);
                 int nsides = gel->NSides();
+                // if (IsAdjacentToHangingNode(celside)) {
+                //     nodesToImposeSolution.Push(celside);
+                //     continue;
+                // }
+
+
                 ComputeNodalAverage(celside);
             }
         }
+    }
+
+    // return;
+
+
+    pressuremesh->LoadSolution(pressuremesh->Solution());
+
+    TPZBlock &block = pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
+
+    // Impose solution on nodes adjacent to hanging nodes
+    for (int64_t i = 0; i < nodesToImposeSolution.size(); i++) {
+        TPZCompElSide node_celside = nodesToImposeSolution[i];
+        TPZGeoElSide node_gelside(node_celside.Reference());
+
+        // celstack will contain all zero dimensional sides connected to the side
+        TPZStack<TPZCompElSide> celstack;
+        int onlyinterpolated = 1;
+        int removeduplicates = 0;
+
+        node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+
+        for (int elc = 0; elc < celstack.size(); elc++) {
+            TPZCompElSide neigh_celside = celstack[elc];
+            if (neigh_celside.Reference().Dimension() != 0) continue;
+            TPZGeoElSide neigh_gelside(neigh_celside.Reference());
+
+            // Get solution of the neighbour
+            TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *> (neigh_celside.Element());
+            if (!neigh_intel) DebugStop();
+
+            int64_t neigh_conindex = neigh_intel->ConnectIndex(neigh_celside.Side());
+            TPZConnect &neigh_c = pressuremesh->ConnectVec()[neigh_conindex];
+
+            int64_t neigh_seqnum = neigh_c.SequenceNumber();
+            int nstate = 2;
+            if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
+            TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
+            for (int istate = 0; istate < nstate; istate++) {
+                neigh_sol[istate] = sol.at(block.at(neigh_seqnum, 0, istate, 0));
+            }
+            // ifnode_celside.Element()->Reference()->MaterialId()
+            // Set solution to given connect
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (node_celside.Element());
+            if (!intel) continue;
+
+            int side = node_gelside.Side();
+            int64_t conindex = intel->ConnectIndex(side);
+            TPZConnect &c = pressuremesh->ConnectVec()[conindex];
+
+            int64_t seqnum = c.SequenceNumber();
+            if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+            for (int istate = 0; istate < nstate; istate++) {
+                sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
+            }
+            break;
+        }
+        pressuremesh->LoadSolution(pressuremesh->Solution());
     }
 }
 
@@ -1084,6 +1170,7 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
                 TPZGeoElSide gneigh = allneighs[ist];
                 TPZCompElSide cneigh = gneigh.Reference();
                 if (gneigh.Element()->Dimension() != dim+1) continue;
+                if (!cneigh) continue;
 
                 TPZInterpolatedElement *intelneigh = dynamic_cast<TPZInterpolatedElement *>(cneigh.Element());
                 if (!intelneigh) DebugStop();
@@ -1388,51 +1475,54 @@ void TPZElasticityErrorEstimator::CreateMultiphysicsInterfaces(TPZCompMesh *pres
     TPZGeoMesh *gmesh = this->GMesh();
     int dim = gmesh->Dimension();
 
-    if (fMultiPhysicsInterfaceMatId == 0) {
-        fMultiPhysicsInterfaceMatId = fConfig.fInterfaceMaterialId;
-        // fMultiPhysicsInterfaceMatId = FindFreeMatId(this->GMesh());
-    }
-
-    TPZLagrangeMultiplierCS<> *interfaceMat = new TPZLagrangeMultiplierCS<>(fMultiPhysicsInterfaceMatId, dim - 1, 1);
+    TPZLagrangeMultiplierCS<> *interfaceMat = new TPZLagrangeMultiplierCS<>(fConfig.fInterfaceMaterialId, dim - 1, 1);
     pressuremesh->InsertMaterialObject(interfaceMat);
-    std::cout << "Created interface material of index " << fMultiPhysicsInterfaceMatId << '\n';
 
-    // Iterates over geometric elements
-    int64_t nel = gmesh->NElements();
-    for (int64_t iel = 0; iel < nel; iel++) {
-        TPZGeoEl *gel = gmesh->Element(iel);
+    int numEl = fPostProcMesh.NElements();
 
-        if (gel->MaterialId() != fConfig.fLagMultiplierMaterialId) continue;
+    auto fGeoMesh = fPostProcMesh.Reference();
+    // fGeoMesh->ResetReference();
+    fPostProcMesh.LoadReferences();
 
-        // Get side of largest dimension of the skeleton
-        TPZGeoElSide skelSide = TPZGeoElSide(gel);
-        TPZCompEl *skelCel = gel->Reference();
-        if (!skelCel) DebugStop();
-
-        int count = 0;
-        for (TPZGeoElSide neigh = skelSide.Neighbour(); neigh != skelSide; neigh++) {
-            TPZCompElSide skelCelSide = skelSide.Reference();
-            if (!skelCelSide) DebugStop();
-
-            TPZGeoEl *neighGel = neigh.Element();
-            if (neighGel->MaterialId() != fConfig.fWrapMaterialId) continue;
-
-            TPZGeoElBC gbc(skelSide, fMultiPhysicsInterfaceMatId);
-            count++;
-
-            TPZCompElSide neighSide = neigh.Reference();
-            if (!neighSide) DebugStop();
-
-            auto *interface = new TPZMultiphysicsInterfaceElement(*pressuremesh, gbc.CreatedElement(), skelCelSide, neighSide);
-            std::cout << "New element = " << interface->Index() << '\n';
-            for (int i = 0; i < interface->NConnects(); i++)
-            {
-                std::cout << interface->ConnectIndex(i) << ' ';
-            }
-            std::cout<<std::endl;
+    for(int iel = 0; iel < numEl; iel++){
+        TPZCompEl *cel = fPostProcMesh.ElementVec()[iel];
+        if(!cel || !cel->Reference()){
+            DebugStop();
         }
-        // if (count != 2) DebugStop();
+        TPZGeoEl *gel = cel->Reference();
+        int matid = gel->MaterialId();
+        if(matid != fConfig.fWrapMaterialId){
+            continue;
+        }
+        TPZGeoElSide gelside(gel);
+        TPZGeoElSide LargeNeigh = gelside.HasLowerLevelNeighbour(fConfig.fWrapMaterialId);
+        TPZGeoElSide neighLag = gelside.HasNeighbour(fConfig.fLagMultiplierMaterialId);
+        if(!neighLag){
+            continue;
+        }
+        TPZCompElSide celside = gelside.Reference();
+        TPZCompElSide cLagrange = neighLag.Reference();
+
+        TPZGeoElSide ginterface = gelside.Neighbour();
+        if(ginterface.Element()->MaterialId() != fConfig.fInterfaceMaterialId){
+            DebugStop();
+        }
+    
+        if(LargeNeigh) {
+            // create another interface
+            TPZGeoElSide ginterface = neighLag.Neighbour();
+            TPZCompElSide cLarge = LargeNeigh.Reference();
+#ifdef PZDEBUG
+            if(ginterface.Element()->MaterialId() != fConfig.fInterfaceMaterialId) DebugStop();
+#endif
+            TPZMultiphysicsInterfaceElement *interface = new TPZMultiphysicsInterfaceElement(*pressuremesh,ginterface.Element(),cLarge,cLagrange);
+        }
+
+        TPZMultiphysicsInterfaceElement *interface = new TPZMultiphysicsInterfaceElement(*pressuremesh,ginterface.Element(),celside,cLagrange);      
     }
+
+
+
     {
         std::ofstream file("GmeshAfterInterfaces.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(this->GMesh(), file);
@@ -1511,9 +1601,9 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
                 for (int ineigh = 0; ineigh < allneig.size(); ineigh++){
                     TPZGeoElSide neigh = allneig[ineigh];
                     if (neigh.Element()->MaterialId() == fConfig.fWrapMaterialId){
-                        int ind = neigh.Element()->Reference()->Index();
-                        this->fPrimalWeights[neigh.Element()->Reference()->Index()] = 0;
-                        fMatid_weights[neigh.Element()->MaterialId()] = 0;
+                        auto ind = neigh.Element()->Reference()->Index();
+                        this->fPrimalWeights[ind] = weight;
+                        fMatid_weights[ind] = weight;
                     }
                 }
             }
