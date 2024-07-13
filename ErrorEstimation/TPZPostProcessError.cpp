@@ -398,7 +398,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {//elementerrors isn't being filled
     
     TPZMultiphysicsCompMesh *multiphysicsmesh = dynamic_cast<TPZMultiphysicsCompMesh*>(fMeshVector[Emulti]);
-    if(1){
+    if(0){
         std::ofstream out0("../multiphysicsmesh.txt");
         multiphysicsmesh->Print(out0);
         std::ofstream out1("../FluxCMesh.txt");

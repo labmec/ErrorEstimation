@@ -208,7 +208,7 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     errors[2] += inner; // Flux estimator
 
     //make a contribution to the partial error on each color uniquely
-    if(1){
+    if(0){
         TPZManVector<STATE,1> u_exact(1, 0);
         TPZFMatrix<STATE> du_exact(3, 1, 0);
                 

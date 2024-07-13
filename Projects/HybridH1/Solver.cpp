@@ -43,7 +43,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
             config.gmesh->ResetReference();
             cmesh = InsertCMeshH1(config,preConfig);
             config.PorderIncrement2();
-            if(1){
+            if(0){
                 std::ofstream outcmesh("cmeshH1CheckPorder.txt");
                 cmesh->Print(outcmesh);
             }
@@ -234,9 +234,9 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         REAL threshold = config.division_threshold;
         int algor = 0;
         switch (algor) {
-            case 0:
+            case 0: // in case of smooth solutions, even with extreme behavior
                 for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
-                    REAL elementerror = estimate_elerror(i,2)+estimate_elerror(i,3);
+                    REAL elementerror = estimate_elerror(i,2);//+estimate_elerror(i,3);
                     REAL elemresidual = estimate_elerror(i,3);
                     REAL ratio = elemresidual/elementerror;
     
@@ -261,22 +261,58 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                 config.fElIndexDivide.push_back(gelstohref);
                 config.fElIndexPplus.push_back(gelstoPplus);
                 break;
+            case 1: //In case of presence of singularity
+                for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
+                    REAL elementerror = estimate_elerror(i,2);//+estimate_elerror(i,3);
+                    REAL elemresidual = estimate_elerror(i,3);
+                    REAL ratio = elemresidual/elementerror;
+    
+                    TPZCompEl* cel = cmeshH1->Element(i);
+                    if (cel->Dimension() != cmeshH1->Dimension()){
+                        continue;
+                    }
+                    TPZGeoEl* gel = cel->Reference();
+                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+                    int porder = intel->GetPreferredOrder();
+                    gelstoPplus[gel->Index()] = porder;
+                    
+                    if(elementerror < 0.00000001){
+                        continue;
+                    }else if (elementerror > threshold * maxerror){
+                        gelstohref.insert(gel->Index());
+                    }else if (0.4*maxerror >= elementerror){
+                        gelstoPplus[gel->Index()] = porder+1;
+                    }
+                }
                 
-            case 1:
+                config.fElIndexDivide.push_back(gelstohref);
+                config.fElIndexPplus.push_back(gelstoPplus);
+                break;
+            case 2:
                 for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
                     REAL elementerror = estimate_elerror(i,2);
                     
+                    TPZCompEl* cel = cmeshH1->Element(i);
+                    if (cel->Dimension() != cmeshH1->Dimension()){
+                        continue;
+                    }
+                    TPZGeoEl* gel = cel->Reference();
+                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
+                    int porder = intel->GetPreferredOrder();
+                    gelstoPplus[gel->Index()] = porder;
+                    
                     //Selects elements adjacent to the selected node
                     TPZGeoNode node = config.gmesh->NodeVec()[0];
-                    TPZCompEl* cel = cmeshH1->Element(i);
-                    TPZGeoEl* gel = cel->Reference();
                     const int nnodes = gel->NNodes();
                     std::set<int64_t> nodeindices;
                     gel->GetNodeIndices(nodeindices);
                     if (nodeindices.count(node.Id())){
                         gelstohref.insert(gel->Index());
                     }
-                    else if (elementerror > (1-threshold)*maxerror){
+                    else if (elementerror < 0.00000001){
+                        continue;
+                    }
+                    else {
                         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                         int porder = intel->GetPreferredOrder();
                         gelstoPplus[gel->Index()] = porder+1;
@@ -285,41 +321,6 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     config.fElIndexDivide.push_back(gelstohref);
                     config.fElIndexPplus.push_back(gelstoPplus);
                 }
-                break;
-                
-            case 2:
-                for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
-                    REAL elementerror = estimate_elerror(i,2);
-                    //std::cout << "true_elerror(i,2): " << true_elerror(i,2) << std::endl;
-                    if(0.000001 < elementerror && elementerror > threshold*maxerror && true_elerror(i,2)>1.01){
-                        TPZCompEl* cel = cmeshH1->Element(i);
-                        TPZGeoEl* gel = cel->Reference();
-                        gelstohref.insert(gel->Index());
-                    } else if (0.000001 < elementerror && elementerror <= 0.5*maxerror && true_elerror(i,2)<=1.01){
-                        TPZCompEl* cel = cmeshH1->Element(i);
-                        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-                        int porder = intel->GetPreferredOrder();
-                        TPZGeoEl* gel = cel->Reference();
-                        if (gel->Dimension() != cmeshH1->Dimension()) continue;
-                        if(porder<8){
-                            gelstoPplus[gel->Index()] = porder+1;
-                        }
-                    }else if (0.000001< elementerror && elementerror >= threshold*maxerror && true_elerror(i,2)<=1.01){
-                        TPZCompEl* cel = cmeshH1->Element(i);
-                        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-                        int porder = intel->GetPreferredOrder();
-                        TPZGeoEl* gel = cel->Reference();
-                        if (gel->Dimension() != cmeshH1->Dimension()) continue;
-                        if(porder<8){
-                            gelstoPplus[gel->Index()] = porder+1;
-                        }
-                    }
-
-                }
-                
-                config.fElIndexDivide.push_back(gelstohref);
-                config.fElIndexPplus.push_back(gelstoPplus);
-
                 break;
             default:
                 break;
@@ -586,7 +587,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
             plotname = out.str();
         }
-        int resolution = 0;
+        int resolution = 3;
         
         an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
         an.PostProcess(resolution,dim);
@@ -856,7 +857,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> &true_elerror, TPZF
             if (true_elerror(el,1) > 1.e-10) {
                 //true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
                 true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);//Effect. index
-                if(1){
+                if(0){
                 std::cout << "est_elerror: " << true_elerror(el,0) << "  " << "true_elerror: " << true_elerror(el,1) << "  "<<"residual error: " << residual << "  EI: " << true_elerror(el,2) << std::endl;
                 }
             }
@@ -926,7 +927,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> &true_elerror, TPZF
         an.DefineGraphMesh(cmeshH1->Dimension(), scalnames, vecnames, plotname);
         int resolution = 0;
         an.PostProcess(resolution);
-        if(1){
+        if(0){
             std::ofstream outcmeshH1("cmeshH1CheckPorder2");
             cmeshH1->Print(outcmeshH1);
         }

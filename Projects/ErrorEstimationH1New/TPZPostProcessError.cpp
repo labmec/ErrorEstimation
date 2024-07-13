@@ -583,7 +583,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         an.LoadSolution();
         
-        if(1){
+        if(0){
             // now we have a partial solution
             /** Variable names for post processing */
             TPZStack<std::string> scalnames, vecnames;
