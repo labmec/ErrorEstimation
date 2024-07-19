@@ -965,6 +965,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
 
         if (smallerSkelSides.size() == 1) DebugStop();
         if (smallerSkelSides.size() == 0){
+        
             return;
             if (largeSkeletonSide.Element()->MaterialId()== fConfig.fLagMultiplierMaterialId)return;
             //Fill smallerSkelSides with the neighbour of the large skeleton
@@ -1149,6 +1150,206 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             mesh_sol(pos + idf, 0) = L2Rhs(count++);
         }
     }
+
+
+    if (!noHangingSide){
+        // This skeleton element contains a hanging node in its interior.
+        // We need to propagate the just-computed average to its smaller neighbors.
+        // std::cout << gel->Index() << std::endl;
+        
+        // for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
+        //     std::cout << smallerSkelSides[iskel].Element()->Index() << std::endl;
+        // }
+                
+        TPZVec<REAL> coord_media(2, 0.);
+        int ncorners = gel->NCornerNodes();
+        for (int side = 0; side < ncorners; side++) {
+            TPZGeoElSide node_gelside(gel, side);
+            coord_media[i] += node_gelside->Element().Coord(i)/ncorners;
+        }
+
+        int ncorners = gel->NCornerNodes();
+        for (int side = 0; side < ncorners; side++) {
+            TPZGeoElSide node_gelside(gel, side);
+            TPZCompElSide node_celside(intel, side);
+
+            // if (IsAdjacentToHangingNode(celside)) {
+            //     nodesToImposeSolution.Push(celside);
+            //     continue;
+            // }
+
+            // int64_t conindex = intel->ConnectIndex(side);
+            // TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+            // if (!c.HasDependency()) {
+            //     ComputeNodalAverage(celside);
+            // }
+
+            // int skeletonMatId = fConfig.fWrapMaterialId;
+
+            // TPZMaterial *mat = pressure_mesh->FindMaterial(skeletonMatId);
+            // if (!mat) DebugStop();
+            int nstate = mat->NStateVariables();
+
+            // TPZGeoElSide node_gelside(node_celside.Reference());
+            TPZGeoEl *node_gel = node_gelside.Element();
+            int node_side = node_gelside.Side();
+            
+
+            // // celstack will contain all zero dimensional sides connected to the side
+            TPZStack<TPZCompElSide> celstack;
+            int onlyinterpolated = 1;
+            int removeduplicates = 0;
+
+            node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+
+            for (int elc = 0; elc < celstack.size(); elc++) {
+                TPZCompElSide celside = celstack[elc];
+                TPZGeoElSide gelside = celside.Reference();
+                if (gelside->MaterialId() != fConfig.fWrapMaterialId){
+                    continue;
+                }
+
+                bool wrapPequeno = false;
+                int ncorners_side = gelside->NCornerNodes();
+                for (int side = 0; side < ncorners_side; side++) {
+                    TPZGeoElSide other_node_gelside(gelside, side);
+                    bool mesmoNo = true;
+                    for (size_t i = 0; i < dim; i++){
+                        if (other_node_gelside.Element().Coord(i) != node_gel.Coord(i)){
+                            mesmoNo = false;
+                            break;
+                        }
+                    }
+                    if (mesmoNo) continue;
+                    // Estamos no outro nó (no hanging node ou em alguma outra direção)
+                    bool hangingNode = true;
+                    for (size_t i = 0; i < dim; i++){
+                        if (abs(other_node_gelside.Element().Coord(i) - coord_media[i]) > 1.e-5){
+                            hangingNode = false;
+                            break;
+                        }
+                    }
+                    if (!hangingNode) continue;
+                    wrapPequeno = true;
+                    break;
+                }
+                if (!wrapPequeno) continue;
+                // Devemos ajustar a solução do celside para coincidir com a do wrap grande
+
+                TPZInterpolatedElement *intelWrapPequeno = dynamic_cast<TPZInterpolatedElement *> (celside);
+                if (!intelWrapPequeno) DebugStop();
+
+                int nshape = intel->NShapeF();
+                TPZFNMatrix<20, REAL> L2Mat(nshape*nstate, nshape*nstate, 0.), L2Rhs(nshape*nstate, 1, 0.);
+                TPZFNMatrix<220, REAL> phi(nshape, 1, 0.), dphi(dim, nshape);
+
+                std::unique_ptr<TPZIntPoints> intpoints(gelside->Element()->CreateSideIntegrationRule(gelside.Side(), 2 * order));
+
+                //REAL left_weight = fMatid_weights[leftVolumeGel->MaterialId()] / sum_weights;
+                rightVolumeGel = celside.Element()->Reference();
+                //REAL right_weight = fMatid_weights[rightVolumeGel->MaterialId()] / sum_weights;
+
+                int64_t nintpoints = intpoints->NPoints();
+                for (int64_t ip = 0; ip < nintpoints; ip++) {
+                    TPZManVector<REAL, 3> pt_left_skel(target_dim, 0.), pt_right_skel(target_dim, 0.);
+                    TPZManVector<REAL, 3> pt_left_vol(target_dim + 1, 0.), pt_right_vol(target_dim + 1, 0.);
+
+                    REAL weight;
+                    intpoints->Point(ip, pt_right_skel, weight);
+                    smallSkelToLargeSkelTrans[iskel].Apply(pt_right_skel, pt_left_skel);
+
+                    // Get shape at integration point
+                    intel->Shape(pt_left_skel, phi, dphi);
+
+                    // Get solution from left/right sides
+                    leftSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_left_vol);
+                    rightSkelToVolumeTrans[iskel].Apply(pt_right_skel, pt_right_vol);
+                    TPZVec<STATE> left_sol, right_sol;
+                    volumeNeighSides[0].Element()->Solution(pt_left_vol, 0, left_sol);
+                    volumeNeighSides[iskel + 1].Element()->Solution(pt_right_vol, 0, right_sol);
+
+                    //aqui temos que reimplementar levando em consideracao que as solucoes sao vetoriais deveria ter um flag aq para para nao precisar reesecrever o metodo todo na nossa classe
+
+                    //STATE average_sol = left_weight * left_sol[0] + right_weight * right_sol[0];
+
+                    STATE average_solX = left_sol[0] + right_sol[0]; // qual dos dois manter?
+                    STATE average_solY = left_sol[1] + right_sol[1];
+
+                    TPZFNMatrix<9, REAL> jac(dim, dim), jacinv(dim, dim), axes(dim, 3);
+                    REAL detjac;
+                    gelside.Jacobian(pt_right_skel, jac, axes, detjac, jacinv);
+
+                    //aqui temos que reimplementar levando em consideracao qie temso funcoes vetoriais..deveria ter um flag aq para para nao precisar reesecrever o metodo todo na nossa classe. checar se esta correto
+
+                    for (int ishape = 0; ishape < nshape; ishape++) {
+                        for (int istate = 0; istate < nstate; istate++) {
+                            //                    L2Rhs(nshape*istate+ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
+                            // L2Rhs(nshape*istate+ishape, 0) += weight *detjac*(phi(ishape, 0)  * average_solX+phi(ishape, 1)  * average_solY);      }
+
+                            L2Rhs(2 * ishape, 0) += weight * detjac * phi(ishape, 0) * average_solX;
+                            L2Rhs(2 * ishape + 1, 0) += weight * detjac * phi(ishape, 0) * average_solY;
+                        }
+
+                    }
+                    for (int ishape = 0; ishape < nshape; ishape++) {
+                        for (int jshape = 0; jshape < nshape; jshape++) {
+                            for (int istate = 0; istate < nstate; istate++) {
+                                //                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
+                                //                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac *( phi(ishape, 0) * phi(jshape, 0)+phi(ishape, 1) * phi(jshape, 1));
+
+                                L2Mat(2 * ishape, 2 * jshape) += weight * detjac * (phi(ishape, 0) * phi(jshape, 0));
+                                L2Mat(2 * ishape + 1, 2 * jshape + 1) += weight * detjac * (phi(ishape, 0) * phi(jshape, 0));
+
+                            }
+                        }
+                    }
+                }
+            //    L2Mat.Print("L2Mat = ", std::cout, EMathematicaInput);
+            //    L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
+                L2Mat.SolveDirect(L2Rhs, ECholesky);
+                // Stores solution in the computational mesh
+                int count = 0;
+                for (int ic = 0; ic < nc; ic++) {
+                    TPZConnect &c = cel->Connect(ic);
+                    int64_t seqnum = c.SequenceNumber();
+                    int64_t pos = pressuremesh->Block().Position(seqnum);
+                    int ndof = c.NShape() * c.NState();
+                    for (int idf = 0; idf < ndof; idf++) {
+                        mesh_sol(pos + idf, 0) = L2Rhs(count++);
+                    }
+                }
+
+            }
+
+            // TPZBlock &block = pressure_mesh->Block();
+            // TPZFMatrix<STATE> &solMatrix = pressure_mesh->Solution();
+
+            // // This map stores the connects, the weight associated with the element
+            // // and the solution of that connect. The weight of Dirichlet condition is
+            // // higher and will be used later to impose the value of the BC in the
+            // // connects when needed
+            // std::map<int64_t, std::pair<REAL, TPZVec < STATE>>> connects;
+            // for (int elc = 0; elc < celstack.size(); elc++) {
+            //     TPZCompElSide celside = celstack[elc];
+            //     TPZGeoElSide gelside = celside.Reference();
+            //     if (gelside.Dimension() != dim - 1) {
+
+            //         //Check if the element is fWrapMaterialId
+            //         //If true, check if the second node is alinged to the big element.
+
+            //         continue;
+            //     }
+        }
+
+        
+
+
+
+
+
+    }
+
+
 }
 
 
@@ -1387,12 +1588,6 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
     TPZBlock &block = pressure_mesh->Block();
     TPZFMatrix<STATE> &solMatrix = pressure_mesh->Solution();
 
-
-    // cellstack está armazenando os elementos vizinhos ao nó busca.
-    // Se usamos como nó busca um pertencente ao WrapMatId, este nó está desconectado
-    // das arestas adjacentes. A estrutura de dados deve ser alterada para que 
-
-
     // This map stores the connects, the weight associated with the element
     // and the solution of that connect. The weight of Dirichlet condition is
     // higher and will be used later to impose the value of the BC in the
@@ -1402,6 +1597,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
         TPZCompElSide celside = celstack[elc];
         TPZGeoElSide gelside = celside.Reference();
         if (gelside.Dimension() != dim - 1) {
+
+            //Check if the element is fWrapMaterialId
+            //If true, check if the second node is alinged to the big element.
+
             continue;
         }
         if (gelside.Element()->MaterialId() == fConfig.fInterfaceMaterialId) continue;

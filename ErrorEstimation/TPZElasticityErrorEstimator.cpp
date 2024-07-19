@@ -69,6 +69,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
     // Calculates average pressure on interface edges and vertices
     int dim = fPostProcMesh.Dimension();
     ComputeAveragePrimal(dim - 1);
+
     // in three dimensions make the one-d polynomials compatible
     if (dim == 3) {
         ComputeAveragePrimal(1);
@@ -866,7 +867,7 @@ void TPZElasticityErrorEstimator::ComputeAveragePrimal(int target_dim)
         }
     } 
     
-
+        
 
     // std::ofstream out("solution.nb");
     // postpressuremesh->Solution().Print("Solution = ", out, EMathematicaInput);
