@@ -78,7 +78,7 @@ TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh, TPZVec<int> 
 void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> &ErrorEstimator);
 
 /// @brief Compute the error as an average error per element and save as an elemental solution 
-void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> &ErrorEstimator,TPZVec<REAL> &RefinementIndicator);
+void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> &ErrorEstimator,TPZVec<REAL> &RefinementIndicator,TPZVec<int> &porders);
 
 /// @brief Performe h-refinements at the computational meshes "cmesh" and "cmesh_m" based on the ErrorEstimator  
 void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, int minh, TPZVec<REAL> &RefinementIndicator, TPZVec<int> &porders);
@@ -151,100 +151,103 @@ int main() {
 #ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
 #endif
-    TPZManVector<REAL,3> x0(3,0.);
+    TPZManVector<REAL, 3> x0(3, 0.);
     REAL length = 10.;
     REAL angle = 0.0;
     TPZNacaProfile naca(length, 12, angle, x0);
 
-    TPZGeoMesh *gmesh = ReadGmsh("naca.msh",naca);
-
+    TPZGeoMesh *gmesh = ReadGmsh("naca.msh", naca);
     {
         std::ofstream out("gmesh.txt");
         gmesh->Print(out);
 
-        std::ofstream out2("gmesh.vtk"); 
+        std::ofstream out2("gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
     }
 
     TPZCheckGeom check(gmesh);
-    int uniform = 4;
-    check.UniformRefine(uniform);
-
+    int uniform = 0;
+    if (uniform)
     {
-        std::ofstream out4("gmeshfine.txt");
-        gmesh->Print(out4);
+        check.UniformRefine(uniform);
+        {
+            std::ofstream out4("gmeshfine.txt");
+            gmesh->Print(out4);
 
-        std::ofstream out5("gmeshfine.vtk"); 
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
+            std::ofstream out5("gmeshfine.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
+        }
     }
 
-    int nrefinements = 3;
-    int minh = uniform+1;
+    int nrefinements = 5;
+    int minh = uniform + 1;
     // indicating the flux order
     int defaultporder = 1;
     int64_t nel = gmesh->NElements();
-    TPZVec<int> porders(nel,defaultporder);
-    for(int64_t i=0; i<nrefinements; i++)
-    {
-        auto cmesh = SimulateNacaProfileH1(gmesh,porders);
-        auto cmesh_m = SimulateNacaProfileHDiv(gmesh,porders);
-        TPZVec<REAL> Error;
-        ComputeErrorEstimator(cmesh,cmesh_m,Error);
-        TPZVec<REAL> RefinementIndicator;
-        HPrefinement(cmesh_m,Error,minh,RefinementIndicator,porders);
-//        Hrefinement(cmesh_m,Error,RefinementIndicator);
+    TPZVec<int> porders(nel, defaultporder);
+    for (int64_t i = 0; i < nrefinements; i++) {
+        auto cmesh = SimulateNacaProfileH1(gmesh, porders);
+        auto cmesh_m = SimulateNacaProfileHDiv(gmesh, porders);
         {
-            std::ofstream out6("ErrorEstimator.vtk"); 
-            TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m,out6,Error,"Error");  
+            std::ofstream out("cmeshH1.txt");
+            cmesh->Print(out);
+        }
+        {
+            std::ofstream out("cmeshHdiv.txt");
+            cmesh_m->Print(out);
+        }
+        TPZVec<REAL> Error;
+        ComputeErrorEstimator(cmesh, cmesh_m, Error);
+        TPZVec<REAL> RefinementIndicator;
+        // HPrefinement(cmesh_m,Error,minh,RefinementIndicator,porders);
+        Hrefinement(cmesh_m, Error, RefinementIndicator,porders);
+        {
+            std::ofstream out6("ErrorEstimator.vtk");
+            TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m, out6, Error, "Error");
         }
         {
             const std::string plotfile = "postprocess_H1";
             constexpr int vtkRes{0};
-            TPZVec<std::string> fields = 
-            {
-            "Pressure",
-            "Flux"
-            };
+            TPZVec<std::string> fields = {"Pressure", "Flux"};
             auto vtk = TPZVTKGenerator(cmesh, fields, plotfile, vtkRes);
+            vtk.SetNThreads(0);
+            vtk.Do();
+        }
+        {
+            const std::string plotfile = "postprocess_Hdiv";
+            constexpr int vtkRes{0};
+            TPZVec<std::string> fields = {"Pressure", "Flux"};
+            auto vtk = TPZVTKGenerator(cmesh_m, fields, plotfile, vtkRes);
             vtk.SetNThreads(0);
             vtk.Do();
         }
 
         {
-            std::ofstream out("cmesh.txt");
-            cmesh->Print(out);
-        }
-
-        {
             int64_t nnod = cmesh->NConnects();
-            for(int64_t i=0; i<nnod; i++)
-            {
+            for (int64_t i = 0; i < nnod; i++) {
                 TPZConnect &c = cmesh->ConnectVec()[i];
-                if(c.HasDependency())
-                {
+                if (c.HasDependency()) {
                     c.RemoveDepend();
                 }
-            }    
+            }
         }
         delete cmesh;
-        TPZVec<TPZCompMesh*> meshvec = cmesh_m->MeshVector();
+        TPZVec<TPZCompMesh *> meshvec = cmesh_m->MeshVector();
         {
             int64_t nnod = meshvec[0]->NConnects();
-            for(int64_t i=0; i<nnod; i++)
-            {
+            for (int64_t i = 0; i < nnod; i++) {
                 TPZConnect &c = meshvec[0]->ConnectVec()[i];
-                if(c.HasDependency())
-                {
+                if (c.HasDependency()) {
                     c.RemoveDepend();
                 }
-            }    
+            }
         }
         delete cmesh_m;
         delete meshvec[0];
         delete meshvec[1];
     }
     delete gmesh;
-    return 0;   
+    return 0;
 }
 
 /// @brief verify is the derivative of the NACA coordinate is correct
@@ -953,7 +956,7 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
 }
 
 /// @brief Performe h-refinements at the computational meshes "cmesh" and "cmesh_m" based on the ErrorEstimator  
-void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, TPZVec<REAL> &RefinementIndicator)
+void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, TPZVec<REAL> &RefinementIndicator, TPZVec<int> &porders)
 {
     int64_t nel_m = cmesh_m->NElements();
     auto gmesh = cmesh_m->Reference();
@@ -1000,6 +1003,9 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
 
     nel = gmesh->NElements();
     RefinementIndicator.Resize(nel,0.);
+    int defaultporder = porders[0];
+    porders.Resize(nel);
+    porders.Fill(defaultporder);
 
     {
         std::ofstream out2("gmesh_Hrefinement.vtk"); 
