@@ -80,63 +80,88 @@ REAL ComputeDifference(TPZMultiphysicsCompMesh *cmeshHDiv, TPZCompMesh *cmeshH1)
 
 TLaplaceExample1 laplaceex1;
 
+struct ErrorData {
+    int grau;
+    REAL erro;
+};
+
+
 int main() {
 
 #ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
 #endif
-
-    const int porder = 1;
-    laplaceex1.fExact = TLaplaceExample1::EBubble2D;
-    laplaceex1.fExact = TLaplaceExample1::ESinSin;
-
     TPZGeoMesh *gmesh = ReadGmshSimple("quadmesh.msh");
-
-    {
-        std::ofstream out("gmesh.txt");
-        gmesh->Print(out);
-
-        std::ofstream out2("gmesh.vtk"); 
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
-    }
-
-    // TPZCheckGeom check(gmesh);
-    // check.UniformRefine(4);
-
     // {
-    //     std::ofstream out4("gmeshfine.txt");
-    //     gmesh->Print(out4);
+    //     std::ofstream out("gmesh.txt");
+    //     gmesh->Print(out);
 
-    //     std::ofstream out5("gmeshfine.vtk"); 
-    //     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
+    //     std::ofstream out2("gmesh.vtk"); 
+    //     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
     // }
+    std::map<int, TLaplaceExample1::EExactSol> type_exact_sol;
+    type_exact_sol[0] = TLaplaceExample1::EBubble2D;
+    type_exact_sol[1] = TLaplaceExample1::ESinSin;
+    type_exact_sol[2] = TLaplaceExample1::EArcTan;
 
+    std::map<int, std::string> type_exact_sol_name;
+    type_exact_sol_name[0] = "EBubble2D";
+    type_exact_sol_name[1] = "ESinSin";
+    type_exact_sol_name[2] = "EArcTan";
     
-    TPZMultiphysicsCompMesh *cmeshHDiv = nullptr;
-    {
-        DecomposeType dtype = ELDLt;
-        cmeshHDiv = CreateHDivMultiphysicsCompQuadMesh(gmesh,porder);
-        TPZLinearAnalysis an(cmeshHDiv,RenumType::EDefault);
-        SolveSyst(an,cmeshHDiv,dtype);
-        PrintResults(an,cmeshHDiv);
-    }
-    TPZCompMesh *cmeshH1 = nullptr;
-    {
-        DecomposeType dtype = ECholesky;
-        cmeshH1 = CreateH1CompMeshQuadMesh(gmesh,porder);
-        TPZLinearAnalysis an(cmeshH1,RenumType::EDefault);
-        SolveSyst(an,cmeshH1,dtype);
-        PrintResults(an,cmeshH1);
-    }
-    REAL errestimate = ComputeDifference(cmeshHDiv,cmeshH1);
-    std::cout << "Error estimate " << errestimate << std::endl;
-    // {
-    //     std::ofstream out("cmesh.txt");
-    //     cmesh->Print(out);
-    // }
-    delete cmeshHDiv;
-    delete cmeshH1;
+    
+    // int refinements[] = {1}; 
+    TPZVec<int> refinements = {1,2,3};
+    TPZVec<int> porders = {1}; 
+    // std::cout << "Size: " <<  porders.size() << std::endl;
+    std::ofstream outfile("errestimates.txt");
 
+    for (int i = 0; i < 1 ; i++) {
+        laplaceex1.fExact = type_exact_sol[i];
+        int porder = porders[0];
+
+        outfile << type_exact_sol_name[i]  << std::endl;
+            for (int j=0; j < refinements.size();j++) {
+                TPZCheckGeom check(gmesh);
+                check.UniformRefine(refinements[j]);
+
+                // {
+                //     std::ofstream out4("gmeshfine.txt");
+                //     gmesh->Print(out4);
+
+                //     std::ofstream out5("gmeshfine.vtk"); 
+                //     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out5);
+                // }
+
+            
+                TPZMultiphysicsCompMesh *cmeshHDiv = nullptr;
+                {
+                    DecomposeType dtype = ELDLt;
+                    cmeshHDiv = CreateHDivMultiphysicsCompQuadMesh(gmesh,porder);
+                    TPZLinearAnalysis an(cmeshHDiv,RenumType::EDefault);
+                    SolveSyst(an,cmeshHDiv,dtype);
+                    PrintResults(an,cmeshHDiv);
+                }
+                TPZCompMesh *cmeshH1 = nullptr;
+                {
+                    DecomposeType dtype = ECholesky;
+                    cmeshH1 = CreateH1CompMeshQuadMesh(gmesh,porder);
+                    TPZLinearAnalysis an(cmeshH1,RenumType::EDefault);
+                    SolveSyst(an,cmeshH1,dtype);
+                    PrintResults(an,cmeshH1);
+                }
+                REAL errestimate = ComputeDifference(cmeshHDiv,cmeshH1);
+                std::cout << "Error estimate " << errestimate << std::endl;
+            // errestimates.push_back({refinements[i], errestimate});
+
+            
+                outfile << "Refinement Level: " << refinements[j] << ", Error: " << errestimate << std::endl;
+                delete cmeshHDiv;
+                delete cmeshH1;
+                }
+    }
+
+    outfile.close();
     delete gmesh;
     return 0;
 }
@@ -222,6 +247,7 @@ void SolveSyst(TPZLinearAnalysis &an, TPZCompMesh *cmesh, DecomposeType dtype)
     int64_t nelem = cmesh->NElements();
     cmesh->ElementSolution().Redim(nelem,nerrors);
     cmesh->EvaluateError(true, errorsum);
+    std::cout << "Errors associated with H1 and HDiv space\n" << errorsum << std::endl;
     int errindex = 2;
     if(mphysics) errindex = 1;
     TPZFMatrix<STATE> &elsol = cmesh->ElementSolution();
