@@ -689,7 +689,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
             if(matidshdiv.find(matid) != matidshdiv.end()) {
                 gelstack.Push(gel->Index());
                 if(porders[el] < 0) DebugStop();
-                elp.Push(porders[el]);
+                elp.Push(porders[el]+1);
             }
         }
         cmesh->ApproxSpace().BuildMesh(*cmesh, gelstack, elp);
