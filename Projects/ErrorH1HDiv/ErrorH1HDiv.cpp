@@ -355,6 +355,8 @@ TPZCompMesh *CreateH1CompMeshQuadMesh(TPZGeoMesh *gmesh, int64_t porder) {
 REAL ComputeDifference(TPZMultiphysicsCompMesh *cmeshHDiv, TPZCompMesh *cmeshH1)
 {
     REAL error = 0.;
+    REAL errorH1 = 0.;
+    REAL errorHdiv = 0.;
     TPZGeoMesh *gmesh = cmeshHDiv->Reference();
     int dim = gmesh->Dimension();
     gmesh->ResetReference();
@@ -374,30 +376,45 @@ REAL ComputeDifference(TPZMultiphysicsCompMesh *cmeshHDiv, TPZCompMesh *cmeshH1)
         TPZMultiphysicsElement *intelHDiv = dynamic_cast<TPZMultiphysicsElement *>(condense->ReferenceCompEl());
         TPZInterpolatedElement *intelH1 = dynamic_cast<TPZInterpolatedElement *>(celH1);
         if( !intelH1) DebugStop();
-        TPZManVector<STATE,3> dataHDiv(3,0.), dataH1(3,0.),diff(3,0.);
-        TPZFNMatrix<9,REAL> gradx(3,dim);
+        TPZManVector<STATE,3> dataHDiv(3,0.), dataH1(3,0.),diff(3,0.),x(3,0.),sol(1,0.);
+        TPZFNMatrix<9,REAL> gradx(3,dim),gradsol(3,1);
         TPZFNMatrix<9,REAL> jac(dim,dim), jacinv(dim,dim), axes(3,dim);
         REAL detjac;
         TPZIntPoints &intpoints = intelHDiv->GetIntegrationRule();
         int np = intpoints.NPoints();
         REAL w;
         TPZManVector<REAL,3> pos(gmesh->Dimension(),0.);
-        REAL errorEstimate = 0.;
+        REAL errorEstimate = 0., ElerrorH1 = 0., ElerrorHDiv = 0.;
 
         for(int ip = 0; ip < np; ip++) {
             intpoints.Point(ip,pos,w);
+            gel->X(pos,x);
             gel->GradX(pos,gradx);
             gel->Jacobian(gradx,jac,axes,detjac,jacinv);
+            laplaceex1.ExactSolution()(x,sol,gradsol);
             intelHDiv->Solution(pos,1,dataHDiv);
             intelH1->Solution(pos,7,dataH1);
-            REAL diffnorm = 0.;
+            std::cout << "HDiv " << dataHDiv << " H1 " << dataH1 << " gradsol ";
+            for(int i=0; i<3; i++) {
+                std::cout << gradsol(i,0) << " ";
+            }
+            std::cout << std::endl;
+            REAL diffnorm = 0., diffH1 = 0., diffHDiv = 0.;
             for (int i=0; i<3; i++) {
                 diff[i] = dataHDiv[i] - dataH1[i];
                 diffnorm += diff[i]*diff[i];
+                diff[i] = dataHDiv[i] + gradsol(i,0);
+                diffHDiv += diff[i]*diff[i];
+                diff[i] = dataH1[i] + gradsol(i,0);
+                diffH1 += diff[i]*diff[i];
             }
             errorEstimate += w*detjac*diffnorm;
+            ElerrorH1 += w*detjac*diffH1;
+            ElerrorHDiv += w*detjac*diffHDiv;
         }
         error += errorEstimate;
+        errorH1 += ElerrorH1;
+        errorHdiv += ElerrorHDiv;
         TPZFMatrix<REAL> &hdivelsol = cmeshHDiv->ElementSolution();
         hdivelsol(el,0) = sqrt(errorEstimate);
         TPZFMatrix<REAL> &h1elsol = cmeshH1->ElementSolution();
@@ -409,5 +426,6 @@ REAL ComputeDifference(TPZMultiphysicsCompMesh *cmeshHDiv, TPZCompMesh *cmeshH1)
         hdivelsol(el,2) = effHDiv;
         h1elsol(celH1->Index(),2) = effH1;
     }
+    std::cout << "Error estimate " << sqrt(error) << " H1 error " << sqrt(errorH1) << " HDiv error " << sqrt(errorHdiv) << std::endl;
     return sqrt(error);
 }
