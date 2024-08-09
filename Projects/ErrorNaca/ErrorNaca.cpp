@@ -881,7 +881,8 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
     REAL circulation;
     EvaluateCirculationH1(gmesh, cmeshH1, profilemat, circulation);
 
-    std::cout << "--------- PostProcess ---------" << std::endl;
+    std::cout << "--------- PostProcess H1 ---------" << std::endl;
+    std::cout << "Circulation = " << circulation << std::endl;
     //printa na tela "--------- PostProcess ---------", indicando que a simulação está em processamento.
     PrintResults(an,cmeshH1);
     //chama a função PrintResults para realizar o pós-processamento dos resultados. Essa função provavelmente gera saídas com os resultados da simulação.
@@ -941,8 +942,8 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
     REAL circulation;
     EvaluateCirculationHDiv(gmesh, cmesh_m, profilemat, circulation);
 
-     std::cout << "--------- PostProcess ---------" << std::endl;
-
+    std::cout << "--------- PostProcess HDiv---------" << std::endl;
+    std::cout << "Circulation = " << circulation << std::endl;
      PrintResults(an,cmesh_m);
 
      return cmesh_m;
