@@ -62,7 +62,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        PlotPrimalSkeleton("ReconstructionSteps/SkelBoundaryProjection");
+        PlotPrimalSkeleton("ReconstructionSteps/SkelBoundaryProjection", {2});
     }
 #endif
 
@@ -77,7 +77,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        PlotPrimalSkeleton("ReconstructionSteps/SkelInterfaceAverage");
+        PlotPrimalSkeleton("ReconstructionSteps/SkelInterfaceAverage", {fConfig.fWrapMaterialId});
     }
 #endif
 
@@ -85,7 +85,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
 
 #ifdef ERRORESTIMATION_DEBUG
     {
-        PlotPrimalSkeleton("ReconstructionSteps/SkelNodalAverage");
+        PlotPrimalSkeleton("ReconstructionSteps/SkelNodalAverage", {fConfig.fWrapMaterialId});
     }
 #endif
 
@@ -148,7 +148,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
     VerifySolutionConsistency(PrimalMesh());
 #endif
 
-    PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure");
+    PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure", {fConfig.fWrapMaterialId});
 
     if (fPostProcesswithHDiv) {
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
@@ -186,7 +186,74 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
 
     // CreateSkeletonElements(meshvec[1]);
     CreateSkeletonApproximationSpace(meshvec[1]);
+ 
+    TPZCompMesh *pressureMesh(meshvec[1]);
+    auto dim = pressureMesh->Reference()->Dimension();
+    // Delete compels of codimension 1 that are neighbors of a lower
+    // level codimension 1 element (i.e., delete the small facet elements
+    // near a hanging node).
+    
+    for (int64_t el = 0; el < pressureMesh->NElements(); el++) {
+        TPZCompEl *cel = pressureMesh->Element(el);
+        if (!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) DebugStop();
+        if ((gel->Dimension() == dim - 1) && (gel->MaterialId() == fConfig.fWrapMaterialId)) {
+            gel->SetReference(cel);
+        }
+    }
+    
+    for (int64_t el = 0; el < pressureMesh->NElements(); el++) {
+        TPZCompEl *cel = pressureMesh->Element(el);
+        if (!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) DebugStop();
+        if (gel->Dimension() != dim - 1) continue;
+        if (gel->MaterialId() == fConfig.fInterfaceMaterialId || gel->MaterialId() == fConfig.fLagMultiplierMaterialId) {
+            delete cel;
+            continue;
+        }
+        if (gel->MaterialId() == fConfig.fWrapMaterialId) {
+            TPZGeoElSide skeletonSide(gel, gel->NSides() - 1);
 
+            TPZStack<TPZCompElSide> volumeNeighSides;
+            skeletonSide.EqualLevelCompElementList(volumeNeighSides, /*onlyinterpolated=*/0, /*removeduplicates=*/0);
+            switch (volumeNeighSides.size()){
+                case 0: // Near a hanging node or on boundary
+                    if (skeletonSide.HasLowerLevelNeighbour(fConfig.fWrapMaterialId)) { // near hanging node
+                        delete cel;
+                    }
+                    break;
+                case 1:
+                    {
+                        auto wrapNeighbour = skeletonSide.HasNeighbour(fConfig.fWrapMaterialId);
+                        if (wrapNeighbour){
+                            wrapNeighbour = wrapNeighbour.Neighbour(); // skip "this"
+                            while (wrapNeighbour.Element() != gel){
+                                if ((wrapNeighbour.Element()->Dimension() == dim - 1) && (wrapNeighbour.Element()->MaterialId() == fConfig.fWrapMaterialId)) {
+                                    gel->ResetReference();
+                                    delete cel;
+                                    break;
+                                }
+                                ++wrapNeighbour;
+                            }
+                        }
+                    }
+                    break;
+            }
+        }
+    }    
+    
+    for (int64_t el = 0; el < pressureMesh->NElements(); el++) {
+        TPZCompEl *cel = pressureMesh->Element(el);
+        if (!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) DebugStop();
+        if ((gel->Dimension() == dim - 1) && (gel->MaterialId() == fConfig.fWrapMaterialId)) {
+            gel->ResetReference();
+        }
+    }
+    
     // If we reconstruct in H(div) we need to create an additional skeleton for the multiphysics interfaces
     if (fPostProcesswithHDiv) {
         CreateFluxSkeletonElements(meshvec[0]);
@@ -260,10 +327,6 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
         fGeoElIndexToCompElIndex[gelindex] = celindex;
     }
     
-
-
-
-
     {
         std::ofstream file("GmeshAfterCreatePostProcessing.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(this->GMesh(), file);
@@ -846,7 +909,7 @@ void TPZElasticityErrorEstimator::ComputeAveragePrimal(int target_dim)
     }
     // compute the averages one element at a time
     nel = postpressuremesh->NElements();
-    // postpressuremesh->LoadReferences();
+    //postpressuremesh->LoadReferences();
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = postpressuremesh->Element(el);
         if(!cel) continue;
@@ -911,10 +974,10 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             for (int side = 0; side<ncorner; side++) {
                 TPZCompElSide celside(cel,side);
                 int nsides = gel->NSides();
-                // if (IsAdjacentToHangingNode(celside)) {
-                //     nodesToImposeSolution.Push(celside);
-                //     continue;
-                // }
+                if (IsAdjacentToHangingNode(celside)) {
+                    nodesToImposeSolution.Push(celside);
+                    continue;
+                }
 
 
                 ComputeNodalAverage(celside);

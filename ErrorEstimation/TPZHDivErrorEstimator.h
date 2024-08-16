@@ -85,7 +85,7 @@ public:
     /// create graphical output of estimated and true errors using the analysis
   virtual  void PostProcessing(TPZAnalysis &an, std::string &out);
 
-    void PlotPrimalSkeleton(const std::string &filename, bool reconstructed = true);
+    void PlotPrimalSkeleton(const std::string &filename, std::set<int> matids);
     void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);
 
     // Plots State solution of elements of target dimension
