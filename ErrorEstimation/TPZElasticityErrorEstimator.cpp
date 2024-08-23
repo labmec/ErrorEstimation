@@ -1007,23 +1007,19 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
 
         for (int elc = 0; elc < celstack.size(); elc++) {
             TPZCompElSide neigh_celside = celstack[elc];
-            if (neigh_celside.Reference().Dimension() != 0) continue;
+            if (neigh_celside.Reference().Dimension() != 1) continue;
             TPZGeoElSide neigh_gelside(neigh_celside.Reference());
 
             // Get solution of the neighbour
             TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *> (neigh_celside.Element());
             if (!neigh_intel) DebugStop();
-
-            int64_t neigh_conindex = neigh_intel->ConnectIndex(neigh_celside.Side());
-            TPZConnect &neigh_c = pressuremesh->ConnectVec()[neigh_conindex];
-
-            int64_t neigh_seqnum = neigh_c.SequenceNumber();
+            
             int nstate = 2;
-            if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
             TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
-            for (int istate = 0; istate < nstate; istate++) {
-                neigh_sol[istate] = sol.at(block.at(neigh_seqnum, 0, istate, 0));
-            }
+            TPZManVector<REAL, 3> pt0_vol(1, 0.);
+            neigh_intel->Solution(pt0_vol, 1, neigh_sol);
+            
+            
             // ifnode_celside.Element()->Reference()->MaterialId()
             // Set solution to given connect
             TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (node_celside.Element());
