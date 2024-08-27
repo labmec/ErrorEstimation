@@ -1207,10 +1207,83 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL>
     }//loop over gemsh trailing edge neighbor elements 
 }
 
+#include "tpzquadraticquad.h"
+#include "tpzquadraticline.h"
+/// @brief create a quadratic quad element
+static int64_t CreateQuad(int64_t sn, int64_t edge1, int64_t edge2, std::map<int64_t,int64_t> &edge2q, TPZGeoMesh *gmesh)
+{
+    int64_t newnod = gmesh->NodeVec().AllocateNewElement();
+    TPZManVector<REAL,3> coord(3);
+    for(int i = 0; i < 3; i++) {
+        coord[i] = 0.5*(gmesh->NodeVec()[edge1].Coord(i)+gmesh->NodeVec()[edge2].Coord(i));
+    }
+    gmesh->NodeVec()[newnod].Initialize(coord,*gmesh);
+    TPZManVector<int64_t,4> nodeindices(8);
+    nodeindices[0] = edge1;
+    nodeindices[1] = edge2;
+    nodeindices[2] = sn;
+    nodeindices[3] = sn;
+    nodeindices[4] = newnod;
+    nodeindices[5] = edge2q[edge2];
+    nodeindices[6] = sn;
+    nodeindices[7] = edge2q[edge1];
+    int64_t index;
+    new TPZGeoElRefPattern< pzgeom::TPZQuadraticQuad>(nodeindices,volmat,*gmesh,index);
+    return index;
+}
+
+static int64_t CreateLine(int64_t sn, int64_t edge1, std::map<int64_t,int64_t> &edge2q, TPZGeoMesh *gmesh)
+{
+    TPZManVector<int64_t,3> nodeindices(3);
+    nodeindices[0] = sn;
+    nodeindices[1] = edge1;
+    nodeindices[2] = edge2q[edge1];
+    int64_t index;
+    new TPZGeoElRefPattern< pzgeom::TPZQuadraticLine>(nodeindices,pointmat,*gmesh,index);
+    return index;
+}
 /// @brief Substitute the trailing edge quadrilateral elements with colapsed quadrilateral elements with or without quarterpoint elements  
 void Changetrailingedgeelements(TPZGeoMesh *gmesh, bool quarterpoint)
 {
-
+    int64_t nel = gmesh->NElements();
+    int64_t singular = -1;
+    TPZGeoElSide trailingedge;
+    for(int64_t el = 0; el<nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(!gel) continue;
+        if(gel->MaterialId() != trailingedgemat) continue;
+        trailingedge = TPZGeoElSide(gel,gel->NSides()-1);
+        singular = gel->NodeIndex(0);
+        break;
+    }
+    TPZManVector<REAL,3> x0(3);
+    gmesh->NodeVec()[singular].GetCoordinates(x0);
+    std::map<int64_t,int64_t> quadraticnodes;
+    for(TPZGeoElSide neigh = trailingedge.Neighbour(); neigh != trailingedge; neigh = neigh.Neighbour()) {
+        TPZGeoEl *gel = neigh.Element();
+        if(!gel) DebugStop();
+        int nn = gel->NNodes();
+        for(int in = 0; in < nn-1; in++) {
+            int locindex = (trailingedge.Side()+in)%nn;
+            int64_t globalindex = gel->NodeIndex(locindex);
+            TPZManVector<REAL,3> x1(3);
+            gmesh->NodeVec()[globalindex].GetCoordinates(x1);
+            if(quadraticnodes.find(globalindex) == quadraticnodes.end()) {
+                int64_t newnode = gmesh->NodeVec().AllocateNewElement();
+                TPZGeoNode &node = gmesh->NodeVec()[newnode];
+                TPZManVector<REAL,3> coord(3);
+                REAL weights[2] = {0.5,0.5};
+                if(quarterpoint) {
+                    weights[0] = 0.75;
+                    weights[1] = 0.25;
+                }
+                for(int i = 0; i < 3; i++) {
+                    coord[i] = weights[0]*x0[i]+weights[1]*x1[i];
+                }
+                node.Initialize(coord,*gmesh);
+            }
+        }
+    }
 }
 
 
