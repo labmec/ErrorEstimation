@@ -203,7 +203,7 @@ int main() {
         }
     }
 
-    int nrefinements = 5;
+    int nrefinements = 13;
     int minh = uniform + 1;
     // indicating the flux order
     int defaultporder = 1;
@@ -222,6 +222,7 @@ int main() {
     REAL GlobalError;
     // TPZVec<REAL> RefinementIndicator;
     // Adjustlowerorderelements(gmesh,RefinementIndicator,porders);
+    std::ofstream outGE("GlobalError.txt");
     for (int64_t i = 0; i < nrefinements; i++) {
         auto cmesh = SimulateNacaProfileH1(gmesh, porders);
         auto cmesh_m = SimulateNacaProfileHDiv(gmesh, porders);
@@ -233,9 +234,14 @@ int main() {
             std::ofstream out("cmeshHdiv.txt");
             cmesh_m->Print(out);
         }
+
         TPZVec<REAL> Error;
         ComputeErrorEstimator(cmesh, cmesh_m, Error);
         ComputeGlobalError(cmesh_m, Error, GlobalError);
+        int64_t nDOF = cmesh->NEquations();
+        // int64_t nDOF_m = cmesh_m->NEquations();
+        outGE << i << "  " << nDOF << "  " << GlobalError << std::endl;
+
         TPZVec<REAL> RefinementIndicator;
         HPrefinement(cmesh_m,Error,minh,RefinementIndicator,porders);
         // Hrefinement(cmesh_m, Error, RefinementIndicator,porders);
@@ -1106,7 +1112,6 @@ void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator
     auto tolel = std::max_element(ErrorEstimator.begin(), ErrorEstimator.end());
     REAL tol = *tolel/5.0;
     DivideTrailingEdgeNeighbours(cmesh_m, ErrorEstimator, tol, RefinementIndicator);
-    Smoothentrailingedgeelements(cmesh_m,RefinementIndicator);
     DivideProfileNeighbours(cmesh_m, ErrorEstimator, tol, minh, RefinementIndicator);
     SmoothenGeometry(gmesh);
     nel = gmesh->NElements();
@@ -1284,7 +1289,7 @@ void DivideProfileNeighbours(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &Err
             gel->Divide(subel);
         }
     }
-
+    Smoothentrailingedgeelements(cmesh_m,RefinementIndicator);
     // smoothen the neighbours of the cut elements
     // first divide the cut elements if necessary
     bool changed = true;
