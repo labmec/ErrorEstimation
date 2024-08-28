@@ -1692,6 +1692,7 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
         scalnames.Push("DisplacementErrorEstimate");
         scalnames.Push("EnergyErrorEstimate");
         vecnames.Push("StressFem");
+        vecnames.Push("StressReconstructed");
         scalnames.Push("POrder");
         
         //vecnames.Push("State");

@@ -187,7 +187,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps =3;
+    int nsteps = 3;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -195,7 +195,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
         printerrors <<  " porder " << " h " <<   " error stress "<< " error diplacement"<<std::endl;
                     
         for(int refsteps = 1; refsteps< nsteps; refsteps ++){
-        
+                config.adaptivityStep = refsteps;
 //            for (int idiv = 0; idiv < divs.size(); idiv++){
 //                config.ndivisions =divs[idiv];
 //                config.porder= iorder;
@@ -238,8 +238,8 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 //Sets the type of hybridizantion desired.
                 //The current options are HybridizationType::ENone, HybridizationType::EStandard
                 //and HybridizationType::ESemi (the last only works with H(div)-constant spaces)
-                // hdivCreator.HybridType() = HybridizationType::ENone;
-                hdivCreator.HybridType() = HybridizationType::EStandard;
+                hdivCreator.HybridType() = HybridizationType::ENone;
+                // hdivCreator.HybridType() = HybridizationType::EStandard;
                 
                 
                 
@@ -254,10 +254,10 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 } else if (hdivCreator.ProbType() == ProblemType::EElastic){
                     if (DIM == 2){
                         TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-                        double lambda = 5;//123.;
-                        double mu = 1;//79.3;
-                        elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
-                        elas->gPoisson = 0.5*lambda/(lambda+mu);
+                        // double lambda = 5;//123.;
+                        // double mu = 1;//79.3;
+                        // elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
+                        // elas->gPoisson = 0.5*lambda/(lambda+mu);
                         //Crack
                         elas->gE = 100.;
                         elas->gPoisson = 0.3;
@@ -577,7 +577,7 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     TPZManVector<REAL, 6> errors;
     TPZManVector<REAL, 6> elementerrors;
     std::stringstream outVTK;
-    outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
+    outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref << "-" << config.adaptivityStep
            << "-Errors.vtk";
     std::string outVTKstring = outVTK.str();
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);

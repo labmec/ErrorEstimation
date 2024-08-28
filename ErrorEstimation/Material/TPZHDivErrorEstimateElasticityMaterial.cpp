@@ -177,7 +177,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
 
     /// Como calcular do erro estimado na norma energia?  || sigma_fem - Aeps(u_rec)||_C
 
-    TPZManVector<STATE, 9> Sigma_reconstructed(matdim, 0.);
+    // TPZManVector<STATE, 9> Sigma_reconstructed(matdim, 0.);
     TPZManVector<STATE, 9> sigma_reconstructedV(matdim, 0.), eps_reconstructedV(matdim, 0.);
     ToVoigt(eps_reconstructed, eps_reconstructedV);
     ComputeStressVector(eps_reconstructedV, sigma_reconstructedV, elast);
@@ -191,11 +191,11 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     errors[3] = TPZMixedElasticityND::InnerVec(part1, part2);
     
 
-#ifdef ERRORESTIMATION_DEBUG2
-    std::cout << "stress fem " << stress_femV << std::endl;
-    std::cout << "stress reconst " << Sigma_reconstructed << std::endl;
-    std::cout << "-------" << std::endl;
-#endif
+// #ifdef ERRORESTIMATION_DEBUG2
+    // std::cout << "stress fem " << stress_femV << std::endl;
+    // std::cout << "stress reconst " << sigma_reconstructedV << std::endl;
+    // std::cout << "-------" << std::endl;
+// #endif
 
     //exact error displacement
     errors[0] = 0.;
@@ -358,6 +358,38 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
         case 45://order p
             Solout[0] = datavec[H1functionIdx].p;
             break;
+        case 46://Stress reconstructed
+            //eps(reconstructed displacement)
+            {
+                TElasticityAtPoint elast(fE_const, fnu_const);
+                if (TPZMixedElasticityND::fElasticity) {
+                    TPZManVector<STATE, 3> result(2);
+                    TPZFNMatrix<4, STATE> Dres(0, 0);
+                    fElasticity(x, result, Dres);
+                    REAL E = result[0];
+                    REAL nu = result[1];
+                    TElasticityAtPoint modify(E, nu);
+                    elast = modify;
+                }
+                TPZFNMatrix<9, STATE> eps_reconstructed(fDimension, fDimension, 0.);
+                const auto &dudxreconstructed = datavec[H1functionIdx].dsol[0];
+                const auto &axes = datavec[H1functionIdx].axes;
+
+                TPZFNMatrix<6, STATE> du(3, 3);
+                TPZAxesTools<STATE>::Axes2XYZ(dudxreconstructed, du, axes);
+                eps_reconstructed(0, 0) = dudxreconstructed(0, 0);
+                eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (dudxreconstructed(0, 1) + dudxreconstructed(1, 0));
+                eps_reconstructed(1, 1) = dudxreconstructed(1, 1);
+
+                TPZManVector<STATE, 9> sigma_reconstructedV(fDimension*fDimension, 0.), eps_reconstructedV(fDimension*fDimension, 0.);
+                ToVoigt(eps_reconstructed, eps_reconstructedV);
+                ComputeStressVector(eps_reconstructedV, sigma_reconstructedV, elast);
+                Solout[0] = sigma_reconstructedV[0];
+                Solout[1] = sigma_reconstructedV[1];
+                Solout[2] = sigma_reconstructedV[2];
+            }
+            break;
+        
         default:
             DebugStop();
     }
@@ -518,6 +550,8 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
     if (name == "DisplacementExact") return 43;
     if (name == "DisplacementReconstructed") return 44;
     if (name == "POrder") return 45;
+    
+    if (name == "StressReconstructed") return 46;
     if (name == "DisplacementErrorExact") return 100;
     if (name == "DisplacementErrorEstimate") return 101;
     if (name == "EnergyErrorExact") return 102;
@@ -525,6 +559,7 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
     if (name == "ResidualError") return 104;
     if (name == "DisplacementEffectivityIndex") return 106;
     if (name == "EnergyEffectivityIndex") return 107;
+    
     
  
 
@@ -540,6 +575,7 @@ int TPZHDivErrorEstimateElasticityMaterial::NSolutionVariables(int var) const
         case 42:
         case 43:
         case 44:
+        case 46:
             return 3;
             break;
             
@@ -550,6 +586,7 @@ int TPZHDivErrorEstimateElasticityMaterial::NSolutionVariables(int var) const
         case 104:
         case 106:
         case 107:
+        
         case 45:
             return 1;
             break;

@@ -174,7 +174,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
             TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
             // double lambda = 123.;
             // double mu = 79.3;
-            elas->gE = 1000.;//mu*(3*lambda+2*mu)/(lambda+mu);
+            elas->gE = 100.;//mu*(3*lambda+2*mu)/(lambda+mu);
             elas->gPoisson = 0.3;//0.5*lambda/(lambda+mu);
             elas->fProblemType = TElasticity2DAnalytic::EDispx;
             // elas->fProblemType = TElasticity2DAnalytic::EThiago;
