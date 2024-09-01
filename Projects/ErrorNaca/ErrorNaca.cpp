@@ -203,6 +203,15 @@ int main() {
         }
     }
 
+    if(0)
+    {
+        Changetrailingedgeelements(gmesh, true);
+        std::ofstream out("gmeshchanged.txt");
+        gmesh->Print(out);
+
+        std::ofstream out2("gmeshchanged.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
+    }
     int nrefinements = 13;
     int minh = uniform + 1;
     // indicating the flux order
@@ -1215,8 +1224,14 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL>
 #include "tpzquadraticquad.h"
 #include "tpzquadraticline.h"
 /// @brief create a quadratic quad element
+/// @param sn the index of the singular node
+/// @param edge1 the index of the first edge node
+/// @param edge2 the index of the second edge node
+/// @param edge2q map from edge node to quadratic node
+/// @param gmesh the geometric mesh
 static int64_t CreateQuad(int64_t sn, int64_t edge1, int64_t edge2, std::map<int64_t,int64_t> &edge2q, TPZGeoMesh *gmesh)
 {
+    /// create a new node at the center of the edge
     int64_t newnod = gmesh->NodeVec().AllocateNewElement();
     TPZManVector<REAL,3> coord(3);
     for(int i = 0; i < 3; i++) {
@@ -1237,20 +1252,23 @@ static int64_t CreateQuad(int64_t sn, int64_t edge1, int64_t edge2, std::map<int
     return index;
 }
 
-static int64_t CreateLine(int64_t sn, int64_t edge1, std::map<int64_t,int64_t> &edge2q, TPZGeoMesh *gmesh)
+static int64_t CreateLine(int64_t sn, int64_t edge1, std::map<int64_t,int64_t> &edge2q, TPZGeoEl *gel, TPZGeoMesh *gmesh)
 {
     TPZManVector<int64_t,3> nodeindices(3);
     nodeindices[0] = sn;
     nodeindices[1] = edge1;
     nodeindices[2] = edge2q[edge1];
     int64_t index;
-    new TPZGeoElRefPattern< pzgeom::TPZQuadraticLine>(nodeindices,pointmat,*gmesh,index);
+    int matid = gel->MaterialId();
+    new TPZGeoElRefPattern< pzgeom::TPZQuadraticLine>(nodeindices,matid,*gmesh,index);
+    gel->SetMaterialId(-matid);
     return index;
 }
 /// @brief Substitute the trailing edge quadrilateral elements with colapsed quadrilateral elements with or without quarterpoint elements  
 void Changetrailingedgeelements(TPZGeoMesh *gmesh, bool quarterpoint)
 {
     int64_t nel = gmesh->NElements();
+    // identify the point element and trailing edge node
     int64_t singular = -1;
     TPZGeoElSide trailingedge;
     for(int64_t el = 0; el<nel; el++) {
@@ -1261,18 +1279,28 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh, bool quarterpoint)
         singular = gel->NodeIndex(0);
         break;
     }
+    if(singular == -1) DebugStop();
+    TPZStack<TPZGeoElSide> neighbours;
+    // create nodes along the line from the singular node to the edge nodes
     TPZManVector<REAL,3> x0(3);
     gmesh->NodeVec()[singular].GetCoordinates(x0);
+    // map from the edge node to the quadratic node
     std::map<int64_t,int64_t> quadraticnodes;
+    // for all neighbours of the trailing edge element
     for(TPZGeoElSide neigh = trailingedge.Neighbour(); neigh != trailingedge; neigh = neigh.Neighbour()) {
         TPZGeoEl *gel = neigh.Element();
         if(!gel) DebugStop();
+        if(gel->HasSubElement()) continue;
+        neighbours.Push(neigh);
         int nn = gel->NNodes();
-        for(int in = 0; in < nn-1; in++) {
-            int locindex = (trailingedge.Side()+in)%nn;
+        for(int in = 1; in < nn; in++) {
+            // find the nodes oposite to the trailing edge
+            // these are three nodes (one less than the number of nodes)
+            int locindex = (neigh.Side()+in)%nn;
             int64_t globalindex = gel->NodeIndex(locindex);
             TPZManVector<REAL,3> x1(3);
             gmesh->NodeVec()[globalindex].GetCoordinates(x1);
+            // insert a node between the trailing edge node and the edge node
             if(quadraticnodes.find(globalindex) == quadraticnodes.end()) {
                 int64_t newnode = gmesh->NodeVec().AllocateNewElement();
                 TPZGeoNode &node = gmesh->NodeVec()[newnode];
@@ -1288,6 +1316,37 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh, bool quarterpoint)
                 node.Initialize(coord,*gmesh);
             }
         }
+    }
+    // create the new elements
+    for(int64_t el = 0; el < neighbours.size(); el++) {
+        TPZGeoEl *gel = neighbours[el].Element();
+        if(!gel) DebugStop();
+        int nn = gel->NNodes();
+        int64_t singular = gel->NodeIndex(neighbours[el].Side());
+        for(int in = 1; in < nn-1; in++) {
+            int locindex = (neighbours[el].Side()+in)%nn;
+            int64_t edge1 = gel->NodeIndex(locindex);
+            int64_t edge2 = gel->NodeIndex((locindex+1)%nn);
+            int64_t newindex;
+            if(nn == 4) {
+                newindex = CreateQuad(singular,edge1,edge2,quadraticnodes,gmesh);
+            } else {
+                DebugStop();
+            }
+        }
+        if(nn == 2) {
+            int locindex = (neighbours[el].Side()+1)%nn;
+            int64_t edge1 = gel->NodeIndex(locindex);
+            int64_t newindex = CreateLine(singular,edge1,quadraticnodes, gel, gmesh);
+        }
+        gel->SetMaterialId(-1);
+    }
+    gmesh->BuildConnectivity();
+    {
+        std::ofstream out("gmesh_Changetrailingedgeelements.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+        std::ofstream out2("gmesh_Changetrailingedgeelements.txt");
+        gmesh->Print(out2);
     }
 }
 
