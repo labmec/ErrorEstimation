@@ -45,6 +45,8 @@
 
 #include <iostream>
 
+#define USING_MKL
+
 using namespace pzgeom;
 /// @brief verify is the derivative of the NACA coordinate is correct
 /// @param naca profile object
@@ -191,7 +193,7 @@ int main() {
     }
 
     TPZCheckGeom check(gmesh);
-    int uniform = 2;
+    int uniform = 0;
     if (uniform)
     {
         check.UniformRefine(uniform);
@@ -235,12 +237,13 @@ int main() {
     // Adjustlowerorderelements(gmesh,RefinementIndicator,porders);
     std::ofstream outGE("GlobalError.txt");
     for (int64_t i = 0; i < nrefinements; i++) {
-        auto cmesh = SimulateNacaProfileH1(gmesh, porders);
-        auto cmesh_m = SimulateNacaProfileHDiv(gmesh, porders);
+        TPZCompMesh *cmesh = 0;
+        cmesh = SimulateNacaProfileH1(gmesh, porders);
         {
             std::ofstream out("cmeshH1.txt");
             cmesh->Print(out);
         }
+        auto cmesh_m = SimulateNacaProfileHDiv(gmesh, porders);
         {
             std::ofstream out("cmeshHdiv.txt");
             cmesh_m->Print(out);
@@ -781,6 +784,10 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
     // std::set<int> Pointmat = {pointmat};
     // cmesh->AutoBuild(Pointmat);
 // insert the circulation condition
+    {
+        std::ofstream out("cmesh_hdiv.txt");
+        cmesh->Print(out);
+    }
     newcon = cmesh->AllocateNewConnect(1,1,1);
     std::cout << "newcon " << newcon << std::endl;
     int64_t nel = gmesh->NElements();
@@ -798,6 +805,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
        for(int is=0; is<nsidenodes; is++)
        {
             int64_t cindex = cel->ConnectIndex(is);
+            if(cindex == newcon) DebugStop();
             TPZConnect &c = cel->Connect(is);
             if(c.HasDependency()) continue;
             // insert the dependency
@@ -906,8 +914,11 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
     }
 
     TPZLinearAnalysis an(cmeshH1,RenumType::EMetis);
+#ifdef USING_MKL
+    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
+#else
     TPZSkylineStructMatrix<STATE> strmat(cmeshH1);
-    // TPZSSpStructMatrix<STATE> strmat(cmeshH1);
+#endif
     an.SetStructuralMatrix(strmat);
     TPZStepSolver<STATE> step;
     step.SetDirect(ECholesky);
@@ -924,6 +935,7 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
     int64_t numeq = cmeshH1->NEquations();
     TPZFMatrix<STATE> fsol(numeq,2,0.),phi_0(numeq,1,0.),phi_1(numeq,1,0.),phi(numeq,1,0.);
     fsol = an.Solution();
+    // fsol.Print("Solution",std::cout);
     for (int64_t eq = 0; eq < numeq; eq++) 
     {
         phi_0(eq) =  -fsol(eq,0);
@@ -961,14 +973,18 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
      cmesh_m->CleanUpUnconnectedNodes();
      // Define o pointer chamado cmesh_m relacionado à classe TPZMultiphysicsCompMesh, associando-o a função CreateMultiphysicsMesh, cujos parâmetros (já antes declarados) são: cmeshHdiv, gmesh.
     
-     {
-         std::ofstream out("cmesh_m.txt");
-         cmesh_m->Print(out);
-     }
-
     TPZLinearAnalysis an(cmesh_m,RenumType::EMetis);
-//    TPZSSpStructMatrix<STATE> strmat(cmesh_m);
+    {
+        std::ofstream out("cmesh_m.txt");
+        cmesh_m->Print(out);
+    }
+
+
+#ifdef USING_MKL
+    TPZSSpStructMatrix<STATE> strmat(cmesh_m);
+#else
     TPZSkylineStructMatrix<STATE> strmat(cmesh_m);
+#endif
     an.SetStructuralMatrix(strmat);
     TPZStepSolver<STATE> step;
     step.SetDirect(ECholesky);
@@ -985,6 +1001,9 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
     int64_t numeq = cmesh_m->NEquations();
     TPZFMatrix<STATE> fsol(numeq,2,0.),u_0(numeq,1,0.),u_1(numeq,1,0.),u(numeq,1,0.);
     fsol = an.Solution();
+
+    // fsol.Print("HDiv solution",std::cout);
+
     for (int64_t eq = 0; eq < numeq; eq++) 
     {
         u_0(eq) =  fsol(eq,0);
@@ -1794,6 +1813,10 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
     auto tr = Geosideminus.Element()->SideToSideTransform(Geosideminus.Side(),Geosideminus.Element()->NSides()-1);
     qsi[0] = tr.Sum()(0,0);
     qsi[1] = tr.Sum()(1,0);
+    if(trailingedge) {
+        if(fabs(qsi[1]-1.) >= 1.e-9) DebugStop();
+        qsi[1] -= 1.e-6;
+    }
 
     Compelminus->Solution(qsi,2,gradminus); 
 
@@ -1801,6 +1824,10 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
     tr = Geosideplus.Element()->SideToSideTransform(Geosideplus.Side(),Geosideplus.Element()->NSides()-1);
     qsi[0] = tr.Sum()(0,0);
     qsi[1] = tr.Sum()(1,0);
+    if(trailingedge) {
+        if(fabs(qsi[1]-1.) >= 1.e-9) DebugStop();
+        qsi[1] -= 1.e-6;
+    }
 
     Compelplus->Solution(qsi,2,gradplus); 
 }
@@ -1826,6 +1853,10 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
     qsi[0] = tr.Sum()(0,0);
     qsi[1] = tr.Sum()(1,0);
 
+    if(trailingedge) {
+        if(fabs(qsi[1]-1.) >= 1.e-9) DebugStop();
+        qsi[1] -= 1.e-6;
+    }
     Compelminus->Solution(qsi,1,u_minus); 
 
     //Compute the Flux solution for the Compelplus
@@ -1833,6 +1864,10 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
     qsi[0] = tr.Sum()(0,0);
     qsi[1] = tr.Sum()(1,0);
 
+    if(trailingedge) {
+        if(fabs(qsi[1]-1.) >= 1.e-9) DebugStop();
+        qsi[1] -= 1.e-6;
+    }
     Compelplus->Solution(qsi,1,u_plus); 
 }
 
