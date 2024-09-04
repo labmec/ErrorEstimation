@@ -153,6 +153,7 @@ int boundmat = 4;
 int pointmat = 5;
 int trailingedgemat = 6;
 int blendmat = 7;
+bool trailingedge = false;
 
 auto f_profile = [](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal)
 {
@@ -203,9 +204,10 @@ int main() {
         }
     }
 
-    if(0)
+    if(trailingedge)
     {
-        Changetrailingedgeelements(gmesh, true);
+        // false : create the midside node in the middle of the trailing edge
+        Changetrailingedgeelements(gmesh, false);
         std::ofstream out("gmeshchanged.txt");
         gmesh->Print(out);
 
@@ -525,6 +527,8 @@ void BuildBlueRedElements(TPZGeoMesh *gmesh, std::set<int64_t> &blue, std::set<i
         }
     }
 }
+
+#include "pzintel.h"
 /// @brief Create a computational mesh with H1 elements
 TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &newcon)
 {
@@ -563,6 +567,7 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &
                 elp.Push(porders[el]+1);
             }
         }
+        // cmesh->ApproxSpace().CreateCompEl(gmesh->Element(507),*cmesh);
         cmesh->ApproxSpace().BuildMesh(*cmesh, gelstack, elp);
     }
     cmesh->ExpandSolution();
@@ -660,6 +665,24 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &
             cel->SetConnectIndex(ic,connectmap[cindex]);
         }
     }
+
+    int64_t nelem = cmesh->NElements();
+    for(int64_t el = 0; el<nelem; el++) {
+        TPZCompEl *cel = cmesh->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) continue;
+        if(gel->Type() != EQuadrilateral) continue;
+        for(int ic = 0; ic<4; ic++) {
+            int ic1 = (ic+1)%4;
+            if(cel->ConnectIndex(ic) == cel->ConnectIndex(ic1)) {
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+                if(!intel) DebugStop();
+                intel->SetSideOrder(ic+4,1);
+            }
+        }
+    }
+
     cmesh->ExpandSolution();
     cmesh->ComputeNodElCon();
     {
@@ -794,9 +817,31 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
             cmesh->Block().Set(seq,0);
         }
     }
+
+    int64_t nelem = cmesh->NElements();
+    for(int64_t el = 0; el<nelem; el++) {
+        TPZCompEl *cel = cmesh->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) continue;
+        if(gel->Type() != EQuadrilateral) continue;
+        for(int ic = 0; ic<4; ic++) {
+            int ic1 = (ic+1)%4;
+            if(cel->ConnectIndex(ic) == cel->ConnectIndex(ic1)) {
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+                if(!intel) DebugStop();
+                intel->SetSideOrder(ic+4,1);
+            }
+        }
+    }
+
     cmesh->ExpandSolution();
-    std::ofstream out("cmeshHDiv.vtk"); 
-    TPZVTKGeoMesh::PrintCMeshVTK(cmesh, out);
+    {
+        std::ofstream out("cmeshHdiv.txt");
+        cmesh->Print(out);
+        std::ofstream out2("cmeshHDiv.vtk"); 
+        TPZVTKGeoMesh::PrintCMeshVTK(cmesh, out2);
+    }
     return cmesh;
 }
 
@@ -913,6 +958,7 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders)
      auto cmeshL2 = CreateL2CompMesh(gmesh);
 
      TPZMultiphysicsCompMesh* cmesh_m = CreateMultiphysicsMesh(cmeshHDiv,cmeshL2, gmesh);
+     cmesh_m->CleanUpUnconnectedNodes();
      // Define o pointer chamado cmesh_m relacionado à classe TPZMultiphysicsCompMesh, associando-o a função CreateMultiphysicsMesh, cujos parâmetros (já antes declarados) são: cmeshHdiv, gmesh.
     
      {
@@ -1231,6 +1277,12 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL>
 /// @param gmesh the geometric mesh
 static int64_t CreateQuad(int64_t sn, int64_t edge1, int64_t edge2, std::map<int64_t,int64_t> &edge2q, TPZGeoMesh *gmesh)
 {
+    if(edge2q.find(edge1) == edge2q.end()) {
+        DebugStop();
+    }
+    if(edge2q.find(edge2) == edge2q.end()) {
+        DebugStop();
+    }
     /// create a new node at the center of the edge
     int64_t newnod = gmesh->NodeVec().AllocateNewElement();
     TPZManVector<REAL,3> coord(3);
@@ -1314,6 +1366,7 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh, bool quarterpoint)
                     coord[i] = weights[0]*x0[i]+weights[1]*x1[i];
                 }
                 node.Initialize(coord,*gmesh);
+                quadraticnodes[globalindex] = newnode;
             }
         }
     }
@@ -1339,9 +1392,10 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh, bool quarterpoint)
             int64_t edge1 = gel->NodeIndex(locindex);
             int64_t newindex = CreateLine(singular,edge1,quadraticnodes, gel, gmesh);
         }
-        gel->SetMaterialId(-1);
+        if(nn > 1) gel->SetMaterialId(-1);
     }
     gmesh->BuildConnectivity();
+    if(0)
     {
         std::ofstream out("gmesh_Changetrailingedgeelements.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
@@ -1653,7 +1707,7 @@ void GetTrailingEdgeElements(TPZGeoMesh *gmesh, TPZGeoElSide &Geosideminus, TPZG
         if (gel->MaterialId() == trailingedgemat) 
         {
             TrailingSide = TPZGeoElSide(gel);
-            auto Neighbor = gel->Neighbour(0);
+            auto Neighbor = TrailingSide.Neighbour();
             for(; Neighbor != gel; Neighbor++)
             {
                 if(!Neighbor.Element()) DebugStop();
@@ -1665,7 +1719,21 @@ void GetTrailingEdgeElements(TPZGeoMesh *gmesh, TPZGeoElSide &Geosideminus, TPZG
             }
         }
     }
-    if(NeighborNacaElements.size() != 2) DebugStop();
+    if(NeighborNacaElements.size() != 2) {
+        auto Neighbor = TrailingSide.Neighbour();
+        for(; Neighbor != TrailingSide; Neighbor++)
+        {
+            if(!Neighbor.Element()) DebugStop();
+            if(Neighbor.Element()->HasSubElement()) continue;
+            std::cout << "Neighbor.Element()->MaterialId() " << Neighbor.Element()->MaterialId() << std::endl;
+            if (Neighbor.Element()->MaterialId() == profilemat)  
+            {
+                NeighborNacaElements.Push (Neighbor.Element());
+            }  
+        }
+
+        DebugStop();
+    }
     if(! TrailingSide) DebugStop();
 
 
