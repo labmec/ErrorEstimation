@@ -10,6 +10,7 @@
 
 #include <set>
 #include "TPZAnalyticSolution.h"
+#include "TPZMultiphysicsCompMesh.h"
 
 /// class to guide the error estimator
 struct ProblemConfig
@@ -33,7 +34,8 @@ struct ProblemConfig
     
     /// number of uniform refinements applied to the mesh
     int ndivisions = -1;
-    int adaptivityStep = -1;
+    int ninternalref = -1;
+    int adaptivityStep = -1; // Keep this variable for compatibility to maintain support for Gustavo's code. Useless for HybridH1 simulations.
     int dimension = 0;
     bool prefine = false;
     bool steklovexample = false;
@@ -45,6 +47,9 @@ struct ProblemConfig
     STATE Km = 0.;
     STATE coefG = 0.;
     
+    /// the elements with error larger than 0.7*max_error will be divided
+    REAL division_threshold = 0.7;
+    
     /// directory where the files will be stored
     std::string dir_name = ".";
     /// name identifying the problem
@@ -53,14 +58,77 @@ struct ProblemConfig
     std::set<int> materialids;
     /// set of boundary condition material ids
     std::set<int> bcmaterialids;
+
+    int vtkResolution = -1;
     /// exact solution
     TPZAutoPointer<TLaplaceExample1> exact;
+    
+    /// set of elements to be divided after each adaptivity step
+    std::list<std::set<int64_t> > fElIndexDivide;
 
     ProblemConfig() = default;
 
     ProblemConfig(const ProblemConfig &cp) = default;
 
     ProblemConfig &operator=(const ProblemConfig &cp) = default;
+    
+    void ApplyDivision();
+    
+    void ApplyTwoonOneRestraint();
+    
+    void DivideEncircledElements();
+    
+    void DivideBoundaryElements();
+    
+    
 };
+
+struct EstimatorConfig{
+   TPZMultiphysicsCompMesh *fOriginal =NULL;
+
+   /// name identifying the problem
+   std::string *fproblemname;
+   /// set of materialids in the mesh
+   std::set<int> fmaterialids;
+   /// set of boundary condition material ids
+   std::set<int> fbcmaterialids;
+   /// Material id of lagrange coefficents
+   int fLagrangeMatId =-666;
+    /// Mateiral for computing the continuous skeleton solution
+    int fSkeletonMatId = -666;
+   /// Polynomial orders of original problem
+   int fk = -666;
+   int fn = -666;
+   /// Number of divisions of uniformly refined meshes
+   int fnDivisions = -666;
+
+   int fAdaptivityStep = -1;
+
+    int fvtkResolution = -1;
+    
+    REAL fdivision_threshold;
+   /// exact solution
+   TPZAutoPointer<TLaplaceExample1> fExact;
+
+   EstimatorConfig(TPZMultiphysicsCompMesh *multimesh,ProblemConfig pConfig,int lagrangeMatId){
+       fOriginal = multimesh;
+        fproblemname = &(pConfig.problemname);
+        fmaterialids = pConfig.materialids;
+        fbcmaterialids=pConfig.bcmaterialids;
+        fnDivisions = pConfig.ndivisions;
+        fExact = pConfig.exact;
+        fAdaptivityStep = pConfig.adaptivityStep;
+        fvtkResolution = pConfig.vtkResolution;
+        fk = pConfig.k;
+        fn = pConfig.n;
+        fdivision_threshold = pConfig.division_threshold;
+
+        fLagrangeMatId = lagrangeMatId;
+   }
+};
+
+//EstimatorConfig::EstimatorConfig(TPZMultiphysicsCompMesh *multimesh,ProblemConfig pConfig,int lagrangeMatId){
+//    
+//}
 
 #endif /* ProblemConfig_h */

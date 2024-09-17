@@ -14,31 +14,35 @@
 
 int main(int argc, char *argv[]) {
 
-#ifdef LOG4CXX
-    InitializePZLOG();
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
 #endif
     PreConfig pConfig;
     pConfig.k = 1;
     pConfig.n = 2;
-    pConfig.problem = "ESinSin";               //// {"ESinSin","EArcTan",ESteklovNonConst"}
+    pConfig.problem = "ESinSin";                 //// {"ESinSin","EArcTan",ESteklovNonConst", "EBubble2D", "ELaplace","ESing2D, "EProb"}
+    pConfig.integrationorder = 6;
+    pConfig.maxIter = 100;                     //// Maximum iterations for computing the exact solution (only for ELaplace)
     pConfig.approx = "Hybrid";                 //// {"H1","Hybrid", "Mixed"}
-    pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, Tetrahedral, Hexahedral, Prism
-    pConfig.refLevel = 1;                      //// How many refinements
+    pConfig.topology = "Quadrilateral";        //// Triangular, Quadrilateral, LQuad, Tetrahedral, Hexahedral, Prism
+    pConfig.refLevel = 1;                      //// How many uniform refinements
+    pConfig.numberAdapativitySteps = 1;        //// Maximum number of adapativity refinement steps.
     pConfig.estimateError = true;              //// Wheater Error Estimation procedure is invoked
-    pConfig.debugger = true;                  //// Print geometric and computational mesh
+    pConfig.debugger = false;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
+    pConfig.vtkResolution = 1;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
 
+    // this is where the type in pConfig is set
     EvaluateEntry(argc,argv,pConfig);
     InitializeOutstream(pConfig,argv);
 
-    for (int ndiv = 3; ndiv < /*pConfig.refLevel+1*/4; ndiv++) {     //ndiv = 1 corresponds to a 2x2 mesh.
+    ProblemConfig config;
+    config.division_threshold = 0.85;
+    for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps+1; config.adaptivityStep++) {     //ndiv = 1 corresponds to a 2x2 mesh.
         pConfig.h = 1./pConfig.exp;
-        ProblemConfig config;
-        Configure(config,ndiv,pConfig,argv);
+        
+        Configure(config,pConfig.refLevel,pConfig,argv);
 
         Solve(config,pConfig);
-
-        pConfig.hLog = pConfig.h;
-        pConfig.exp *=2;
     }
     std::string command = "cp Erro.txt " + pConfig.plotfile + "/Erro.txt";
     system(command.c_str());

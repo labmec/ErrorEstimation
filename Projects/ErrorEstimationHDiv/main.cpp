@@ -5,17 +5,16 @@
 //  Created by Denise De Siqueira on 01/04/19.
 //
 
-#include "TPZGmshReader.h"
-#include "TPZRefPatternDataBase.h"
-#include "pzlog.h"
-#include "tpzgeoelrefpattern.h"
 #include "ProblemConfig.h"
-#include "pzbndcond.h"
+#include "TPZBFileStream.h"
+#include "TPZGmshReader.h"
+#include "TPZHDivErrorEstimator.h"
 #include "TPZHybridizeHDiv.h"
 #include "TPZMultiphysicsCompMesh.h"
-#include "TPZHybridHDivErrorEstimator.h"
+#include "TPZRefPatternDataBase.h"
 #include "Tools.h"
-#include "TPZBFileStream.h"
+#include "pzlog.h"
+#include "tpzgeoelrefpattern.h"
 #include <tuple>
 
 TPZGeoMesh *CreateLShapeGeoMesh(int nCoarseRef);
@@ -60,7 +59,7 @@ void RunSingularProblemHDiv() {
     config.ndivisions = 0;
     config.gmesh = CreateLShapeGeoMesh(nRef);
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     TPZHybridizeHDiv hybridizer;
@@ -80,9 +79,9 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 
     TPZMultiphysicsCompMesh *cmesh_HDiv = Tools::CreateHDivMesh(config); // Hdiv x L2
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
-        ofstream out("MixedMesh.txt");
+        std::ofstream out("MixedMesh.txt");
         cmesh_HDiv->Print(out);
     }
 #endif
@@ -103,11 +102,9 @@ TPZMultiphysicsCompMesh *CreateHybridCompMesh(const ProblemConfig &config, TPZHy
 
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *cmesh_HDiv, TPZHybridizeHDiv &hybrid) {
     bool postProcWithHDiv = false;
-    TPZHybridHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
+    TPZHDivErrorEstimator HDivEstimate(*cmesh_HDiv, postProcWithHDiv);
     //HDivEstimate.SetHybridizer(hybrid);
-    HDivEstimate.SetProblemConfig(config);
 
-    HDivEstimate.SetPostProcUpliftOrder(config.hdivmais);
     HDivEstimate.SetAnalyticSolution(config.exact);
 
     HDivEstimate.PotentialReconstruction();
@@ -153,7 +150,7 @@ void RunHPQuadProblemHDiv() {
     //Tools::RefineElements(config.gmesh, {1, 3});
     //Tools::RefineElements(config.gmesh, {12});
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {
@@ -198,7 +195,7 @@ void RunHPCubeProblemHDiv() {
 
     Tools::RefineElements(config.gmesh, {1, 3});
 
-    std::string command = "mkdir " + config.dir_name;
+    std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
 
     {

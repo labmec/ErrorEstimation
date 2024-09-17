@@ -18,6 +18,9 @@ class TPZMaterial;
 class TPZMaterialData;
 
 template<class TVar>
+class TPZMaterialDataT;
+
+template<class TVar>
 class TPZVec;
 
 template<class MixedMat>
@@ -35,28 +38,28 @@ public:
     
     TPZMixedHDivErrorEstimate(const MixedMat &cp);
     
-    TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate &cp);
+    TPZMixedHDivErrorEstimate(const TPZMixedHDivErrorEstimate<MixedMat> &cp);
     
     TPZMixedHDivErrorEstimate &operator=(const TPZMixedHDivErrorEstimate &copy);
     
-    virtual TPZMaterial * NewMaterial() override {
+    virtual TPZMaterial * NewMaterial() const override {
         return new TPZMixedHDivErrorEstimate(*this);
     }
     
     
-    void FillDataRequirements(TPZVec<TPZMaterialData > &datavec) override;
+    void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
     
     /// make a contribution to the error computation
-    virtual void Errors(TPZVec<TPZMaterialData> &data, TPZVec<STATE> &u_exact, TPZFMatrix<STATE> &du_exact, TPZVec<REAL> &errors) override;
+    virtual void Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) override;
     
-    virtual int NEvalErrors() override {
+    virtual int NEvalErrors() const override {
         return 5;
         
     }
     
-    virtual int VariableIndex(const std::string &name) override;
+    virtual int VariableIndex(const std::string &name) const override;
     
-    virtual int NSolutionVariables(int var) override;
+    virtual int NSolutionVariables(int var) const override;
     
     /**
      * @brief It return a solution to multiphysics simulation.
@@ -64,7 +67,7 @@ public:
      * @param var [in] number of solution variables. See  NSolutionVariables() method
      * @param Solout [out] is the solution vector
      */
-    virtual void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+    virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec, int var, TPZVec<STATE> &Solout) override;
 
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = true;

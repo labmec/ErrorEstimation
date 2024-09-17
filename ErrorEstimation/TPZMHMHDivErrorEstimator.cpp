@@ -1,11 +1,11 @@
 
 #include "TPZMHMHDivErrorEstimator.h"
 #include "TPZNullMaterial.h"
+#include "TPZNullMaterialCS.h"
 #include "TPZVTKGeoMesh.h"
-#include "pzbndcond.h"
 #include "pzintel.h"
 #include "pzsubcmesh.h"
-#include <Material/TPZLagrangeMultiplier.h>
+#include <Material/TPZLagrangeMultiplierCS.h>
 #include <Mesh/TPZCompMeshTools.h>
 #include <Mesh/TPZGeoElSideAncestors.h>
 #include <Mesh/pzmultiphysicscompel.h>
@@ -46,11 +46,11 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     if (fPostProcesswithHDiv) {
         CreateFluxSkeletonElements(meshvec[0]);
         // TODO move this to InsertMaterials method
-        TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+        TPZNullMaterialCS<> *skeletonMat = new TPZNullMaterialCS<>(fPressureSkeletonMatId);
         skeletonMat->SetDimension(GMesh()->Dimension() - 1);
         fPostProcMesh.InsertMaterialObject(skeletonMat);
 
-        TPZNullMaterial *wrapMat = new TPZNullMaterial(fHDivWrapMatId);
+        TPZNullMaterialCS<> *wrapMat = new TPZNullMaterialCS<>(fHDivWrapMatId);
         skeletonMat->SetDimension(GMesh()->Dimension() - 1);
         fPostProcMesh.InsertMaterialObject(wrapMat);
     }
@@ -62,6 +62,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     }
 
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
+    fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
 
     if(fPostProcesswithHDiv) {
@@ -149,8 +150,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
         if(!submesh_orig) continue;
         auto iter = submeshmap.find(submesh_orig);
         if (iter == submeshmap.end()) {
-            int64_t index;
-            TPZSubCompMesh *new_submesh = new TPZSubCompMesh(fPostProcMesh,index);
+            TPZSubCompMesh *new_submesh = new TPZSubCompMesh(fPostProcMesh);
             submeshmap[submesh_orig] = new_submesh;
             new_submesh_per_cel[el] = new_submesh;
         } else {
@@ -212,7 +212,7 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 }
             }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
             if (celDomain.size() > 1) DebugStop();
 #endif
 
@@ -226,19 +226,14 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 submesh->TransferElement(&fPostProcMesh, iel);
                 // log: elementos e matId
             }
-
-            if (celDomain.empty()) {
-                //std::cout << "Nothing happened to element: " << iel << ", gel " << gel->Index()
-                //          << ", matId: " << gel->MaterialId();
-                if (nc) {
-                //    std::cout << " connect index " << cel->ConnectIndex(0) << "\n subdomain "
-                //              << (void *)connectToSubcmesh[cel->ConnectIndex(0)] << std::endl;
-                }
-                // log: elementos e matId
-            }
         }
+        std::cout << "Finished transfering dim-1 elems\n";
+        std::cout << "Printing gmeshsub\n";
+
         std::ofstream file("GmeshSub.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
+
+        std::cout << "Finished  printing gmesh\n";
 
         fPostProcMesh.ComputeNodElCon();
         if (!fPostProcesswithHDiv) {
@@ -316,12 +311,12 @@ void TPZMHMHDivErrorEstimator::SubStructurePostProcessingMesh()
                 }
                 int numthreads = 0;
                 int preconditioned = 0;
-                TPZAutoPointer<TPZGuiInterface> guiInterface;
 
-                sub->SetAnalysisSkyline(numthreads, preconditioned, guiInterface);
+                sub->SetAnalysisSkyline(numthreads, preconditioned);
             }
         }
     }
+    std::cout << "Finished substructuring post proc mesh\n";
 }
 
 TPZCompMesh *TPZMHMHDivErrorEstimator::CreateFluxMesh()
@@ -476,13 +471,14 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
     std::set<int> bcMatIDs;
     for (auto it : fOriginal->MaterialVec()) {
         TPZMaterial *mat = it.second;
-        TPZBndCond *bc = dynamic_cast<TPZBndCond *>(mat);
+        TPZBndCondT<STATE> *bc = dynamic_cast<TPZBndCondT<STATE> *>(mat);
         if (bc) {
             int bcID = bc->Material()->Id();
-            TPZMaterial *pressure_mat = original_pressure->FindMaterial(bcID);
-            TPZMaterial *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
+            TPZMaterial *pressure_abs = original_pressure->FindMaterial(bcID);
+            TPZMaterialT<STATE> *pressure_mat = dynamic_cast<TPZMaterialT<STATE>*>(pressure_abs);
+            TPZBndCondT<STATE> *bc_mat = pressure_mat->CreateBC(pressure_mat, mat->Id(), bc->Type(), bc->Val1(), bc->Val2());
             if (fExact) {
-                bc_mat->SetForcingFunction(fExact->Exact());
+                bc_mat->SetForcingFunctionBC(fExact->ExactSolution(),4);
             }
             reconstruction_pressure->InsertMaterialObject(bc_mat);
         }
@@ -516,8 +512,7 @@ TPZCompMesh *TPZMHMHDivErrorEstimator::CreateInternallyContinuousPressureMesh() 
         TPZGeoEl *gel = gmesh->Element(elIndex);
         if (!gel || gel->HasSubElement()) continue;
 
-        int64_t index;
-        TPZCompEl *new_cel = reconstruction_pressure->CreateCompEl(gel, index);
+        TPZCompEl *new_cel = reconstruction_pressure->CreateCompEl(gel);
         TPZInterpolatedElement *new_intel = dynamic_cast<TPZInterpolatedElement *>(new_cel);
 
         TPZCompEl * orig_cel = std::get<2>(MHMOfEachGeoEl[i]);
@@ -742,7 +737,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
     gmesh->ResetReference();
     cmesh->LoadReferences();
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
@@ -791,7 +786,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_mes
         }
     }
 
-#ifdef PZDEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
@@ -805,7 +800,7 @@ void TPZMHMHDivErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *pre
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial *skeletonMat = new TPZNullMaterial(fPressureSkeletonMatId);
+    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPressureSkeletonMatId);
     skeletonMat->SetDimension(dim - 1);
     pressure_mesh->InsertMaterialObject(skeletonMat);
 
@@ -838,6 +833,8 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
     }
 
 
+    TPZBlock &block =  pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
     nel = pressuremesh->NElements();
     for (int64_t el = 0; el < nel; el++) {
         TPZCompEl* cel = pressuremesh->Element(el);
@@ -873,7 +870,7 @@ void TPZMHMHDivErrorEstimator::CopySolutionFromSkeleton() {
                 int con_size = con_neigh.NState() * con_neigh.NShape();
                 if (con_size != c_blocksize) DebugStop();
                 for (int ibl = 0; ibl < con_size; ibl++) {
-                    pressuremesh->Block()(c_neigh_seqnum, 0, ibl, 0) = pressuremesh->Block()(c_gelSide_seqnum, 0, ibl, 0);
+                    sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) = sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0));
                 }
             }
         }
@@ -1096,8 +1093,7 @@ void TPZMHMHDivErrorEstimator::CreateFluxSkeletonElements(TPZCompMesh *flux_mesh
             neighGel->SetReference(neighCel);
 
             TPZGeoElBC gbc(neighbour, fHDivWrapMatId);
-            int64_t index;
-            TPZCompEl * wrap = flux_mesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *flux_mesh, index);
+            TPZCompEl * wrap = flux_mesh->ApproxSpace().CreateCompEl(gbc.CreatedElement(), *flux_mesh);
             TPZInterpolatedElement *wrapintel = dynamic_cast<TPZInterpolatedElement *>(wrap);
             neighIntel->SetSideOrient(neighbour.Side(), 1);
             wrapintel->SetSideOrient(gbc.CreatedElement()->NSides()-1,1);
@@ -1122,7 +1118,7 @@ void TPZMHMHDivErrorEstimator::CreateMultiphysicsInterfaces() {
         fMultiPhysicsInterfaceMatId = FindFreeMatId(this->GMesh());
     }
 
-    TPZLagrangeMultiplier *interfaceMat = new TPZLagrangeMultiplier(fMultiPhysicsInterfaceMatId, dim - 1, 1);
+    TPZLagrangeMultiplierCS<> *interfaceMat = new TPZLagrangeMultiplierCS<>(fMultiPhysicsInterfaceMatId, dim - 1, 1);
     fPostProcMesh.InsertMaterialObject(interfaceMat);
     std::cout << "Created interface material of index " << fMultiPhysicsInterfaceMatId << '\n';
 
@@ -1152,8 +1148,7 @@ void TPZMHMHDivErrorEstimator::CreateMultiphysicsInterfaces() {
             TPZCompElSide neighSide = neigh.Reference();
             if (!neighSide) DebugStop();
 
-            int64_t index;
-            auto *interface = new TPZMultiphysicsInterfaceElement(fPostProcMesh, gbc.CreatedElement(), index, skelCelSide, neighSide);
+            auto *interface = new TPZMultiphysicsInterfaceElement(fPostProcMesh, gbc.CreatedElement(), skelCelSide, neighSide);
         }
         if (count != 2) DebugStop();
     }

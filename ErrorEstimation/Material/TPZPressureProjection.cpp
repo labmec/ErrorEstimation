@@ -8,7 +8,8 @@
 #include "TPZPressureProjection.h"
 #include "TPZHDivErrorEstimateMaterial.h"
 #include "TPZAnalyticSolution.h"
-#include "pzbndcond.h"
+#include "TPZMaterialDataT.h"
+
 
 TPZPressureProjection::TPZPressureProjection(int matid, int dim) : TPZHDivErrorEstimateMaterial(matid,dim)
 {
@@ -39,8 +40,8 @@ TPZPressureProjection &TPZPressureProjection::operator=(const TPZPressureProject
 
 
 void TPZPressureProjection::ContributeBC(
-    TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
-    TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
+    const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+    TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) {
 
     /*
      Compute the L2 projection of potential into Robin boundary part
@@ -61,13 +62,15 @@ void TPZPressureProjection::ContributeBC(
     REAL g = 0.;
     REAL normflux = 0.;
     
-    
-    if (bc.HasForcingFunction()) {
+    auto perm = GetPermeability(datavec[0].x);
+    TPZFNMatrix<9,REAL> PermTensor(3,3), InvPermTensor(3,3);
+    PermTensor.Diagonal(perm);
+    InvPermTensor.Diagonal(1./perm);
+
+    if (bc.HasForcingFunctionBC()) {
         TPZManVector<STATE> res(3);
         TPZFNMatrix<9, STATE> gradu(dim, 1);
-        bc.ForcingFunction()->Execute(datavec[H1functionposition].x, res, gradu);
-        TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
-        GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
+        bc.ForcingFunctionBC()(datavec[H1functionposition].x, res, gradu);
         
         
         for(int i=0; i<3; i++)
@@ -86,7 +89,7 @@ void TPZPressureProjection::ContributeBC(
     }
     else {
         // usualmente updatebc coloca o valor exato no val2
-        u_D = bc.Val2()(0, 0);
+        u_D = bc.Val2()[0];
     }
 
     if (bc.Type() == 4 && !IsZero(bc.Val1()(0, 0))) {
