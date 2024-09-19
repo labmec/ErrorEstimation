@@ -43,6 +43,8 @@
 #include "tpzblendnaca.h"
 #include "tpznacaprofile.h"
 
+#include "tpzchangeel.h"
+
 #include <iostream>
 
 #define USING_MKL
@@ -80,7 +82,7 @@ TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh, TPZVec<int> 
 void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> &ErrorEstimator);
 
 /// @brief Compute the global error the norm of the vector ErrorEstimator 
-void ComputeGlobalError(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, REAL &GlobalError);
+void ComputeGlobalError(TPZVec<REAL> &ErrorEstimator, REAL &GlobalError);
 
 /// @brief Adjust the boundary elements to the refinement of the domain elements
 void AdjustLowerOrderElements(TPZGeoMesh *gmesh,TPZVec<REAL> &RefinementIndicator,TPZVec<int> &porders);
@@ -168,9 +170,10 @@ int boundmat = 4;
 int pointmat = 5;
 int trailingedgemat = 6;
 int blendmat = 7;
-bool trailingedgecollapsed = false;
+enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint};
+MMeshStyle meshstyle = ETraditional;
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
-TPZGeoEl *trailingedge_element = 0;
+int64_t trailingedge_element_index = -1;
 
 auto f_profile = [](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<STATE> &matVal)
 {
@@ -193,7 +196,7 @@ int main() {
 #ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
 #endif
-    if(trailingedgecollapsed) {
+    if(meshstyle == ECollapsed) {
         gRefDBase.InitializeRefPatterns(2);
     }
     TPZManVector<REAL, 3> x0(3, 0.);
@@ -214,31 +217,14 @@ int main() {
         for(int64_t el = 0; el<nel; el++) {
             TPZGeoEl *gel = gmesh->Element(el);
             if(gel && gel->MaterialId() == trailingedgemat) {
-                trailingedge_element = gel;
+                trailingedge_element_index = el;
                 break;
             }
         }
-        if(!trailingedge_element) DebugStop();
+        if(trailingedge_element_index == -1) DebugStop();
     }
     // look for a quadrilateral element and keep the result in a global variable
-    if(trailingedgecollapsed) {
-        int64_t nel = gmesh->NElements();
-        for(int64_t el = 0; el<nel; el++) {
-            TPZGeoEl *gel = gmesh->Element(el);
-            if(gel && gel->Type() == EQuadrilateral) {
-                for(int side = 4; side < 8; side++) {
-                    int s1 = side+1;
-                    if(s1>7) s1 -= 4;
-                    int s2 = side-1;
-                    if(s2<4) s2 +=4;
-                    TPZManVector<int,9> sidestorefine(9,0);
-                    sidestorefine[s1] = 1;
-                    sidestorefine[s2] = 1;
-                    refpattern[side] = TPZRefPatternTools::PerfectMatchRefPattern(gel,sidestorefine);
-                }
-                break;
-            }
-        }
+    if(meshstyle != ETraditional) {
         auto manual = CreateRefPattern();
         refpattern[4] = manual;
         refpattern[6] = manual;
@@ -257,7 +243,7 @@ int main() {
         }
     }
 
-    if(trailingedgecollapsed)
+    if(meshstyle != ETraditional)
     {
         // false : create the midside node in the middle of the trailing edge
         Changetrailingedgeelements(gmesh);
@@ -280,20 +266,31 @@ int main() {
     std::ofstream outGE("GlobalError.txt");
     for (int64_t i = 0; i < nrefinements; i++) {
         TPZCompMesh *cmesh = 0;
-        cmesh = SimulateNacaProfileH1(gmesh, porders);
+        TPZGeoMesh *gmeshcopy = new TPZGeoMesh(*gmesh);
+        // change the elements of gmeshcopy to quadratic elements
+        cmesh = SimulateNacaProfileH1(gmeshcopy, porders);
         {
             std::ofstream out("cmeshH1.txt");
             cmesh->Print(out);
         }
-        auto cmesh_m = SimulateNacaProfileHDiv(gmesh, porders);
+        auto cmesh_m = SimulateNacaProfileHDiv(gmeshcopy, porders);
         {
             std::ofstream out("cmeshHdiv.txt");
             cmesh_m->Print(out);
         }
-
         TPZVec<REAL> Error;
         ComputeErrorEstimator(cmesh, cmesh_m, Error);
-        ComputeGlobalError(cmesh_m, Error, GlobalError);
+        ComputeGlobalError(Error, GlobalError);
+
+        /// reset the reference to the original geometric mesh
+        cmesh->SetReference(gmesh);
+        cmesh_m->SetReference(gmesh);
+        for(int i = 0; i<2; i++) {
+            cmesh_m->MeshVector()[i]->SetReference(gmesh);
+        }
+        delete gmeshcopy;
+        gmeshcopy = 0;
+
         int64_t nDOF = cmesh->NEquations();
         // int64_t nDOF_m = cmesh_m->NEquations();
         outGE << i << "  " << nDOF << "  " << GlobalError << std::endl;
@@ -1121,10 +1118,10 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
 
 
 /// @brief Compute the global error the norm of the vector ErrorEstimator  
-void ComputeGlobalError(TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> &ErrorEstimator, REAL &GlobalError)
+void ComputeGlobalError(TPZVec<REAL> &ErrorEstimator, REAL &GlobalError)
 {
     GlobalError = 0.;
-    int64_t nel_m = cmesh_m->NElements();
+    int64_t nel_m = ErrorEstimator.size();
     for (int64_t iel = 0; iel < nel_m; iel++) 
     {
         GlobalError += ErrorEstimator[iel]*ErrorEstimator[iel];
@@ -1302,7 +1299,7 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL>
 {
     auto gmesh = cmesh_m->Reference();
     int64_t nel = gmesh->NElements();
-    TPZGeoEl *gel_TrailingEdge = trailingedge_element;
+    TPZGeoEl *gel_TrailingEdge = gmesh->Element(trailingedge_element_index);
     // if(gel_TrailingEdge->HasSubElement()) continue;
     if (gel_TrailingEdge->MaterialId() != trailingedgemat) DebugStop(); 
 
@@ -1394,6 +1391,7 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh)
     int64_t nel = gmesh->NElements();
     // identify the point element and trailing edge node
     int64_t singular = -1;
+    TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
     TPZGeoElSide trailingedge(trailingedge_element);
     singular = trailingedge_element->NodeIndex(0);
     if(singular == -1) DebugStop();
@@ -1740,7 +1738,7 @@ void GetTrailingEdgeElements(TPZGeoMesh *gmesh, TPZGeoElSide &Geosideminus, TPZG
     TPZGeoElSide TrailingSide;
 
     // First comment;
-
+    TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
     TrailingSide = TPZGeoElSide(trailingedge_element);
     int64_t trailingnode = trailingedge_element->NodeIndex(0);
     auto Neighbor = TrailingSide.Neighbour();
@@ -1835,6 +1833,7 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
     {
         TPZManVector<REAL,3> x1(3),x2(3);
         Geosideminus.Element()->X(qsi,x1);
+        TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
         auto trailnode = trailingedge_element->NodePtr(0);
         trailnode->GetCoordinates(x2);
         if(dist(x1,x2) > 1.e-10) {
@@ -1843,7 +1842,7 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
             DebugStop();
         }
     }
-    if(trailingedgecollapsed) {
+    if(meshstyle != ETraditional) {
         qsiminus[0] = -1.+1.e-6;
         tr.Apply(qsiminus,qsi);
     }
@@ -1857,11 +1856,12 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
     {
         TPZManVector<REAL,3> x1(3),x2(3);
         Geosideplus.Element()->X(qsi,x1);
+        TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
         auto trailnode = trailingedge_element->NodePtr(0);
         trailnode->GetCoordinates(x2);
         if(dist(x1,x2) > 1.e-10) DebugStop();
     }
-    if(trailingedgecollapsed) {
+    if(meshstyle != ETraditional) {
         qsiplus[0] = 1.-1.e-6;
         tr.Apply(qsiplus,qsi);
     }
@@ -1892,6 +1892,7 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
     {
         TPZManVector<REAL,3> x1(3),x2(3);
         Geosideminus.Element()->X(qsi,x1);
+        TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
         auto trailnode = trailingedge_element->NodePtr(0);
         trailnode->GetCoordinates(x2);
         if(dist(x1,x2) > 1.e-10) {
@@ -1900,7 +1901,7 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
             DebugStop();
         }
     }
-    if(trailingedgecollapsed) {
+    if(meshstyle != ETraditional) {
         qsiminus[0] = -1.+1.e-6;
         tr.Apply(qsiminus,qsi);
     }
@@ -1914,11 +1915,12 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
     {
         TPZManVector<REAL,3> x1(3),x2(3);
         Geosideplus.Element()->X(qsi,x1);
+        TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
         auto trailnode = trailingedge_element->NodePtr(0);
         trailnode->GetCoordinates(x2);
         if(dist(x1,x2) > 1.e-10) DebugStop();
     }
-    if(trailingedgecollapsed) {
+    if(meshstyle != ETraditional) {
         qsiplus[0] = 1.-1.e-6;
         tr.Apply(qsiplus,qsi);
     }
