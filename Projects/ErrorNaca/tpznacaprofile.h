@@ -42,13 +42,13 @@ public:
     TPZNacaProfile(REAL cord, int FourDigits, REAL angle, TPZVec<REAL> &x0);
 
     TPZNacaProfile(TPZVec<int64_t> &nodeindexes) : TPZRegisterClassId(&TPZNacaProfile::ClassId),
-        TPZBlendNACA(nodeindexes) {
+        TPZBlendNACA(nodeindexes) ,firstpos(0.), lastpos(-1.), uplow(1) {
 
     }
 
     TPZNacaProfile(const TPZNacaProfile &cp, TPZGeoMesh &) : TPZRegisterClassId(&TPZNacaProfile::ClassId),
-        TPZBlendNACA(cp){
-            DebugStop();
+        TPZBlendNACA(cp), firstpos(cp.firstpos), lastpos(cp.lastpos), uplow(cp.uplow) {
+            
         }
         /** @brief Copy constructor with map of nodes */
     TPZNacaProfile(const TPZNacaProfile &cp,std::map<int64_t,int64_t> & gl2lcNdMap) : 
