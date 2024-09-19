@@ -99,6 +99,9 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> 
 /// @brief Substitute the trailing edge quadrilateral elements with colapsed quadrilateral elements with or without quarterpoint elements 
 void Changetrailingedgeelements(TPZGeoMesh *gmesh);
 
+/// @brief Change the elements the touch the trailing edge to quarterpoint elements
+void CreateQuarterPointElements(TPZGeoMesh *gmesh);
+
 /// @brief create a refinement patter that cuts the element in longitudinal direction
 /// @return refinement pattern created
 TPZAutoPointer<TPZRefPattern> CreateRefPattern();
@@ -268,6 +271,9 @@ int main() {
         TPZCompMesh *cmesh = 0;
         TPZGeoMesh *gmeshcopy = new TPZGeoMesh(*gmesh);
         // change the elements of gmeshcopy to quadratic elements
+        if(meshstyle == EQuarterPoint) {
+            CreateQuarterPointElements(gmeshcopy);
+        }
         cmesh = SimulateNacaProfileH1(gmeshcopy, porders);
         {
             std::ofstream out("cmeshH1.txt");
@@ -2176,3 +2182,30 @@ TPZAutoPointer<TPZRefPattern> CreateRefPattern() {
     TPZAutoPointer<TPZRefPattern> refpat = new TPZRefPattern(str);
     return refpat;
 }
+
+
+/// @brief Change the elements the touch the trailing edge to quarterpoint elements
+void CreateQuarterPointElements(TPZGeoMesh *gmesh) {
+    TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
+    TPZGeoElSide trailingedge(trailingedge_element);
+    std::map<TPZGeoEl *,int> connected_elements;
+    for(TPZGeoElSide neigh = trailingedge.Neighbour(); neigh != trailingedge; neigh++) {
+        TPZGeoEl *neighgel = neigh.Element();
+        if(neighgel->HasSubElement()) continue;
+        if(neighgel->Dimension() == 2) {
+            if(neighgel->NodeIndex(2) == neighgel->NodeIndex(3)) {
+                connected_elements[neighgel] = 6;
+            }
+        } else if(neighgel->Dimension() == 1) {
+            connected_elements[neighgel] = neigh.Side();
+        }
+
+    }
+    for(auto it : connected_elements) {
+        TPZGeoEl *gel = it.first;
+        int side = it.second;
+        gel = TPZChangeEl::ChangeToQuadratic(gel->Mesh(), gel->Index());
+        TPZChangeEl::ChangeToQuarterPoint(gel->Mesh(), gel->Index(),side);
+    }
+}
+
