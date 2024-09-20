@@ -231,8 +231,10 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         std::map<int64_t,int> gelstoPplus;
         gelstohref.clear();
         gelstoPplus.clear();
-        REAL threshold = config.division_threshold;
-        int algor = 0;
+        REAL tau1 = config.division_threshold;
+        REAL tau2 = 0.3;
+        REAL rho = 0.05;
+        int algor = 1;
         switch (algor) {
             case 0: // in case of smooth solutions, even with extreme behavior
                 for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
@@ -249,13 +251,15 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     int porder = intel->GetPreferredOrder();
                     gelstoPplus[gel->Index()] = porder;
                     
-                    if(elementerror < 0.00000001){
+                    if(elementerror < 0.000000001){
                         continue;
-                    }else if (elementerror > threshold * maxerror && ratio > 0.1){
+                    }else if (elementerror > tau1 * maxerror && ratio > rho){
                         gelstohref.insert(gel->Index());
 
-                    }else if (0.3*maxerror >= elementerror || ratio <= 0.1){
-                        gelstoPplus[gel->Index()] = porder+1;
+                    }else if (tau2*maxerror >= elementerror || ratio <= rho){
+                        if(porder < 10){
+                            gelstoPplus[gel->Index()] = porder+1;
+                        }
                     }
                 }
                 config.fElIndexDivide.push_back(gelstohref);
@@ -278,10 +282,12 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     
                     if(elementerror < 0.00000001){
                         continue;
-                    }else if (elementerror > threshold * maxerror){
+                    }else if (elementerror > tau1 * maxerror){
                         gelstohref.insert(gel->Index());
-                    }else if (0.4*maxerror >= elementerror){
-                        gelstoPplus[gel->Index()] = porder+1;
+                    }else if (tau2*maxerror >= elementerror){
+                        if(porder < 10){
+                            gelstoPplus[gel->Index()] = porder+1;
+                        }
                     }
                 }
                 
@@ -518,6 +524,19 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
 
     std::cout << "Solving H1 " << std::endl;
 
+    if(0){
+        TPZVec<STATE> x(3,0);
+        x[0]=-0.1;
+        x[1]=-0.95;
+        TPZFMatrix<STATE> du(3,1,0);
+        TPZVec<STATE> u(3,0);
+        TPZManVector<STATE,1> force(1);
+        config.exact->ExactSolution()(x,u,du);
+        config.exact->Force(x, force);
+        std::cout << "u[0]=" << u[0] << std::endl;
+        std::cout << "force[0]=" << force[0] << std::endl; //-lapl(u)=f
+    }
+    
     TPZLinearAnalysis an(cmeshH1);
     //an.SetExact(config.exact->ExactSolution());
     
@@ -573,6 +592,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config, struct Pr
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Solution");
         vecnames.Push("Derivative");
+        vecnames.Push("Flux");
         scalnames.Push("ExactSolution");
         vecnames.Push("ExactFlux");
         int dim = cmeshH1->Reference()->Dimension();
@@ -851,10 +871,10 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> &true_elerror, TPZF
             STATE residual = estimate_elerror(elindex2,3);
             sum += aux*aux; // To compute global effectivity index
             sum2 += estimate_elerror(elindex2,3)*estimate_elerror(elindex2,3);
-            //true_elerror(el,0) = estimate_elerror(elindex2,2)+residual;//Estimate seminorm error
-            true_elerror(el,0) = estimate_elerror(elindex2,2);//Estimate seminorm error
+            true_elerror(el,0) = estimate_elerror(elindex2,2)+residual;//Estimate seminorm error
+            //true_elerror(el,0) = estimate_elerror(elindex2,2);//Estimate seminorm error
             true_elerror(el,1) = true_elerror(el,2); // True seminorm error
-            if (true_elerror(el,1) > 1.e-10) {
+            if (true_elerror(el,1) > 1.e-11) {
                 //true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);
                 true_elerror(el,2) = true_elerror(el,0)/true_elerror(el,1);//Effect. index
                 if(0){

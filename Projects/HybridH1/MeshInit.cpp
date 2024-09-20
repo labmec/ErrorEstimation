@@ -652,7 +652,6 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
             mix->SetExactSol(config.exact->ExactSolution(), pConfig.integrationorder);
             mix->SetForcingFunction(config.exact->ForceFunc(), pConfig.integrationorder);
 
-
             if (!mat) mat = mix;
             cmesh->InsertMaterialObject(mix);
         }
@@ -673,9 +672,10 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
 
         TPZFNMatrix<9,REAL> K, invK;
         K.Resize(3,3); invK.Resize(3,3);
-        K.Identity();invK.Identity();
+        K.Identity(); invK.Identity();
         K(0,0) = K(1,1) = pConfig.perm_Q1;
         invK(0,0) = invK(1,1) = 1./pConfig.perm_Q1;
+        
         mat1->setPermeabilyTensor(K,invK);
         K(0,0) = K(1,1) = pConfig.perm_Q2;
         invK(0,0) = invK(1,1) =  1./pConfig.perm_Q2;

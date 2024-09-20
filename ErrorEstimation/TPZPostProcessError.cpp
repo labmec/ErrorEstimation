@@ -457,7 +457,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             for (int64_t el = 0; el < nel; el++) {
                 int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
                 TPZCompEl* cel = multiphysicsmesh->Element(elindex);
-                if(cel->Material()->Id() == 1){
+                if(cel->Material()->Id() == 1 || cel->Material()->Id() == 2 || cel->Material()->Id() == 3){
                     int64_t ncon = cel->NConnects();
                     //int64_t conindex = cel->ConnectIndex(ncon-1);
                     cel->SetConnectIndex(ncon-1, averagepressureconnindex+patch);
@@ -480,8 +480,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 for (int64_t el = 0; el < nel; el++) {
                     int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
                     TPZCompEl* cel = multiphysicsmesh->Element(elindex);
-                    if(cel->Material()->Id() == 1){
-                        
+                    if(cel->Material()->Id() == 1 || cel->Material()->Id() == 2 || cel->Material()->Id() == 3){
                         int64_t ncon = cel->NConnects();
                         averagepressure.insert(cel->ConnectIndex(ncon-1));
                         TPZConnect& con = cel->Connect(ncon-1);
@@ -497,7 +496,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 for (int64_t el = 0; el < nel; el++) {
                     int64_t elindex = fVecVecPatches[color][patch].fElIndices[el];
                     TPZCompEl* cel = multiphysicsmesh->Element(elindex);
-                    if(cel->Material()->Id()==1){
+                    if(cel->Material()->Id() == 1 || cel->Material()->Id() == 2 || cel->Material()->Id() == 3){
                         
                         int64_t ncon = cel->NConnects();
                         averagepressure.insert(cel->ConnectIndex(ncon-1));
@@ -1120,7 +1119,7 @@ void TPZPostProcessError::CreateFluxMesh()
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
     int dim = cmeshroot->Dimension();
     TPZMaterial *rootmat = cmeshroot->FindMaterial(matId);
-    int nstate = rootmat->NStateVariables();
+    //int nstate = rootmat->NStateVariables();
     /// criar materiais
     //  TPZAutoPointer<TPZFunction<STATE> > force1 = new TPZDummyFunction<STATE>(Forcing1);
     //    material->SetForcingFunction(force1);
@@ -1386,7 +1385,7 @@ void TPZPostProcessError::CreateMixedMesh()
                     locmat->SetExactSol(fExact->ExactSolution(), mat->ForcingFunctionPOrder());
                     
                     if(0){
-                        auto exactsol= locmat->ExactSol();
+                        //auto exactsol= locmat->ExactSol();
                         TPZVec<STATE> x(3,0);
                         x[0]=0.5;
                         x[1]=0.5;
@@ -1395,12 +1394,18 @@ void TPZPostProcessError::CreateMixedMesh()
                         
                         fExact->ExactSolution()(x,u,du);
                         std::cout << "u[0]=" << u[0] << std::endl;
-                        exactsol(x,u,du);
+                        //exactsol(x,u,du);
                     }
                 }
-                
-                //incluindo os dados do problema
-                locmat->SetConstantPermeability(1.);
+                if (matId == 1){
+                    locmat->SetConstantPermeability(1.);
+                }
+                else if (matId == 2){
+                    locmat->SetConstantPermeability(5.);
+                }
+                else if (matId == 3){
+                    locmat->SetConstantPermeability(1.);
+                }
             }
             
             mphysics->InsertMaterialObject(material);
