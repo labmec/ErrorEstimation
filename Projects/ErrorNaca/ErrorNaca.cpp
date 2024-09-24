@@ -177,7 +177,7 @@ int pointmat = 5;
 int trailingedgemat = 6;
 int blendmat = 7;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint};
-MMeshStyle meshstyle = EQuarterPoint;
+MMeshStyle meshstyle = ECollapsed;
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
 int64_t trailingedge_element_index = -1;
 
