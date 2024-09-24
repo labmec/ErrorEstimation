@@ -130,16 +130,18 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
             }
             STATE inner = 0.;
             for(int i=0; i<3; i++) {
-                inner += jvec(i,0)*gradpressure(i,0);
+                inner += jvec(i,0)*perm*gradpressure(i,0);
+                //inner += jvec(i,0)*gradpressure(i,0);
             }
             ef(jq) -= weight*psival*inner;
         }
         
         STATE inner2 = 0.;
         for (int i=0; i<3; i++) {
-            inner2 += gradpressure(i,0)*gradpsi(i,0);//fluxprimal(i,0)*gradpsi(i,0);
+            inner2 += perm*gradpressure(i,0)*gradpsi(i,0);//fluxprimal(i,0)*gradpsi(i,0);
+
         }
-        for (int ip=0; ip<phrp; ip++) {
+        for (int ip=0; ip<phrp; ip++) {//because the signal, get the opposite of equilibrated flux
             ef(phrq+ip,0) += (-1.)*weight*psival*force*phip(ip,0) + weight*inner2*phip(ip,0);
             //            ef(phrq+ip,0) += (-1.)*weight*phip(ip,0);
         }
@@ -159,7 +161,8 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
             ek(phrq+j,phrq+phrp) += phip(j,0)*weight;
             ek(phrq+phrp,phrq+j) += phip(j,0)*weight;
         }
-        ef(phrq+phrp,0) += weight*psival*soloriginal;
+        ef(phrq+phrp,0) += 0;
+        //ef(phrq+phrp,0) += weight*psival*soloriginal;
     }
 }
 
@@ -203,7 +206,7 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     
     REAL inner = 0.;
     for (int i=0; i<3; i++) {
-            inner += (flux[i]+fluxprimalneg(i,0))*(flux[i]+fluxprimalneg(i,0))/perm;
+        inner += (flux[i]+fluxprimalneg(i,0))*(flux[i]+fluxprimalneg(i,0))/perm;
     }
     errors[2] += inner; // Flux estimator
 

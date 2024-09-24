@@ -225,7 +225,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
 
         if (pConfig.problem== "ESinSin") pConfig.type= 0;
         else if (pConfig.problem=="EArcTan")  pConfig.type = 1;
-        else if (pConfig.problem == "ESteklov") pConfig.type = 2;
+        else if (pConfig.problem == "ESteklovNonConst") pConfig.type = 2;
         else if (pConfig.problem == "EBubble2D") pConfig.type = 3;
         else if (pConfig.problem == "ELaplace") pConfig.type = 4;
         else if (pConfig.problem == "E2SinSin") pConfig.type = 5;
@@ -237,7 +237,7 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "EBubble2DTemp") pConfig.type = 11;
         else if (pConfig.problem == "ESteepMountain2D") pConfig.type = 12;
         else if (pConfig.problem == "ESharpGaussian2D") pConfig.type = 13;
-        
+        else if (pConfig.problem == "ELineSingularity") pConfig.type = 14;
         else DebugStop();
     }
 
@@ -396,8 +396,8 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             solutionCase = TLaplaceExample1::ESteepWave;
             break;
         case 10:
-            DebugStop();
-            // solutionCase = TLaplaceExample1::ESinMarkHom;
+            //DebugStop();
+            solutionCase = TLaplaceExample1::ESinMarkHom;
             break;
         case 11:
             DebugStop();
@@ -408,8 +408,12 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             // solutionCase = TLaplaceExample1::ESteepMountain2D;
             break;
         case 13:
-            // solutionCase = TLaplaceExample1::ESharpGaussian2D;
-            DebugStop();
+            //DebugStop();
+            solutionCase = TLaplaceExample1::ESharpGaussian2D;
+            break;
+        case 14:
+            //DebugStop();
+            solutionCase = TLaplaceExample1::ELineSingularity;
             break;
         default:
             DebugStop();
