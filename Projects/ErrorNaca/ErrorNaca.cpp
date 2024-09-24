@@ -99,6 +99,9 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m,TPZVec<REAL> 
 /// @brief Substitute the trailing edge quadrilateral elements with colapsed quadrilateral elements with or without quarterpoint elements 
 void Changetrailingedgeelements(TPZGeoMesh *gmesh);
 
+/// @brief print the geometry of the trailing edge elements
+void PrintTrailingEdgeElements(TPZGeoMesh *gmesh);
+
 /// @brief Change the elements the touch the trailing edge to quarterpoint elements
 void CreateQuarterPointElements(TPZGeoMesh *gmesh);
 
@@ -174,7 +177,7 @@ int pointmat = 5;
 int trailingedgemat = 6;
 int blendmat = 7;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint};
-MMeshStyle meshstyle = ETraditional;
+MMeshStyle meshstyle = EQuarterPoint;
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
 int64_t trailingedge_element_index = -1;
 
@@ -255,6 +258,8 @@ int main() {
 
         std::ofstream out2("gmeshchanged.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
+
+        PrintTrailingEdgeElements(gmesh);
     }
     int nrefinements = 13;
     nrefinements = 5;
@@ -273,6 +278,7 @@ int main() {
         // change the elements of gmeshcopy to quadratic elements
         if(meshstyle == EQuarterPoint) {
             CreateQuarterPointElements(gmeshcopy);
+            PrintTrailingEdgeElements(gmeshcopy);
         }
         cmesh = SimulateNacaProfileH1(gmeshcopy, porders);
         {
@@ -2206,6 +2212,36 @@ void CreateQuarterPointElements(TPZGeoMesh *gmesh) {
         int side = it.second;
         gel = TPZChangeEl::ChangeToQuadratic(gel->Mesh(), gel->Index());
         TPZChangeEl::ChangeToQuarterPoint(gel->Mesh(), gel->Index(),side);
+    }
+}
+
+
+/// @brief print the geometry of the trailing edge elements
+void PrintTrailingEdgeElements(TPZGeoMesh *gmesh) {
+    TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
+    TPZGeoElSide trailingedge(trailingedge_element);
+    std::set<TPZGeoEl *> connected_elements;
+    for(TPZGeoElSide neigh = trailingedge.Neighbour(); neigh != trailingedge; neigh++) {
+        TPZGeoEl *neighgel = neigh.Element();
+        if(neighgel->HasSubElement()) continue;
+        if(neighgel->Dimension() == 2) {
+            if(neighgel->NodeIndex(2) == neighgel->NodeIndex(3)) {
+                connected_elements.insert(neighgel);
+            }
+        } else if(neighgel->Dimension() == 1) {
+            connected_elements.insert(neighgel);
+        }
+
+    }
+    for(auto it : connected_elements) {
+        TPZGeoEl *gel = it;
+        std::cout << "Element " << gel->Index() << std::endl;
+        int nnodes = gel->NNodes();
+        for(int i=0; i<nnodes; i++) {
+            TPZManVector<REAL,3> x(3);
+            gel->NodePtr(i)->GetCoordinates(x);
+            std::cout << "Node " << i << " " << x << std::endl;
+        }
     }
 }
 
