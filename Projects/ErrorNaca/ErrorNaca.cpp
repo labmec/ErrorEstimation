@@ -177,7 +177,7 @@ int pointmat = 5;
 int trailingedgemat = 6;
 int blendmat = 7;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint};
-MMeshStyle meshstyle = ECollapsed;
+MMeshStyle meshstyle = EQuarterPoint;
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
 int64_t trailingedge_element_index = -1;
 
@@ -1855,7 +1855,7 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
         }
     }
     if(meshstyle != ETraditional) {
-        qsiminus[0] = -1.+1.e-6;
+        qsiminus[0] = -1.+1.e-4;
         tr.Apply(qsiminus,qsi);
     }
 
@@ -1874,7 +1874,7 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
         if(dist(x1,x2) > 1.e-10) DebugStop();
     }
     if(meshstyle != ETraditional) {
-        qsiplus[0] = 1.-1.e-6;
+        qsiplus[0] = 1.-1.e-4;
         tr.Apply(qsiplus,qsi);
     }
 
@@ -1914,7 +1914,7 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
         }
     }
     if(meshstyle != ETraditional) {
-        qsiminus[0] = -1.+1.e-6;
+        qsiminus[0] = -1.+1.e-4;
         tr.Apply(qsiminus,qsi);
     }
 
