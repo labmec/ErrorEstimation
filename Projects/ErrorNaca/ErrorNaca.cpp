@@ -13,6 +13,7 @@
 #include "TPZLinearAnalysis.h"
 #include "TPZBndCondT.h"
 #include <TPZNullMaterial.h>
+#include <pzmultiphysicscompel.h>
 #include <TPZMultiphysicsCompMesh.h>
 #include "TPZSSpStructMatrix.h"
 #include "TPZSYSMPMatrix.h"
@@ -63,11 +64,19 @@ TPZGeoMesh *ReadGmsh(const std::string &filename, const TPZNacaProfile &naca);
 /// @brief Create a computational mesh with H1 elements
 TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &newcon);
 
+/// @brief Adjust the integration rule for Equarterpoints H1 elements
+void AdjustH1Equarterpointintrule(TPZGeoMesh *gmesh);
+// void AdjustH1Equarterpointintrule(TPZGeoMesh *gmesh);
+
 /// @brief Create a computational mesh with L2 elements
 TPZCompMesh *CreateL2CompMesh(TPZGeoMesh *gmesh);
 
 /// @brief Create the computational mesh with HDiv elements
 TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &newcon);
+
+/// @brief Adjust the integration rule for Equarterpoints HDiv elements
+void AdjustHDivEquarterpointintrule(TPZGeoMesh *gmesh);
+// void AdjustHDivEquarterpointintrule(TPZGeoMesh *gmesh);
 
 /// @brief Create the computational "multiphysics" mesh with only HDiv elements
 TPZMultiphysicsCompMesh *CreateMultiphysicsMesh(TPZCompMesh *cmeshHDiv, TPZCompMesh *cmeshL2, TPZGeoMesh *gmesh);
@@ -190,7 +199,7 @@ enum BBetaDetermination {Joukowski, Minimization};
 BBetaDetermination betadetermination = Joukowski;
 
 enum RRefinementStyle {h, hp};
-RRefinementStyle refinementstyle = hp;
+RRefinementStyle refinementstyle = h;
 
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
 int64_t trailingedge_element_index = -1;
@@ -795,6 +804,34 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &
     return cmesh;
 }
 
+/// @brief Adjust the integration rule for Equarterpoints H1 elements
+void AdjustH1Equarterpointintrule(TPZGeoMesh *gmesh)
+
+{
+    int64_t nel = gmesh->NElements();
+    // std::set<TPZCompEl *> TrailingedgeH1Elements;
+    TPZCompEl *TrailingedgeH1Element;
+    TPZGeoElSide TrailingSide;
+
+    // Finding and build a Stack of the volumetric Neighbors of the Trailingedge;
+    TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
+    TrailingSide = TPZGeoElSide(trailingedge_element);
+    int64_t trailingnode = trailingedge_element->NodeIndex(0);
+    auto Neighbor = TrailingSide.Neighbour();
+    for(; Neighbor != TrailingSide; Neighbor++)
+    {
+        if(!Neighbor.Element()) DebugStop();
+        if(Neighbor.Element()->HasSubElement()) continue;
+        if (Neighbor.Element()->MaterialId() == volmat || Neighbor.Element()->MaterialId() == profilemat)  
+        {
+            TrailingedgeH1Element = Neighbor.Element()->Reference();
+            TPZGeoElSide NeighborEl(Neighbor.Element());
+            TPZIntPoints* intrule = NeighborEl.CreateIntegrationRule(10);
+            TrailingedgeH1Element->SetIntegrationRule(intrule);
+        }  
+    }
+}
+
 /// @brief Create a computational mesh with L2 elements
  TPZCompMesh *CreateL2CompMesh(TPZGeoMesh *gmesh)
  {
@@ -937,6 +974,36 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
     return cmesh;
 }
 
+/// @brief Adjust the integration rule for Equarterpoints HDiv elements
+void AdjustHDivEquarterpointintrule(TPZGeoMesh *gmesh)
+
+{
+    int64_t nel = gmesh->NElements();
+    // std::set<TPZMultiphysicsElement *> TrailingedgeHDivElements;
+    TPZMultiphysicsElement *TrailingedgeHDivElement;
+    TPZGeoElSide TrailingSide;
+
+    // Finding and build a Stack of the volumetric Neighbors of the Trailingedge;
+    TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
+    TrailingSide = TPZGeoElSide(trailingedge_element);
+    int64_t trailingnode = trailingedge_element->NodeIndex(0);
+    auto Neighbor = TrailingSide.Neighbour();
+    for(; Neighbor != TrailingSide; Neighbor++)
+    {
+        if(!Neighbor.Element()) DebugStop();
+        if(Neighbor.Element()->HasSubElement()) continue;
+        if (Neighbor.Element()->MaterialId() == volmat || Neighbor.Element()->MaterialId() == profilemat)
+        {
+            auto NeighborCompel = Neighbor.Element()->Reference();
+            TrailingedgeHDivElement = dynamic_cast<TPZMultiphysicsElement*>(NeighborCompel);
+            if (!TrailingedgeHDivElement) DebugStop();
+            TPZGeoElSide NeighborEl(Neighbor.Element());
+            TPZIntPoints* intrule = NeighborEl.CreateIntegrationRule(10);
+            TrailingedgeHDivElement->SetIntegrationRule(intrule);
+        }  
+    }
+}
+
 /// @brief Create a computational "multiphysics" mesh with only HDiv elements
  TPZMultiphysicsCompMesh *CreateMultiphysicsMesh(TPZCompMesh* cmeshHDiv,TPZCompMesh* cmeshL2, TPZGeoMesh *gmesh){
 //
@@ -983,6 +1050,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
      cmesh_m->BuildMultiphysicsSpace(active_approx_spaces, mesh_vec);
 
      cmesh_m->ExpandSolution();
+     cmesh_m->LoadReferences();
      return cmesh_m;
  }
 
@@ -991,6 +1059,9 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL
 {
     int64_t newcon;
     auto cmeshH1 = CreateH1CompMesh(gmesh, porders, newcon);
+    if(meshstyle == EQuarterPoint) {
+        AdjustH1Equarterpointintrule(gmesh);
+    }
     if (1)
     {
         std::ofstream out("cmeshH1.txt");
@@ -1049,6 +1120,7 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
 {
     int64_t newcon;
     auto cmeshH1 = CreateH1CompMesh(gmesh, porders, newcon);
+    AdjustH1Equarterpointintrule(gmesh);
     if (1)
     {
         std::ofstream out("cmeshH1.txt");
@@ -1096,6 +1168,9 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
      auto cmeshL2 = CreateL2CompMesh(gmesh);
 
      TPZMultiphysicsCompMesh* cmesh_m = CreateMultiphysicsMesh(cmeshHDiv,cmeshL2, gmesh);
+    if(meshstyle == EQuarterPoint) {
+        AdjustHDivEquarterpointintrule(gmesh);
+    }
      cmesh_m->CleanUpUnconnectedNodes();
      // Define o pointer chamado cmesh_m relacionado à classe TPZMultiphysicsCompMesh, associando-o a função CreateMultiphysicsMesh, cujos parâmetros (já antes declarados) são: cmeshHdiv, gmesh.
     
@@ -1160,6 +1235,7 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
     int64_t newcon;
     gmesh->ResetReference();
      auto cmeshHDiv = CreateHDivCompMesh(gmesh, porders, newcon);
+     AdjustHDivEquarterpointintrule(gmesh);
      auto cmeshL2 = CreateL2CompMesh(gmesh);
 
      TPZMultiphysicsCompMesh* cmesh_m = CreateMultiphysicsMesh(cmeshHDiv,cmeshL2, gmesh);
@@ -2075,7 +2151,7 @@ void EvaluateCirculationH1(TPZGeoMesh *gmesh, TPZCompMesh *cmesh, int matid, REA
         if (gel->MaterialId() != matid) continue;
         // NUMERICAL INTEGRATION DATA;
         TPZGeoElSide gelside(gel);
-        auto intrule = gelside.CreateIntegrationRule(5);
+        auto intrule = gelside.CreateIntegrationRule(10);
         int intrulepoints = intrule->NPoints();
         TPZManVector<REAL,4> intpointtemp(1,0.);
         TPZManVector<REAL,4> intpointvol(2,0.);
@@ -2128,7 +2204,7 @@ void EvaluateCirculationHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m
 
         //NUMERICAL INTEGRATION DATA;
         TPZGeoElSide gelside(gel);
-        auto intrule = gelside.CreateIntegrationRule(5);
+        auto intrule = gelside.CreateIntegrationRule(10);
         int intrulepoints = intrule->NPoints();
         TPZManVector<REAL,4> intpointtemp(1,0.);
         TPZManVector<REAL,4> intpointvol(2,0.);
