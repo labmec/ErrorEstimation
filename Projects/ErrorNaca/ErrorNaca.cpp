@@ -2151,7 +2151,7 @@ void EvaluateCirculationH1(TPZGeoMesh *gmesh, TPZCompMesh *cmesh, int matid, REA
         if (gel->MaterialId() != matid) continue;
         // NUMERICAL INTEGRATION DATA;
         TPZGeoElSide gelside(gel);
-        auto intrule = gelside.CreateIntegrationRule(10);
+        auto intrule = gelside.CreateIntegrationRule(20);
         int intrulepoints = intrule->NPoints();
         TPZManVector<REAL,4> intpointtemp(1,0.);
         TPZManVector<REAL,4> intpointvol(2,0.);
@@ -2204,7 +2204,7 @@ void EvaluateCirculationHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m
 
         //NUMERICAL INTEGRATION DATA;
         TPZGeoElSide gelside(gel);
-        auto intrule = gelside.CreateIntegrationRule(10);
+        auto intrule = gelside.CreateIntegrationRule(20);
         int intrulepoints = intrule->NPoints();
         TPZManVector<REAL,4> intpointtemp(1,0.);
         TPZManVector<REAL,4> intpointvol(2,0.);
