@@ -191,7 +191,6 @@ int boundmat = 4;
 int pointmat = 5;
 int trailingedgemat = 6;
 int blendmat = 7;
-
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint};
 MMeshStyle meshstyle = EQuarterPoint;
 
@@ -367,7 +366,7 @@ int main() {
         {
             const std::string plotfile = "postprocess_Hdiv";
             constexpr int vtkRes{0};
-            TPZVec<std::string> fields = {"Pressure", "Flux"};
+            TPZVec<std::string> fields = {"DivFlux", "Flux"};
             auto vtk = TPZVTKGenerator(cmesh_m, fields, plotfile, vtkRes);
             vtk.SetNThreads(0);
             vtk.Do();
@@ -2052,7 +2051,7 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
         }
     }
     if(meshstyle != ETraditional) {
-        qsiminus[0] = -1.+1.e-2;
+        qsiminus[0] = -1.+1.e-4;
         tr.Apply(qsiminus,qsi);
     }
 
@@ -2071,7 +2070,7 @@ void EvaluateSolutionGradientsH1(TPZGeoMesh *gmesh, TPZManVector<REAL,3> &gradmi
         if(dist(x1,x2) > 1.e-10) DebugStop();
     }
     if(meshstyle != ETraditional) {
-        qsiplus[0] = 1.-1.e-2;
+        qsiplus[0] = 1.-1.e-4;
         tr.Apply(qsiplus,qsi);
     }
 
@@ -2111,7 +2110,7 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
         }
     }
     if(meshstyle != ETraditional) {
-        qsiminus[0] = -1.+1.e-2;
+        qsiminus[0] = -1.+1.e-4;
         tr.Apply(qsiminus,qsi);
     }
 
@@ -2130,7 +2129,7 @@ void EvaluateSolutionHDiv(TPZGeoMesh *gmesh, TPZMultiphysicsCompMesh *cmesh_m, T
         if(dist(x1,x2) > 1.e-10) DebugStop();
     }
     if(meshstyle != ETraditional) {
-        qsiplus[0] = 1.-1.e-2;
+        qsiplus[0] = 1.-1.e-6;
         tr.Apply(qsiplus,qsi);
     }
     Compelplus->Solution(qsi,1,u_plus); 
