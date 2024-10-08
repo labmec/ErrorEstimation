@@ -136,7 +136,7 @@ void CreateQuarterPointElements(TPZGeoMesh *gmesh);
 void CreateH1SBFEMelements(TPZCompMesh *cmesh);
 
 /// @brief Change the elements the touch the trailing edge to Hdiv SBFEM elements
-void CreateHdivSBFEMelements(TPZCompMesh *cmesh);
+void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *cmesh, int64_t newcon);
 
 /// @brief create a refinement patter that cuts the element in longitudinal direction
 /// @return refinement pattern created
@@ -212,6 +212,8 @@ int blendmat = 7;
 
 int sbfem_skeleton = 8;
 int sbfem_domain = 9;
+
+int sbfem_highperm = 10;
 REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
@@ -341,6 +343,7 @@ int main() {
             CreateQuarterPointElements(gmeshcopy);
             PrintTrailingEdgeElements(gmeshcopy);
         }
+        /*
         if(betadetermination == Minimization) {
             cmesh = SimulateNacaProfileH1_Minimization(gmeshcopy, porders,circulation_H1);
         } else {
@@ -350,6 +353,7 @@ int main() {
             std::ofstream out("cmeshH1.txt");
             cmesh->Print(out);
         }
+        */
         if(betadetermination == Minimization) {
             cmesh_m = SimulateNacaProfileHDiv_Minimization(gmeshcopy, porders,circulation_HDiv);
         } else {
@@ -891,7 +895,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
 {
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
     int dim = 2;
-    auto material = new TPZNullMaterial(volmat);
+    TPZDarcyFlow *material = new TPZDarcyFlow(volmat,dim);
     cmesh->InsertMaterialObject(material);
     cmesh->SetDimModel(dim);
     cmesh->SetDefaultOrder(1);
@@ -945,7 +949,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
         std::ofstream out("cmesh_hdiv.txt");
         cmesh->Print(out);
     }
-    newcon = cmesh->AllocateNewConnect(1,1,1);
+    newcon = -1;
     std::cout << "newcon " << newcon << std::endl;
     int64_t nel = gmesh->NElements();
     // // loop over the geometric cut elements
@@ -962,12 +966,15 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
        for(int is=0; is<nsidenodes; is++)
        {
             int64_t cindex = cel->ConnectIndex(is);
-            if(cindex == newcon) DebugStop();
+            if(cindex == newcon) continue;
             TPZConnect &c = cel->Connect(is);
             if(c.HasDependency()) continue;
-            // insert the dependency
-            TPZFNMatrix<1,STATE> val(1,1,1.);
-            c.AddDependency(cindex,newcon,val,0,0,1,1);
+            if(newcon == -1) {
+                newcon = cindex;
+            } else {
+                cel->SetConnectIndex(is,newcon);
+            }
+
         }
         // make sure the connect on the profile is of order 1
         {
@@ -983,6 +990,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
         }
     }
 
+    // force the side corresponding to a collapsed collect to have order 1
     int64_t nelem = cmesh->NElements();
     for(int64_t el = 0; el<nelem; el++) {
         TPZCompEl *cel = cmesh->Element(el);
@@ -1207,6 +1215,9 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
      TPZMultiphysicsCompMesh* cmesh_m = CreateMultiphysicsMesh(cmeshHDiv,cmeshL2, gmesh);
     if(meshstyle == EQuarterPoint) {
         AdjustHDivEquarterpointintrule(gmesh);
+    }
+    if(meshstyle == ESBFem) {
+        CreateHdivSBFEMelements(cmesh_m,newcon);
     }
      cmesh_m->CleanUpUnconnectedNodes();
      // Define o pointer chamado cmesh_m relacionado à classe TPZMultiphysicsCompMesh, associando-o a função CreateMultiphysicsMesh, cujos parâmetros (já antes declarados) são: cmeshHdiv, gmesh.
@@ -1774,7 +1785,21 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh)
             TPZGeoElSide gelside(neighbours[el].Element(),side1d);
             bool blend = false;
             if(gelside.HasNeighbour(profilemat)) blend = true;
-            if(blend) numblend++;
+            if(blend) {
+                numblend++;
+                TPZManVector<int64_t,4> nodeindices(2);
+                if(gelside.SideNodeIndex(0) == singular) {
+                    nodeindices[0] = gelside.SideNodeIndex(1);
+                    nodeindices[1] = gelside.SideNodeIndex(0);
+                } else {
+                    nodeindices[0] = gelside.SideNodeIndex(0);
+                    nodeindices[1] = gelside.SideNodeIndex(1);
+                }
+                int64_t index;
+                gmesh->CreateGeoBlendElement(EOned, nodeindices, sbfem_highperm, index);
+//                    gel->Print(std::cout);
+
+            }
             int locindex = (neighbours[el].Side()+in)%nn;
             int64_t edge1 = gel->NodeIndex(locindex);
             int64_t edge2 = gel->NodeIndex((locindex+1)%nn);
@@ -2725,7 +2750,97 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
 }
 
 /// @brief Change the elements the touch the trailing edge to Hdiv SBFEM elements
-void CreateHdivSBFEMelements(TPZCompMesh *cmesh) {
-    DebugStop();
+void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh, int64_t newcon) {
+    TPZCompMesh *cmesh = m_cmesh->MeshVector()[0];
+    cmesh->LoadReferences();
+    TPZGeoMesh *gmesh = cmesh->Reference();
+    TPZMaterialT<STATE> *mat = dynamic_cast<TPZMaterialT<STATE> *>(cmesh->FindMaterial(volmat));
+    if(!mat) DebugStop();
+    // insert the skeleton material
+    TPZFNMatrix<1,STATE> val1(1,1,0.);
+    TPZManVector<STATE,3> val2(1,0.);
+    auto bc = mat->CreateBC(mat, sbfem_skeleton, 1, val1, val2);
+    cmesh->InsertMaterialObject(bc);
+    TPZDarcyFlow *mat1d = new TPZDarcyFlow(sbfem_highperm,1);
+    cmesh->InsertMaterialObject(mat1d);
+    mat1d->SetConstantPermeability(1.e6);
+    TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
+    TPZGeoElSide trailingedge(trailingedge_element);
+    std::set<TPZGeoEl *> connected_elements;
+    // create the skeleton elements
+    for(TPZGeoElSide neigh = trailingedge.Neighbour(); neigh != trailingedge; neigh++) {
+        TPZGeoEl *neighgel = neigh.Element();
+        if(neighgel->HasSubElement()) continue;
+        if(neighgel->MaterialId() < 0) continue;
+        if(connected_elements.find(neighgel) != connected_elements.end()) continue;
+        if(neighgel->Dimension() == 2) {
+            if(neighgel->NodeIndex(2) == neighgel->NodeIndex(3)) {
+                TPZCompEl *cel = neighgel->Reference();
+                if(!cel) DebugStop();
+                delete cel;
+                connected_elements.insert(neighgel);
+                TPZGeoElSide gelside(neighgel,4);
+                gelside = gelside.Neighbour();
+                if(gelside.Element()->MaterialId() != sbfem_skeleton) {
+                    TPZGeoElBC neighbc(neighgel,4,sbfem_skeleton);
+                }
+            } else {
+                DebugStop();
+            }
+        } else if (neighgel->Dimension() == 1 && neighgel->MaterialId() == sbfem_highperm) {
+            // create a zero dimensional element
+            connected_elements.insert(neighgel);
+            int side = 1-neigh.Side();
+            int64_t node0 = neighgel->NodeIndex(side);
+            int64_t node1 = neighgel->NodeIndex(1-side);
+            int64_t trailingnode = trailingedge_element->NodeIndex(0);
+            if(node0 == trailingnode) DebugStop();
+            TPZGeoElSide gelside(neighgel,side);
+            TPZGeoElBC gbc(gelside,sbfem_skeleton);
+        }
+    }
+    TPZSBFemElementGroup *elgr = new TPZSBFemElementGroup(*cmesh);
+    sbfem_groupHdiv = elgr;
+    TPZStack<TPZSBFemVolume *> sbvols;
+    for(auto it : connected_elements) {
+        TPZGeoEl *gel = it;
+        TPZSBFemVolume *sbvol = new TPZSBFemVolume(*cmesh,gel);
+        sbvols.Push(sbvol);
+        if(gel->Dimension() == 2) {
+            TPZGeoElSide gelside(gel,4);
+            TPZGeoElSide neigh = gelside.Neighbour();
+            TPZGeoEl *skel = neigh.Element();
+            if(skel->MaterialId() != sbfem_skeleton) DebugStop();
+            // create an H1 element
+            TPZCompEl *cskel = cmesh->CreateCompEl(skel);
+            sbvol->SetSkeleton(cskel->Index());
+        } else if(gel->Dimension() == 1) {
+            int64_t node0 = gel->NodeIndex(0);
+            int64_t node1 = gel->NodeIndex(1);
+            int64_t trailingnode = trailingedge_element->NodeIndex(0);
+            int side = -1;
+            if (node0 == trailingnode) side = 1;
+            if (node1 == trailingnode) side = 0;
+            if(side == -1) DebugStop();
+            TPZGeoElSide gelside(gel,side);
+            TPZGeoElSide neigh = gelside.Neighbour();
+            if(neigh.Element()->MaterialId() != sbfem_skeleton) DebugStop();
+                        // create an H1 element
+            TPZCompEl *cskel = cmesh->CreateCompEl(neigh.Element());
+            sbvol->SetSkeleton(cskel->Index());
+        }
+        elgr->AddElement(sbvol);
+    }
+    for(auto sbvol : sbvols) {
+        sbvol->SetElementGroupIndex(elgr->Index());
+    }
+    TPZElementMatrixT<STATE> ek,ef;
+    elgr->CalcStiff(ek,ef);
+    if(0) {
+        ek.fMat.Print("ek = ",std::cout,EMathematicaInput);
+    }
+    cmesh->ComputeNodElCon();
+    cmesh->CleanUpUnconnectedNodes();
+
 }
 
