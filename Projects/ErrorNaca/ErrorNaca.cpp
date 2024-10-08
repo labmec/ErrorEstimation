@@ -218,7 +218,7 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint, ESBFem};
-MMeshStyle meshstyle = ESBFem;
+MMeshStyle meshstyle = ETraditional;
 
 
 enum BBetaDetermination {Joukowski, Minimization};
@@ -343,7 +343,7 @@ int main() {
             CreateQuarterPointElements(gmeshcopy);
             PrintTrailingEdgeElements(gmeshcopy);
         }
-        /*
+
         if(betadetermination == Minimization) {
             cmesh = SimulateNacaProfileH1_Minimization(gmeshcopy, porders,circulation_H1);
         } else {
@@ -353,7 +353,6 @@ int main() {
             std::ofstream out("cmeshH1.txt");
             cmesh->Print(out);
         }
-        */
         if(betadetermination == Minimization) {
             cmesh_m = SimulateNacaProfileHDiv_Minimization(gmeshcopy, porders,circulation_HDiv);
         } else {
@@ -971,10 +970,24 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
             if(c.HasDependency()) continue;
             if(newcon == -1) {
                 newcon = cindex;
+                std::cout << "newcon " << newcon << std::endl;
             } else {
                 cel->SetConnectIndex(is,newcon);
             }
 
+        }
+        TPZGeoElSide gelside(gel);
+        for(auto neigh = gelside.Neighbour(); neigh != gelside; neigh++) {
+            if(neigh.Element()->MaterialId() == volmat) {
+                TPZCompEl *neighcel = neigh.Element()->Reference();
+                if(!neighcel) DebugStop();
+                int nsidenodes = neigh.Element()->NCornerNodes();
+                for(int is=0; is<nsidenodes; is++)
+                {
+                    int64_t cindex = neighcel->ConnectIndex(is);
+                    neighcel->SetConnectIndex(is,newcon);
+                }
+            }
         }
         // make sure the connect on the profile is of order 1
         {
@@ -1007,7 +1020,8 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
             }
         }
     }
-
+    cmesh->ComputeNodElCon();
+    cmesh->CleanUpUnconnectedNodes();
     cmesh->ExpandSolution();
     {
         std::ofstream out("cmeshHdiv.txt");
@@ -1015,6 +1029,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
         std::ofstream out2("cmeshHDiv.vtk"); 
         TPZVTKGeoMesh::PrintCMeshVTK(cmesh, out2);
     }
+
     return cmesh;
 }
 
