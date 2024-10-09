@@ -949,8 +949,8 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
         cmesh->Print(out);
     }
     newcon = -1;
-    std::cout << "newcon " << newcon << std::endl;
     int64_t nel = gmesh->NElements();
+    std::set<int64_t> profileconnects;
     // // loop over the geometric cut elements
     for(int64_t el = 0; el<nel; el++)
     {
@@ -965,30 +965,11 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
        for(int is=0; is<nsidenodes; is++)
        {
             int64_t cindex = cel->ConnectIndex(is);
-            if(cindex == newcon) continue;
+            profileconnects.insert(cindex);
             TPZConnect &c = cel->Connect(is);
-            if(c.HasDependency()) continue;
-            if(newcon == -1) {
-                newcon = cindex;
-                std::cout << "newcon " << newcon << std::endl;
-            } else {
-                cel->SetConnectIndex(is,newcon);
-            }
+            if(c.HasDependency()) DebugStop();
+        }
 
-        }
-        TPZGeoElSide gelside(gel);
-        for(auto neigh = gelside.Neighbour(); neigh != gelside; neigh++) {
-            if(neigh.Element()->MaterialId() == volmat) {
-                TPZCompEl *neighcel = neigh.Element()->Reference();
-                if(!neighcel) DebugStop();
-                int nsidenodes = neigh.Element()->NCornerNodes();
-                for(int is=0; is<nsidenodes; is++)
-                {
-                    int64_t cindex = neighcel->ConnectIndex(is);
-                    neighcel->SetConnectIndex(is,newcon);
-                }
-            }
-        }
         // make sure the connect on the profile is of order 1
         {
             int64_t cindex = cel->ConnectIndex(2);
@@ -1002,9 +983,24 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
             cmesh->Block().Set(seq,0);
         }
     }
+    newcon = *profileconnects.begin();
+    std::cout << "newcon " << newcon << std::endl;
 
-    // force the side corresponding to a collapsed collect to have order 1
     int64_t nelem = cmesh->NElements();
+    for(int64_t el = 0; el<nelem; el++) {
+        TPZCompEl *cel = cmesh->Element(el);
+        if(!cel) continue;
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) DebugStop();
+        int ncorner = gel->NCornerNodes();
+        for(int ic = 0; ic<ncorner; ic++) {
+            int64_t cindex = cel->ConnectIndex(ic);
+            if(profileconnects.find(cindex) != profileconnects.end()) {
+                cel->SetConnectIndex(ic,newcon);
+            }
+        }
+    }
+    // force the side corresponding to a collapsed collect to have order 1
     for(int64_t el = 0; el<nelem; el++) {
         TPZCompEl *cel = cmesh->Element(el);
         if(!cel) continue;
