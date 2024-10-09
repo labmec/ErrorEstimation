@@ -1467,6 +1467,8 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
         if(gel->Dimension() != 1) continue;
         if(gel->MaterialId() == nacamat) continue;
         if(gel->MaterialId() == sbfem_highperm) continue;
+        if(gel->MaterialId() ==  boundmat) continue;
+        if(gel->MaterialId() ==  cutmat) continue;
         //Percorrer os Neighbors de gel e encontar os volumetricos que tem subelementos
         TPZGeoElSide gelside(gel); 
         auto Neighbor = gelside.Neighbour();
