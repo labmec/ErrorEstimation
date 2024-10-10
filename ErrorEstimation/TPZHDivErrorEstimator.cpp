@@ -1479,13 +1479,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
 
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         for (int istate = 0; istate < nstate; istate++) {
-// #ifdef LOG4CXX
-//             if (logger->isDebugEnabled()) {
-//                 std::stringstream sout;
-                // std::cout << "value before " << solMatrix.at(block.at(seqnum, 0, istate, 0)) <<
-                //         " value after " << averageSol[istate] << " diff "
-                //         << solMatrix.at(block.at(seqnum, 0, istate, 0)) - averageSol[istate] << std::endl;  
-                //                        res2.Print("Residual",sout);
+ //#ifdef LOG4CXX
+ //            if (logger->isDebugEnabled()) {
+                 std::stringstream sout;
+                 std::cout << "value before " << solMatrix.at(block.at(seqnum, 0, istate, 0)) <<
+                         " value after " << averageSol[istate] << " diff "
+                         << solMatrix.at(block.at(seqnum, 0, istate, 0)) - averageSol[istate] << std::endl;  
+                                      //  res2.Print("Residual",sout);
 //                 LOGPZ_DEBUG(logger, sout.str())
 //             }
 // #endif
@@ -1650,8 +1650,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeEffectivityIndices() {
                 BoundExact(el, 0) = NeighbourErrorExact;
                 BoundEstimated(el, 0) = NeighbourErrorEstimate;
 
-#ifdef LOG4CXX
-                if (logger->isDebugEnabled()) {
+//#ifdef LOG4CXX
+//                if (logger->isDebugEnabled()) {
                     std::stringstream sout;
                     sout << "El " << el << " dim " << dim << " ErrorEstimate " << ErrorEstimate << " ErrorExact "
                             << ErrorExact << "\n";
@@ -1659,9 +1659,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeEffectivityIndices() {
                             << " NeighbourErrorEstimate " << NeighbourErrorEstimate << " NeighbourErrorExact "
                             << NeighbourErrorExact << "\n";
 
-                    LOGPZ_DEBUG(logger, sout.str())
-                }
-#endif
+//                    LOGPZ_DEBUG(logger, sout.str())
+//                }
+//#endif
 
                 REAL sumErrorExact = sqrt(NeighbourErrorExact * NeighbourErrorExact + ErrorExact * ErrorExact);
                 REAL sumErrorEstimate =
@@ -1887,7 +1887,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
 
     //#ifdef ERRORESTIMATION_DEBUG
-    // VerifySolutionConsistency(PrimalMesh());
+     VerifySolutionConsistency(PrimalMesh());
     //#endif
 
     PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure", {fConfig.fWrapMaterialId});

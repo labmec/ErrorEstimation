@@ -759,7 +759,8 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 #endif
             }
         } else {
-            std::cout << "como refinar em p? " << "\n";
+            continue;
+            //std::cout << "como refinar em p? " << "\n";
             //            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
             //            if(!sp) continue;
             //            int level = sp->Reference()->Level();

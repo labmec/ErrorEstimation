@@ -144,9 +144,9 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
     }
 
 
-#ifdef ERRORESTIMATION_DEBUG
+//#ifdef ERRORESTIMATION_DEBUG
     VerifySolutionConsistency(PrimalMesh());
-#endif
+//#endif
 
     PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure", {fConfig.fWrapMaterialId});
 
@@ -1332,31 +1332,42 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
 
                     TPZManVector<REAL> pt0_vol(dim, 0);
                     sideToVolume.Apply(pt0, pt0_vol);
-                    TPZManVector<STATE> sol0(1);
-                    cel->Solution(pt0_vol, 0, sol0);
+                    TPZManVector<STATE> sol0(cel->Dimension());//deve ter 2 componentes  a sol
+                    //aqui deveria trocar o var=0 por outro, qual?
+                    
+                    int varindex = 1;//
+                    
+                    cel->Solution(pt0_vol, varindex, sol0);
 
                     TPZTransform<REAL> neighSideToVolume(dim, dim);
                     neighSideToVolume = neighbour.Element()->SideToSideTransform(cneighbour.Side(), neighbour.Element()->NSides() - 1);
 
                     TPZManVector<REAL> pt1_vol(dim, 0);
                     neighSideToVolume.Apply(pt1, pt1_vol);
-                    TPZManVector<STATE> sol1(1);
-                    cneighbour.Element()->Solution(pt1_vol, 0, sol1);
+                    
+                    TPZManVector<STATE> sol1(cel->Dimension());//2 componestes a sol
+                    
+                    //o mesmo aq quanto ao var
+                    cneighbour.Element()->Solution(pt1_vol, varindex, sol1);
 
-#ifdef LOG4CXX
-                    if (logger->isDebugEnabled()) {
-                        std::stringstream sout;
-                        sout << "\nSide Element =  " << gelside.Element()->Index() << "\n";
-                        sout << "Neighbour Element =  " << neighbour.Element()->Index() << "\n";
-                        sout << "Side solution =  " << sol0[0] << "\n";
-                        sout << "Neigh solution = " << sol1[0] << "\n";
-                        sout << "Diff = " << sol1[0] - sol0[0] << "\n";
-                        sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
-                        sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+//#ifdef LOG4CXX
+             //       if (logger->isDebugEnabled()) {
+                        //std::stringstream sout;
+                   // std::cout
+                    if (!IsZero(sol1[0] - sol0[0])) {
+                    std::cout << "\nSide Element =  " << gelside.Element()->Index() << "\n";
+                    std::cout << "Neighbour Element =  " << neighbour.Element()->Index() << "\n";
+                    std::cout << "Side solution =  " << sol0 << "\n";
+                    std::cout << "Neigh solution = " << sol1 << "\n";
+                    std::cout << "Diff = (" << sol1[0] - sol0[0] <<","<<sol1[1] - sol0[1] << ")\n";
+                    std::cout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+                    std::cout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+                        
+                        DebugStop();
 
-                        LOGPZ_DEBUG(logger, sout.str())
-                    }
-#endif
+//                        LOGPZ_DEBUG(logger, sout.str())
+                  }
+//#endif
 
                     // Checks pressure value on these nodes
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());

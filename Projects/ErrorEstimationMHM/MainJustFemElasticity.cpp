@@ -7,19 +7,6 @@
 
 #include <stdio.h>
 
-
-//#include "InputTreatment.h"
-//#include "Solver.h"
-//#include "Output.h"
-//#include "tpzgeoelrefpattern.h"
-//#include "DataStructure.h"
-//#include "Tools.h"
-//#include <tuple>
-
-//%%%%%%
-
-//#include "common_files.h"
-
 #include <TPZGeoMeshTools.h>
 #include "TPZAnalyticSolution.h"
 #include <TPZGmshReader.h>
@@ -104,6 +91,7 @@ int main() {
     // pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::ECrack;
     switch (pConfig.geometry){
         case ProblemConfig::EGeometry::ECrack:
+            pConfig.problemname = "ECrack";
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ECrack;
             break;
         case ProblemConfig::EGeometry::EQuad:
@@ -112,14 +100,16 @@ int main() {
             // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
             // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::Etest1;
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+            pConfig.problemname = "EHarmonic";
+           // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
             break;
     }
     
-    const int xdiv = 10; //Number of elements in each direction
+    const int xdiv = 1; //Number of elements in each direction
     const int pOrder = 1; // Polynomial degree
     pConfig.porder = pOrder;
     pConfig.ndivisions = xdiv;
-    pConfig.hdivmais = 0;// internal order
+    pConfig.hdivmais = 1;// internal order
    
     // Family of HDiv approximation spaces.
     // The possible choices are HDivFamily::EHDivStandard, HDivFamily::EHDivConstant and HDivFamily::EHDivKernel
@@ -142,53 +132,19 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs = {xdiv,xdiv};
-    TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
+    TPZVec<int> divs = {2,4,8,16,32,64};;
     
     int pend = 2;
     
-    TPZGeoMesh *gmesh;
 
-    switch(config.geometry) {
-        case ProblemConfig::EGeometry::ECrack:
-        {
-            gmesh = ReadMeshFromGmsh("../../../Crack.msh");
-            // TPZVec<int> bcids(8, EBoundary);
-            // gmesh = Tools::CreateQuadLShapeMesh(bcids);
-
-            // int uniref = 3;
-            // Tools::UniformRefinement(uniref, gmesh);
-            break;
-        }
-        case ProblemConfig::EGeometry::ELShape:
-        {
-            TPZVec<int> bcids(8, EBoundary);
-            gmesh = Tools::CreateQuadLShapeMesh(bcids);
-
-            int uniref = 3;
-            Tools::UniformRefinement(uniref, gmesh);
-            break;
-        }
-        case ProblemConfig::EGeometry::ETrap:
-        {
-            REAL distortion = 1. / 3;
-            gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
-            break;
-        }
-        case ProblemConfig::EGeometry::EQuad:
-        {
-            REAL distortion = 0;
-            gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
-            break;
-        }
-    }
    
     // Prints gmesh mesh properties
-    std::string vtk_name = "geoMesBeforeAdapt.vtk";
-    std::ofstream vtkfile(vtk_name.c_str());
-    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
+//    std::string vtk_name = "geoMesBeforeAdapt.vtk";
+//    std::ofstream vtkfile(vtk_name.c_str());
+//    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps = 3;
-    config.gmesh = gmesh;
+    int nsteps = 2;
+   
     
     for (int iorder = 1; iorder < pend; iorder++){
         
@@ -196,14 +152,53 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                     
         for(int refsteps = 1; refsteps< nsteps; refsteps ++){
                 config.adaptivityStep = refsteps;
-//            for (int idiv = 0; idiv < divs.size(); idiv++){
-//                config.ndivisions =divs[idiv];
-//                config.porder= iorder;
-//                int divx = divs[idiv];
+            for (int idiv = 0; idiv < divs.size(); idiv++){
+                config.ndivisions =divs[idiv];
+                config.porder= iorder;
+                int divx = divs[idiv];
                 
                 
-                //    if (DIM == 2) nDivs = {divx,divx};
-                //    if (DIM == 3) nDivs = {divx,divx,divx};
+                    if (DIM == 2) nDivs = {divx,divx};
+                    if (DIM == 3) nDivs = {divx,divx,divx};
+                
+                
+                TPZGeoMesh *gmesh;
+
+                switch(config.geometry) {
+                    case ProblemConfig::EGeometry::ECrack:
+                    {
+                        gmesh = ReadMeshFromGmsh("../../../Crack.msh");
+                        // TPZVec<int> bcids(8, EBoundary);
+                        // gmesh = Tools::CreateQuadLShapeMesh(bcids);
+
+                        // int uniref = 3;
+                        // Tools::UniformRefinement(uniref, gmesh);
+                        break;
+                    }
+                    case ProblemConfig::EGeometry::ELShape:
+                    {
+                        TPZVec<int> bcids(8, EBoundary);
+                        gmesh = Tools::CreateQuadLShapeMesh(bcids);
+
+                        int uniref = 3;
+                        Tools::UniformRefinement(uniref, gmesh);
+                        break;
+                    }
+                    case ProblemConfig::EGeometry::ETrap:
+                    {
+                        REAL distortion = 1. / 3;
+                        gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
+                        break;
+                    }
+                    case ProblemConfig::EGeometry::EQuad:
+                    {
+                        REAL distortion = 0;
+                        gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
+                        break;
+                    }
+                }
+                
+                config.gmesh = gmesh;
                 
                 // Creates/import a geometric mesh
                 //  auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
@@ -213,9 +208,9 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 //  Tools::UniformRefinement(uniref, gmesh);
                 
                 // Prints gmesh mesh properties
-                std::string vtk_name3 = "geoMeshLshape0.vtk";
-                std::ofstream vtkfile3(vtk_name3.c_str());
-                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile3, true);
+//                std::string vtk_name3 = "geoMeshLshape0.vtk";
+//                std::ofstream vtkfile3(vtk_name3.c_str());
+//                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile3, true);
                 
                 // Creates an hdivApproxCreator object. It is an environment developped to
                 // help creating H(div)-family possible approximation spaces.
@@ -254,13 +249,13 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 } else if (hdivCreator.ProbType() == ProblemType::EElastic){
                     if (DIM == 2){
                         TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-                        // double lambda = 5;//123.;
-                        // double mu = 1;//79.3;
+                         double lambda = 123.;
+                         double mu = 79.3;
                         // elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
                         // elas->gPoisson = 0.5*lambda/(lambda+mu);
                         //Crack
-                        elas->gE = 100.;
-                        elas->gPoisson = 0.3;
+                        //elas->gE = 100.;
+                       // elas->gPoisson = 0.3;
                         // elas->fProblemType = TElasticity2DAnalytic::EDispx;
                         elas->fProblemType = config.exactElast->fProblemType;
                         elas->fPlaneStress = 0;
@@ -288,9 +283,9 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 // cmesh->Print(myfile);
                 // Prints gmesh mesh properties
 
-                std::string vtk_name2 = "geoMeshLshape.vtk";
-                std::ofstream vtkfile2(vtk_name2.c_str());
-                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile2, true);
+//                std::string vtk_name2 = "geoMeshLshape.vtk";
+//                std::ofstream vtkfile2(vtk_name2.c_str());
+//                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile2, true);
 
                 config.fWrapMaterialId = hdivCreator.HybridData().fWrapMatId;
                 config.fInterfaceMaterialId = hdivCreator.HybridData().fInterfaceMatId;
@@ -420,16 +415,17 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 //                 << error[1] << " " << error[2] << " " << error[3] << " " << error[4]
                 //                 << " " << error[5] << " " << error[6] << std::endl;
                 
-                printerrors << iorder << ", " << std::fixed << std::setprecision(5) <<  1./double(refsteps) << ", "
+                double haux=pow(2, -refsteps);
+                printerrors << iorder << ", " << std::fixed << std::setprecision(5) <<  1./haux << ", "
                 << std::scientific << std::setprecision(15) << error[0] << ", "
                 << error[3] << std::endl;
                 
                 EstimateErrorElasticity(config, cmesh);
                 
                 // Prints gmesh mesh properties
-                std::string vtk_name = "geoMeshAfterAdapt.vtk";
-                std::ofstream vtkfile(vtk_name.c_str());
-                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+//                std::string vtk_name = "geoMeshAfterAdapt.vtk";
+//                std::ofstream vtkfile(vtk_name.c_str());
+//                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
 
                 //Delete geo elements with wrap, interface and lagrange material id
                 for (auto i = 0; i < config.gmesh->NElements(); i++){
@@ -441,7 +437,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 }
                 
                 
- //           }
+         }
             
         }
         
@@ -582,7 +578,7 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     std::string outVTKstring = outVTK.str();
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
     
-    Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
+  //  Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
     //TODO
     int nel=config.gmesh->NElements();
     for (int iel=0; iel<nel; iel++) {
@@ -596,11 +592,11 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
         }
     }
 
-//    {
-//        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
-//        std::ofstream file(fileName, std::ios::app);
-//        Tools::PrintElasticityErrors(file, config, errors);
-//    }
+    {
+        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
+        std::ofstream file(fileName, std::ios::app);
+        Tools::PrintElasticityErrors(file, config, errors);
+    }
     
     // Prints gmesh mesh properties
     std::string vtk_name = "geoMeshAfterAdapt_1.vtk";
