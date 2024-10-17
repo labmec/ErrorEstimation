@@ -78,8 +78,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
     if (fExact) {
         an.SetExact(fExact->ExactSolution());
     }
-
-    int64_t nErrorCols = 6;
+    //TODO: add the error of antisymetric part
+    
+    
+    int64_t nErrorCols = 7;
+    
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -90,13 +93,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
     fPostProcMesh.ExpandSolution();
     
     
-    fPostProcMesh.ElementSolution().Redim(nelem, 6);
+    fPostProcMesh.ElementSolution().Redim(nelem, nErrorCols);
     for (int64_t el = 0; el < nelem; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
         TPZSubCompMesh *subc = dynamic_cast<TPZSubCompMesh *> (cel);
         if (subc) {
             int64_t nelsub = subc->NElements();
-            subc->ElementSolution().Redim(nelsub, 6);
+            subc->ElementSolution().Redim(nelsub,nErrorCols );
         }
     }
 
@@ -1479,16 +1482,16 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
 
         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
         for (int istate = 0; istate < nstate; istate++) {
- //#ifdef LOG4CXX
- //            if (logger->isDebugEnabled()) {
+ #ifdef LOG4CXX
+             if (logger->isDebugEnabled()) {
                  std::stringstream sout;
                  std::cout << "value before " << solMatrix.at(block.at(seqnum, 0, istate, 0)) <<
                          " value after " << averageSol[istate] << " diff "
                          << solMatrix.at(block.at(seqnum, 0, istate, 0)) - averageSol[istate] << std::endl;  
                                       //  res2.Print("Residual",sout);
-//                 LOGPZ_DEBUG(logger, sout.str())
-//             }
-// #endif
+                 LOGPZ_DEBUG(logger, sout.str())
+             }
+ #endif
             solMatrix.at(block.at(seqnum, 0, istate, 0)) = averageSol[istate];
         }
     }

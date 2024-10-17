@@ -86,14 +86,24 @@ int main() {
     
 
     ProblemConfig pConfig;
-    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
+    pConfig.geometry = ProblemConfig::EGeometry::ELShape;
     pConfig.exactElast = new TElasticity2DAnalytic;
-    // pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::ECrack;
+
     switch (pConfig.geometry){
         case ProblemConfig::EGeometry::ECrack:
             pConfig.problemname = "ECrack";
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ECrack;
+            pConfig.coefgE = 100.;
+            pConfig.coefgPoisson = 0.3;
             break;
+            
+        case ProblemConfig::EGeometry::ELShape:
+            pConfig.problemname = "ELShape";
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
+            pConfig.mu = 1.;
+            pConfig.alpha = 0.6;
+            break;
+            
         case ProblemConfig::EGeometry::EQuad:
         case ProblemConfig::EGeometry::ETrap: 
         default:
@@ -101,6 +111,9 @@ int main() {
             // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::Etest1;
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
             pConfig.problemname = "EHarmonic";
+            //pConfig.problemname = "EPoly";
+            pConfig.lambda = 123.;
+            pConfig.mu = 79.3;
            // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
             break;
     }
@@ -110,6 +123,10 @@ int main() {
     pConfig.porder = pOrder;
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
+    pConfig.isHibridized = true;
+    pConfig.isAdaptivity = true;
+    
+    
    
     // Family of HDiv approximation spaces.
     // The possible choices are HDivFamily::EHDivStandard, HDivFamily::EHDivConstant and HDivFamily::EHDivKernel
@@ -132,26 +149,18 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs = {xdiv,xdiv};
-    TPZVec<int> divs = {2,4,8,16,32,64};;
+    TPZVec<int> divs = {8};
     
     int pend = 2;
-    
 
-   
-    // Prints gmesh mesh properties
-//    std::string vtk_name = "geoMesBeforeAdapt.vtk";
-//    std::ofstream vtkfile(vtk_name.c_str());
-//    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps = 2;
+    int nsteps = 4;
    
     
     for (int iorder = 1; iorder < pend; iorder++){
         
         printerrors <<  " porder " << " h " <<   " error stress "<< " error diplacement"<<std::endl;
                     
-        for(int refsteps = 1; refsteps< nsteps; refsteps ++){
-                config.adaptivityStep = refsteps;
             for (int idiv = 0; idiv < divs.size(); idiv++){
                 config.ndivisions =divs[idiv];
                 config.porder= iorder;
@@ -168,11 +177,6 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                     case ProblemConfig::EGeometry::ECrack:
                     {
                         gmesh = ReadMeshFromGmsh("../../../Crack.msh");
-                        // TPZVec<int> bcids(8, EBoundary);
-                        // gmesh = Tools::CreateQuadLShapeMesh(bcids);
-
-                        // int uniref = 3;
-                        // Tools::UniformRefinement(uniref, gmesh);
                         break;
                     }
                     case ProblemConfig::EGeometry::ELShape:
@@ -200,17 +204,14 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 
                 config.gmesh = gmesh;
                 
-                // Creates/import a geometric mesh
-                //  auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
                 
-                
-                //  int uniref= divx/2;
-                //  Tools::UniformRefinement(uniref, gmesh);
-                
-                // Prints gmesh mesh properties
-//                std::string vtk_name3 = "geoMeshLshape0.vtk";
-//                std::ofstream vtkfile3(vtk_name3.c_str());
-//                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile3, true);
+                for(int refsteps = 1; refsteps< nsteps; refsteps ++){
+                        config.adaptivityStep = refsteps;
+                    
+                    // Prints gmesh mesh properties
+                    std::string vtk_name3 = "InitialGMesh.vtk";
+                    std::ofstream vtkfile3(vtk_name3.c_str());
+                    TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile3, true);
                 
                 // Creates an hdivApproxCreator object. It is an environment developped to
                 // help creating H(div)-family possible approximation spaces.
@@ -233,12 +234,14 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 //Sets the type of hybridizantion desired.
                 //The current options are HybridizationType::ENone, HybridizationType::EStandard
                 //and HybridizationType::ESemi (the last only works with H(div)-constant spaces)
-                hdivCreator.HybridType() = HybridizationType::ENone;
-                // hdivCreator.HybridType() = HybridizationType::EStandard;
-                
-                
-                
-              //  config.gmesh=gmesh;
+                    
+                //TODO: if the hybridized flag is on
+                if(config.isHibridized){
+                    hdivCreator.HybridType() = HybridizationType::EStandard;
+                }
+                else{
+                    hdivCreator.HybridType() = HybridizationType::ENone;
+                }
                 
                 //Creates an analytical solution to test
                 TPZAnalyticSolution *gAnalytic = 0;
@@ -249,14 +252,13 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 } else if (hdivCreator.ProbType() == ProblemType::EElastic){
                     if (DIM == 2){
                         TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-                         double lambda = 123.;
-                         double mu = 79.3;
-                        // elas->gE = mu*(3*lambda+2*mu)/(lambda+mu);
-                        // elas->gPoisson = 0.5*lambda/(lambda+mu);
+                        
+                         elas->gE = config.mu*(3*config.lambda+2*config.mu)/(config.lambda+config.mu);
+                         elas->gPoisson = 0.5*config.lambda/(config.lambda+config.mu);
                         //Crack
                         //elas->gE = 100.;
                        // elas->gPoisson = 0.3;
-                        // elas->fProblemType = TElasticity2DAnalytic::EDispx;
+
                         elas->fProblemType = config.exactElast->fProblemType;
                         elas->fPlaneStress = 0;
                         gAnalytic = elas;
@@ -270,22 +272,13 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 } else {
                     DebugStop();
                 }
-                //   config.exact2 = gAnalytic;
+
                 
                 //Insert Materials
                 InsertMaterials(DIM,hdivCreator,gAnalytic);
                 
                 //Gets the Multiphysics mesh from the HdivApproxCreator
                 TPZMultiphysicsCompMesh *cmesh = hdivCreator.CreateApproximationSpace();
-                //Here the cmesh is printed
-                // std::string txt = "cmesh.txt";
-                // std::ofstream myfile(txt);
-                // cmesh->Print(myfile);
-                // Prints gmesh mesh properties
-
-//                std::string vtk_name2 = "geoMeshLshape.vtk";
-//                std::ofstream vtkfile2(vtk_name2.c_str());
-//                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile2, true);
 
                 config.fWrapMaterialId = hdivCreator.HybridData().fWrapMatId;
                 config.fInterfaceMaterialId = hdivCreator.HybridData().fInterfaceMatId;
@@ -295,13 +288,6 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 TPZLinearAnalysis an(cmesh,RenumType::ESloan);
                 // TPZLinearAnalysis an(cmesh,RenumType::EMetis);
                 an.SetExact(gAnalytic->ExactSolution(),4);
-                // if (hdivCreator.ProbType() == ProblemType::EDarcy){
-                
-                // } else if (hdivCreator.ProbType() == ProblemType::EElastic){
-                //     an.SetExact(gAnalytic,solOrder);
-                // } else {
-                //     DebugStop();
-                // }
                 
                 //----
                 
@@ -325,97 +311,21 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 std::cout << "Finished\n";
                 an.LoadSolution(); // compute internal dofs
                 
-                
-                
-                
-                //Printing results in a vtk file
-                TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(cmesh->MeshVector(), an.Mesh());
-                cmesh->LoadSolution(cmesh->Solution());
-                std::string plotfile = "res_h"+std::to_string(refsteps)+"p"+std::to_string(iorder);//sem o .vtk no final
-                constexpr int vtkRes{0};//Resolution
-                {
-                    //Fields to be printed
-                    TPZVec<std::string> fields;
-                    if (hdivCreator.ProbType() == ProblemType::EDarcy){
-                        fields = {"Pressure","ExactPressure","Flux","ExactFlux"};
-                    } else if (hdivCreator.ProbType() == ProblemType::EElastic){
-                        fields = {"Displacement","SigmaX","SigmaY","TauXY","ExactDisplacement","ExactStress"};
-                    } else {
-                        DebugStop();
-                    }
-                    
-                    auto vtk = TPZVTKGenerator( an.Mesh(), fields, plotfile, vtkRes);
-                    vtk.Do();
-                }
-                
                 // //Compute error
                 std::ofstream anPostProcessFile("postprocess.txt");
                 TPZManVector<REAL,7> error;
                 an.LoadSolution();
                  cmesh->LoadSolution(cmesh->Solution());
                  cmesh->ExpandSolution();
-                int64_t nelem = an.Mesh()->NElements();//0;
-//                for (int64_t i = 0; i < an.Mesh()->NElements(); i++)
-//                {
-//                    auto el = an.Mesh()->ElementVec()[i];
-//                    if (el->Dimension() == DIM) nelem++;
-//                }
+                int64_t nelem = an.Mesh()->NElements();
+                    
+            //TODO: The element solution now has 7 columns, the error of the antisymmetric part has increased
                 
                 an.Mesh()->ElementSolution().Redim(nelem, 7);
                 an.SetExact(gAnalytic->ExactSolution(),5);
                 an.PostProcessError(error,true,anPostProcessFile);
                 
-//                std::ofstream postVTK(plotfile+".0.vtk",std::ios::app);
-//                TPZFMatrix<STATE> SolMatrix = an.Mesh()->ElementSolution();
-//                postVTK << "CELL_DATA " << nelem << std::endl;
-//                postVTK << "SCALARS ErrorStress float \nLOOKUP_TABLE default" << std::endl;
-//                for (int64_t iel = 0; iel < nelem; iel++){
-//                    postVTK << SolMatrix.GetVal(iel,0) << " ";
-//                }
-//                postVTK << std::endl;
-//                postVTK << "SCALARS ErrorEnergy float \nLOOKUP_TABLE default" << std::endl;
-//                for (int64_t iel = 0; iel < nelem; iel++){
-//                    postVTK << SolMatrix.GetVal(iel,1) << " ";
-//                }
-//                postVTK << std::endl;
-//                postVTK << "SCALARS ErrorDivStress float \nLOOKUP_TABLE default" << std::endl;
-//                for (int64_t iel = 0; iel < nelem; iel++){
-//                    postVTK << SolMatrix.GetVal(iel,2) << " ";
-//                }
-//                postVTK << std::endl;
-//                postVTK << "SCALARS ErrorDisplacement float \nLOOKUP_TABLE default" << std::endl;
-//                for (int64_t iel = 0; iel < nelem; iel++){
-//                    postVTK << SolMatrix.GetVal(iel,3) << " ";
-//                }
-//                postVTK << std::endl;
-//                postVTK << "SCALARS ErrorRotation float \nLOOKUP_TABLE default" << std::endl;
-//                for (int64_t iel = 0; iel < nelem; iel++){
-//                    postVTK << SolMatrix.GetVal(iel,4) << " ";
-//                }
-//                postVTK << std::endl;
-//                postVTK << "SCALARS ErrorSymmetry float \nLOOKUP_TABLE default" << std::endl;
-//                for (int64_t iel = 0; iel < nelem; iel++){
-//                    postVTK << SolMatrix.GetVal(iel,5) << " ";
-//                }
-//                postVTK << std::endl;
-                
-                
-                // //Print Errors
-                //     std::cout << "POrder = " << iorder << std::endl;
-                //     std::cout << "h = " << std::fixed <<  1./double(divx) << std::endl;
-                //     std::cout << "L2 Stress = " << std::scientific << std::setprecision(15) << error[0] << std::endl;
-                //     std::cout << "En Stress = " << error[1] << std::endl;
-                //     std::cout << "L2 DivStr = " << error[2] << std::endl;
-                //     std::cout << "L2 Displa = " << error[3] << std::endl;
-                //     std::cout << "L2 Rotati = " << error[4] << std::endl;
-                //     std::cout << "L2 Symmet = " << error[5] << std::endl;
-                //     std::cout << "En Displa = " << error[6] << std::endl;
-                //     printerrors << iorder << " " << std::fixed << std::setprecision(5) <<  1./double(divx) << " "
-                //                 << std::scientific << std::setprecision(15) << error[0] << " "
-                //                 << error[1] << " " << error[2] << " " << error[3] << " " << error[4]
-                //                 << " " << error[5] << " " << error[6] << std::endl;
-                
-                double haux=pow(2, -refsteps);
+                double haux=pow(2, -idiv);
                 printerrors << iorder << ", " << std::fixed << std::setprecision(5) <<  1./haux << ", "
                 << std::scientific << std::setprecision(15) << error[0] << ", "
                 << error[3] << std::endl;
@@ -423,9 +333,9 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 EstimateErrorElasticity(config, cmesh);
                 
                 // Prints gmesh mesh properties
-//                std::string vtk_name = "geoMeshAfterAdapt.vtk";
-//                std::ofstream vtkfile(vtk_name.c_str());
-//                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+                std::string vtk_name = "geoMeshAfterAdapt.vtk";
+                std::ofstream vtkfile(vtk_name.c_str());
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
 
                 //Delete geo elements with wrap, interface and lagrange material id
                 for (auto i = 0; i < config.gmesh->NElements(); i++){
@@ -578,8 +488,11 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     std::string outVTKstring = outVTK.str();
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
     
-  //  Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
-    //TODO
+    if (config.isAdaptivity) {
+        Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
+    }
+    
+    
     int nel=config.gmesh->NElements();
     for (int iel=0; iel<nel; iel++) {
         TPZGeoEl * geo =config.gmesh->ElementVec()[iel];

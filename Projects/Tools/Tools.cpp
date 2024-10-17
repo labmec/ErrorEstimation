@@ -698,7 +698,7 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
 
 void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, const ProblemConfig& config) {
 
-    // Column of the flux error estimate on the element solution matrix
+    // Column of the flux/stress error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;
 
     TPZFMatrix<STATE> &elsol = postProcessMesh->ElementSolution();
@@ -723,7 +723,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     std::cout << "max error " << maxError << "\n";
 
     // Refines elements which error are bigger than 20% of the maximum error
-    REAL threshold = 0.9 * maxError;
+    REAL threshold = 0.8 * maxError;
 
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
@@ -1108,7 +1108,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
      */
 
     std::stringstream ss;
-    ss << "\nEstimator errors for Problem " << config.problemtype;
+    ss << "\nEstimator errors for Problem " << config.problemname;
     ss << "\n-------------------------------------------------- \n";
     ss << "Ndiv = " << config.ndivisions << ", NIntRef = " << config.ninternalref <<
             ", Order k = " << config.porder << ", Order n = " << config.hdivmais;
@@ -1119,18 +1119,19 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
     ss << "|sigma_fem-Aeps(u_rec)| = " << error_vec[3] << "\n";
     ss << "|u_fem-u_rec| = " << error_vec[4] << "\n";
     ss << "Residual Error L2 = " << error_vec[5] << "\n";
+    ss << "|sigma_femAS|_{C}= " << error_vec[6]<< "\n";
     if (config.exactElast) {
         //ss << "Global exact error = " << error_vec[2] << "\n";
         ss << "|u_ex-u_fem| = " << error_vec[0] << "\n";
         ss << "|u_ex-u_rec| = " << error_vec[1] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
-        REAL global_index = 1;
-        if (!IsZero(error_vec[5] + error_vec[3]) && !IsZero(error_vec[2])) {
-            global_index = sqrt(error_vec[5] + error_vec[3]) / sqrt(error_vec[2]);
-        }
-        ss << "Global Index = " << global_index << "\n\n";
-    } else {
-        ss << "[Unknown exact solution and errors]\n";
+//        REAL global_index = 1;
+//        if (!IsZero(error_vec[5] + error_vec[3]) && !IsZero(error_vec[2])) {
+//            global_index = (error_vec[5] + error_vec[3]+ error_vec[6])/ error_vec[2];
+//        }
+//        ss << "Global Index = " << global_index << "\n\n";
+//    } else {
+//        ss << "[Unknown exact solution and errors]\n";
     }
 
     out << ss.str();

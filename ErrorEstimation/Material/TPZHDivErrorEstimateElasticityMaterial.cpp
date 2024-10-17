@@ -22,8 +22,9 @@ int TPZHDivErrorEstimateElasticityMaterial::NEvalErrors() const {
      * errors[3] - energy error computed with exact solution  (|| sigma - sigma_fem ||_{C})
      * errors[4] -  energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})
      * errors[5] - oscilatory data error (|| f - Proj_divsigma ||)
+     *TODO: errors[6] - antisymmetric part (||0.5*(sigma_fem-sigma_fem^T)||_{C})
      **/
-    return 6;
+    return 7;
 }
 
 void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) {
@@ -39,6 +40,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
      error[3] - energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})
      error[4] = || u_rec - u_fem ||
      error[5] - oscilatory data error (|| f - Proj_divsigma ||)
+     TODO: errors[6] - antisymmetric part (||0.5*(sigma_fem-sigma_fem^T)||_{C})
      **/
 
     //std::cout << "Computing Aposteriori Error Estimation for Linear Elasticity" << std::endl;
@@ -48,12 +50,16 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     errors.Fill(0.0);
 
     TPZFNMatrix<9, STATE> stressfem(dim, dim, 0.);
+    //Antisymmetric part of stressfem (stressfemAS)
+    TPZFNMatrix<9, STATE> stressfemAS(dim, dim, 0.);
     for (unsigned int i = 0; i < dim; i++) {
         for (unsigned int j = 0; j < dim; j++) {
-            // stressfem(i, j) = data[2].sol[i][j];
             stressfem(i, j) = data[2].sol[0][j + i * 3];
+            stressfemAS(i,j) = 0.5*(stressfem(i, j)-stressfem(j, i));
         }
     }
+    
+    
 
     TPZManVector<STATE> divstressfem(dim, 0.);
     divstressfem.Fill(0);
@@ -113,23 +119,19 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     /// calculo do erro de sigma na norma energia || sigma_fem-sigma_ex||_C
     int nstate = dim;
     int matdim = nstate*nstate;
-    TPZManVector<STATE, 9> stress_femV(matdim, 0.), sigma_exactV(matdim, 0.), eps_exactV(matdim, 0.), EPSZV(matdim, 0.);
+    TPZManVector<STATE, 9> stress_femV(matdim, 0.), sigma_exactV(matdim, 0.), eps_exactV(matdim, 0.), EPSZV(matdim, 0.),stress_femAs_V(matdim, 0.);
 
     TPZFNMatrix<9, STATE> sigma(nstate, nstate, 0.), eps(nstate, nstate, 0.), grad(nstate, nstate, 0.);
     TPZFNMatrix<9, STATE> eps_exact(nstate, nstate, 0.);
     TPZFNMatrix<9, STATE> eps_reconstructed(nstate, nstate, 0.);
 
     ToVoigt(stressfem, stress_femV);
+    ToVoigt(stressfemAS, stress_femAs_V);//antisymetric part of stress fem
 
     //eps(exact displacement)
     eps_exact(0, 0) = du_exact(0, 0);
     eps_exact(1, 0) = eps_exact(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
     eps_exact(1, 1) = du_exact(1, 1);
-    
-    //eps(exact displacement)
-//    eps_reconstructed(0, 0) = du_exact(0, 0);
-//    eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
-//    eps_reconstructed(1, 1) = du_exact(1, 1);
 
     //eps(reconstructed displacement)
     const auto &dudxreconstructed = data[H1functionposition].dsol[0];
@@ -173,6 +175,12 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         part2[i] = sigma_exactV[i] - stress_femV[i];
     }
     errors[2] = TPZMixedElasticityND::InnerVec(part1, part2);
+    
+    
+    // ||sigma_femAS||_{C}
+    TPZManVector<STATE, 9> Csigma_femAS_V(matdim, 0.);
+    ComputeDeformationVector(stress_femAs_V, Csigma_femAS_V, elast);
+    errors[6] = InnerVec(stress_femAs_V, Csigma_femAS_V);
 
 
     /// Como calcular do erro estimado na norma energia?  || sigma_fem - Aeps(u_rec)||_C
@@ -557,8 +565,8 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
     if (name == "EnergyErrorExact") return 102;
     if (name == "EnergyErrorEstimate") return 103;
     if (name == "ResidualError") return 104;
-    if (name == "DisplacementEffectivityIndex") return 106;
-    if (name == "EnergyEffectivityIndex") return 107;
+    if (name == "DisplacementEffectivityIndex") return 107;
+    if (name == "EnergyEffectivityIndex") return 108;
     
     
  
@@ -584,8 +592,8 @@ int TPZHDivErrorEstimateElasticityMaterial::NSolutionVariables(int var) const
         case 102:
         case 103:
         case 104:
-        case 106:
         case 107:
+        case 108:
         
         case 45:
             return 1;

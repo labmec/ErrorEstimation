@@ -45,6 +45,8 @@ struct ProblemConfig
     bool GalvisExample = false;
     bool TensorNonConst = false;
     bool MeshNonConvex = false;
+    bool isHibridized = false;
+    bool isAdaptivity = false;
     TProbType problemtype = EDarcy;
     EGeometry geometry = ELShape;
 
@@ -54,7 +56,12 @@ struct ProblemConfig
     
     STATE alpha=1;
     STATE Km = 0.;
-    STATE coefG = 0.;
+    STATE coefgE = 0.;
+    STATE coefgPoisson=0.;
+    STATE lambda =0.;
+    STATE mu=0.;
+    
+
     
     /// the elements with error larger than 0.7*max_error will be divided
     REAL division_threshold = 0.7;
