@@ -101,7 +101,7 @@ int main() {
             pConfig.problemname = "ELShape";
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
             pConfig.mu = 1.;
-            pConfig.alpha = 0.6;
+            pConfig.lambda = 5.0;
             break;
             
         case ProblemConfig::EGeometry::EQuad:
@@ -184,7 +184,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                         TPZVec<int> bcids(8, EBoundary);
                         gmesh = Tools::CreateQuadLShapeMesh(bcids);
 
-                        int uniref = 3;
+                        int uniref = 2;
                         Tools::UniformRefinement(uniref, gmesh);
                         break;
                     }

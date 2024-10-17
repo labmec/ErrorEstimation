@@ -224,7 +224,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     //||f - Proj_divsigma||
     errors[5] = residual;
     
-   // std::cout<<"residual "<<residual<<std::endl;
+    //std::cout<<"residual "<<residual<<std::endl;
   
 
 #ifdef LOG4CXX
