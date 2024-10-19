@@ -234,7 +234,8 @@ TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint, ESBFem};
 MMeshStyle meshstyle = ECollapsed;
-
+int defaultporder = 2;
+int SBFemOrder = 3;
 
 enum BBetaDetermination {Joukowski, Minimization};
 BBetaDetermination betadetermination = Minimization;
@@ -1574,9 +1575,6 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
             break;
         }
     }//loop over cemsh_m elements
-    std::ofstream out1("RefinementIndicator.vtk"); 
-    TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m,out1,RefinementIndicator,"RefinementIndicator");
-
     nel = gmesh->NElements();
     RefinementIndicator.Resize(nel,0.);
     std::ofstream out1("HRefinementIndicator.vtk"); 
