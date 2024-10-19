@@ -223,7 +223,7 @@ int profilemat = 3;
 int boundmat = 4;
 int pointmat = 5;
 int trailingedgemat = 6;
-int blendmat = 7;
+int nacamat = 7;
 
 int sbfem_skeleton = 8;
 int sbfem_domain = 9;
@@ -233,14 +233,11 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint, ESBFem};
-MMeshStyle meshstyle = ESBFem;
-int defaultporder = 3;
-int SBFemOrder = 4;
-
+MMeshStyle meshstyle = ECollapsed;
 
 
 enum BBetaDetermination {Joukowski, Minimization};
-BBetaDetermination betadetermination = Joukowski;
+BBetaDetermination betadetermination = Minimization;
 
 enum RRefinementStyle {h, hp};
 RRefinementStyle refinementstyle = hp;
@@ -264,9 +261,9 @@ auto f_infinity = [](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<
     } else {
         signal = 1.0;
     }
-    matVal(0,0) = signal*1.0;
-    matVal(1,0) = signal*0.5;
-    rhsVal[0] = -loc[1]*matVal(0,0)+loc[0]*matVal(1,0);
+    matVal(0,0) = 1.0;
+    matVal(1,0) = 0.5;
+    rhsVal[0] = -signal*loc[1]*matVal(0,0)+signal*loc[0]*matVal(1,0);
 
 };
 
@@ -579,7 +576,7 @@ TPZGeoMesh *ReadGmsh(const std::string &meshfilename, const TPZNacaProfile &naca
             TPZManVector<int64_t,2> nodes(2);
             nodes[0] = gel->NodeIndex(0);
             nodes[1] = gel->NodeIndex(1);
-            TPZGeoElRefPattern< TPZNacaProfile> *nacael = new TPZGeoElRefPattern< TPZNacaProfile>(nodes,blendmat,*gmesh);
+            TPZGeoElRefPattern< TPZNacaProfile> *nacael = new TPZGeoElRefPattern< TPZNacaProfile>(nodes,nacamat,*gmesh);
             //std::cout << "nacael index " << nacael->Index() << std::endl;
             nacael->Geom() = naca;
             nacael->Geom().fNodeIndexes[0] = nodes[0];
@@ -1393,10 +1390,15 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
     int64_t newcon;
     gmesh->ResetReference();
      auto cmeshHDiv = CreateHDivCompMesh(gmesh, porders, newcon);
-     AdjustHDivEquarterpointintrule(gmesh);
      auto cmeshL2 = CreateL2CompMesh(gmesh);
 
      TPZMultiphysicsCompMesh* cmesh_m = CreateMultiphysicsMesh(cmeshHDiv,cmeshL2, gmesh);
+    if(meshstyle == EQuarterPoint) {
+        AdjustHDivEquarterpointintrule(gmesh);
+    }
+    if(meshstyle == ESBFem) {
+        CreateHdivSBFEMelements(cmesh_m,newcon);
+    }
      cmesh_m->CleanUpUnconnectedNodes();
      // Define o pointer chamado cmesh_m relacionado à classe TPZMultiphysicsCompMesh, associando-o a função CreateMultiphysicsMesh, cujos parâmetros (já antes declarados) são: cmeshHdiv, gmesh.
     
@@ -1545,9 +1547,35 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
     }//loop over cmesh_m elements
     Smoothentrailingedgeelements(cmesh_m,RefinementIndicator);
 
-    // impose the two on one constraint
-    // divide the one dimensional elements
-    SmoothenGeometry(gmesh);
+    //Change the refined gmesh to blend
+    AdjustGeometry(gmesh);
+
+    // refinar os elementos de contorno
+    nel = gmesh->NElements();
+    for (int64_t iel = 0; iel < nel; iel++) 
+    {
+        TPZGeoEl *gel = gmesh->Element(iel);
+        if(gel->HasSubElement()) continue;
+        if(gel->Dimension() != 1) continue;
+        if(gel->MaterialId() == nacamat) continue;
+        if(gel->MaterialId() == sbfem_highperm) continue;
+        if(gel->MaterialId() ==  boundmat) continue;
+        if(gel->MaterialId() ==  cutmat) continue;
+        //Percorrer os Neighbors de gel e encontar os volumetricos que tem subelementos
+        TPZGeoElSide gelside(gel); 
+        auto Neighbor = gelside.Neighbour();
+        for(; Neighbor != gelside; Neighbor++)
+        {
+            if(!Neighbor.Element()) DebugStop();
+            if(!Neighbor.HasSubElement()) continue;
+            TPZManVector<TPZGeoEl*> subel; 
+            DivideGeoEl(gel,subel);
+            DebugStop();
+            break;
+        }
+    }//loop over cemsh_m elements
+    std::ofstream out1("RefinementIndicator.vtk"); 
+    TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m,out1,RefinementIndicator,"RefinementIndicator");
 
     nel = gmesh->NElements();
     RefinementIndicator.Resize(nel,0.);
@@ -1961,7 +1989,7 @@ void DivideGeoEl(TPZGeoEl *gel, TPZVec<TPZGeoEl *> &subels)
         }
     }
     gel->Divide(subels);
-    if(iscollapsed && !(gel->IsLinearMapping())) {
+    if(0 && iscollapsed && !(gel->IsLinearMapping())) {
         ChangeToBlend(subels[0]);
         ChangeToBlend(subels[1]);
     }
