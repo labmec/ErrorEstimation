@@ -233,12 +233,13 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint, ESBFem};
-MMeshStyle meshstyle = ECollapsed;
+MMeshStyle meshstyle = ESBFem;
 int defaultporder = 2;
 int SBFemOrder = 3;
+std::set<int64_t> sbfem_elements;
 
 enum BBetaDetermination {Joukowski, Minimization};
-BBetaDetermination betadetermination = Minimization;
+BBetaDetermination betadetermination = Joukowski;
 
 enum RRefinementStyle {h, hp};
 RRefinementStyle refinementstyle = hp;
@@ -439,6 +440,19 @@ int main() {
         delete gmeshcopy;
         gmeshcopy = 0;
 
+#ifdef PZDEBUG
+        {
+            gmesh->ResetReference();
+            cmesh_m->LoadReferences();
+            std::cout << "Number of SBFem elements " << sbfem_elements.size() << std::endl;
+            for(auto el : sbfem_elements) {
+                TPZGeoEl *gel = gmesh->Element(el);
+                if(gel->Reference() == 0) {
+                    std::cout << "Element " << el << " has no reference\n";
+                }
+            }
+        }
+#endif
         int64_t nDOF = cmesh->NEquations();
         // int64_t nDOF_m = cmesh_m->NEquations();
         outGE << i << "  " << nDOF << "  " << GlobalError << "  " << circulation_H1 << "  " << circulation_HDiv << std::endl;
@@ -1248,6 +1262,7 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL
     phi = phi_0+Beta*phi_1;
     cmeshH1->LoadSolution(phi);
 
+    if(0)
     {
         int nc = sbfem_groupH1->NConnects();
         for(int ic=0; ic<nc; ic++) {
@@ -1463,10 +1478,19 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         if(gel_m->Dimension() != 2) continue;
 
         TPZCompEl *cell = gel_m->Reference();
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cell);
+        TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cell);
+        if(!intel && !sbfem) DebugStop();
+        int porder = 0;
+        if(intel) {
+            porder = intel->PreferredSideOrder(gel_m->NSides()-1);
+        } else if(sbfem) {
+            porder = SBFemOrder+5;
+        }
         int matid = gel_m->MaterialId();
 
         TPZGeoElSide gelside(gel_m);
-        auto intrule = gelside.CreateIntegrationRule(5);
+        auto intrule = gelside.CreateIntegrationRule(2*porder);
         int intrulepoints = intrule->NPoints();
         TPZManVector<REAL,4> intpoint(2,0.);
         REAL weight = 0.;
@@ -1613,6 +1637,7 @@ void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator
     RefinementIndicator.Resize(nel,0.);
     RefinementIndicator = 0.;
     auto tolel = std::max_element(ErrorEstimator.begin(), ErrorEstimator.end());
+    std::cout << "max error " << *tolel << std::endl;
     REAL tol = *tolel/5.0;
     // if the error of a trailing edge is larger than the tolerance, divide it
     DivideTrailingEdgeNeighbours(cmesh_m, ErrorEstimator, tol, RefinementIndicator, porders);
@@ -1648,7 +1673,8 @@ void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator
             TPZGeoEl *gel = cel->Reference();
             int64_t index = gel->Index();
             int porder = porders[index];
-            if(ErrorEstimator[iel] > tol)
+            REAL Elerror = ErrorEstimator[iel];
+            if(Elerror > tol)
             {
                 RefinementIndicator[iel] = 1.0;
                 if(gel->HasSubElement()) {
@@ -1681,11 +1707,13 @@ void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator
             if(error > tol)
             {
                 RefinementIndicator[iel] = 1.0;
-                porders[index]++;
-                if(porders[index] > sbfem_maxorder) sbfem_maxorder = porders[index];
+                porders[index] = SBFemOrder+1;
+                sbfem_maxorder = SBFemOrder+1;
             } else {
                 porders[index] = SBFemOrder;
             } 
+        } else {
+            std::cout << "I don't understand\n";
         }
     }//loop over cemsh_m elements
     // set all sbfem volume elements to the same order
@@ -1696,15 +1724,9 @@ void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator
             SBFemOrder = sbfem_maxorder;
         }
         // update the porders data structure
-        for (int64_t iel = 0; iel < nel_m; iel++) 
+        for (int64_t iel : sbfem_elements) 
         {
-            TPZCompEl *cel = cmesh_m->Element(iel);
-            if(!cel) continue;
-            TPZSBFemVolume *sbvol = dynamic_cast<TPZSBFemVolume *>(cel);
-            if(!sbvol) continue;
-            TPZGeoEl *gel = cel->Reference();
-            int64_t index = gel->Index();
-            porders[index] = SBFemOrder;
+            porders[iel] = SBFemOrder;
         }
     }
     {
@@ -2941,7 +2963,7 @@ void RemoveSBFemElements(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m, T
     }
     auto Remove= [gmesh] (TPZCompMesh *cmesh) {
             int64_t nel = cmesh->NElements();
-            std::cout << "gmesh nelements " << gmesh->NElements() << std::endl;
+            // std::cout << "gmesh nelements " << gmesh->NElements() << std::endl;
             for(int64_t iel = 0; iel < nel; iel++) 
             {
                 TPZCompEl *cel = cmesh->Element(iel);
@@ -2951,7 +2973,7 @@ void RemoveSBFemElements(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m, T
                 TPZGeoEl *gel = cel->Reference();
                 int matid = gel->MaterialId();
                 if(index >= gmesh->NElements()) {
-                    std::cout << "gel index " << index << " matid " << gel->MaterialId() << " is out of range " << " celindex " << cel->Index() << "\n";
+                    // std::cout << "gel index " << index << " matid " << gel->MaterialId() << " is out of range " << " celindex " << cel->Index() << "\n";
                     int64_t celindex = cel->Index();
                     delete cel;
                     cel = cmesh->Element(celindex);
@@ -3056,8 +3078,8 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
         if(!cskel) DebugStop();
         int sideorder = icskel->Connect(2).Order();
         if(sideorder < SBFemOrder) icskel->SetSideOrder(2,SBFemOrder);
-        std::cout << "gel " << gel->Index() << " is linear " << gel->IsLinearMapping() << std::endl;
-        std::cout << "skel is linear " << skel->IsLinearMapping() << std::endl;
+        // std::cout << "gel " << gel->Index() << " is linear " << gel->IsLinearMapping() << std::endl;
+        // std::cout << "skel is linear " << skel->IsLinearMapping() << std::endl;
         if(!gel->IsLinearMapping()) {
             ChangeToLinearQuad(gel);
             // gel->Print(std::cout);
@@ -3292,6 +3314,7 @@ void AdjustToSBFemGeometry(TPZGeoMesh *gmesh) {
         TPZGeoEl *gel = it;
         if(gel->Dimension() == 2) {
             gel->SetMaterialId(sbfem_domain);
+            sbfem_elements.insert(gel->Index());
             TPZGeoElBC gbc(gel,4,sbfem_skeleton);
             TPZGeoEl *gbcgel = gbc.CreatedElement();
             if(gbcgel->IsLinearMapping() == false) {
