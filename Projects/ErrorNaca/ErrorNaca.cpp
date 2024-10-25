@@ -233,8 +233,8 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint, ESBFem};
-MMeshStyle meshstyle = ESBFem;
-int defaultporder = 2;
+MMeshStyle meshstyle = ETraditional;
+int defaultporder = 1;
 int SBFemOrder = 3;
 std::set<int64_t> sbfem_elements;
 
@@ -242,7 +242,7 @@ enum BBetaDetermination {Joukowski, Minimization};
 BBetaDetermination betadetermination = Joukowski;
 
 enum RRefinementStyle {h, hp};
-RRefinementStyle refinementstyle = hp;
+RRefinementStyle refinementstyle = h;
 
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
 int64_t trailingedge_element_index = -1;
@@ -268,6 +268,8 @@ auto f_infinity = [](const TPZVec<REAL> &loc, TPZVec<STATE> &rhsVal, TPZFMatrix<
     rhsVal[0] = -signal*loc[1]*matVal(0,0)+signal*loc[0]*matVal(1,0);
 
 };
+
+
 
 int main() {
 
@@ -308,7 +310,7 @@ int main() {
         refpattern[6] = manual;
     }
     TPZCheckGeom check(gmesh);
-    int uniform = 3;
+    int uniform = 2;
     if (uniform)
     {
         check.UniformRefine(uniform);
@@ -361,7 +363,7 @@ int main() {
             PrintTrailingEdgeElements(gmesh);
         }
     }
-    int nrefinements = 13;
+    int nrefinements = 2;
     int minh = uniform + 1;
     // indicating the flux order
     int64_t nel = gmesh->NElements();
@@ -374,6 +376,11 @@ int main() {
         TPZCompMesh *cmesh = 0;
         TPZMultiphysicsCompMesh *cmesh_m = 0;
         TPZGeoMesh *gmeshcopy = new TPZGeoMesh(*gmesh);
+        if(0)
+        {
+            std::ofstream out("gmeshcopy.txt");
+            gmeshcopy->Print(out);
+        }
         // change the elements of gmeshcopy to quadratic elements
         // observe that is applied to the copy. It does not affect the original mesh
         if(meshstyle == EQuarterPoint) {
@@ -466,6 +473,8 @@ int main() {
         {
             std::ofstream out2("gmeshrefined.txt");
             gmesh->Print(out2);
+            std::ofstream out3("gmeshrefined.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
             std::ofstream out6("ErrorEstimator.vtk");
             TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m, out6, Error, "Error");
         }
@@ -1004,7 +1013,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
             if(matidshdiv.find(matid) != matidshdiv.end()) {
                 gelstack.Push(gel->Index());
                 if(porders[el] < 0) DebugStop();
-                elp.Push(porders[el]);
+                elp.Push(porders[el]+1);
             } else if(matid == sbfem_skeleton && meshstyle == ESBFem) {
                 gelstack_skel.Push(gel->Index());
                 if(porders[el] < 0) DebugStop();
@@ -1051,7 +1060,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
     newcon = -1;
     int64_t nel = gmesh->NElements();
     std::set<int64_t> profileconnects;
-    // // loop over the geometric cut elements
+    
     for(int64_t el = 0; el<nel; el++)
     {
        TPZGeoEl *gel = gmesh->Element(el);
@@ -1100,7 +1109,23 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t
             }
         }
     }
-    // force the side corresponding to a collapsed collect to have order 1
+    // if a connect depends on a connect contained in profileconnects, then change the dependency
+    {
+        int64_t ncon = cmesh->NConnects();
+        for(int64_t ic=0; ic<ncon; ic++) {
+            TPZConnect &c = cmesh->ConnectVec()[ic];
+            if(c.HasDependency()) {
+                auto dep = c.FirstDepend();
+                while(dep) {
+                    if(profileconnects.find(dep->fDepConnectIndex) != profileconnects.end()) {
+                        dep->fDepConnectIndex = newcon;
+                    }
+                    dep = dep->fNext;
+                }
+            }
+        }
+    }
+    // force the side corresponding to a collapsed connect to have order 1
     for(int64_t el = 0; el<nelem; el++) {
         TPZCompEl *cel = cmesh->Element(el);
         if(!cel) continue;
@@ -1255,6 +1280,10 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL
         phi_1(eq) =  fsol(eq,1);
     }
 
+    {
+        std::ofstream out("gmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+    }
 //  Compute the "Beta" constant
     REAL Beta;
     ComputeBetaH1(gmesh, cmeshH1, phi_0, phi_1, Beta);
@@ -1354,6 +1383,7 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
 
 #ifdef USING_MKL
     TPZSSpStructMatrix<STATE> strmat(cmesh_m);
+    strmat.SetNumThreads(0);
 #else
     TPZSkylineStructMatrix<STATE> strmat(cmesh_m);
 #endif
@@ -1573,7 +1603,7 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
     Smoothentrailingedgeelements(cmesh_m,RefinementIndicator);
 
     //Change the refined gmesh to blend
-    AdjustGeometry(gmesh);
+    // AdjustGeometry(gmesh);
 
     // refinar os elementos de contorno
     nel = gmesh->NElements();
@@ -1595,7 +1625,6 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
             if(!Neighbor.HasSubElement()) continue;
             TPZManVector<TPZGeoEl*> subel; 
             DivideGeoEl(gel,subel);
-            DebugStop();
             break;
         }
     }//loop over cemsh_m elements
@@ -1777,6 +1806,12 @@ void HPrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator
 void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &RefinementIndicator)
 {
     auto gmesh = cmesh_m->Reference();
+    if(0)
+    {
+        std::ofstream out("gmeshbefore.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+    }
+    
     int64_t nel = gmesh->NElements();
     TPZGeoEl *gel_TrailingEdge = gmesh->Element(trailingedge_element_index);
     // if(gel_TrailingEdge->HasSubElement()) continue;
@@ -1810,7 +1845,13 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL>
             RefinementIndicator[iel_GeoNeighbor] = 1.0;
             TPZManVector<TPZGeoEl*> subel_GeoNeighbor;
             DivideGeoEl(GeoNeighbor,subel_GeoNeighbor);
+            RefinementIndicator.Resize(gmesh->NElements(),0.);
         }
+    }
+    if(0)
+    {
+        std::ofstream out("gmeshafter.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     }
 }
 
@@ -2212,13 +2253,20 @@ void AdjustGeometry(TPZGeoMesh *gmesh) {
     // make all 2d elements linear
     for(int64_t el = 0; el < nel; el++) {
         TPZGeoEl *gel = gmesh->Element(el);
+        if(gel->HasSubElement() && gel->MaterialId() == volmat) {
+           gel->SetMaterialId(-volmat);
+        }
         if(gel->HasSubElement()) continue;
+        
         if(gel->MaterialId() == volmat) {
+            gel->SetFather(NULL);
             bool linear = gel->IsLinearMapping();
             if(linear == true) {
                 continue;
             }
             ChangeToLinearQuad(gel);
+            gel = gmesh->Element(el);
+
         }
     }
     // divide the profile elements if they have a neighbour element that is divided
