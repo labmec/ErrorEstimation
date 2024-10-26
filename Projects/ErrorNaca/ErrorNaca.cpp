@@ -233,7 +233,7 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle {ETraditional, ECollapsed, EQuarterPoint, ESBFem};
-MMeshStyle meshstyle = ETraditional;
+MMeshStyle meshstyle = ESBFem;
 int defaultporder = 1;
 int SBFemOrder = 3;
 std::set<int64_t> sbfem_elements;
@@ -242,7 +242,7 @@ enum BBetaDetermination {Joukowski, Minimization};
 BBetaDetermination betadetermination = Joukowski;
 
 enum RRefinementStyle {h, hp};
-RRefinementStyle refinementstyle = h;
+RRefinementStyle refinementstyle = hp;
 
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
 int64_t trailingedge_element_index = -1;
@@ -1554,6 +1554,7 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
 
             ErrorEstimator[iel] += ((flux[0]-sol[0])*(flux[0]-sol[0])+(flux[1]-sol[1])*(flux[1]-sol[1]))*weight;
         }//loop over integratin points
+        ErrorEstimator[iel] = sqrt(ErrorEstimator[iel]);
     }//loop over cemsh_m elements
 
     {
