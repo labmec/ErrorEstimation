@@ -363,8 +363,8 @@ int main() {
             PrintTrailingEdgeElements(gmesh);
         }
     }
-    int nrefinements = 2;
-    int minh = uniform + 1;
+    int nrefinements = 10;
+    int minh =  1;
     // indicating the flux order
     int64_t nel = gmesh->NElements();
     TPZVec<int> porders(nel, defaultporder);
@@ -376,10 +376,12 @@ int main() {
         TPZCompMesh *cmesh = 0;
         TPZMultiphysicsCompMesh *cmesh_m = 0;
         TPZGeoMesh *gmeshcopy = new TPZGeoMesh(*gmesh);
-        if(0)
+        if(1)
         {
             std::ofstream out("gmeshcopy.txt");
             gmeshcopy->Print(out);
+            std::ofstream out2("gmeshcopy.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmeshcopy, out2);
         }
         // change the elements of gmeshcopy to quadratic elements
         // observe that is applied to the copy. It does not affect the original mesh
@@ -1602,9 +1604,6 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
     }//loop over cmesh_m elements
     Smoothentrailingedgeelements(cmesh_m,RefinementIndicator);
 
-    //Change the refined gmesh to blend
-    // AdjustGeometry(gmesh);
-
     // refinar os elementos de contorno
     nel = gmesh->NElements();
     for (int64_t iel = 0; iel < nel; iel++) 
@@ -1614,8 +1613,8 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
         if(gel->Dimension() != 1) continue;
         if(gel->MaterialId() == nacamat) continue;
         if(gel->MaterialId() == sbfem_highperm) continue;
-        if(gel->MaterialId() ==  boundmat) continue;
-        if(gel->MaterialId() ==  cutmat) continue;
+        // if(gel->MaterialId() ==  boundmat) continue;
+        // if(gel->MaterialId() ==  cutmat) continue;
         //Percorrer os Neighbors de gel e encontar os volumetricos que tem subelementos
         TPZGeoElSide gelside(gel); 
         auto Neighbor = gelside.Neighbour();
