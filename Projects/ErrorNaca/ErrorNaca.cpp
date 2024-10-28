@@ -84,14 +84,20 @@ void AdjustHDivEquarterpointintrule(TPZGeoMesh *gmesh);
 /// @brief Create the computational "multiphysics" mesh with only HDiv elements
 TPZMultiphysicsCompMesh *CreateMultiphysicsMesh(TPZCompMesh *cmeshHDiv, TPZCompMesh *cmeshL2, TPZGeoMesh *gmesh);
 
-/// @brief Simulate the NACA profile using H1 approximation and Joukowski condition to find Beta
+/// @brief Simulate the NACA profile using H1 approximation for Beta = 0
 TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_H1);
+
+/// @brief Simulate the NACA profile using H1 approximation and Joukowski condition to find Beta
+TPZCompMesh *SimulateNacaProfileH1_Joukowski(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_H1);
 
 /// @brief Simulate the NACA profile using H1 approximation and minimization to find Beta
 TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_H1);
 
-/// @brief Simulate the NACA profile using H(div) approximation and Joukowski condition to find Beta
+/// @brief Simulate the NACA profile using H(div) approximation for Beta = 0
 TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_HDiv);
+
+/// @brief Simulate the NACA profile using H(div) approximation and Joukowski condition to find Beta
+TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv_Joukowski(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_HDiv);
 
 /// @brief Simulate the NACA profile using H(div) approximation and minimization to find Beta
 TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_HDiv);
@@ -242,7 +248,7 @@ enum BBetaDetermination {Joukowski, Minimization};
 BBetaDetermination betadetermination = Joukowski;
 
 enum RRefinementStyle {h, hp};
-RRefinementStyle refinementstyle = hp;
+RRefinementStyle refinementstyle = h;
 
 std::map<int,TPZAutoPointer<TPZRefPattern>> refpattern;
 int64_t trailingedge_element_index = -1;
@@ -310,7 +316,7 @@ int main() {
         refpattern[6] = manual;
     }
     TPZCheckGeom check(gmesh);
-    int uniform = 2;
+    int uniform = 3;
     if (uniform)
     {
         check.UniformRefine(uniform);
@@ -363,7 +369,7 @@ int main() {
             PrintTrailingEdgeElements(gmesh);
         }
     }
-    int nrefinements = 10;
+    int nrefinements = 13;
     int minh =  1;
     // indicating the flux order
     int64_t nel = gmesh->NElements();
@@ -397,24 +403,34 @@ int main() {
             porders.Resize(gmeshcopy->NElements(),defaultporder);
         }
 
-        if(betadetermination == Minimization) {
-            cmesh = SimulateNacaProfileH1_Minimization(gmeshcopy, porders,circulation_H1);
-        } else {
-            cmesh = SimulateNacaProfileH1(gmeshcopy, porders,circulation_H1);
-        }
-        if(0)
-        {
-            std::ofstream out("cmeshH1.txt");
-            cmesh->Print(out);
-        }
-        if(betadetermination == Minimization) {
-            cmesh_m = SimulateNacaProfileHDiv_Minimization(gmeshcopy, porders,circulation_HDiv);
-        } else {
+        if(i < nrefinements-1){
             cmesh_m = SimulateNacaProfileHDiv(gmeshcopy, porders,circulation_HDiv);
+        } else {
+            if(betadetermination == Minimization) {
+                cmesh_m = SimulateNacaProfileHDiv_Minimization(gmeshcopy, porders,circulation_HDiv);
+            } else {
+                cmesh_m = SimulateNacaProfileHDiv_Joukowski(gmeshcopy, porders,circulation_HDiv);
+            }
+            {
+                std::ofstream out("cmeshHdiv.txt");
+                cmesh_m->Print(out);
+            }
         }
-        {
-            std::ofstream out("cmeshHdiv.txt");
-            cmesh_m->Print(out);
+
+        if(i < nrefinements-1){
+            circulation_H1 = circulation_HDiv;
+            cmesh = SimulateNacaProfileH1(gmeshcopy, porders,circulation_H1);
+        } else {
+            if(betadetermination == Minimization) {
+                cmesh = SimulateNacaProfileH1_Minimization(gmeshcopy, porders,circulation_H1);
+            } else {
+                circulation_H1 = circulation_HDiv;
+                cmesh = SimulateNacaProfileH1_Joukowski(gmeshcopy, porders,circulation_H1);
+            }
+            {
+                std::ofstream out("cmeshH1.txt");
+                cmesh->Print(out);
+            }
         }
         {
             const std::string plotfile = "postprocess_H1";
@@ -1239,7 +1255,7 @@ void AdjustHDivEquarterpointintrule(TPZGeoMesh *gmesh)
      return cmesh_m;
  }
 
-/// @brief Simulate the NACA profile using H1 approximation and Joukowski condition to find Beta
+ /// @brief Simulate the NACA profile using H1 approximation for Beta = 0
 TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_H1)
 {
     int64_t newcon;
@@ -1286,9 +1302,82 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL
         std::ofstream out("gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
     }
-//  Compute the "Beta" constant
-    REAL Beta;
-    ComputeBetaH1(gmesh, cmeshH1, phi_0, phi_1, Beta);
+    //  Compute the "Beta" constant
+    REAL Beta_0 = 0.;
+
+    phi = phi_0+Beta_0*phi_1;
+    cmeshH1->LoadSolution(phi);
+
+    if(0)
+    {
+        int nc = sbfem_groupH1->NConnects();
+        for(int ic=0; ic<nc; ic++) {
+            TPZConnect &c = sbfem_groupH1->Connect(ic);
+            c.Print(*cmeshH1, std::cout);
+        }
+    }
+    an.LoadSolution(phi);
+
+    circulation_H1 = Beta_0;
+    // EvaluateCirculationH1(gmesh, cmeshH1, boundmat, circulation_H1);
+
+    std::cout << "--------- PostProcess H1 ---------" << std::endl;
+    std::cout << "Circulation = " << circulation_H1 << std::endl;
+    //printa na tela "--------- PostProcess ---------", indicando que a simulação está em processamento.
+    PrintResults(an,cmeshH1);
+    //chama a função PrintResults para realizar o pós-processamento dos resultados. Essa função provavelmente gera saídas com os resultados da simulação.
+    return cmeshH1;    
+}
+
+/// @brief Simulate the NACA profile using H1 approximation and Joukowski condition to find Beta
+TPZCompMesh *SimulateNacaProfileH1_Joukowski(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_H1)
+{
+    int64_t newcon;
+    auto cmeshH1 = CreateH1CompMesh(gmesh, porders, newcon);
+    if(meshstyle == EQuarterPoint) {
+        AdjustH1Equarterpointintrule(gmesh);
+    }
+
+    TPZLinearAnalysis an(cmeshH1,RenumType::EMetis);
+    if (1)
+    {
+        std::ofstream out("cmeshH1.txt");
+        cmeshH1->Print(out);
+    }
+#ifdef USING_MKL
+    TPZSSpStructMatrix<STATE> strmat(cmeshH1);
+#else
+    TPZSkylineStructMatrix<STATE> strmat(cmeshH1);
+#endif
+    an.SetStructuralMatrix(strmat);
+    TPZStepSolver<STATE> step;
+    step.SetDirect(ECholesky);
+    an.SetSolver(step);
+    an.Assemble();
+
+    int nvar = an.Solution().Rows();
+
+//  Adjust the System of Equation to compute phi_0 and phi_1 directly 
+    AdjustSystemofEquations(an,cmeshH1,newcon);
+
+//  Solve the system of equations and save the solutions: phi_0 e phi_1 
+    an.Solve();
+    int64_t numeq = cmeshH1->NEquations();
+    TPZFMatrix<STATE> fsol(numeq,2,0.),phi_0(numeq,1,0.),phi_1(numeq,1,0.),phi(numeq,1,0.);
+    fsol = an.Solution();
+    // fsol.Print("Solution",std::cout);
+    for (int64_t eq = 0; eq < numeq; eq++) 
+    {
+        phi_0(eq) =  -fsol(eq,0);
+        phi_1(eq) =  fsol(eq,1);
+    }
+
+    {
+        std::ofstream out("gmesh.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+    }
+    //  Compute the "Beta" constant
+    REAL Beta = circulation_H1;
 
     phi = phi_0+Beta*phi_1;
     cmeshH1->LoadSolution(phi);
@@ -1303,8 +1392,7 @@ TPZCompMesh *SimulateNacaProfileH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL
     }
     an.LoadSolution(phi);
 
-    circulation_H1 = -Beta;
-    // EvaluateCirculationH1(gmesh, cmeshH1, profilemat, circulation_H1);
+    // EvaluateCirculationH1(gmesh, cmeshH1, boundmat, circulation_H1);
 
     std::cout << "--------- PostProcess H1 ---------" << std::endl;
     std::cout << "Circulation = " << circulation_H1 << std::endl;
@@ -1348,7 +1436,7 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
     cmeshH1->LoadSolution(phi);
     an.LoadSolution(phi);
 
-    EvaluateCirculationH1(gmesh, cmeshH1, profilemat, circulation_H1);
+    EvaluateCirculationH1(gmesh, cmeshH1, boundmat, circulation_H1);
 
     std::cout << "--------- PostProcess H1 ---------" << std::endl;
     std::cout << "Circulation = " << circulation_H1 << std::endl;
@@ -1358,8 +1446,104 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
     return cmeshH1;
 }
 
-/// @brief Simulate the NACA profile using H(div) approximation and Joukowski condition to find Beta
+ /// @brief Simulate the NACA profile using H(div) approximation for Beta = 0
  TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_HDiv)
+ {
+    int64_t newcon;
+    gmesh->ResetReference();
+     auto cmeshHDiv = CreateHDivCompMesh(gmesh, porders, newcon);
+     auto cmeshL2 = CreateL2CompMesh(gmesh);
+
+     TPZMultiphysicsCompMesh* cmesh_m = CreateMultiphysicsMesh(cmeshHDiv,cmeshL2, gmesh);
+    if(meshstyle == EQuarterPoint) {
+        AdjustHDivEquarterpointintrule(gmesh);
+    }
+    if(meshstyle == ESBFem) {
+        CreateHdivSBFEMelements(cmesh_m,newcon);
+    }
+     cmesh_m->CleanUpUnconnectedNodes();
+     // Define o pointer chamado cmesh_m relacionado à classe TPZMultiphysicsCompMesh, associando-o a função CreateMultiphysicsMesh, cujos parâmetros (já antes declarados) são: cmeshHdiv, gmesh.
+    
+    TPZLinearAnalysis an(cmesh_m,RenumType::EMetis);
+    {
+        std::ofstream out("cmesh_m.txt");
+        cmesh_m->Print(out);
+    }
+
+#ifdef USING_MKL
+    TPZSSpStructMatrix<STATE> strmat(cmesh_m);
+    strmat.SetNumThreads(0);
+#else
+    TPZSkylineStructMatrix<STATE> strmat(cmesh_m);
+#endif
+    an.SetStructuralMatrix(strmat);
+    TPZStepSolver<STATE> step;
+    step.SetDirect(ECholesky);
+    an.SetSolver(step);
+    an.Assemble();
+
+    int nvar = an.Solution().Rows();
+
+    //  Adjust the System of Equation to compute phi_0 and phi_1 directly 
+    AdjustSystemofEquations(an,cmesh_m,newcon);
+
+    //  Solve the system of equations and save the solutions: phi_0 e phi_1 
+    an.Solve();
+    int64_t numeq = cmesh_m->NEquations();
+    TPZFMatrix<STATE> fsol(numeq,2,0.),u_0(numeq,1,0.),u_1(numeq,1,0.),u(numeq,1,0.);
+    fsol = an.Solution();
+
+    // fsol.Print("HDiv solution",std::cout);
+
+    for (int64_t eq = 0; eq < numeq; eq++) 
+    {
+        u_0(eq) =  fsol(eq,0);
+        u_1(eq) =  fsol(eq,1);
+    }
+
+    //  Compute "Beta(Circulation) = A + B*Circulation" function
+    REAL Beta_0;
+    cmesh_m->LoadSolution(u_0);
+    cmesh_m->TransferMultiphysicsSolution();
+    an.LoadSolution(u_0);
+    EvaluateCirculationHDiv(gmesh, cmesh_m, boundmat, Beta_0);
+    REAL Beta_1;
+    cmesh_m->LoadSolution(u_1);
+    cmesh_m->TransferMultiphysicsSolution();
+    an.LoadSolution(u_1);
+    EvaluateCirculationHDiv(gmesh, cmesh_m, boundmat, Beta_1);
+    REAL circulation_0;
+    u = u_0 +Beta_0*u_1;
+    cmesh_m->LoadSolution(u);
+    cmesh_m->TransferMultiphysicsSolution();
+    an.LoadSolution(u);
+    EvaluateCirculationHDiv(gmesh, cmesh_m, boundmat, circulation_0);
+    REAL circulation_1;
+    u = u_0 +Beta_1*u_1;
+    cmesh_m->LoadSolution(u);
+    cmesh_m->TransferMultiphysicsSolution();
+    an.LoadSolution(u);
+    EvaluateCirculationHDiv(gmesh, cmesh_m, boundmat, circulation_1);
+    REAL B = (Beta_1-Beta_0)/(circulation_1-circulation_0);
+    REAL A = Beta_0 - B*circulation_0;
+    REAL Beta_C0 = A;
+
+    u = u_0+Beta_C0*u_1;
+    cmesh_m->LoadSolution(u);
+    cmesh_m->TransferMultiphysicsSolution();
+    an.LoadSolution(u);
+
+    EvaluateCirculationHDiv(gmesh, cmesh_m, boundmat, circulation_HDiv);
+
+    std::cout << "--------- PostProcess HDiv---------" << std::endl;
+    std::cout << "Circulation = " << circulation_HDiv << std::endl;
+     PrintResults(an,cmesh_m);
+
+     return cmesh_m;
+ }
+
+/// @brief Simulate the NACA profile using H(div) approximation and Joukowski condition to find Beta
+ TPZMultiphysicsCompMesh *SimulateNacaProfileHDiv_Joukowski(TPZGeoMesh *gmesh, TPZVec<int> &porders, REAL &circulation_HDiv)
  {
     int64_t newcon;
     gmesh->ResetReference();
@@ -1423,7 +1607,7 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
     cmesh_m->TransferMultiphysicsSolution();
     an.LoadSolution(u);
 
-    EvaluateCirculationHDiv(gmesh, cmesh_m, profilemat, circulation_HDiv);
+    EvaluateCirculationHDiv(gmesh, cmesh_m, boundmat, circulation_HDiv);
 
     std::cout << "--------- PostProcess HDiv---------" << std::endl;
     std::cout << "Circulation = " << circulation_HDiv << std::endl;
@@ -1479,7 +1663,7 @@ TPZCompMesh *SimulateNacaProfileH1_Minimization(TPZGeoMesh *gmesh, TPZVec<int> &
     cmesh_m->TransferMultiphysicsSolution();
     an.LoadSolution(u);
 
-    EvaluateCirculationHDiv(gmesh, cmesh_m, profilemat, circulation_HDiv);
+    EvaluateCirculationHDiv(gmesh, cmesh_m, boundmat, circulation_HDiv);
 
     std::cout << "--------- PostProcess HDiv---------" << std::endl;
     std::cout << "Circulation = " << circulation_HDiv << std::endl;
@@ -1592,6 +1776,7 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
     for (int64_t iel = 0; iel < nel_m; iel++) 
     {
         TPZCompEl *cel = cmesh_m->Element(iel);
+        if(!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         // grouped elements have no reference (SBFem simulation)
         if(!gel) continue;
@@ -3368,7 +3553,7 @@ void AdjustToSBFemGeometry(TPZGeoMesh *gmesh) {
             if(gbcgel->IsLinearMapping() == false) {
                 gel->Print(std::cout);
                 gbcgel->Print(std::cout);
-                DebugStop();
+                // DebugStop();
             }
         }
     }
