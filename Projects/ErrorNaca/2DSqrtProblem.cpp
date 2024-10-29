@@ -204,7 +204,7 @@ int main() {
         gRefDBase.InitializeRefPatterns(2);
     }
 
-    TPZGeoMesh *gmesh = ReadGmsh("2DCrack.msh");
+    TPZGeoMesh *gmesh = ReadGmsh("2DSqrtProblem.msh");
     {
         std::ofstream out("gmesh.txt");
         gmesh->Print(out);
