@@ -84,6 +84,8 @@ private:
     // a method for computing the pressures between subdomains as average pressures
     /// compute the average pressures of across edges of the H(div) mesh
     void ComputeAveragePrimal(int target_dim) override;
+    
+    void  ComputeAverage(TPZCompMesh *pressuremesh, int64_t iel) override;
 
     /// compute the average pressure over corners
     /// set the cornernode values equal to the averages
@@ -103,6 +105,8 @@ private:
     //------- New methods for elasticity ----
     TPZCompMesh *CreateDisplacementMesh();
     TPZCompMesh *CreateStressMesh();
+   void  NewVerifyConnectConsistency(TPZCompMesh *cmesh);
+    void DeleteSmallFacetEl(TPZCompMesh *dispmesh);
    
 };
 

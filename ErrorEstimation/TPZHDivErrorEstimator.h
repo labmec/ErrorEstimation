@@ -185,7 +185,7 @@ protected:
     virtual void VerifySolutionConsistency(TPZCompMesh* cmesh);
 
     // computes the average of the element iel in the pressure/displacement mesh looking at its neighbours
-    void ComputeAverage(TPZCompMesh *primalmesh, int64_t iel);
+  virtual  void ComputeAverage(TPZCompMesh *primalmesh, int64_t iel);
 
     void PrepareElementsForH1Reconstruction(); 
 

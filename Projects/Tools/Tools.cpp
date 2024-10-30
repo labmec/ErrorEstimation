@@ -617,6 +617,10 @@ void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& conf
 /// Divide lower dimensional elements
 
 void Tools::DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
+    
+    std::ofstream out("GmeshBeforeDivideLower.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+    
     bool haschanged = true;
     int dim = gmesh->Dimension();
     while (haschanged) {
@@ -658,6 +662,8 @@ void Tools::DivideLowerDimensionalElements(TPZGeoMesh* gmesh) {
             }
         }
     }
+    
+ 
 }
 
 TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
@@ -724,6 +730,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
     // Refines elements which error are bigger than 20% of the maximum error
     REAL threshold = 0.8 * maxError;
+    
 
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
@@ -737,7 +744,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
             std::cout << "element error " << elementError << "el " << iel << "\n";
             TPZGeoEl* gel = cel->Reference();
             int iel = gel->Id();
-
+            
             TPZVec<TPZGeoEl*> sons;
             TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
@@ -770,8 +777,12 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
         }
     }
+    
     DivideLowerDimensionalElements(gmeshToRefine);
     gmeshToRefine->BuildConnectivity();
+ 
+    std::ofstream out2("GmeshAfterAdaptivity.vtk");
+    TPZVTKGeoMesh::PrintGMeshVTK(gmeshToRefine, out2);
 }
 
 TPZGeoMesh* Tools::CreateLCircleGeoMesh() {

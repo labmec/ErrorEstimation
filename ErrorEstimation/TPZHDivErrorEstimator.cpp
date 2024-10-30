@@ -2502,13 +2502,17 @@ void TPZHDivErrorEstimator<MixedMaterial>::RestrainSkeletonSides(TPZCompMesh *pr
         TPZGeoEl *gel = gmesh->Element(iel);
         TPZCompEl *cel = gel->Reference();
         if (!cel) continue;
+
         if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
+     
+        
 
         // If the element is a small skeleton, restrain its highest dimension side and then its subsides
         int nsides = gel->NSides();
         TPZGeoElSide small(gel, nsides - 1);
         TPZGeoElSideAncestors ancestors(small);
         TPZGeoElSide largerNeigh = ancestors.HasLarger(fPrimalSkeletonMatId);
+        
         if (!largerNeigh) continue;
 
         TPZCompEl *smallCel = small.Element()->Reference();

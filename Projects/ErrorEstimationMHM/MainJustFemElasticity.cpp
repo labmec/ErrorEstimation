@@ -86,7 +86,7 @@ int main() {
     
 
     ProblemConfig pConfig;
-    pConfig.geometry = ProblemConfig::EGeometry::ELShape;
+    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
     pConfig.exactElast = new TElasticity2DAnalytic;
 
     switch (pConfig.geometry){
@@ -109,9 +109,9 @@ int main() {
         default:
             // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
             // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::Etest1;
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EPoly;
+           // pConfig.problemname = "ETrap-EHarmonic";
             pConfig.problemname = "EHarmonic";
-            //pConfig.problemname = "EPoly";
             pConfig.lambda = 123.;
             pConfig.mu = 79.3;
            // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
@@ -149,7 +149,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs = {xdiv,xdiv};
-    TPZVec<int> divs = {8};
+    TPZVec<int> divs = {8};//{2,4,8,16,32,64};
     
     int pend = 2;
 
@@ -184,7 +184,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                         TPZVec<int> bcids(8, EBoundary);
                         gmesh = Tools::CreateQuadLShapeMesh(bcids);
 
-                        int uniref = 2;
+                        int uniref = divx;//2;
                         Tools::UniformRefinement(uniref, gmesh);
                         break;
                     }
@@ -332,6 +332,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 
                 EstimateErrorElasticity(config, cmesh);
                 
+                
                 // Prints gmesh mesh properties
                 std::string vtk_name = "geoMeshAfterAdapt.vtk";
                 std::ofstream vtkfile(vtk_name.c_str());
@@ -465,7 +466,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
 
 void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
 
-    std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
+    std::cout << "\nError Estimation processing for Elasticity problem " << std::endl;
 
     // Error estimation
     if (!originalMesh) DebugStop();
@@ -490,20 +491,23 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     
     if (config.isAdaptivity) {
         Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
+        
     }
     
-    
-    int nel=config.gmesh->NElements();
-    for (int iel=0; iel<nel; iel++) {
-        TPZGeoEl * geo =config.gmesh->ElementVec()[iel];
-        if (!geo) {
-            continue;
-        }
-        int matId = geo->MaterialId();
-        if (matId==3) {
-            config.gmesh-> DeleteElement(geo);
-        }
-    }
+    //TODO: ja nao esta sendo feito depois de sair daqui?
+//    int nel=config.gmesh->NElements();
+//    for (int iel=0; iel<nel; iel++) {
+//        TPZGeoEl * geo =config.gmesh->ElementVec()[iel];
+//        if (!geo) {
+//            continue;
+//        }
+//        int matId = geo->MaterialId();
+//        //pq 3? Qual este material esta associado?nao esta entrando aqui
+//        if (matId==3)
+//        {
+//            config.gmesh-> DeleteElement(geo);
+//        }
+//    }
 
     {
         std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
