@@ -183,14 +183,14 @@ TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle { ETraditional, ECollapsed, EQuarterPoint, ESBFem };
 MMeshStyle meshstyle = ESBFem;
 int defaultporder = 1;
-int SBFemOrder = 3;
-int nuniform = 0;
+int SBFemOrder = 2;
+int nuniform = 1;
 int nrefinements = 3;
 // set of geometric element indices that are SBFem elements
 std::set<int64_t> sbfem_elements;
 
 enum RRefinementStyle { h, hp , huniform, puniform};
-RRefinementStyle refinementstyle = hp;
+RRefinementStyle refinementstyle = huniform;
 
 TPZAutoPointer<TPZRefPattern> refpattern_collapsed;
 TPZAutoPointer<TPZRefPattern> refpattern_sbfem;
@@ -375,6 +375,7 @@ int main() {
         } else if (refinementstyle == puniform) {
             porders.Fill(++defaultporder);
         }
+        if(meshstyle == ESBFem)
         {
             sbfem_elements.clear();
             TPZGeoEl *gel = gmesh->Element(trailingedge_element_index);
@@ -410,6 +411,7 @@ int main() {
             }
         }
         delete cmesh;
+        sbfem_groupH1 = 0;
         TPZVec<TPZCompMesh *> meshvec = cmesh_m->MeshVector();
         {
             int64_t nnod = meshvec[0]->NConnects();
@@ -423,6 +425,7 @@ int main() {
         delete cmesh_m;
         delete meshvec[0];
         delete meshvec[1];
+        sbfem_groupHdiv = 0;
     }
     delete gmesh;
     return 0;
@@ -622,6 +625,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnal
         TPZStack<int> elp, elp_skel;
         for (int64_t el = 0; el < nel; el++) {
             TPZGeoEl *gel = gmesh->Element(el);
+            if(!gel) continue;
             if (gel->HasSubElement()) continue;
             int matid = gel->MaterialId();
             if (matidshdiv.find(matid) != matidshdiv.end()) {
@@ -638,6 +642,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnal
         if (meshstyle == ESBFem) {
             // insert the skeleton elements as H1 elements
             cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+            cmesh->SetDefaultOrder(SBFemOrder);
             cmesh->ApproxSpace().BuildMesh(*cmesh, gelstack_skel, elp_skel);
         }
         // adjust the connect order of the skeleton elements
@@ -791,9 +796,40 @@ TPZCompMesh *SimulateH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnalyticSolu
     TPZFMatrix<STATE> &fsol = an.Solution();
     cmeshH1->LoadSolution(fsol);
 
+    {
+        int64_t nel = cmeshH1->NElements();
+        TPZFMatrix<STATE> &elsol = cmeshH1->ElementSolution();
+        elsol.Redim(nel, 6);
+    }
     TPZVec<REAL> Errors;
+    an.PostProcessError(Errors, true);
 
-    an.PostProcessError(Errors, false);
+    std::cout << "The H1 error is " << Errors[2] << std::endl;
+
+    AddSBFemVolumeElements();
+    {
+        REAL trad_error = 0.;
+        REAL sbfem_error = 0.;
+        int64_t nel = cmeshH1->NElements();
+        TPZFMatrix<STATE> &elsol = cmeshH1->ElementSolution();
+       for(int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmeshH1->Element(el);
+            if(!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            if(!gel) continue;
+            if(gel->Dimension() != 2) continue;
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+            if(intel) {
+                trad_error += elsol(el,2)*elsol(el,2);
+            } else if(sbfem) {
+                sbfem_error += elsol(el,2)*elsol(el,2);
+            }
+        }
+        std::cout << "The interior H1 error is " << sqrt(trad_error) << std::endl;
+        std::cout << "The SBFem H1 error is " << sqrt(sbfem_error) << std::endl;
+    }
+    HideSBFemVolumeElements();
 
     return cmeshH1;
 }
@@ -842,9 +878,40 @@ TPZMultiphysicsCompMesh *SimulateHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders, T
     cmesh_m->LoadSolution(fsol);
     cmesh_m->TransferMultiphysicsSolution();
 
+    {
+        int64_t nel = cmesh_m->NElements();
+        TPZFMatrix<STATE> &elsol = cmesh_m->ElementSolution();
+        elsol.Redim(nel, 5);
+    }
     TPZVec<REAL> Errors;
-    an.PostProcessError(Errors, false);
+    an.PostProcessError(Errors, true);
+    std::cout << "The HDiv error is " << Errors[1] << std::endl;
 
+
+    AddSBFemVolumeElements();
+    {
+        REAL trad_error = 0.;
+        REAL sbfem_error = 0.;
+        int64_t nel = cmesh_m->NElements();
+        TPZFMatrix<STATE> &elsol = cmesh_m->ElementSolution();
+       for(int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmesh_m->Element(el);
+            if(!cel) continue;
+            TPZGeoEl *gel = cel->Reference();
+            if(!gel) continue;
+            if(gel->Dimension() != 2) continue;
+            TPZMultiphysicsElement *intel = dynamic_cast<TPZMultiphysicsElement *>(cel);
+            TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+            if(intel) {
+                trad_error += elsol(el,1)*elsol(el,1);
+            } else if(sbfem) {
+                sbfem_error += elsol(el,1)*elsol(el,1);
+            }
+        }
+        std::cout << "The interior Hdiv error is " << sqrt(trad_error) << std::endl;
+        std::cout << "The SBFem Hdiv error is " << sqrt(sbfem_error) << std::endl;
+    }
+    HideSBFemVolumeElements();
     return cmesh_m;
 }
 
@@ -859,6 +926,15 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
     ErrorEstimator = 0.;
     // TPZAdmChunkVector<TPZCompEl *> &elementvec = cmesh->ElementVec();
     TPZAdmChunkVector<TPZCompEl *> &elementvec_m = cmesh_m->ElementVec();
+    TLaplaceExample1 *analytic = new TLaplaceExample1();
+    analytic->fExact = TLaplaceExample1::ESquareRoot;
+    REAL total_trad = 0.;
+    REAL total_sbfem = 0.;
+
+    REAL H1_trad = 0.;
+    REAL H1_sbfem = 0.;
+    REAL HDiv_trad = 0.;
+    REAL HDiv_sbfem = 0.;
 
     for (int64_t iel = 0; iel < nel_m; iel++) {
         TPZCompEl *cell_m = elementvec_m[iel];
@@ -875,7 +951,8 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         if (intel) {
             porder = intel->PreferredSideOrder(gel_m->NSides() - 1);
         } else if (sbfem) {
-            porder = SBFemOrder + 5;
+            porder = 8+porder;//18;
+            //std::cout << "sbfem iel = " << iel << std::endl;
         }
         int matid = gel_m->MaterialId();
 
@@ -887,10 +964,14 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         TPZFMatrix<REAL> jac, axe, jacInv;
         TPZManVector<REAL, 3> x(3, 0.);
         REAL detJac;
+        TPZManVector<STATE, 3> solEx(1, 0.);
+        TPZFNMatrix<9, STATE> dsolEx(2, 1, 0.);
 
         for (int int_ind = 0; int_ind < intrulepoints; ++int_ind) {
             intrule->Point(int_ind, intpoint, weight);
-            gelside.Jacobian(intpoint, jac, axe, detJac, jacInv);
+            gel_m->Jacobian(intpoint, jac, axe, detJac, jacInv);
+            gel_m->X(intpoint, x);
+            analytic->Solution(x, solEx, dsolEx);
             weight *= fabs(detJac);
             TPZInterpolationSpace *msp = dynamic_cast<TPZInterpolationSpace *>(cell);
             TPZManVector<STATE, 3> flux(3, 0.);
@@ -909,15 +990,39 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
                 // std::cout << "sol " << sol << std::endl;
             }
 
-            ErrorEstimator[iel] +=
+            REAL contr =
                 ((flux[0] - sol[0]) * (flux[0] - sol[0]) + (flux[1] - sol[1]) * (flux[1] - sol[1])) * weight;
+            ErrorEstimator[iel] += contr;
+            if(sbfem) {
+                H1_sbfem += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])*weight;
+                HDiv_sbfem += (dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])*weight;
+            } else {
+                H1_trad += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])*weight;
+                HDiv_trad += (dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])*weight;
+            }
         } // loop over integratin points
+        if(sbfem) {
+            total_sbfem += ErrorEstimator[iel];
+        } else {
+            total_trad += ErrorEstimator[iel];
+        }
         ErrorEstimator[iel] = sqrt(ErrorEstimator[iel]);
     } // loop over cemsh_m elements
 
     {
         std::ofstream out("ErrorEstimator.vtk");
         TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m, out, ErrorEstimator, "ErrorEstimator");
+        std::cout << "Total estimated traditional error " << sqrt(total_trad) << std::endl;
+        std::cout << "Total real traditional H1 error " << sqrt(H1_trad) << std::endl;
+        std::cout << "Total real traditional HDiv error " << sqrt(HDiv_trad) << std::endl;
+        std::cout << "***\n";
+        std::cout << "Total estimated sbfem error " << sqrt(total_sbfem) << std::endl;
+        std::cout << "Total real sbfem H1 error " << sqrt(H1_sbfem) << std::endl;
+        std::cout << "Total real sbfem HDiv error " << sqrt(HDiv_sbfem) << std::endl;
+        std::cout << "***\n";
+        std::cout << "Total estimated error " << sqrt(total_trad+total_sbfem) << std::endl;
+        std::cout << "Total real H1 error " << sqrt(H1_trad+H1_sbfem) << std::endl;
+        std::cout << "Total real HDiv error " << sqrt(HDiv_trad+HDiv_sbfem) << std::endl;
     }
     HideSBFemVolumeElements();
 }
@@ -1783,8 +1888,8 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
     darcysbfem->SetId(sbfem_domain);
     cmesh->InsertMaterialObject(darcysbfem);
     TPZDarcyFlow *mat1d = new TPZDarcyFlow(sbfem_highperm_h1, 1);
+    mat1d->SetConstantPermeability(1.e9);
     cmesh->InsertMaterialObject(mat1d);
-    mat1d->SetConstantPermeability(1.e6);
     TPZGeoMesh *gmesh = cmesh->Reference();
     TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
     TPZGeoElSide trailingedge(trailingedge_element);
@@ -1902,7 +2007,7 @@ void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh, TPZAnalyticSoluti
     }
     TPZMixedDarcyFlow *mat1d = new TPZMixedDarcyFlow(sbfem_highperm_hdiv, 1);
     cmesh->InsertMaterialObject(mat1d);
-    mat1d->SetConstantPermeability(1.e-6);
+    mat1d->SetConstantPermeability(1.e-9);
     TPZMaterialT<STATE> *mat2d = dynamic_cast<TPZMaterialT<STATE> *>(cmesh->FindMaterial(volmat));
     if (!mat2d) DebugStop();
     TPZMixedDarcyFlow *darcy = dynamic_cast<TPZMixedDarcyFlow *>(mat2d);
@@ -2014,9 +2119,9 @@ void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh, TPZAnalyticSoluti
 void AddSBFemVolumeElements() {
     if (meshstyle == ESBFem) {
 
-        TPZCompMesh *cmesh;
+        TPZCompMesh *cmesh = 0;
         if (sbfem_groupH1) cmesh = sbfem_groupH1->Mesh();
-        TPZMultiphysicsCompMesh *cmesh_m;
+        TPZMultiphysicsCompMesh *cmesh_m = 0;
         if (sbfem_groupHdiv) cmesh_m = dynamic_cast<TPZMultiphysicsCompMesh *>(sbfem_groupHdiv->Mesh());
         if (sbfem_groupH1 && !cmesh) DebugStop();
         if (sbfem_groupHdiv && !cmesh_m) DebugStop();
@@ -2070,6 +2175,7 @@ void HideSBFemVolumeElements() {
 
 /// @brief adjust the elements neighbouring the trailing edge to accomodate SBFem simulation
 void AdjustToSBFemGeometry(TPZGeoMesh *gmesh) {
+    if(meshstyle != ESBFem) DebugStop();
     TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
     int64_t singular = trailingedge_element->NodeIndex(0);
     TPZGeoElSide trailingedge(trailingedge_element);
@@ -2119,11 +2225,13 @@ void AdjustToSBFemGeometry(TPZGeoMesh *gmesh) {
         if(matid == dirichletmat) {
             // creating a linear element will lead to an inconsistent geometry
             int64_t index;
+            gel->SetMaterialId(-1);
             gmesh->CreateGeoElement(EOned, nodeindices, sbfem_highperm_h1, index);
             // create the skeleton element
             gmesh->CreateGeoElement(EPoint, nodeindices, sbfem_skeleton, index);
         } else if(matid == neumannmat) {
             int64_t index;
+            gel->SetMaterialId(-1);
             gmesh->CreateGeoElement(EOned, nodeindices, sbfem_highperm_hdiv, index);
             // create the skeleton element
             gmesh->CreateGeoElement(EPoint, nodeindices, sbfem_skeleton, index);
