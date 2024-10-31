@@ -115,13 +115,6 @@ void Smoothentrailingedgeelements(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL>
 /// quarterpoint elements
 void Changetrailingedgeelements(TPZGeoMesh *gmesh);
 
-/// @brief If the element is not linear mapping, change it to linear mapping
-/// @param gel element that will be substituted
-void ChangeToLinearQuad(TPZGeoEl *gel);
-void ChangeToLinearOned(TPZGeoEl *gel);
-
-/// @brief change the element to a blend element
-void ChangeToBlend(TPZGeoEl *gel);
 
 /// @brief adjust the elements neighbouring the trailing edge to accomodate SBFem simulation
 void AdjustToSBFemGeometry(TPZGeoMesh *gmesh);
@@ -139,11 +132,15 @@ void CreateQuarterPointElements(TPZGeoMesh *gmesh);
 void CreateH1SBFEMelements(TPZCompMesh *cmesh);
 
 /// @brief Change the elements the touch the trailing edge to Hdiv SBFEM elements
-void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *cmesh);
+void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *cmesh, TPZAnalyticSolution *analyticSol);
 
-/// @brief create a refinement patter that cuts the element in longitudinal direction
+/// @brief create a refinement patter that cuts the element in horizontal direction
 /// @return refinement pattern created
-TPZAutoPointer<TPZRefPattern> CreateRefPattern();
+TPZAutoPointer<TPZRefPattern> CreateRefPattern_collapsed();
+
+/// @brief create a refinement patter that cuts the element in vertical direction
+/// @return refinement pattern created
+TPZAutoPointer<TPZRefPattern> CreateRefPattern_sbfem();
 
 /// @brief divide a geometric element. If it is a trailing edge element, set the refinement pattern first
 void DivideGeoEl(TPZGeoEl *gel, TPZVec<TPZGeoEl *> &subels);
@@ -178,21 +175,25 @@ int trailingedgemat = 4;
 int sbfem_skeleton = 8;
 int sbfem_domain = 9;
 
-int sbfem_highperm = 10;
+int sbfem_highperm_hdiv = 10;
+int sbfem_highperm_h1 = 11;
 REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle { ETraditional, ECollapsed, EQuarterPoint, ESBFem };
-MMeshStyle meshstyle = ETraditional;
-int defaultporder = 2;
+MMeshStyle meshstyle = ESBFem;
+int defaultporder = 1;
 int SBFemOrder = 3;
 int nuniform = 0;
+int nrefinements = 3;
+// set of geometric element indices that are SBFem elements
 std::set<int64_t> sbfem_elements;
 
 enum RRefinementStyle { h, hp , huniform, puniform};
-RRefinementStyle refinementstyle = huniform;
+RRefinementStyle refinementstyle = hp;
 
-std::map<int, TPZAutoPointer<TPZRefPattern>> refpattern;
+TPZAutoPointer<TPZRefPattern> refpattern_collapsed;
+TPZAutoPointer<TPZRefPattern> refpattern_sbfem;
 int64_t trailingedge_element_index = -1;
 
 int main() {
@@ -204,7 +205,7 @@ int main() {
         gRefDBase.InitializeRefPatterns(2);
     }
 
-    TPZGeoMesh *gmesh = ReadGmsh("2DCrack.msh");
+    TPZGeoMesh *gmesh = ReadGmsh("2DSqrtProblem.msh");
     {
         std::ofstream out("gmesh.txt");
         gmesh->Print(out);
@@ -224,11 +225,8 @@ int main() {
         if (trailingedge_element_index == -1) DebugStop();
     }
     // look for a quadrilateral element and keep the result in a global variable
-    if (meshstyle != ETraditional) {
-        auto manual = CreateRefPattern();
-        refpattern[4] = manual;
-        refpattern[6] = manual;
-    }
+    refpattern_collapsed = CreateRefPattern_collapsed();
+    refpattern_sbfem = CreateRefPattern_sbfem();
     {
         TPZCheckGeom check(gmesh);
         if (nuniform) {
@@ -257,12 +255,31 @@ int main() {
             PrintTrailingEdgeElements(gmesh);
         }
     }
+    // this is where the SBFem elements are created
+    // this is where skeleton and high permeability elements are created
+    // this is applied to the temporary copy of the mesh
+    // these elements will be deleted in the method RemoveSBFemElements
+    if (meshstyle == ESBFem) {
+        // Adjust the geometry to accomodate the SBFem simulation
+        AdjustToSBFemGeometry(gmesh);
+        if (0) {
+            std::ofstream out("gmeshsbfem.txt");
+            gmesh->Print(out);
+
+            std::ofstream out2("gmeshsbfem.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
+        }
+    } else if (meshstyle == EQuarterPoint) {
+        // change the elements of gmeshcopy to quadratic elements
+        // observe that is applied to the copy. It does not affect the original mesh
+        CreateQuarterPointElements(gmesh);
+        PrintTrailingEdgeElements(gmesh);
+    }
 
     // Creating the analytical solution
     TLaplaceExample1 *analytic = new TLaplaceExample1();
     analytic->fExact = TLaplaceExample1::ESquareRoot;
 
-    int nrefinements = 13;
     int minh = 1;
     // indicating the flux order
     int64_t nel = gmesh->NElements();
@@ -274,34 +291,20 @@ int main() {
     for (int64_t i = 0; i < nrefinements; i++) {
         TPZCompMesh *cmesh = 0;
         TPZMultiphysicsCompMesh *cmesh_m = 0;
-        TPZGeoMesh *gmeshcopy = new TPZGeoMesh(*gmesh);
         if (1) {
-            std::ofstream out("gmeshcopy.txt");
-            gmeshcopy->Print(out);
-            std::ofstream out2("gmeshcopy.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(gmeshcopy, out2);
-        }
-        // change the elements of gmeshcopy to quadratic elements
-        // observe that is applied to the copy. It does not affect the original mesh
-        if (meshstyle == EQuarterPoint) {
-            CreateQuarterPointElements(gmeshcopy);
-            PrintTrailingEdgeElements(gmeshcopy);
-        }
-        // this is where skeleton and high permeability elements are created
-        // this is applied to the temporary copy of the mesh
-        // these elements will be deleted in the method RemoveSBFemElements
-        if (meshstyle == ESBFem) {
-            AdjustToSBFemGeometry(gmeshcopy);
-            porders.Resize(gmeshcopy->NElements(), defaultporder);
+            std::ofstream out("gmesh.txt");
+            gmesh->Print(out);
+            std::ofstream out2("gmesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
         }
 
-        cmesh_m = SimulateHDiv(gmeshcopy, porders, analytic);
+        cmesh_m = SimulateHDiv(gmesh, porders, analytic);
         {
             std::ofstream out("cmeshHdiv.txt");
             cmesh_m->Print(out);
         }
 
-        cmesh = SimulateH1(gmeshcopy, porders, analytic);
+        cmesh = SimulateH1(gmesh, porders, analytic);
         {
             std::ofstream out("cmeshH1.txt");
             cmesh->Print(out);
@@ -327,17 +330,6 @@ int main() {
         ComputeErrorEstimator(cmesh, cmesh_m, Error);
         ComputeGlobalError(Error, GlobalError);
         std::cout << "GlobalError: " << GlobalError << std::endl;
-        // this step is essential to regain compatibility with the original mesh
-        // otherwise, computational elements would not have corresponding geometric elements
-        RemoveSBFemElements(cmesh, cmesh_m, gmesh);
-        /// reset the reference to the original geometric mesh
-        cmesh->SetReference(gmesh);
-        cmesh_m->SetReference(gmesh);
-        for (int i = 0; i < 2; i++) {
-            cmesh_m->MeshVector()[i]->SetReference(gmesh);
-        }
-        delete gmeshcopy;
-        gmeshcopy = 0;
 
 #ifdef PZDEBUG
         {
@@ -363,11 +355,41 @@ int main() {
         } else if (refinementstyle == h) {
             Hrefinement(cmesh_m, Error, RefinementIndicator, porders);
         } else if (refinementstyle == huniform) {
-            TPZCheckGeom check(gmesh);
-            check.UniformRefine(1);
+            int64_t nel = gmesh->NElements();
+            for (int64_t i = 0; i < nel; i++) {
+                TPZGeoEl *gel = gmesh->Element(i);
+                if(!gel) continue;
+                int matid = gel->MaterialId();
+                if(gel->Dimension() == 0) continue;
+                if(gel->HasSubElement()) continue;
+                if(matid < 0) continue;
+                if(matid == sbfem_highperm_h1) continue;
+                if(matid == sbfem_highperm_hdiv) continue;
+                TPZGeoElSide gelside(gel);
+                if(gelside.HasNeighbour(sbfem_highperm_h1)) continue;
+                if(gelside.HasNeighbour(sbfem_highperm_hdiv)) continue;
+                TPZManVector<TPZGeoEl *, 4> subels;
+                DivideGeoEl(gel, subels);
+            }
             porders.Resize(gmesh->NElements(), defaultporder);
         } else if (refinementstyle == puniform) {
             porders.Fill(++defaultporder);
+        }
+        {
+            sbfem_elements.clear();
+            TPZGeoEl *gel = gmesh->Element(trailingedge_element_index);
+            TPZGeoElSide gelside(gel);
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            while (neighbour != gelside) {
+                TPZGeoEl *neighgel = neighbour.Element();
+                int dim = neighgel->Dimension();
+                int matid = neighgel->MaterialId();
+
+                if(dim == 2 && !neighgel->HasSubElement() && matid >= 0) {
+                    sbfem_elements.insert(neighgel->Index());
+                }
+                neighbour = neighbour.Neighbour();
+            }
         }
         {
             std::ofstream out2("gmeshrefined.txt");
@@ -458,7 +480,7 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnalyt
     material->SetExactSol(analyticSol->ExactSolution(), 4);
     cmesh->InsertMaterialObject(material);
     cmesh->SetDimModel(dim);
-    cmesh->SetDefaultOrder(2);
+    cmesh->SetDefaultOrder(defaultporder);
 
     TPZFMatrix<STATE> val1(1, 1, 0.);
     TPZManVector<STATE> val2(1, 0.);
@@ -567,7 +589,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnal
     material->SetExactSol(analyticSol->ExactSolution(), 4);
     cmesh->InsertMaterialObject(material);
     cmesh->SetDimModel(dim);
-    cmesh->SetDefaultOrder(1);
+    cmesh->SetDefaultOrder(defaultporder);
 
     HDivFamily hdiv = HDivFamily::EHDivKernel;
     cmesh->ApproxSpace().SetHDivFamily(hdiv);
@@ -787,7 +809,7 @@ TPZMultiphysicsCompMesh *SimulateHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders, T
         AdjustHDivEquarterpointintrule(gmesh);
     }
     if (meshstyle == ESBFem) {
-        CreateHdivSBFEMelements(cmesh_m);
+        CreateHdivSBFEMelements(cmesh_m, analyticSol);
     }
     cmesh_m->CleanUpUnconnectedNodes();
     // Define o pointer chamado cmesh_m relacionado à classe TPZMultiphysicsCompMesh, associando-o a função
@@ -925,7 +947,7 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
         TPZCompEl *cel = cmesh_m->Element(iel);
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
-        // grouped elements have no reference (SBFem simulation)
+        // group elements have no reference (SBFem simulation)
         if (!gel) continue;
         // int64_t index = gel->Index();
         if (ErrorEstimator[iel] > tol) {
@@ -940,9 +962,11 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
     nel = gmesh->NElements();
     for (int64_t iel = 0; iel < nel; iel++) {
         TPZGeoEl *gel = gmesh->Element(iel);
+        if (!gel) continue;
         if (gel->HasSubElement()) continue;
         if (gel->Dimension() != 1) continue;
-        if (gel->MaterialId() == sbfem_highperm) continue;
+        int matid = gel->MaterialId();
+        if (matid == sbfem_highperm_hdiv || matid == sbfem_highperm_h1) continue;
         // if(gel->MaterialId() ==  boundmat) continue;
         // if(gel->MaterialId() ==  cutmat) continue;
         // Percorrer os Neighbors de gel e encontar os volumetricos que tem subelementos
@@ -953,9 +977,16 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
             if (!Neighbor.HasSubElement()) continue;
             TPZManVector<TPZGeoEl *> subel;
             DivideGeoEl(gel, subel);
+            if(matid == sbfem_skeleton){
+                auto sbfem = gelside.HasNeighbour(sbfem_domain);
+                if(!sbfem) DebugStop();
+                if(!sbfem.HasSubElement()) {
+                    DivideGeoEl(sbfem.Element(), subel);
+                }
+            }
             break;
         }
-    } // loop over cemsh_m elements
+    } // loop over cmesh_m elements
     nel = gmesh->NElements();
     RefinementIndicator.Resize(nel, 0.);
     std::ofstream out1("HRefinementIndicator.vtk");
@@ -1190,153 +1221,6 @@ static int64_t CreateCollapsedQuad(int64_t sn, int64_t edge1, int64_t edge2, boo
     return index;
 }
 
-/// @brief change the element to a blend element
-void ChangeToBlend(TPZGeoEl *gel) {
-    TPZGeoMesh *gmesh = gel->Mesh();
-    if (gel->Type() != EQuadrilateral) DebugStop();
-    TPZManVector<int64_t, 4> nodeindices(4);
-    for (int i = 0; i < 4; i++)
-        nodeindices[i] = gel->NodeIndex(i);
-    TPZManVector<TPZGeoElSide, 9> neighbours(9);
-    for (int i = 0; i < 8; i++) {
-        neighbours[i] = gel->Neighbour(i);
-        while (neighbours[i].Element() == gel) {
-            neighbours[i] = neighbours[i].Neighbour();
-        }
-    }
-    int nsubel = gel->NSubElements();
-    TPZManVector<TPZGeoEl *, 4> subels(nsubel);
-    for (int is = 0; is < nsubel; is++) {
-        subels[is] = gel->SubElement(is);
-    }
-    auto refpat = gel->GetRefPattern();
-    int whichsubel = -1;
-    TPZGeoEl *father = gel->Father();
-    if (father) {
-        whichsubel = gel->WhichSubel();
-    }
-    gel->RemoveConnectivities();
-    int64_t gelindex = gel->Index();
-    delete gel;
-    int64_t index;
-    auto newgel = new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad>>(nodeindices, volmat, *gmesh, index);
-    if (index != gelindex) DebugStop();
-    for (int i = 0; i < 8; i++) {
-        if (neighbours[i].Element()) {
-            TPZGeoElSide gelside(newgel, i);
-            gelside.SetConnectivity(neighbours[i]);
-        }
-    }
-    newgel->SetNeighbour(8, newgel);
-    if (father) {
-        father->SetSubElement(whichsubel, newgel);
-    }
-    newgel->SetFather(father);
-    newgel->SetRefPattern(refpat);
-    for (int is = 0; is < nsubel; is++) {
-        newgel->SetSubElement(is, subels[is]);
-    }
-    newgel->BuildBlendConnectivity();
-}
-
-/// @brief If the element is not linear mapping, change it to linear mapping
-/// @param gel element that will be substituted
-void ChangeToLinearQuad(TPZGeoEl *gel) {
-    TPZGeoMesh *gmesh = gel->Mesh();
-    if (gel->Type() != EQuadrilateral) DebugStop();
-    TPZManVector<int64_t, 4> nodeindices(4);
-    for (int i = 0; i < 4; i++)
-        nodeindices[i] = gel->NodeIndex(i);
-    TPZManVector<TPZGeoElSide, 9> neighbours(9);
-    for (int i = 0; i < 8; i++) {
-        neighbours[i] = gel->Neighbour(i);
-        while (neighbours[i].Element() == gel) {
-            neighbours[i] = neighbours[i].Neighbour();
-        }
-    }
-    int nsubel = gel->NSubElements();
-    TPZManVector<TPZGeoEl *, 4> subels(nsubel);
-    for (int is = 0; is < nsubel; is++) {
-        subels[is] = gel->SubElement(is);
-    }
-    auto refpat = gel->GetRefPattern();
-    int whichsubel = -1;
-    TPZGeoEl *father = gel->Father();
-    if (father) {
-        whichsubel = gel->WhichSubel();
-    }
-    gel->RemoveConnectivities();
-    int64_t gelindex = gel->Index();
-    int matid = gel->MaterialId();
-    delete gel;
-    int64_t index;
-    auto newgel = new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodeindices, matid, *gmesh, index);
-    if (index != gelindex) DebugStop();
-    for (int i = 0; i < 8; i++) {
-        if (neighbours[i].Element()) {
-            TPZGeoElSide gelside(newgel, i);
-            gelside.SetConnectivity(neighbours[i]);
-        }
-    }
-    newgel->SetNeighbour(8, newgel);
-    if (father) {
-        father->SetSubElement(whichsubel, newgel);
-    }
-    newgel->SetFather(father);
-    newgel->SetRefPattern(refpat);
-    for (int is = 0; is < nsubel; is++) {
-        newgel->SetSubElement(is, subels[is]);
-    }
-}
-
-/// @brief If the element is not linear mapping, change it to linear mapping
-/// @param gel element that will be substituted
-void ChangeToLinearOned(TPZGeoEl *gel) {
-    TPZGeoMesh *gmesh = gel->Mesh();
-    if (gel->Type() != EOned) DebugStop();
-    TPZManVector<int64_t, 4> nodeindices(2);
-    for (int i = 0; i < 2; i++)
-        nodeindices[i] = gel->NodeIndex(i);
-    TPZManVector<TPZGeoElSide, 3> neighbours(3);
-    for (int i = 0; i < 3; i++) {
-        neighbours[i] = gel->Neighbour(i);
-        while (neighbours[i].Element() == gel) {
-            neighbours[i] = neighbours[i].Neighbour();
-        }
-    }
-    int nsubel = gel->NSubElements();
-    TPZManVector<TPZGeoEl *, 4> subels(nsubel);
-    for (int is = 0; is < nsubel; is++) {
-        subels[is] = gel->SubElement(is);
-    }
-    auto refpat = gel->GetRefPattern();
-    int whichsubel = -1;
-    TPZGeoEl *father = gel->Father();
-    if (father) {
-        whichsubel = gel->WhichSubel();
-    }
-    gel->RemoveConnectivities();
-    int64_t gelindex = gel->Index();
-    int matid = gel->MaterialId();
-    delete gel;
-    int64_t index;
-    auto newgel = new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodeindices, matid, *gmesh, index);
-    if (index != gelindex) DebugStop();
-    for (int i = 0; i < 3; i++) {
-        if (neighbours[i].Element()) {
-            TPZGeoElSide gelside(newgel, i);
-            gelside.SetConnectivity(neighbours[i]);
-        }
-    }
-    if (father) {
-        father->SetSubElement(whichsubel, newgel);
-    }
-    newgel->SetFather(father);
-    newgel->SetRefPattern(refpat);
-    for (int is = 0; is < nsubel; is++) {
-        newgel->SetSubElement(is, subels[is]);
-    }
-}
 
 /// @brief divide a geometric element. If it is a trailing edge element, set the refinement pattern first
 void DivideGeoEl(TPZGeoEl *gel, TPZVec<TPZGeoEl *> &subels) {
@@ -1358,13 +1242,53 @@ void DivideGeoEl(TPZGeoEl *gel, TPZVec<TPZGeoEl *> &subels) {
         if (gel->NodeIndex(n1) == gel->NodeIndex(n2)) {
             if (side != 6) DebugStop();
             iscollapsed = true;
-            gel->SetRefPattern(refpattern[side]);
+            if(meshstyle == ESBFem) {
+                gel->SetRefPattern(refpattern_sbfem);
+            } else {
+                //gel->SetRefPattern(refpattern_collapsed);
+            }
         }
     }
     gel->Divide(subels);
-    if (0 && iscollapsed && !(gel->IsLinearMapping())) {
-        ChangeToBlend(subels[0]);
-        ChangeToBlend(subels[1]);
+    
+    if(iscollapsed) {
+        // set all nodes of the collapsed element to the singular node
+        // update the neighbouring information of the elements
+        int64_t singular = -1;
+        TPZGeoMesh *gmesh = gel->Mesh();
+        TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
+        TPZGeoElSide trailingedge(trailingedge_element);
+        singular = trailingedge_element->NodeIndex(0);
+        for (auto sub : subels) {
+            int64_t node1 = sub->NodeIndex(2);
+            int64_t node2 = sub->NodeIndex(3);
+            if(node1 == singular || node2 == singular) {
+                if(gel->NodeIndex(2) != singular) DebugStop();
+                if(gel->NodeIndex(3) != singular) DebugStop();
+                sub->SetNodeIndex(2,singular);
+                sub->SetNodeIndex(3,singular);
+                {
+                    TPZGeoElSide gelside(sub,2);
+                    gelside.RemoveConnectivity();
+                    gelside.SetConnectivity(trailingedge);
+                }
+                {
+                    TPZGeoElSide gelside(sub,3);
+                    gelside.RemoveConnectivity();
+                    gelside.SetConnectivity(trailingedge);
+                }
+                // this breaks the code for LowerLevelCompElementList
+                if(0)
+                {
+                    TPZGeoElSide gelside(sub,6);
+                    gelside.RemoveConnectivity();
+                    TPZGeoElSide fatherside(gel,6);
+                    gelside.SetConnectivity(fatherside);
+                }
+            }
+
+
+        }
     }
     int ns = subels.size();
     for (int is = 0; is < ns; is++) {
@@ -1395,7 +1319,6 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh) {
     }
     // create the new elements
     std::set<int64_t> sbfem_created;
-    int numblend = 0;
     for (int64_t el = 0; el < neighbours.size(); el++) {
         TPZGeoEl *gel = neighbours[el].Element();
         if (!gel) DebugStop();
@@ -1428,8 +1351,6 @@ void Changetrailingedgeelements(TPZGeoMesh *gmesh) {
         }
         if (nn > 1) gel->SetMaterialId(-gel->MaterialId());
     }
-    if (numblend != 2) DebugStop();
-    gmesh->BuildConnectivity();
     gmesh->BuildConnectivity();
     if (1) {
         std::ofstream out("gmesh_Changetrailingedgeelements.vtk");
@@ -1445,16 +1366,13 @@ void DivideTrailingEdgeNeighbours(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL>
     int64_t nel = gmesh->NElements();
     // compute the set of elements neighbouring the trailing edge
     std::set<int64_t> trailel;
-    for (int64_t el = 0; el < nel; el++) {
-        TPZGeoEl *gel = gmesh->Element(el);
-        if (gel->MaterialId() == trailingedgemat) {
-            TPZGeoElSide gelside(gel);
-            for (TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside;
-                 neighbour = neighbour.Neighbour()) {
-                TPZGeoEl *neighgel = neighbour.Element();
-                if (neighgel->Reference() && neighgel->MaterialId() == volmat) {
-                    trailel.insert(neighgel->Index());
-                }
+    {
+        TPZGeoEl *gel = gmesh->Element(trailingedge_element_index);
+        TPZGeoElSide gelside(gel);
+        for (TPZGeoElSide neighbour = gelside.Neighbour(); neighbour != gelside; neighbour = neighbour.Neighbour()) {
+            TPZGeoEl *neighgel = neighbour.Element();
+            if (neighgel->Reference() && neighgel->MaterialId() == volmat) {
+                trailel.insert(neighgel->Index());
             }
         }
     }
@@ -1730,7 +1648,7 @@ void MakeCounterClockwise(TPZGeoEl *gel) {
 #endif
 }
 
-TPZAutoPointer<TPZRefPattern> CreateRefPattern() {
+TPZAutoPointer<TPZRefPattern> CreateRefPattern_collapsed() {
     char buf[] = "6     3  "
                  "1010       UnifQua	"
                  "-1.    -1.     0. "
@@ -1742,6 +1660,23 @@ TPZAutoPointer<TPZRefPattern> CreateRefPattern() {
                  " 3     4     0     1     2     3 "
                  " 3     4     0     1     5     4 "
                  " 3     4     4     5     2     3 ";
+    std::istringstream str(buf);
+    TPZAutoPointer<TPZRefPattern> refpat = new TPZRefPattern(str);
+    return refpat;
+}
+
+TPZAutoPointer<TPZRefPattern> CreateRefPattern_sbfem() {
+    char buf[] = "6     3  "
+                 "1010       UnifQua	"
+                 "-1.    -1.     0. "
+                 " 1.    -1.     0. "
+                 " 1.     1.     0. "
+                 "-1.     1.     0.	"
+                 " 0.    -1.     0. "
+                 " 0.     1.     0. "
+                 " 3     4     0     1     2     3 "
+                 " 3     4     0     4     5     3 "
+                 " 3     4     4     1     2     5 ";
     std::istringstream str(buf);
     TPZAutoPointer<TPZRefPattern> refpat = new TPZRefPattern(str);
     return refpat;
@@ -1847,6 +1782,9 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
     TPZDarcyFlow *darcysbfem = new TPZDarcyFlow(*darcy);
     darcysbfem->SetId(sbfem_domain);
     cmesh->InsertMaterialObject(darcysbfem);
+    TPZDarcyFlow *mat1d = new TPZDarcyFlow(sbfem_highperm_h1, 1);
+    cmesh->InsertMaterialObject(mat1d);
+    mat1d->SetConstantPermeability(1.e6);
     TPZGeoMesh *gmesh = cmesh->Reference();
     TPZGeoEl *trailingedge_element = gmesh->Element(trailingedge_element_index);
     TPZGeoElSide trailingedge(trailingedge_element);
@@ -1872,6 +1810,21 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
             } else {
                 DebugStop();
             }
+        } else if (neighgel->Dimension() == 1 && neighgel->MaterialId() == sbfem_highperm_h1) {
+            // create a zero dimensional element
+            connected_elements.insert(neighgel);
+            TPZGeoElSide gelside(neighgel, 0);
+            TPZGeoElSide neighbour = gelside.Neighbour();
+            while (neighbour != gelside) {
+                TPZGeoEl *neighgel = neighbour.Element();
+                if (neighgel->MaterialId() == sbfem_skeleton && neighgel->Dimension() == 0) {
+                    break;
+                }
+                neighbour = neighbour.Neighbour();
+            }
+            if (neighbour == gelside) DebugStop();
+            if (neighbour.Element()->Dimension() != 0) DebugStop();
+            if (!neighbour.Element()->Reference()) DebugStop();
         }
     }
     TPZSBFemElementGroup *elgr = new TPZSBFemElementGroup(*cmesh);
@@ -1879,30 +1832,47 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
     TPZStack<TPZSBFemVolume *> sbvols;
     for (auto it : connected_elements) {
         TPZGeoEl *gel = it;
-        if (gel->MaterialId() != sbfem_domain) DebugStop();
+        int matid = gel->MaterialId();
+        if (matid != sbfem_domain && matid != sbfem_highperm_h1) DebugStop();
         TPZSBFemVolume *sbvol = new TPZSBFemVolume(*cmesh, gel);
         sbvols.Push(sbvol);
-        TPZGeoElSide gelside(gel, 4);
-        TPZGeoElSide neigh = gelside.HasNeighbour(sbfem_skeleton);
-        TPZGeoEl *skel = neigh.Element();
-        if (skel->MaterialId() != sbfem_skeleton) DebugStop();
-        // create an H1 element
-        TPZCompEl *cskel = skel->Reference();
-        if (!cskel) DebugStop();
-        TPZInterpolatedElement *icskel = dynamic_cast<TPZInterpolatedElement *>(cskel);
-        if (!cskel) DebugStop();
-        int sideorder = icskel->Connect(2).Order();
-        if (sideorder < SBFemOrder) icskel->SetSideOrder(2, SBFemOrder);
-        // std::cout << "gel " << gel->Index() << " is linear " << gel->IsLinearMapping() << std::endl;
-        // std::cout << "skel is linear " << skel->IsLinearMapping() << std::endl;
-        if (!gel->IsLinearMapping()) {
-            ChangeToLinearQuad(gel);
-            // gel->Print(std::cout);
-            // std::ofstream out("gmesh.txt");
-            // gmesh->Print(out);
-            // DebugStop();
+        if(gel->Dimension() == 2) {
+            TPZGeoElSide gelside(gel, 4);
+            TPZGeoElSide neigh = gelside.HasNeighbour(sbfem_skeleton);
+            TPZGeoEl *skel = neigh.Element();
+            if (skel->MaterialId() != sbfem_skeleton) DebugStop();
+            // create an H1 element
+            TPZCompEl *cskel = skel->Reference();
+            if (!cskel) DebugStop();
+            TPZInterpolatedElement *icskel = dynamic_cast<TPZInterpolatedElement *>(cskel);
+            if (!cskel) DebugStop();
+            int sideorder = icskel->Connect(2).Order();
+            if (sideorder < SBFemOrder) icskel->SetSideOrder(2, SBFemOrder);
+            // std::cout << "gel " << gel->Index() << " is linear " << gel->IsLinearMapping() << std::endl;
+            // std::cout << "skel is linear " << skel->IsLinearMapping() << std::endl;
+            if (!gel->IsLinearMapping()) {
+                // gel->Print(std::cout);
+                // std::ofstream out("gmesh.txt");
+                // gmesh->Print(out);
+                DebugStop();
+            }
+            sbvol->SetSkeleton(cskel->Index());
+        } else if(gel->Dimension() == 1) {
+            TPZGeoElSide gelside(gel, 0);
+            TPZGeoElSide neigh = gelside.Neighbour();
+            while (neigh != gelside) {
+                TPZGeoEl *neighgel = neigh.Element();
+                if (neighgel->MaterialId() == sbfem_skeleton && neighgel->Dimension() == 0) {
+                    break;
+                }
+                neigh = neigh.Neighbour();
+            }
+            if (neigh.Element()->MaterialId() != sbfem_skeleton) DebugStop();
+            // create an H1 element
+            TPZCompEl *cskel = neigh.Element()->Reference();
+            if (!cskel) DebugStop();
+            sbvol->SetSkeleton(cskel->Index());
         }
-        sbvol->SetSkeleton(cskel->Index());
         elgr->AddElement(sbvol);
     }
     for (auto sbvol : sbvols) {
@@ -1919,7 +1889,7 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
 }
 
 /// @brief Change the elements the touch the trailing edge to Hdiv SBFEM elements
-void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh) {
+void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh, TPZAnalyticSolution *analyticSol) {
     TPZCompMesh *cmesh = m_cmesh;
     cmesh->LoadReferences();
     // cmesh->ApproxSpace().SetAllCreateFunctionsHDiv(2);
@@ -1930,7 +1900,7 @@ void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh) {
     if (cmesh->FindMaterial(sbfem_skeleton) == 0) {
         DebugStop();
     }
-    TPZMixedDarcyFlow *mat1d = new TPZMixedDarcyFlow(sbfem_highperm, 1);
+    TPZMixedDarcyFlow *mat1d = new TPZMixedDarcyFlow(sbfem_highperm_hdiv, 1);
     cmesh->InsertMaterialObject(mat1d);
     mat1d->SetConstantPermeability(1.e-6);
     TPZMaterialT<STATE> *mat2d = dynamic_cast<TPZMaterialT<STATE> *>(cmesh->FindMaterial(volmat));
@@ -1956,8 +1926,7 @@ void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh) {
                 if (cel) DebugStop();
                 if (!neighgel->IsLinearMapping()) {
                     int64_t index = neighgel->Index();
-                    ChangeToLinearQuad(neighgel);
-                    neighgel = gmesh->Element(index);
+                    DebugStop();
                 }
                 connected_elements.insert(neighgel);
                 TPZGeoElSide gelside(neighgel, 4);
@@ -1967,11 +1936,11 @@ void CreateHdivSBFEMelements(TPZMultiphysicsCompMesh *m_cmesh) {
             } else {
                 DebugStop();
             }
-        } else if (neighgel->Dimension() == 1 && neighgel->MaterialId() == sbfem_highperm) {
+        } else if (neighgel->Dimension() == 1 && neighgel->MaterialId() == sbfem_highperm_hdiv) {
             // create a zero dimensional element
             if (!neighgel->IsLinearMapping()) {
                 int64_t index = neighgel->Index();
-                ChangeToLinearOned(neighgel);
+                DebugStop();
                 neighgel = gmesh->Element(index);
             }
             connected_elements.insert(neighgel);
@@ -2129,66 +2098,43 @@ void AdjustToSBFemGeometry(TPZGeoMesh *gmesh) {
             sbfem_elements.insert(gel->Index());
             TPZGeoElBC gbc(gel, 4, sbfem_skeleton);
             TPZGeoEl *gbcgel = gbc.CreatedElement();
-            if (gbcgel->IsLinearMapping() == false) {
-                gel->Print(std::cout);
-                gbcgel->Print(std::cout);
-                // DebugStop();
-            }
         }
     }
     // create sbfem_highperm elements
     for (auto it : connected_elements) {
         TPZGeoEl *gel = it;
-        if (gel->IsLinearMapping() == false) { // CHECK
-            TPZGeoElSide gelside(gel);
-            TPZManVector<int64_t, 4> nodeindices(2);
-            if (gelside.SideNodeIndex(0) == singular) {
-                nodeindices[0] = gelside.SideNodeIndex(1);
-                nodeindices[1] = gelside.SideNodeIndex(0);
-            } else {
-                nodeindices[0] = gelside.SideNodeIndex(0);
-                nodeindices[1] = gelside.SideNodeIndex(1);
-            }
+        if(gel->Dimension() != 1) continue;
+        int matid = gel->MaterialId();
+        TPZGeoElSide gelside(gel);
+        TPZManVector<int64_t, 4> nodeindices(2);
+        if (gelside.SideNodeIndex(0) == singular) {
+            nodeindices[0] = gelside.SideNodeIndex(1);
+            nodeindices[1] = gelside.SideNodeIndex(0);
+        } else if (gelside.SideNodeIndex(1) == singular) {
+            nodeindices[0] = gelside.SideNodeIndex(0);
+            nodeindices[1] = gelside.SideNodeIndex(1);
+        } else {
+            DebugStop();
+        }
+        if(matid == dirichletmat) {
             // creating a linear element will lead to an inconsistent geometry
             int64_t index;
-            gmesh->CreateGeoElement(EOned, nodeindices, sbfem_highperm, index);
+            gmesh->CreateGeoElement(EOned, nodeindices, sbfem_highperm_h1, index);
             // create the skeleton element
             gmesh->CreateGeoElement(EPoint, nodeindices, sbfem_skeleton, index);
+        } else if(matid == neumannmat) {
+            int64_t index;
+            gmesh->CreateGeoElement(EOned, nodeindices, sbfem_highperm_hdiv, index);
+            // create the skeleton element
+            gmesh->CreateGeoElement(EPoint, nodeindices, sbfem_skeleton, index);
+        } else {
+            DebugStop();
         }
     }
+
     // insert the connectivity of the sbfem_highperm elements
     gmesh->BuildConnectivity();
-    // make the elements linear
-    std::set<TPZGeoEl *> removed;
-    for (auto it : connected_elements) {
-        TPZGeoEl *gel = it;
-        if (!gel->IsLinearMapping()) {
-            if (gel->Dimension() == 2) {
-                removed.insert(gel);
-                ChangeToLinearQuad(gel);
-            }
-        } else if (gel->Dimension() == 2) {
-            removed.insert(gel);
-        }
-    }
-    for (auto it : removed) {
-        connected_elements.erase(it);
-    }
-    // Print the 1d elements that are not linear
-    if (0) {
-        for (auto it : connected_elements) {
-            TPZGeoEl *gel = it;
-            if (gel->Dimension() != 1) {
-                DebugStop();
-            }
-            TPZGeoElSide gelside(gel);
-            std::cout << "Nonlinear neighbouring element " << gel->Index() << " matid " << gel->MaterialId()
-                      << std::endl;
-            // gelside.RemoveConnectivity();
-            // gelside.SetConnectivity(gelside);
-        }
-        PrintTrailingEdgeElements(gmesh);
-    }
+    PrintTrailingEdgeElements(gmesh);
 #ifdef PZDEBUG
     {
         const int64_t nel = gmesh->NElements();
