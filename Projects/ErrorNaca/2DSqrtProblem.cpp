@@ -90,7 +90,7 @@ TPZCompMesh *SimulateH1(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnalyticSolu
 TPZMultiphysicsCompMesh *SimulateHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnalyticSolution *analyticSol);
 
 /// @brief Compute the error as an average error per element and save as an elemental solution
-void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator);
+void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, REAL &GlobalError, REAL &ErrorH1, REAL &ErrorHDiv);
 
 /// @brief Compute the global error the norm of the vector ErrorEstimator
 void ComputeGlobalError(TPZVec<REAL> &ErrorEstimator, REAL &GlobalError);
@@ -185,12 +185,12 @@ MMeshStyle meshstyle = ESBFem;
 int defaultporder = 1;
 int SBFemOrder = 2;
 int nuniform = 1;
-int nrefinements = 3;
+int nrefinements = 13;
 // set of geometric element indices that are SBFem elements
 std::set<int64_t> sbfem_elements;
 
 enum RRefinementStyle { h, hp , huniform, puniform};
-RRefinementStyle refinementstyle = huniform;
+RRefinementStyle refinementstyle = h;
 
 TPZAutoPointer<TPZRefPattern> refpattern_collapsed;
 TPZAutoPointer<TPZRefPattern> refpattern_sbfem;
@@ -285,9 +285,14 @@ int main() {
     int64_t nel = gmesh->NElements();
     TPZVec<int> porders(nel, defaultporder);
     REAL GlobalError;
+    REAL ErrorH1;
+    REAL ErrorHDiv;
     REAL circulation_H1;
     REAL circulation_HDiv;
-    std::ofstream outGE("GlobalError.txt");
+    std::ofstream outGE0("GlobalError.txt");
+    std::ofstream outGE1("ErrorEstimatorH1HDiv.txt");
+    std::ofstream outGE2("ErrorH1.txt");
+    std::ofstream outGE3("ErrorHDiv.txt");
     for (int64_t i = 0; i < nrefinements; i++) {
         TPZCompMesh *cmesh = 0;
         TPZMultiphysicsCompMesh *cmesh_m = 0;
@@ -327,8 +332,8 @@ int main() {
         }
 
         TPZVec<REAL> Error;
-        ComputeErrorEstimator(cmesh, cmesh_m, Error);
-        ComputeGlobalError(Error, GlobalError);
+        ComputeErrorEstimator(cmesh, cmesh_m, Error, GlobalError, ErrorH1, ErrorHDiv);
+        // ComputeGlobalError(Error, GlobalError);
         std::cout << "GlobalError: " << GlobalError << std::endl;
 
 #ifdef PZDEBUG
@@ -346,8 +351,11 @@ int main() {
 #endif
         int64_t nDOF = cmesh->NEquations();
         // int64_t nDOF_m = cmesh_m->NEquations();
-        outGE << i << "  " << nDOF << "  " << GlobalError << "  " << circulation_H1 << "  " << circulation_HDiv
+        outGE0 << i << "  " << nDOF << "  " << GlobalError << "  " << circulation_H1 << "  " << circulation_HDiv
               << std::endl;
+        outGE1 << nDOF << "  " << GlobalError << std::endl;
+        outGE2 << nDOF << "  " << ErrorH1 << std::endl;
+        outGE3 << nDOF << "  " << ErrorHDiv << std::endl;
 
         TPZVec<REAL> RefinementIndicator;
         if (refinementstyle == hp) {
@@ -374,6 +382,7 @@ int main() {
             porders.Resize(gmesh->NElements(), defaultporder);
         } else if (refinementstyle == puniform) {
             porders.Fill(++defaultporder);
+            SBFemOrder++;
         }
         if(meshstyle == ESBFem)
         {
@@ -916,7 +925,7 @@ TPZMultiphysicsCompMesh *SimulateHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders, T
 }
 
 /// @brief Compute the error as an average error per element and save as an elemental solution in "Error"
-void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator) {
+void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator, REAL &GlobalError, REAL &ErrorH1, REAL &ErrorHDiv) {
     if (meshstyle == ESBFem) {
         AddSBFemVolumeElements();
     }
@@ -935,6 +944,8 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
     REAL H1_sbfem = 0.;
     REAL HDiv_trad = 0.;
     REAL HDiv_sbfem = 0.;
+    REAL Orthogonal_sbfem = 0;
+    REAL Orthogonal_trad = 0;
 
     for (int64_t iel = 0; iel < nel_m; iel++) {
         TPZCompEl *cell_m = elementvec_m[iel];
@@ -957,7 +968,7 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         int matid = gel_m->MaterialId();
 
         TPZGeoElSide gelside(gel_m);
-        auto intrule = gelside.CreateIntegrationRule(2 * porder);
+        auto intrule = gelside.CreateIntegrationRule(2 * 20);
         int intrulepoints = intrule->NPoints();
         TPZManVector<REAL, 4> intpoint(2, 0.);
         REAL weight = 0.;
@@ -996,9 +1007,11 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
             if(sbfem) {
                 H1_sbfem += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])*weight;
                 HDiv_sbfem += (dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])*weight;
+                Orthogonal_sbfem += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+sol[0])*weight;
             } else {
                 H1_trad += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])*weight;
                 HDiv_trad += (dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])*weight;
+                Orthogonal_trad += -(dsolEx(0,0)+flux[0])*(dsolEx(0,0)+sol[0])*weight;
             }
         } // loop over integratin points
         if(sbfem) {
@@ -1008,6 +1021,9 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         }
         ErrorEstimator[iel] = sqrt(ErrorEstimator[iel]);
     } // loop over cemsh_m elements
+    GlobalError = sqrt(total_trad+total_sbfem);
+    ErrorH1 = sqrt(H1_trad+H1_sbfem);
+    ErrorHDiv = sqrt(HDiv_trad+HDiv_sbfem);
 
     {
         std::ofstream out("ErrorEstimator.vtk");
@@ -1019,10 +1035,14 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         std::cout << "Total estimated sbfem error " << sqrt(total_sbfem) << std::endl;
         std::cout << "Total real sbfem H1 error " << sqrt(H1_sbfem) << std::endl;
         std::cout << "Total real sbfem HDiv error " << sqrt(HDiv_sbfem) << std::endl;
+        std::cout << "Orthogonal sbfem error " << Orthogonal_sbfem << std::endl;
         std::cout << "***\n";
         std::cout << "Total estimated error " << sqrt(total_trad+total_sbfem) << std::endl;
         std::cout << "Total real H1 error " << sqrt(H1_trad+H1_sbfem) << std::endl;
         std::cout << "Total real HDiv error " << sqrt(HDiv_trad+HDiv_sbfem) << std::endl;
+        std::cout << "Orthogonal trad error " << Orthogonal_trad << std::endl;
+        std::cout << "Teste " << H1_trad + HDiv_trad +2*Orthogonal_trad - total_trad << std::endl;
+        std::cout << "Prager Synger = " << H1_trad + HDiv_trad - total_trad << std::endl;
     }
     HideSBFemVolumeElements();
 }
