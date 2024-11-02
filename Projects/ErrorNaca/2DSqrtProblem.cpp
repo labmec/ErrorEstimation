@@ -49,7 +49,15 @@
 
 #include <iostream>
 
-#define USING_MKL
+#include "pzlog.h"
+
+#ifdef PZ_LOG
+static TPZLogger logger("pz.material.darcy");
+#endif
+
+
+
+//#define USING_MKL
 
 using namespace pzgeom;
 /// @brief verify is the derivative of the NACA coordinate is correct
@@ -181,7 +189,7 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle { ETraditional, ECollapsed, EQuarterPoint, ESBFem };
-MMeshStyle meshstyle = ESBFem;
+MMeshStyle meshstyle = ETraditional;
 int defaultporder = 1;
 int SBFemOrder = 2;
 int nuniform = 1;
@@ -868,7 +876,7 @@ TPZMultiphysicsCompMesh *SimulateHDiv(TPZGeoMesh *gmesh, TPZVec<int> &porders, T
 
 #ifdef USING_MKL
     TPZSSpStructMatrix<STATE> strmat(cmesh_m);
-    strmat.SetNumThreads(0);
+    strmat.SetNumThreads(0);xx
 #else
     TPZSkylineStructMatrix<STATE> strmat(cmesh_m);
 #endif
@@ -937,8 +945,8 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
     TPZAdmChunkVector<TPZCompEl *> &elementvec_m = cmesh_m->ElementVec();
     TLaplaceExample1 *analytic = new TLaplaceExample1();
     analytic->fExact = TLaplaceExample1::ESquareRoot;
-    REAL total_trad = 0.;
-    REAL total_sbfem = 0.;
+    REAL total_est_trad = 0.;
+    REAL total_est_sbfem = 0.;
 
     REAL H1_trad = 0.;
     REAL H1_sbfem = 0.;
@@ -1005,19 +1013,25 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
                 ((flux[0] - sol[0]) * (flux[0] - sol[0]) + (flux[1] - sol[1]) * (flux[1] - sol[1])) * weight;
             ErrorEstimator[iel] += contr;
             if(sbfem) {
-                H1_sbfem += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])*weight;
-                HDiv_sbfem += (dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])*weight;
-                Orthogonal_sbfem += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+sol[0])*weight;
+                H1_sbfem += ((dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])+(dsolEx(1,0)+flux[1])*(dsolEx(1,0)+flux[1]))*weight;
+                HDiv_sbfem += ((dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])+(dsolEx(1,0)+sol[1])*(dsolEx(1,0)+sol[1]))*weight;
             } else {
-                H1_trad += (dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])*weight;
-                HDiv_trad += (dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])*weight;
-                Orthogonal_trad += -(dsolEx(0,0)+flux[0])*(dsolEx(0,0)+sol[0])*weight;
+                H1_trad += ((dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])+(dsolEx(1,0)+flux[1])*(dsolEx(1,0)+flux[1]))*weight;
+                HDiv_trad += ((dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])+(dsolEx(1,0)+sol[1])*(dsolEx(1,0)+sol[1]))*weight;
             }
+#ifdef PZ_LOG
+            if(logger.isDebugEnabled()) {
+                std::stringstream sout;
+                sout << "x " << x << " flux " << flux << " dsolEx " << dsolEx(0,0) << " " << dsolEx(1,0);
+                LOGPZ_DEBUG(logger, sout.str())
+            }
+#endif
+
         } // loop over integratin points
         if(sbfem) {
-            total_sbfem += ErrorEstimator[iel];
+            total_est_sbfem += ErrorEstimator[iel];
         } else {
-            total_trad += ErrorEstimator[iel];
+            total_est_trad += ErrorEstimator[iel];
         }
         ErrorEstimator[iel] = sqrt(ErrorEstimator[iel]);
     } // loop over cemsh_m elements
@@ -1028,16 +1042,16 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
     {
         std::ofstream out("ErrorEstimator.vtk");
         TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m, out, ErrorEstimator, "ErrorEstimator");
-        std::cout << "Total estimated traditional error " << sqrt(total_trad) << std::endl;
+        std::cout << "Total estimated traditional error " << sqrt(total_est_trad) << std::endl;
         std::cout << "Total real traditional H1 error " << sqrt(H1_trad) << std::endl;
         std::cout << "Total real traditional HDiv error " << sqrt(HDiv_trad) << std::endl;
         std::cout << "***\n";
-        std::cout << "Total estimated sbfem error " << sqrt(total_sbfem) << std::endl;
+        std::cout << "Total estimated sbfem error " << sqrt(total_est_sbfem) << std::endl;
         std::cout << "Total real sbfem H1 error " << sqrt(H1_sbfem) << std::endl;
         std::cout << "Total real sbfem HDiv error " << sqrt(HDiv_sbfem) << std::endl;
         std::cout << "Orthogonal sbfem error " << Orthogonal_sbfem << std::endl;
         std::cout << "***\n";
-        std::cout << "Total estimated error " << sqrt(total_trad+total_sbfem) << std::endl;
+        std::cout << "Total estimated error " << sqrt(total_est_trad+total_est_sbfem) << std::endl;
         std::cout << "Total real H1 error " << sqrt(H1_trad+H1_sbfem) << std::endl;
         std::cout << "Total real HDiv error " << sqrt(HDiv_trad+HDiv_sbfem) << std::endl;
         std::cout << "Orthogonal trad error " << Orthogonal_trad << std::endl;
@@ -1091,6 +1105,7 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
         if (gel->HasSubElement()) continue;
         if (gel->Dimension() != 1) continue;
         int matid = gel->MaterialId();
+        if (matid < 0) continue;
         if (matid == sbfem_highperm_hdiv || matid == sbfem_highperm_h1) continue;
         // if(gel->MaterialId() ==  boundmat) continue;
         // if(gel->MaterialId() ==  cutmat) continue;
