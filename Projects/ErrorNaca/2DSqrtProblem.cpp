@@ -189,7 +189,7 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle { ETraditional, ECollapsed, EQuarterPoint, ESBFem };
-MMeshStyle meshstyle = ETraditional;
+MMeshStyle meshstyle = ESBFem;
 int defaultporder = 1;
 int SBFemOrder = 2;
 int nuniform = 1;
@@ -945,6 +945,8 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
     TPZAdmChunkVector<TPZCompEl *> &elementvec_m = cmesh_m->ElementVec();
     TLaplaceExample1 *analytic = new TLaplaceExample1();
     analytic->fExact = TLaplaceExample1::ESquareRoot;
+    TPZFMatrix<STATE> &MFelementsol = cmesh_m->ElementSolution();
+    TPZFMatrix<STATE> &Elementsol = cmesh->ElementSolution();
     REAL total_est_trad = 0.;
     REAL total_est_sbfem = 0.;
 
@@ -956,6 +958,19 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
     REAL Orthogonal_trad = 0;
 
     for (int64_t iel = 0; iel < nel_m; iel++) {
+#ifdef PZ_LOG
+    if(logger.isDebugEnabled()) {
+        std::stringstream sout;
+        sout << "index " << iel;
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
+        REAL H1_trad_el = 0.;
+        REAL H1_sbfem_el = 0.;
+        REAL HDiv_trad_el = 0.;
+        REAL HDiv_sbfem_el = 0.;
+        REAL Orthogonal_sbfem_el = 0;
+        REAL Orthogonal_trad_el = 0;
         TPZCompEl *cell_m = elementvec_m[iel];
         if (!cell_m) continue;
         TPZGeoEl *gel_m = cell_m->Reference();
@@ -966,6 +981,8 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cell);
         TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cell);
         if (!intel && !sbfem) DebugStop();
+        TPZManVector<REAL,9> errorvec(5,0.);
+        cell->EvaluateError(errorvec, false);
         int porder = 0;
         if (intel) {
             porder = intel->PreferredSideOrder(gel_m->NSides() - 1);
@@ -976,7 +993,7 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         int matid = gel_m->MaterialId();
 
         TPZGeoElSide gelside(gel_m);
-        auto intrule = gelside.CreateIntegrationRule(2 * 20);
+        auto intrule = gelside.CreateIntegrationRule(2 * 18);
         int intrulepoints = intrule->NPoints();
         TPZManVector<REAL, 4> intpoint(2, 0.);
         REAL weight = 0.;
@@ -1012,30 +1029,64 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
             REAL contr =
                 ((flux[0] - sol[0]) * (flux[0] - sol[0]) + (flux[1] - sol[1]) * (flux[1] - sol[1])) * weight;
             ErrorEstimator[iel] += contr;
+            REAL h1_loc = ((dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])+(dsolEx(1,0)+flux[1])*(dsolEx(1,0)+flux[1]));
+            REAL hdiv_loc = ((dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])+(dsolEx(1,0)+sol[1])*(dsolEx(1,0)+sol[1]));
             if(sbfem) {
-                H1_sbfem += ((dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])+(dsolEx(1,0)+flux[1])*(dsolEx(1,0)+flux[1]))*weight;
-                HDiv_sbfem += ((dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])+(dsolEx(1,0)+sol[1])*(dsolEx(1,0)+sol[1]))*weight;
+                H1_sbfem_el += h1_loc*weight;
+                HDiv_sbfem_el += hdiv_loc*weight;
+                Orthogonal_sbfem_el += ((dsolEx(0,0)+flux[0])*(dsolEx(0,0)+sol[0])+(dsolEx(1,0)+flux[1])*(dsolEx(1,0)+sol[1]))*weight;
             } else {
-                H1_trad += ((dsolEx(0,0)+flux[0])*(dsolEx(0,0)+flux[0])+(dsolEx(1,0)+flux[1])*(dsolEx(1,0)+flux[1]))*weight;
-                HDiv_trad += ((dsolEx(0,0)+sol[0])*(dsolEx(0,0)+sol[0])+(dsolEx(1,0)+sol[1])*(dsolEx(1,0)+sol[1]))*weight;
+                H1_trad_el += h1_loc*weight;
+                HDiv_trad_el += hdiv_loc*weight;
+                Orthogonal_trad_el += ((dsolEx(0,0)+flux[0])*(dsolEx(0,0)+sol[0])+(dsolEx(1,0)+flux[1])*(dsolEx(1,0)+sol[1]))*weight;
             }
 #ifdef PZ_LOG
             if(logger.isDebugEnabled()) {
                 std::stringstream sout;
-                sout << "x " << x << " flux " << flux << " dsolEx " << dsolEx(0,0) << " " << dsolEx(1,0);
+                sout << "i " << int_ind << " x " << x << " exact " << dsolEx(0,0) << " " << dsolEx(1,0) << std::endl;
+                sout << "flux " << flux << " err loc H1 " << h1_loc  << " acc " << (H1_trad_el+H1_sbfem_el) << std::endl;
+                sout << "dsol " << sol  << " err loc HDiv " << hdiv_loc  << " acc " << (HDiv_trad_el+HDiv_sbfem_el) << std::endl;
                 LOGPZ_DEBUG(logger, sout.str())
             }
 #endif
 
-        } // loop over integratin points
+        } // loop over integration points
+        
+        H1_trad += H1_trad_el;
+        H1_sbfem += H1_sbfem_el;
+        HDiv_trad += HDiv_trad_el;
+        HDiv_sbfem += HDiv_sbfem_el;
+        Orthogonal_sbfem += Orthogonal_sbfem_el;
+        Orthogonal_trad += Orthogonal_trad_el;
+        
+        H1_trad_el = sqrt(H1_trad_el);
+        H1_sbfem_el = sqrt(H1_sbfem_el);
+        HDiv_trad_el = sqrt(HDiv_trad_el);
+        HDiv_sbfem_el = sqrt(HDiv_sbfem_el);
+
         if(sbfem) {
             total_est_sbfem += ErrorEstimator[iel];
         } else {
             total_est_trad += ErrorEstimator[iel];
         }
-        ErrorEstimator[iel] = sqrt(ErrorEstimator[iel]);
+        REAL elest = sqrt(ErrorEstimator[iel]);
+        ErrorEstimator[iel] = elest;
+        {
+            REAL diff = HDiv_trad_el+HDiv_sbfem_el - MFelementsol(iel,1);
+            if(abs(diff) > 1.e-9) {
+                std::cout << "HDiv error iel = " << iel << " diff = " << diff << std::endl;
+            }
+        }
+        {
+            REAL diff = H1_trad_el+H1_sbfem_el - Elementsol(iel,2);
+            if(abs(diff) > 1.e-9) {
+                std::cout << "H1 error iel = " << iel << " diff = " << diff << std::endl;
+                cell->EvaluateError(errorvec, false);
+                REAL test = sqrt(errorvec[2]);
+            }
+        }
     } // loop over cemsh_m elements
-    GlobalError = sqrt(total_trad+total_sbfem);
+    GlobalError = sqrt(total_est_trad+total_est_sbfem);
     ErrorH1 = sqrt(H1_trad+H1_sbfem);
     ErrorHDiv = sqrt(HDiv_trad+HDiv_sbfem);
 
@@ -1055,8 +1106,8 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
         std::cout << "Total real H1 error " << sqrt(H1_trad+H1_sbfem) << std::endl;
         std::cout << "Total real HDiv error " << sqrt(HDiv_trad+HDiv_sbfem) << std::endl;
         std::cout << "Orthogonal trad error " << Orthogonal_trad << std::endl;
-        std::cout << "Teste " << H1_trad + HDiv_trad +2*Orthogonal_trad - total_trad << std::endl;
-        std::cout << "Prager Synger = " << H1_trad + HDiv_trad - total_trad << std::endl;
+        std::cout << "Teste " << H1_trad + HDiv_trad +2*Orthogonal_trad - total_est_trad << std::endl;
+        std::cout << "Prager Synger = " << H1_trad + HDiv_trad - total_est_trad << std::endl;
     }
     HideSBFemVolumeElements();
 }
