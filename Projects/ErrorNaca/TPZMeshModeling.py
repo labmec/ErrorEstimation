@@ -344,3 +344,11 @@ class TPZMeshModeling:
         """
         for surface in surfaces:
             gmsh.model.mesh.setRecombine(2, surface)
+
+    @staticmethod
+    def Embed(dim: int, tags: list[int], inDim: int, inTag: int)->None:
+        """
+        Embed the entities with tags in the list 'tags' in the entities with dimTags
+        """
+        for tag in tags:
+            gmsh.model.mesh.embed(dim, tag, inDim, inTag)
