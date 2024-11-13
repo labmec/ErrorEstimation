@@ -15,7 +15,7 @@
 /// class to guide the error estimator
 struct ProblemConfig
 {
-    enum EGeometry {EQuad, ETrap, ELShape};
+    enum EGeometry {EQuad, ETrap, ELShape, ECrack};
     enum TProbType {EDarcy,EElasticity};
 
     virtual ~ProblemConfig() = default;
@@ -47,10 +47,15 @@ struct ProblemConfig
     bool MeshNonConvex = false;
     TProbType problemtype = EDarcy;
     EGeometry geometry = ELShape;
-    
+    bool isHibridized = false;
+    bool isAdaptivity = false;
     STATE alpha=1;
     STATE Km = 0.;
     STATE coefG = 0.;
+    STATE coefgE = 0.;
+    STATE coefgPoisson=0.;
+    STATE lambda =0.;
+    STATE mu=0.;
     
     /// the elements with error larger than 0.7*max_error will be divided
     REAL division_threshold = 0.7;

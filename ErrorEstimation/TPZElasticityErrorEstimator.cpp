@@ -1149,7 +1149,7 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
 
                     TPZManVector<REAL> pt0_vol(dim, 0);
                     sideToVolume.Apply(pt0, pt0_vol);
-                    TPZManVector<STATE> sol0(1);
+                    TPZManVector<STATE> sol0(cel->Dimension());
                     cel->Solution(pt0_vol, varindex, sol0);
 
                     TPZTransform<REAL> neighSideToVolume(dim, dim);
@@ -1157,19 +1157,19 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
 
                     TPZManVector<REAL> pt1_vol(dim, 0);
                     neighSideToVolume.Apply(pt1, pt1_vol);
-                    TPZManVector<STATE> sol1(1);
+                    TPZManVector<STATE> sol1(cel->Dimension());
                     cneighbour.Element()->Solution(pt1_vol, varindex, sol1);
 
 #ifdef LOG4CXX
                     if (logger->isDebugEnabled()) {
                         std::stringstream sout;
-                        sout << "\nSide Element =  " << gelside.Element()->Index() << "\n";
-                        sout << "Neighbour Element =  " << neighbour.Element()->Index() << "\n";
-                        sout << "Side solution =  " << sol0[0] << "\n";
-                        sout << "Neigh solution = " << sol1[0] << "\n";
-                        sout << "Diff = " << sol1[0] - sol0[0] << "\n";
-                        sout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
-                        sout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+                        std::cout << "\nSide Element =  " << gelside.Element()->Index() << "\n";
+                        std::cout << "Neighbour Element =  " << neighbour.Element()->Index() << "\n";
+                        std::cout << "Side solution =  " << sol0 << "\n";
+                        std::cout << "Neigh solution = " << sol1 << "\n";
+                        std::cout << "Diff = (" << sol1[0] - sol0[0] <<","<<sol1[1] - sol0[1] << ")\n";
+                        std::cout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
+                        std::cout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
 
                         LOGPZ_DEBUG(logger, sout.str())
                     }
@@ -1427,8 +1427,9 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
         scalnames.Push("DisplacementErrorEstimate");
         scalnames.Push("EnergyErrorEstimate");
         vecnames.Push("StressFem");
+        vecnames.Push("StressReconstructed");
         scalnames.Push("POrder");
-        
+        vecnames.Push("EpsRec");
         //vecnames.Push("State");
         
         int dim = fPostProcMesh.Reference()->Dimension();
@@ -1451,9 +1452,15 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
      col[3] - energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})---> estimatd error
      col[4] = || u_rec - u_fem ||
      col[5] - oscilatory data error (|| f - Proj_divsigma ||)
+     col[6] - ||sigma_fem^AS||_C --> antisymetric error
     
-     Is increased 2 cols on ElementSolution() to store the effectivity index for pressure and flux
+     Is increased 2 cols on ElementSolution() to store the effectivity index for displacement and stress
      **/
+
+    // TODO: aqui devemos rever o calculo de Ieff para o caso de elasticidade
+    std::cout<<" EffectivityIndices - This part of code is not adapted for the elasticity problem with 7 errors"<<"\n";
+    
+    //esta armazenando na posicao do Ieff para displacement dados do erro da parte antisimetrica, ver como arrumar
 
     TPZCompMesh *cmesh = &fPostProcMesh;
     cmesh->Reference()->ResetReference();
@@ -1521,7 +1528,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
             if (neighbour.Element()->Dimension() != dim - 1) DebugStop();
             int64_t neighindex = selected.Element()->Index();
             for (int i = 0; i < 3; i += 2) {
-           //     std::cout<< "i --"<<i<<" i+1 -- "<<i+1<<std::endl;
+               std::cout<< "i --"<<i<<" i+1 -- "<<i+1<<std::endl;
 
                 // std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
 
@@ -1535,7 +1542,8 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     
                 
                 REAL NeighbourErrorExact = elsol(neighindex, i);
-           //     std::cout << " NeighbourErrorEstimate= " << NeighbourErrorEstimate << " NeighbourErrorExact " << NeighbourErrorExact << "\n";
+                
+               std::cout << " NeighbourErrorEstimate= " << NeighbourErrorEstimate << " NeighbourErrorExact " << NeighbourErrorExact << "\n";
                 
                 REAL ErrorEstimate = elsol(el, i + 1);
                 REAL ErrorExact = elsol(el, i);
@@ -1571,8 +1579,11 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
     }
     double globalIeff = 0.;
-    double globalRight = 0.;
-    double globalLeft = 0.;
+    // double globalRight = 0.;
+    // double globalLeft = 0.;
+    double globalEstim = 0.;
+    double globalExact = 0.;
+    double antiSym = 0.;
     for (int64_t el = 0; el < nrows; el++) {
 
         TPZCompEl *cel = cmesh->Element(el);
@@ -1589,7 +1600,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
            // std::cout<<"i = "<<i<<std::endl;
              // std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
 
-           // REAL tol = 1.e-10;
+            REAL tol = 1.e-10;
             REAL ErrorEstimate = elsol(el, i + 1);
             REAL ErrorExact = elsol(el, i);
 
@@ -1607,32 +1618,40 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
             REAL hk = gel->CharacteristicSize();
 
             REAL oscilatorytherm = 0;
+
+            REAL CKorn=0.5*(1+sqrt(2))*hk;
+            
+            
+            REAL constOsc= sqrt((CKorn/(1-CKorn)));
             if (i == 2) {
                 oscilatorytherm = elsol(el, i + 3);
-                oscilatorytherm *= (hk / M_PI);
+                // oscilatorytherm *= (hk / M_PI);
+                oscilatorytherm *= constOsc;
+                antiSym =elsol(el, i + 4);
 
-                globalRight += (ErrorEstimate * ErrorEstimate + oscilatorytherm * oscilatorytherm);
-                globalLeft += (ErrorExact * ErrorExact);
+                globalEstim += (ErrorEstimate * ErrorEstimate + oscilatorytherm * oscilatorytherm)+antiSym*antiSym;
+                globalExact += (ErrorExact * ErrorExact);
             }
 
-            if (abs(ErrorEstimate) < tol) {
+            if ((abs(ErrorEstimate) < tol)||abs(ErrorExact) < tol) {
                 elsol(el, ncols + i / 2) = 1.;
                 dataIeff(el, 0) = 1.;
             } else {
-                REAL EfIndex = (ErrorEstimate + oscilatorytherm) / ErrorExact;
+                REAL EfIndex = (ErrorEstimate + oscilatorytherm + antiSym) / ErrorExact;
                 dataIeff(el, 0) = EfIndex;
-          //      std::cout<<"ncols + i / 2 --- "<<ncols + i / 2<<std::endl;
+                //std::cout<<"ncols + i / 2 --- "<<ncols + i / 2<<std::endl;
                 elsol(el, ncols + i / 2) = EfIndex;
             }
         }
     }
 
-    if (globalRight<tol){
+    if (globalEstim<tol || globalExact<tol){
         globalIeff=1.;
     }
     else{
-        globalIeff = sqrt(globalRight / globalLeft);
+        globalIeff = sqrt(globalEstim / globalExact);
     }
+    std::cout << "GlobalIeff: " << globalIeff << "\n";
    // std::cout << "GlobalIeff: " << globalIeff << "\n";
 
 //    {

@@ -79,7 +79,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
         an.SetExact(fExact->ExactSolution());
     }
 
-    int64_t nErrorCols = 6;
+    int64_t nErrorCols = 7;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -90,13 +90,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
     fPostProcMesh.ExpandSolution();
     
     
-    fPostProcMesh.ElementSolution().Redim(nelem, 6);
+    fPostProcMesh.ElementSolution().Redim(nelem, nErrorCols);
     for (int64_t el = 0; el < nelem; el++) {
         TPZCompEl *cel = fPostProcMesh.Element(el);
         TPZSubCompMesh *subc = dynamic_cast<TPZSubCompMesh *> (cel);
         if (subc) {
             int64_t nelsub = subc->NElements();
-            subc->ElementSolution().Redim(nelsub, 6);
+            subc->ElementSolution().Redim(nelsub, nErrorCols);
         }
     }
 
