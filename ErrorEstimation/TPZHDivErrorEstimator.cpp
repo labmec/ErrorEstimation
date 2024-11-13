@@ -961,14 +961,34 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
     if (volumeNeighSides.size() == 1) {
         noHangingSide = false;
         TPZGeoElSidePartition partition(largeSkeletonSide);
-        partition.HigherLevelNeighbours(smallerSkelSides, fPrimalSkeletonMatId);
+        partition.HigherLevelNeighbours(smallerSkelSides, 1);
         if (smallerSkelSides.size() == 1) DebugStop();
-        if (smallerSkelSides.size() == 0){
-            return;
-        }
-        for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
-            smallerSkelSides[iskel].EqualLevelCompElementList(volumeNeighSides, 1, 0);
-        }
+        // if (smallerSkelSides.size() == 0){
+        //     // return;
+        //     // if (largeSkeletonSide.Element()->MaterialId()== fConfig.fLagMultiplierMaterialId)return;
+        //     //Fill smallerSkelSides with the neighbour of the large skeleton
+        //     //Search for the neighbour of the large skeleton that has lagMultiplierMaterialId,
+        //     //Then search the neighbour of this neighbour that has the same materialId as the large skeleton
+
+        //     TPZGeoElSide neighbour(largeSkeletonSide.Neighbour());
+        //     // TPZGeoElSide neighbourLagMult(neighbourInterface.Neighbour());
+        //     // TPZGeoElSide neighbour(neighbourLagMult.Neighbour());
+        //     while(neighbour != largeSkeletonSide){
+        //         int matid = neighbour.Element()->MaterialId();
+        //         int index = neighbour.Element()->Index();
+        //         // if(matid == fPrimalSkeletonMatId){
+        //             smallerSkelSides.push_back(neighbour);
+        //         //     break;
+        //         // } else {
+        //             neighbour = neighbour.Neighbour();
+        //         // }
+        //     }
+        // }
+        volumeNeighSides.Push(smallerSkelSides[0].Reference());
+        volumeNeighSides.Push(smallerSkelSides[1].Reference());
+        // for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
+        //     smallerSkelSides[iskel].EqualLevelCompElementList(volumeNeighSides, 1, 0);
+        // }
     }
 
 #ifdef ERRORESTIMATION_DEBUG
@@ -1043,8 +1063,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
         if (noHangingSide) {
             integrationGeoElSide = largeSkeletonSide;
         } else {
-            integrationGeoElSide = smallerSkelSides[iskel];
+            TPZGeoElBC gbc(smallerSkelSides[iskel], 10000);
+            auto createdelement = gbc.CreatedElement();
+            TPZGeoElSide createdelementside(createdelement, createdelement->NSides() - 1);
+            integrationGeoElSide = createdelementside;
         }
+        
+        
         std::unique_ptr<TPZIntPoints> intpoints(gel->CreateSideIntegrationRule(integrationGeoElSide.Side(), 2 * order));
 
         REAL left_weight = fMatid_weights[leftVolumeGel->MaterialId()] / sum_weights;
@@ -1286,59 +1311,59 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverages() {
         }
     }
 
-    pressure_mesh->LoadSolution(pressure_mesh->Solution());
+    // pressure_mesh->LoadSolution(pressure_mesh->Solution());
 
-    TPZBlock &block = pressure_mesh->Block();
-    TPZFMatrix<STATE> &sol = pressure_mesh->Solution();
+    // TPZBlock &block = pressure_mesh->Block();
+    // TPZFMatrix<STATE> &sol = pressure_mesh->Solution();
 
-    // Impose solution on nodes adjacent to hanging nodes
-    for (int64_t i = 0; i < nodesToImposeSolution.size(); i++) {
-        TPZCompElSide node_celside = nodesToImposeSolution[i];
-        TPZGeoElSide node_gelside(node_celside.Reference());
+    // // Impose solution on nodes adjacent to hanging nodes
+    // for (int64_t i = 0; i < nodesToImposeSolution.size(); i++) {
+    //     TPZCompElSide node_celside = nodesToImposeSolution[i];
+    //     TPZGeoElSide node_gelside(node_celside.Reference());
 
-        // celstack will contain all zero dimensional sides connected to the side
-        TPZStack<TPZCompElSide> celstack;
-        int onlyinterpolated = 1;
-        int removeduplicates = 0;
+    //     // celstack will contain all zero dimensional sides connected to the side
+    //     TPZStack<TPZCompElSide> celstack;
+    //     int onlyinterpolated = 1;
+    //     int removeduplicates = 0;
 
-        node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+    //     node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
 
-        for (int elc = 0; elc < celstack.size(); elc++) {
-            TPZCompElSide neigh_celside = celstack[elc];
-            if (neigh_celside.Reference().Dimension() != 0) continue;
+    //     for (int elc = 0; elc < celstack.size(); elc++) {
+    //         TPZCompElSide neigh_celside = celstack[elc];
+    //         if (neigh_celside.Reference().Dimension() != 0) continue;
 
-            // Get solution of the neighbour
-            TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *> (neigh_celside.Element());
-            if (!neigh_intel) DebugStop();
+    //         // Get solution of the neighbour
+    //         TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *> (neigh_celside.Element());
+    //         if (!neigh_intel) DebugStop();
 
-            int64_t neigh_conindex = neigh_intel->ConnectIndex(neigh_celside.Side());
-            TPZConnect &neigh_c = pressure_mesh->ConnectVec()[neigh_conindex];
+    //         int64_t neigh_conindex = neigh_intel->ConnectIndex(neigh_celside.Side());
+    //         TPZConnect &neigh_c = pressure_mesh->ConnectVec()[neigh_conindex];
 
-            int64_t neigh_seqnum = neigh_c.SequenceNumber();
-            int nstate = 1;
-            if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
-            TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
-            for (int istate = 0; istate < nstate; istate++) {
-                neigh_sol[istate] = sol.at(block.at(neigh_seqnum, 0, istate, 0));
-            }
+    //         int64_t neigh_seqnum = neigh_c.SequenceNumber();
+    //         int nstate = 1;
+    //         if (neigh_c.NState() != nstate || neigh_c.NShape() != 1) DebugStop();
+    //         TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
+    //         for (int istate = 0; istate < nstate; istate++) {
+    //             neigh_sol[istate] = sol.at(block.at(neigh_seqnum, 0, istate, 0));
+    //         }
 
-            // Set solution to given connect
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (node_celside.Element());
-            if (!intel) DebugStop();
+    //         // Set solution to given connect
+    //         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (node_celside.Element());
+    //         if (!intel) DebugStop();
 
-            int side = node_gelside.Side();
-            int64_t conindex = intel->ConnectIndex(side);
-            TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
+    //         int side = node_gelside.Side();
+    //         int64_t conindex = intel->ConnectIndex(side);
+    //         TPZConnect &c = pressure_mesh->ConnectVec()[conindex];
 
-            int64_t seqnum = c.SequenceNumber();
-            if (c.NState() != nstate || c.NShape() != 1) DebugStop();
-            for (int istate = 0; istate < nstate; istate++) {
-                sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
-            }
-            break;
-        }
-        pressure_mesh->LoadSolution(pressure_mesh->Solution());
-    }
+    //         int64_t seqnum = c.SequenceNumber();
+    //         if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+    //         for (int istate = 0; istate < nstate; istate++) {
+    //             sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
+    //         }
+    //         break;
+    //     }
+    //     pressure_mesh->LoadSolution(pressure_mesh->Solution());
+    // }
 }
 
 /// compute the nodal average of all elements that share a point
@@ -1388,7 +1413,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
         if (IsZero(weight)) {
             TPZMaterial *mat = intel->Material();
             TPZBndCond *bc = dynamic_cast<TPZBndCond *> (mat);
-            if (!bc) DebugStop();
+            // if (!bc) DebugStop();
 
             continue;
         }

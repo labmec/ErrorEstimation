@@ -882,6 +882,56 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             }
         }
     }
+    pressuremesh->LoadSolution(pressuremesh->Solution());
+
+    TPZBlock &block = pressuremesh->Block();
+    TPZFMatrix<STATE> &sol = pressuremesh->Solution();
+
+    // Impose solution on nodes adjacent to hanging nodes
+    for (int64_t i = 0; i < nodesToImposeSolution.size(); i++) {
+        TPZCompElSide node_celside = nodesToImposeSolution[i];
+        TPZGeoElSide node_gelside(node_celside.Reference());
+
+        // celstack will contain all zero dimensional sides connected to the side
+        TPZStack<TPZCompElSide> celstack;
+        int onlyinterpolated = 1;
+        int removeduplicates = 0;
+
+        node_gelside.ConnectedCompElementList(celstack, onlyinterpolated, removeduplicates);
+
+        for (int elc = 0; elc < celstack.size(); elc++) {
+            TPZCompElSide neigh_celside = celstack[elc];
+            if (neigh_celside.Reference().Dimension() != 1) continue;
+            TPZGeoElSide neigh_gelside(neigh_celside.Reference());
+
+            // Get solution of the neighbour
+            TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *> (neigh_celside.Element());
+            if (!neigh_intel) DebugStop();
+            
+            int nstate = 2;
+            TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
+            TPZManVector<REAL, 3> pt0_vol(1, 0.);
+            neigh_intel->Solution(pt0_vol, 1, neigh_sol);
+            
+            
+            // ifnode_celside.Element()->Reference()->MaterialId()
+            // Set solution to given connect
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (node_celside.Element());
+            if (!intel) continue;
+
+            int side = node_gelside.Side();
+            int64_t conindex = intel->ConnectIndex(side);
+            TPZConnect &c = pressuremesh->ConnectVec()[conindex];
+
+            int64_t seqnum = c.SequenceNumber();
+            if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+            for (int istate = 0; istate < nstate; istate++) {
+                sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
+            }
+            break;
+        }
+        pressuremesh->LoadSolution(pressuremesh->Solution());
+    }
 }
 
 // TODO we dont need to pass pressure_mesh as an argument here, if I divide the method in the father class into

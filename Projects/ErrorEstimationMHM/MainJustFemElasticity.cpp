@@ -142,7 +142,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 #endif
     
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {xdiv,xdiv};
+    TPZVec<int> nDivs = {2,2};
     TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
     int pend = 2;
