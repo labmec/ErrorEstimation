@@ -940,7 +940,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
     TPZFMatrix<STATE> &mesh_sol = pressuremesh->Solution();
 
     int target_dim = gel->Dimension();
-    if (target_dim == dim - 1 && gel->MaterialId() != fPrimalSkeletonMatId) {
+    if (target_dim != dim - 1) {
         DebugStop();
     }
 
@@ -963,6 +963,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
         TPZGeoElSidePartition partition(largeSkeletonSide);
         partition.HigherLevelNeighbours(smallerSkelSides, fPrimalSkeletonMatId);
         if (smallerSkelSides.size() == 1) DebugStop();
+        if (smallerSkelSides.size() == 0){
+            return;
+        }
         for (int iskel = 0; iskel < smallerSkelSides.size(); iskel++) {
             smallerSkelSides[iskel].EqualLevelCompElementList(volumeNeighSides, 1, 0);
         }

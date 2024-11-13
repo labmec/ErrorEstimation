@@ -183,7 +183,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps = 2;
+    int nsteps = 3;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){

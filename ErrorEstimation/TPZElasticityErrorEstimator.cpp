@@ -860,6 +860,7 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
     }
 
     nel = pressuremesh->NElements();
+    TPZStack<TPZCompElSide> nodesToImposeSolution;
     // compute the averages
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = pressuremesh->Element(el);
@@ -872,6 +873,11 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             int ncorner = gel->NCornerNodes();
             for (int side = 0; side<ncorner; side++) {
                 TPZCompElSide celside(cel,side);
+                int nsides = gel->NSides();
+                if (IsAdjacentToHangingNode(celside)) {
+                    nodesToImposeSolution.Push(celside);
+                    continue;
+                }
                 ComputeNodalAverage(celside);
             }
         }
