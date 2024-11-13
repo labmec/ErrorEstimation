@@ -1078,6 +1078,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
             STATE average_solX = left_weight * left_sol[0] + right_weight * right_sol[0];
             STATE average_solY = left_weight * left_sol[1] + right_weight * right_sol[1];
 
+            // std::cout << "Left Sol = " << left_sol[0] << " " << left_sol[1] << std::endl;
+            // std::cout << "Righ Sol = " << right_sol[0] << " " << right_sol[1] << std::endl;
+
             TPZFNMatrix<9, REAL> jac(dim, dim), jacinv(dim, dim), axes(dim, 3);
             REAL detjac;
             integrationGeoElSide.Jacobian(pt_right_skel, jac, axes, detjac, jacinv);
@@ -1112,6 +1115,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
 //    L2Rhs.Print("L2Rhs = ", std::cout, EMathematicaInput);
     L2Mat.SolveDirect(L2Rhs, ECholesky);
     // Stores solution in the computational mesh
+    
     int count = 0;
     for (int ic = 0; ic < nc; ic++) {
         TPZConnect &c = cel->Connect(ic);
@@ -1119,7 +1123,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
         int64_t pos = pressuremesh->Block().Position(seqnum);
         int ndof = c.NShape() * c.NState();
         for (int idf = 0; idf < ndof; idf++) {
+            // std::cout << "mesh_sol prev = " << pos + idf << " " << mesh_sol(pos + idf, 0) << std::endl;
             mesh_sol(pos + idf, 0) = L2Rhs(count++);
+            // std::cout << "mesh_sol after = " << pos + idf << " " << mesh_sol(pos + idf, 0) << std::endl;
+            // std::cout << "L2rhs = " << L2Rhs(count-1) << std::endl;
         }
     }
 }
@@ -1842,7 +1849,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
 
     //#ifdef ERRORESTIMATION_DEBUG
-    // VerifySolutionConsistency(PrimalMesh());
+    VerifySolutionConsistency(PrimalMesh());
     //#endif
 
     PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure");

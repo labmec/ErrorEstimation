@@ -985,7 +985,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZNullMaterial<> *skeletonMat = new TPZNullMaterial<>(fPrimalSkeletonMatId);
+    TPZL2Projection<> *skeletonMat = new TPZL2Projection<>(fPrimalSkeletonMatId,1,2);
     skeletonMat->SetDimension(dim - 1);
     skeletonMat->SetNStateVariables(2);
     displacement_mesh->InsertMaterialObject(skeletonMat);
@@ -1145,11 +1145,12 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
                     // Maps pt0 and pt1 to volume and gets solution on this points
                     TPZTransform<REAL> sideToVolume(dim, dim);
                     sideToVolume = gelside.Element()->SideToSideTransform(iside, nsides - 1);
+                    int varindex = 1;//
 
                     TPZManVector<REAL> pt0_vol(dim, 0);
                     sideToVolume.Apply(pt0, pt0_vol);
                     TPZManVector<STATE> sol0(1);
-                    cel->Solution(pt0_vol, 0, sol0);
+                    cel->Solution(pt0_vol, varindex, sol0);
 
                     TPZTransform<REAL> neighSideToVolume(dim, dim);
                     neighSideToVolume = neighbour.Element()->SideToSideTransform(cneighbour.Side(), neighbour.Element()->NSides() - 1);
@@ -1157,7 +1158,7 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
                     TPZManVector<REAL> pt1_vol(dim, 0);
                     neighSideToVolume.Apply(pt1, pt1_vol);
                     TPZManVector<STATE> sol1(1);
-                    cneighbour.Element()->Solution(pt1_vol, 0, sol1);
+                    cneighbour.Element()->Solution(pt1_vol, varindex, sol1);
 
 #ifdef LOG4CXX
                     if (logger->isDebugEnabled()) {

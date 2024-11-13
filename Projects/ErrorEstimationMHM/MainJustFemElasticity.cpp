@@ -98,7 +98,7 @@ int main() {
     
 
     ProblemConfig pConfig;
-    pConfig.geometry = ProblemConfig::EGeometry::ELShape;
+    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
     pConfig.exactElast = new TElasticity2DAnalytic;
     //pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
     switch (pConfig.geometry){
@@ -112,11 +112,11 @@ int main() {
             break;
     }
     
-    const int xdiv = 3; //Number of elements in each direction
+    const int xdiv = 4; //Number of elements in each direction
     const int pOrder = 1; // Polynomial degree
     pConfig.porder = pOrder;
     pConfig.ndivisions = xdiv;
-    pConfig.hdivmais = 2;// internal order
+    pConfig.hdivmais = 1;// internal order
    
     // Family of HDiv approximation spaces.
     // The possible choices are HDivFamily::EHDivStandard, HDivFamily::EHDivConstant and HDivFamily::EHDivKernel
@@ -138,7 +138,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 #endif
     
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs;
+    TPZVec<int> nDivs = {xdiv,xdiv};
     TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
     int pend = 2;
@@ -174,7 +174,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps =3;
+    int nsteps = 2;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
