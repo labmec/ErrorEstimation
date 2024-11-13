@@ -181,7 +181,9 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
 
     CreateSkeletonElements(meshvec[1]);
     CreateSkeletonApproximationSpace(meshvec[1]);
-
+    // RestrainSkeletonSides(meshvec[1]);
+    // RestrainSmallEdges(meshvec[1]);
+    
     // If we reconstruct in H(div) we need to create an additional skeleton for the multiphysics interfaces
     if (fPostProcesswithHDiv) {
         CreateFluxSkeletonElements(meshvec[0]);

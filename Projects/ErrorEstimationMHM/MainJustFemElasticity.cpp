@@ -142,7 +142,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 #endif
     
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {2,2};
+    TPZVec<int> nDivs = {xdiv,xdiv};
     TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
     int pend = 2;
@@ -183,7 +183,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps = 3;
+    int nsteps = 4;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
