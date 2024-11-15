@@ -54,11 +54,11 @@ namespace Tools {
 
     TPZGeoMesh *CreateQuadLShapeMesh(TPZVec<int> &bcids);
 
-    TPZCompMesh *CreateFluxHDivMesh(const ProblemConfig &problem);
+    TPZCompMesh *CreateFluxHDivMesh(ProblemConfig &problem);
 
-    TPZCompMesh *CreatePressureMesh(const ProblemConfig &problem);
+    TPZCompMesh *CreatePressureMesh(ProblemConfig &problem);
 
-    TPZMultiphysicsCompMesh *CreateHDivMesh(const ProblemConfig &problem);
+    TPZMultiphysicsCompMesh *CreateHDivMesh(ProblemConfig &problem);
 
     void UniformRefinement(int nDiv, TPZGeoMesh *gmesh);
 
@@ -77,14 +77,14 @@ namespace Tools {
     void Prefinamento(TPZCompMesh *cmesh, int ndiv, int porder);
 
 
-    void SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, const ProblemConfig &problem,
+    void SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, ProblemConfig &problem,
                             bool PostProcessingFEM);
 
-    void SolveMixedProblem(TPZCompMesh *cmesh_HDiv, const ProblemConfig &config);
+    void SolveMixedProblem(TPZCompMesh *cmesh_HDiv, ProblemConfig &config);
 
     TPZCompMesh *CMeshH1(ProblemConfig problem);
 
-    void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, const ProblemConfig &config);
+    void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, ProblemConfig &config);
 
     void Print(const FADREAL& a, std::ostream& out);
 
@@ -96,10 +96,10 @@ namespace Tools {
 
     TPZGeoMesh* CreateGeoMesh(int nelem, TPZVec<int>& bcids, int dim, bool isOriginCentered, int topologyMode);
 
-    void PrintErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
-void PrintElasticityErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
-void PrintElasticityErrorsFEM(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec);
-void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
+    void PrintErrors(std::ofstream& out, ProblemConfig& config, const TPZVec<REAL>& error_vec);
+void PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, const TPZVec<REAL>& error_vec);
+void PrintElasticityErrorsFEM(std::ofstream& out, ProblemConfig& config, const TPZVec<REAL>& error_vec);
+void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
 }
 
 #endif

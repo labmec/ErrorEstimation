@@ -47,10 +47,10 @@ protected:
     /// whether the post processing mesh will be H(div) or H1
     bool fPostProcesswithHDiv = false;
     
-    const ProblemConfig &fConfig;
+    ProblemConfig &fConfig;
 
 public:
-    explicit TPZHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
+    explicit TPZHDivErrorEstimator(ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
         : fConfig(config), fOriginal(&originalMesh), fPostProcMesh(nullptr), fExact(nullptr) {
         fPostProcesswithHDiv = postProcWithHDiv;
     }

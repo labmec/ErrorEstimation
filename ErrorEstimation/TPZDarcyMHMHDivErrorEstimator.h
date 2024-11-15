@@ -22,7 +22,7 @@
 
 class TPZDarcyMHMHDivErrorEstimator : public TPZMHMHDivErrorEstimator<TPZMixedDarcyFlow> {
 public:
-    TPZDarcyMHMHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false);
+    TPZDarcyMHMHDivErrorEstimator(ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false);
     TPZDarcyMHMHDivErrorEstimator(const TPZDarcyMHMHDivErrorEstimator& orig)=delete;
     virtual void ComputePrimalWeights();
     virtual ~TPZDarcyMHMHDivErrorEstimator();

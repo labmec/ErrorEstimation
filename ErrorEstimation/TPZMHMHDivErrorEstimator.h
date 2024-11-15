@@ -22,7 +22,7 @@ class TPZMHMHDivErrorEstimator : public TPZHDivErrorEstimator<MixedMaterial> {
 
 public:
 
-    TPZMHMHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
+    TPZMHMHDivErrorEstimator(ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv = false)
         : TPZHDivErrorEstimator<MixedMaterial>(config, originalMesh, postProcWithHDiv), fMHM(mhm) {
     }
 

@@ -183,7 +183,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     CreateSkeletonApproximationSpace(meshvec[1]);
     // RestrainSkeletonSides(meshvec[1]);
     // RestrainSmallEdges(meshvec[1]);
-    
+
     // If we reconstruct in H(div) we need to create an additional skeleton for the multiphysics interfaces
     if (fPostProcesswithHDiv) {
         CreateFluxSkeletonElements(meshvec[0]);
@@ -235,6 +235,8 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
                 }
             }
         }
+    } else {        
+        PrepareElementsForH1Reconstruction();
     }
 
     //SubStructurePostProcessingMesh();
@@ -954,6 +956,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
 
     if (fPrimalSkeletonMatId == 0) {
         fPrimalSkeletonMatId = FindFreeMatId(this->GMesh());
+        fConfig.fSkeletonMatId = fPrimalSkeletonMatId;
         std::cout << "Created new pressure skeleton material of index " << fPrimalSkeletonMatId << '\n';
     }
     
@@ -1122,12 +1125,12 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
 }
 
 void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) {
-//    {
-//        std::ofstream outvtk("MeshToVerifyConsistency.vtk");
-//        TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
-//        std::ofstream outtxt("MeshToVerifyConsistency.txt");
-//        cmesh->Print(outtxt);
-//    }
+{
+        std::ofstream outvtk("MeshToVerifyConsistency.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(cmesh->Reference(), outvtk);
+        std::ofstream outtxt("MeshToVerifyConsistency.txt");
+        cmesh->Print(outtxt);
+    }
 
     TPZGeoMesh* gmesh = fOriginal->Reference();
     gmesh->ResetReference();
@@ -1203,11 +1206,13 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
                     // Maps pt0 and pt1 to volume and gets solution on this points
                     TPZTransform<REAL> sideToVolume(dim, dim);
                     sideToVolume = gelside.Element()->SideToSideTransform(iside, nsides - 1);
-                    int varindex = 1;//
 
                     TPZManVector<REAL> pt0_vol(dim, 0);
                     sideToVolume.Apply(pt0, pt0_vol);
                     TPZManVector<STATE> sol0(cel->Dimension());
+                    
+                    int varindex = 1;//
+                    
                     cel->Solution(pt0_vol, varindex, sol0);
 
                     TPZTransform<REAL> neighSideToVolume(dim, dim);
@@ -1215,12 +1220,17 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
 
                     TPZManVector<REAL> pt1_vol(dim, 0);
                     neighSideToVolume.Apply(pt1, pt1_vol);
-                    TPZManVector<STATE> sol1(cel->Dimension());
+                    
+                    TPZManVector<STATE> sol1(cel->Dimension());//2 componestes a sol
+                    
+                    //o mesmo aq quanto ao var
                     cneighbour.Element()->Solution(pt1_vol, varindex, sol1);
 
-#ifdef LOG4CXX
-                    if (logger->isDebugEnabled()) {
-                        std::stringstream sout;
+//#ifdef LOG4CXX
+             //       if (logger->isDebugEnabled()) {
+                        //std::stringstream sout;
+                   // std::cout
+                    if (!IsZero(sol1[0] - sol0[0])||!IsZero(sol1[1] - sol0[1])) {
                         std::cout << "\nSide Element =  " << gelside.Element()->Index() << "\n";
                         std::cout << "Neighbour Element =  " << neighbour.Element()->Index() << "\n";
                         std::cout << "Side solution =  " << sol0 << "\n";
@@ -1228,10 +1238,12 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
                         std::cout << "Diff = (" << sol1[0] - sol0[0] <<","<<sol1[1] - sol0[1] << ")\n";
                         std::cout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
                         std::cout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
+                        
+                        DebugStop();
 
-                        LOGPZ_DEBUG(logger, sout.str())
-                    }
-#endif
+//                        LOGPZ_DEBUG(logger, sout.str())
+                  }
+//#endif
 
                     // Checks pressure value on these nodes
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cneighbour.Element());
@@ -1488,12 +1500,13 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
         vecnames.Push("StressReconstructed");
         scalnames.Push("POrder");
         vecnames.Push("EpsRec");
+        vecnames.Push("EpsExact");
         //vecnames.Push("State");
         
         int dim = fPostProcMesh.Reference()->Dimension();
 
         an.DefineGraphMesh(dim, scalnames, vecnames, out);
-        an.PostProcess(0, dim);
+        an.PostProcess(1, dim);
     }
     else {
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";

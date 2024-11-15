@@ -35,7 +35,7 @@ void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool 
     }
 }
 
-TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
+TPZCompMesh* Tools::CreatePressureMesh(ProblemConfig& problem) {
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
     TPZMaterial* mat = 0;
     for (auto matid : problem.materialids) {
@@ -62,7 +62,7 @@ TPZCompMesh* Tools::CreatePressureMesh(const ProblemConfig& problem) {
     return cmesh;
 }
 
-TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
+TPZCompMesh* Tools::CreateFluxHDivMesh(ProblemConfig& problem) {
     int dim = problem.gmesh->Dimension();
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
     TPZNullMaterial<>* mat = NULL;
@@ -101,7 +101,7 @@ TPZCompMesh* Tools::CreateFluxHDivMesh(const ProblemConfig& problem) {
 
 }
 
-TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(const ProblemConfig& problem) {
+TPZMultiphysicsCompMesh* Tools::CreateHDivMesh(ProblemConfig& problem) {
 
     TPZMultiphysicsCompMesh* cmesh = new TPZMultiphysicsCompMesh(problem.gmesh);
     TPZFMatrix<REAL> K(3, 3, 0), invK(3, 3, 0);
@@ -416,7 +416,7 @@ void Tools::Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 
 }
 
-void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, const ProblemConfig &problem,
+void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, ProblemConfig &problem,
         bool PostProcessingFEM) {
 
     TPZLinearAnalysis an(Hybridmesh);
@@ -522,7 +522,7 @@ void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> Inte
 
 }
 
-void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, const ProblemConfig& config) {
+void Tools::SolveMixedProblem(TPZCompMesh* cmesh_HDiv, ProblemConfig& config) {
 #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("gmeshSolve.vtk");
@@ -694,7 +694,7 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
     return cmesh;
 }
 
-void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, const ProblemConfig& config) {
+void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, ProblemConfig& config) {
 
     // Column of the flux error estimate on the element solution matrix
     const int fluxErrorEstimateCol = 3;
@@ -721,7 +721,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     std::cout << "max error " << maxError << "\n";
 
     // Refines elements which error are bigger than 20% of the maximum error
-    REAL threshold = 0.2 * maxError;
+    REAL threshold = 0.99 * maxError;
 
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
@@ -1060,7 +1060,7 @@ void Tools::DrawCompMesh(ProblemConfig &config, PreConfig &preConfig, TPZCompMes
     else multiCmesh->Print(out);
 }
 
-void Tools::PrintErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec) {
+void Tools::PrintErrors(std::ofstream& out, ProblemConfig& config, const TPZVec<REAL>& error_vec) {
 
     std::stringstream ss;
     ss << "\nEstimator errors for Problem " << config.problemname;
@@ -1091,7 +1091,7 @@ void Tools::PrintErrors(std::ofstream& out, const ProblemConfig& config, const T
 }
 
 
-void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec) {
+void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, const TPZVec<REAL>& error_vec) {
     
     /*
     
@@ -1134,7 +1134,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
     std::cout << ss.str();
 }
 
-void Tools::PrintElasticityErrorsFEM(std::ofstream& out, const ProblemConfig& config, const TPZVec<REAL>& error_vec) {
+void Tools::PrintElasticityErrorsFEM(std::ofstream& out, ProblemConfig& config, const TPZVec<REAL>& error_vec) {
     
     /* error[0] = error_sigma
      error[1] = error_energy
@@ -1164,7 +1164,7 @@ void Tools::PrintElasticityErrorsFEM(std::ofstream& out, const ProblemConfig& co
     std::cout << ss.str();
 }
 
-void Tools::EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
+void Tools::EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
 
     std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
 

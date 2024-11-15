@@ -14,7 +14,7 @@
 #include "TPZElasticityMHMHDivErrorEstimator.h"
 #include "Common/pzerror.h"
 
-TPZElasticityMHMHDivErrorEstimator::TPZElasticityMHMHDivErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv) : TPZMHMHDivErrorEstimator<TPZMixedElasticityND>(config, originalMesh, mhm, postProcWithHDiv) {
+TPZElasticityMHMHDivErrorEstimator::TPZElasticityMHMHDivErrorEstimator(ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, TPZMHMixedMeshControl *mhm, bool postProcWithHDiv) : TPZMHMHDivErrorEstimator<TPZMixedElasticityND>(config, originalMesh, mhm, postProcWithHDiv) {
 }
 
 TPZElasticityMHMHDivErrorEstimator::~TPZElasticityMHMHDivErrorEstimator() {

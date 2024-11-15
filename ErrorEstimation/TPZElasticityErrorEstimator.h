@@ -22,11 +22,11 @@ class TPZElasticityErrorEstimator : public TPZHDivErrorEstimator<TPZMixedElastic
 
 public:
 
-    TPZElasticityErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
+    TPZElasticityErrorEstimator(ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh, bool postProcWithHDiv = false)
         : TPZHDivErrorEstimator<TPZMixedElasticityND>(config, originalMesh, postProcWithHDiv) {
     }
     
-    TPZElasticityErrorEstimator(const ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh)
+    TPZElasticityErrorEstimator(ProblemConfig &config, TPZMultiphysicsCompMesh &originalMesh)
     : TPZHDivErrorEstimator<TPZMixedElasticityND>(config, originalMesh, fPostProcesswithHDiv=false){
     }
 

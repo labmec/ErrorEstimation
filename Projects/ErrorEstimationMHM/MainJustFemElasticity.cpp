@@ -90,7 +90,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 
 void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivc, TPZAnalyticSolution *fAn);
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh);
-void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
+void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
 
 //%%%%
 
@@ -142,7 +142,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 #endif
     
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {xdiv,xdiv};
+    TPZVec<int> nDivs = {8,8};
     TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
     int pend = 2;
@@ -183,7 +183,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps = 4;
+    int nsteps = 2;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -537,7 +537,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
 
 
 
-void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
+void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
 
     std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
 
@@ -571,16 +571,16 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
             continue;
         }
         int matId = geo->MaterialId();
-        if (matId==3) {
+        if (matId==config.fSkeletonMatId || matId == 1000) {
             config.gmesh-> DeleteElement(geo);
         }
     }
 
-//    {
-//        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
-//        std::ofstream file(fileName, std::ios::app);
-//        Tools::PrintElasticityErrors(file, config, errors);
-//    }
+   {
+       std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
+       std::ofstream file(fileName, std::ios::app);
+       Tools::PrintElasticityErrors(file, config, errors);
+   }
     
     // Prints gmesh mesh properties
     std::string vtk_name = "geoMeshAfterAdapt_1.vtk";
