@@ -415,7 +415,9 @@ int main() {
             std::ofstream out3("gmeshrefined.vtk");
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
             std::ofstream out6("ErrorEstimator.vtk");
+            AddSBFemVolumeElements();
             TPZVTKGeoMesh::PrintCMeshVTK(cmesh_m, out6, Error, "Error");
+            HideSBFemVolumeElements();
         }
 
         {
