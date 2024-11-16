@@ -17,6 +17,13 @@ if (APPLE)
   add_definitions(-DMACOSX)
 endif()
 
+file(GLOB_RECURSE PZ_SRC
+     "../neopz_errorestimation/*.h"
+     "../neopz_errorestimation/*.cpp"
+     "../NeoPzDevelop/*.h"
+     "../NeoPzDevelop/*.cpp"
+)
+add_custom_target( GlobalFiles SOURCES ${PZ_SRC})
 
 #TODO: Define this using modern CMake standards. @Gustavo, do you know how to do this?
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
