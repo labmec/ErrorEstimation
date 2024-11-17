@@ -1462,7 +1462,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeNodalAverage(TPZCompElSide &no
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (celside.Element());
         if (!intel) DebugStop();
         int64_t index = intel->Index();
-        if (gelside.Element()->MaterialId() == 1000) continue;
+        if (gelside.Element()->MaterialId() == fConfig.fHangingNodeMatId) continue;
 
         REAL weight = fPrimalWeights[index];
 

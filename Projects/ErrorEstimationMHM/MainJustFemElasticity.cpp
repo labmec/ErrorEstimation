@@ -112,7 +112,7 @@ int main() {
         case ProblemConfig::EGeometry::EQuad:
         case ProblemConfig::EGeometry::ETrap:
         default:
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
             break;
     }
     
@@ -142,7 +142,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 #endif
     
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {2,2};
+    TPZVec<int> nDivs = {10,10};
     TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
     int pend = 2;
@@ -183,7 +183,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps = 4;
+    int nsteps = 5;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -571,7 +571,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
             continue;
         }
         int matId = geo->MaterialId();
-        if (matId==config.fSkeletonMatId || matId == 1000) {
+        if (matId==config.fSkeletonMatId || matId == config.fHangingNodeMatId) {
             config.gmesh-> DeleteElement(geo);
         }
     }
