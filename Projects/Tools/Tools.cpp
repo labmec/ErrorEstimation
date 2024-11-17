@@ -721,7 +721,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     std::cout << "max error " << maxError << "\n";
 
     // Refines elements which error are bigger than 20% of the maximum error
-    REAL threshold = 0.99 * maxError;
+    REAL threshold = 0.2 * maxError;
 
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
@@ -740,6 +740,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
             TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
+
 #ifdef LOG4CXX2
                 int nsides = gelToRefine->NSides();
                 TPZVec<REAL> loccenter(gelToRefine->Dimension());
@@ -767,6 +768,34 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
         }
     }
+
+    // std::string vtk_name = "geoMeshAux.vtk";
+    // std::ofstream vtkfile(vtk_name.c_str());
+    // TPZVTKGeoMesh::PrintGMeshVTK(gmeshToRefine, vtkfile, true);
+
+    // for (int64_t iel = 0; iel < nelem; iel++) {
+    //     TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
+    //     if (!cel) continue;
+    //     if (cel->Dimension() != postProcessMesh->Dimension()) continue;
+ 
+    //     TPZGeoEl* gel = cel->Reference();
+    //     if (!gel) continue;
+        
+    //     //Check if the volumetric neighbours are at maximum 1 level of refinement
+    //     int nsides = gel->NSides();
+    //     for (int iside = 0; iside < nsides; iside++){
+    //         TPZCompElSide celside(cel,iside);
+    //         TPZGeoElSide gelside(gel,iside);
+    //         auto aaa = gelside.LowerLevelSide();
+    //         if (aaa.Element()){
+    //             int a = 0;
+    //         }
+    //     }
+    // }
+
+
+
+
     DivideLowerDimensionalElements(gmeshToRefine);
 }
 

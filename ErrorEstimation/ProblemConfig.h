@@ -35,6 +35,7 @@ struct ProblemConfig
     /// option to compute the error based on continuous pressures or not
     bool makepressurecontinuous = true;
     int fSkeletonMatId = -666;
+    int fHangingNodeMatId = 1000;
     
     /// number of uniform refinements applied to the mesh
     int ndivisions = -1;

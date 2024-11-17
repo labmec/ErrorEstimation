@@ -90,7 +90,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 
 void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivc, TPZAnalyticSolution *fAn);
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh);
-void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh);
+void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh, int step);
 
 //%%%%
 
@@ -142,7 +142,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 #endif
     
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {8,8};
+    TPZVec<int> nDivs = {2,2};
     TPZVec<int> divs = {4};//{2,4,8,16,32,64};//{2,5,10,20,50,100};
     
     int pend = 2;
@@ -183,7 +183,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     std::ofstream vtkfile(vtk_name.c_str());
     TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
     
-    int nsteps = 2;
+    int nsteps = 4;
     config.gmesh = gmesh;
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -414,7 +414,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 << std::scientific << std::setprecision(15) << error[0] << ", "
                 << error[3] << std::endl;
                 
-                EstimateErrorElasticity(config, cmesh);
+                EstimateErrorElasticity(config, cmesh, refsteps);
                 
                 // Prints gmesh mesh properties
                 std::string vtk_name = "geoMeshAfterAdapt.vtk";
@@ -537,7 +537,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
 
 
 
-void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh) {
+void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh, int step) {
 
     std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
 
@@ -558,7 +558,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     TPZManVector<REAL, 6> elementerrors;
     std::stringstream outVTK;
     outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
-           << "-Errors.vtk";
+           << step << "-Errors.vtk";
     std::string outVTKstring = outVTK.str();
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
     

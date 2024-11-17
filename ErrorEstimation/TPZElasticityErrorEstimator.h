@@ -102,6 +102,7 @@ private:
     //------- New methods for elasticity ----
     TPZCompMesh *CreateDisplacementMesh();
     TPZCompMesh *CreateStressMesh();
+
    
 };
 

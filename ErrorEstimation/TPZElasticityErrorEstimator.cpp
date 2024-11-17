@@ -182,7 +182,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     CreateSkeletonElements(meshvec[1]);
     CreateSkeletonApproximationSpace(meshvec[1]);
     // RestrainSkeletonSides(meshvec[1]);
-    // RestrainSmallEdges(meshvec[1]);
+    // 
 
     // If we reconstruct in H(div) we need to create an additional skeleton for the multiphysics interfaces
     if (fPostProcesswithHDiv) {
@@ -202,6 +202,31 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     if(fPostProcesswithHDiv) {
         IncreaseSideOrders(meshvec[0]);//malha da tensão
     }
+
+
+    {
+        // Create skeleton elements in pressure mesh
+        // TPZL2Projection<> *smallskeletonMat = new TPZL2Projection<>(1000,1,2);
+        // smallskeletonMat->SetDimension(dim - 1);
+        // smallskeletonMat->SetNStateVariables(2);
+        // fPostProcMesh.MeshVector()[1]->InsertMaterialObject(smallskeletonMat);
+
+        // std::set<int> matIdSkeleton = { 1000 };
+
+        // fPostProcMesh.MeshVector()[1]->ApproxSpace().CreateDisconnectedElements(true);
+        // fPostProcMesh.MeshVector()[1]->AutoBuild(matIdSkeleton);
+        // fPostProcMesh.MeshVector()[1]->ExpandSolution();
+        // TPZManVector<int,5> active(5,0);
+        // active[1] = 1;
+        // fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
+        // fPostProcMesh.BuildMultiphysicsSpace(active, fPostProcMesh.MeshVector());
+        std::ofstream fileVTK("GeoMeshBeforeRestrain.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK);
+        RestrainSmallEdges(meshvec[1]);
+        std::ofstream fileVTK2("GeoMeshAfterRestrain.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK2);
+    }
+
 
     //RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
@@ -885,12 +910,12 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
                 ComputeNodalAverage(celside);
             }
         }
-    }
-    pressuremesh->LoadSolution(pressuremesh->Solution());
+    } 
 
+    // pressuremesh->ExpandSolution();
     TPZBlock &block = pressuremesh->Block();
     TPZFMatrix<STATE> &sol = pressuremesh->Solution();
-
+    
     // Impose solution on nodes adjacent to hanging nodes
     for (int64_t i = 0; i < nodesToImposeSolution.size(); i++) {
         TPZCompElSide node_celside = nodesToImposeSolution[i];
@@ -916,6 +941,33 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
             TPZManVector<REAL, 3> pt0_vol(1, 0.);
             neigh_intel->Solution(pt0_vol, 1, neigh_sol);
+
+            // {
+            //     for (int icon = 0; icon < 3; icon++)
+            //     {
+            //         int side = neigh_gelside.Side();
+            //         int64_t conindex = neigh_intel->ConnectIndex(icon);
+            //         TPZConnect &c = pressuremesh->ConnectVec()[conindex];
+
+            //         int64_t seqnum = c.SequenceNumber();
+            //         // if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+            //         for (int istate = 0; istate < nstate; istate++) {
+            //             std::cout << "Coeficiente multiplicador " << istate << " " << sol.at(block.at(seqnum, 0, istate, 0)) << std::endl;
+            //             // sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
+            //         }
+            //     }
+                
+                
+
+            //     TPZManVector<STATE, 3> neigh_sol2(nstate, 0.);
+            //     TPZManVector<REAL, 3> pt0_vol2(1, -1.);
+            //     neigh_intel->Solution(pt0_vol2, 1, neigh_sol2);
+
+            //     TPZManVector<STATE, 3> neigh_sol3(nstate, 0.);
+            //     TPZManVector<REAL, 3> pt0_vol3(1, 1.);
+            //     neigh_intel->Solution(pt0_vol3, 1, neigh_sol3);
+            //     std::cout << "neigh_sol " << neigh_sol << " neigh_sol2 " << neigh_sol2 << " neigh_sol3 " << neigh_sol3 << std::endl;
+            // }
             
             
             // ifnode_celside.Element()->Reference()->MaterialId()
@@ -934,7 +986,7 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             }
             break;
         }
-        pressuremesh->LoadSolution(pressuremesh->Solution());
+        // pressuremesh->LoadSolution(pressuremesh->Solution());
     }
 }
 
@@ -1025,6 +1077,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
                         TPZGeoElBC gbc(gelside, fPrimalSkeletonMatId);
                         break;
                     }
+                   
                // }
             }
         }
@@ -1239,7 +1292,7 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
                         std::cout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
                         std::cout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
                         
-                        DebugStop();
+                        // DebugStop();
 
 //                        LOGPZ_DEBUG(logger, sout.str())
                   }
@@ -1433,7 +1486,7 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
         TPZGeoEl *gel = cel->Reference();
         int matid = gel->MaterialId();
         TPZMaterial *mat = this->fOriginal->FindMaterial(matid);
-        if (matid == fPrimalSkeletonMatId || matid == fHybridizer.fLagrangeInterface) {
+        if (matid == fPrimalSkeletonMatId || matid == fHybridizer.fLagrangeInterface || matid == fConfig.fHangingNodeMatId) {
             fPrimalWeights[el] = 0.;
             fMatid_weights[matid] = 0.;
             continue;
@@ -1506,7 +1559,7 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
         int dim = fPostProcMesh.Reference()->Dimension();
 
         an.DefineGraphMesh(dim, scalnames, vecnames, out);
-        an.PostProcess(1, dim);
+        an.PostProcess(0, dim);
     }
     else {
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
@@ -1738,3 +1791,4 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
 //        BoundEstimated.Print("BoundEstimated = ", out4, EMathematicaInput);
 //    }
 }
+

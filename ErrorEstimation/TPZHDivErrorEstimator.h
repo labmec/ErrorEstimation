@@ -190,6 +190,8 @@ protected:
     bool IsAdjacentToHangingNode(const TPZCompElSide &celside);
 
     static std::set<int> GetBCMatIDs(const TPZCompMesh* cmesh);
+    void PrintMultiplyingCoefficient();
+
 };
 
 #endif /* TPZHybridHDivErrorEstimator_hpp */
