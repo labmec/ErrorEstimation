@@ -507,7 +507,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
             elas2D = dynamic_cast<TElasticity2DAnalytic*> (fAn) ;
             matelas = new TPZMixedElasticityND(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress, dim);
             matelas->SetExactSol(elas2D->ExactSolution(),4);
-         //   matelas->SetForcingFunction(elas2D->ForceFunc(),4);
+           matelas->SetForcingFunction(elas2D->ForceFunc(),4);
             hdivCreator.InsertMaterialObject(matelas);
 
             TPZFMatrix<STATE> val1(dim,dim,0.);
