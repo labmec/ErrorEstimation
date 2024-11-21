@@ -485,7 +485,7 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     TPZManVector<REAL, 6> elementerrors;
     std::stringstream outVTK;
     outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref << "-" << config.adaptivityStep
-           << "-Errors.vtk";
+           << "- lambda "<<config.lambda<<"-Errors.vtk";
     std::string outVTKstring = outVTK.str();
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
     

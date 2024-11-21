@@ -1122,7 +1122,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
     ss << "\nEstimator errors for Problem " << config.problemname;
     ss << "\n-------------------------------------------------- \n";
     ss << "Ndiv = " << config.ndivisions << ", NIntRef = " << config.ninternalref <<
-            ", Order k = " << config.porder << ", Order n = " << config.hdivmais;
+            ", Order k = " << config.porder << ", Order n = " << config.hdivmais<<", lambda= "<<config.lambda;
     if (config.adaptivityStep != -1) {
         ss << ", AdaptivityStep = " << config.adaptivityStep;
     }
@@ -1136,13 +1136,6 @@ void Tools::PrintElasticityErrors(std::ofstream& out, const ProblemConfig& confi
         ss << "|u_ex-u_fem| = " << error_vec[0] << "\n";
         ss << "|u_ex-u_rec| = " << error_vec[1] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
-//        REAL global_index = 1;
-//        if (!IsZero(error_vec[5] + error_vec[3]) && !IsZero(error_vec[2])) {
-//            global_index = (error_vec[5] + error_vec[3]+ error_vec[6])/ error_vec[2];
-//        }
-//        ss << "Global Index = " << global_index << "\n\n";
-//    } else {
-//        ss << "[Unknown exact solution and errors]\n";
     }
 
     out << ss.str();

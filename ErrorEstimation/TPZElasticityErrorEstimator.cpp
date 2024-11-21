@@ -1959,34 +1959,33 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
     }
 
-    std::cout << "globalEstim: " << globalEstim <<"globalExact: " << globalExact << "\n";
+    //std::cout << "globalEstim: " << globalEstim <<"globalExact: " << globalExact << "\n";
     
-    globalEstim = (sqrt(n1)+n2)*(sqrt(n1)+n2)+n3;
+    globalEstim = sqrt((sqrt(n1)+n2)*(sqrt(n1)+n2)+n3);
     
-    std::cout << "n1: " << n1 <<" n2: " << n2 <<" n3: " <<n3<<"\n";
+   // std::cout << "n1: " << n1 <<" n2: " << n2 <<" n3: " <<n3<<"\n";
     
     if ( globalEstim< tol || globalExact<tol){
         globalIeff=1.;
     }
     else{
         
-        std::cout << "aux: " << globalEstim<<"\n";
-        globalIeff = sqrt(globalEstim)/globalExact;
+    //    std::cout << "aux: " << globalEstim<<"\n";
+        globalIeff = globalEstim/globalExact;
     }
     std::cout << "GlobalIeff: " << globalIeff << "\n";
+    {
+        std::ofstream file("GlobalIeff.txt", std::ios::app);
+        
+        // Escrever no arquivo
+        file << "ProblemName " << fConfig.problemname<<" k= " <<fConfig.porder<<" Ndivision "<<fConfig.ndivisions<<" lambda "<<fConfig.lambda<< std::endl;
+        
+        // Fechar o arquivo
+        arquivo.close();
+        
+    }
 
-//    {
-//        std::ofstream out("IeffPerElement.nb");
-//        dataIeff.Print("Ieff = ", out, EMathematicaInput);
-//        std::ofstream out1("InnerEstimated.nb");
-//        InnerEstimated.Print("InnerEstimated = ", out1, EMathematicaInput);
-//        std::ofstream out2("InnerExact.nb");
-//        InnerExact.Print("InnerExact = ", out2, EMathematicaInput);
-//        std::ofstream out3("BoundExact.nb");
-//        BoundExact.Print("BoundExact = ", out3, EMathematicaInput);
-//        std::ofstream out4("BoundEstimated.nb");
-//        BoundEstimated.Print("BoundEstimated = ", out4, EMathematicaInput);
-//    }
+
 }
 
 // compute the average of an element iel in the pressure mesh looking at its neighbors
