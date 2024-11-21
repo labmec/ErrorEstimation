@@ -171,21 +171,20 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         REAL E = result[0];
         REAL nu = result[1];
         
-        //std:: cout <<" Erros--> E = "<<E<<" nu= "<<nu<<std::endl;
+      //  std:: cout <<" Erros--> E = "<<E<<" nu= "<<nu<<std::endl;
         TElasticityAtPoint modify(E, nu);
         elast = modify;
+   
     }
-    //compute C(sigma)
+    //compute Aeps(u)=sigma
     ComputeStressVector(eps_exactV, sigma_exactV, elast);
 
     /// || sigma - sigma_fem||_C^2 = (C(sigma - sigma_fem), sigma - sigma_fem)
     TPZManVector<STATE, 9> Csigma_femV(matdim, 0.);
+    //Compute C sigma =eps(u)
     ComputeDeformationVector(stress_femV, Csigma_femV, elast);
     
 
-    
-    
-    
     TPZManVector<STATE, 9> part1(matdim, 0.);
     TPZManVector<STATE, 9> part2(matdim, 0.);
     for (unsigned int i = 0; i < matdim; ++i) {
@@ -206,6 +205,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     // TPZManVector<STATE, 9> Sigma_reconstructed(matdim, 0.);
     TPZManVector<STATE, 9> sigma_reconstructedV(matdim, 0.), eps_reconstructedV(matdim, 0.);
     ToVoigt(eps_reconstructed, eps_reconstructedV);
+    
     ComputeStressVector(eps_reconstructedV, sigma_reconstructedV, elast);
     
     
@@ -213,6 +213,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     /// || sigma_fem - Aeps(u_rec)||_C^2 = (Csigma_fem - eps(u_rec), sigma_fem - Aeps(u_rec))
     // = (Csigma_femV - eps_reconstructedV, stress_femV - sigma_reconstructedV)
     for (unsigned int i = 0; i < matdim; ++i) {
+        
+//        std::cout<<"Csigma_fem "<<Csigma_femV[i]<<", eps_reconstructedV "<<eps_reconstructedV[i]<<std::endl;
+//    std::cout<<"---> sigma_reconstructedV "<<sigma_reconstructedV[i]<<", stress_femV[i] "<<stress_femV[i]<<std::endl;
         part1[i] = Csigma_femV[i] - eps_reconstructedV[i];
         part2[i] = stress_femV[i] - sigma_reconstructedV[i];
     }

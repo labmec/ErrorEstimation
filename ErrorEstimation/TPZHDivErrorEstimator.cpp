@@ -385,7 +385,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::CreatePostProcessingMesh() {
         fHybridizer.CreateInterfaceElements(&fPostProcMesh);
         fHybridizer.GroupandCondenseElements(&fPostProcMesh);
         fPostProcMesh.CleanUpUnconnectedNodes();
-    } else {
+    } 
+    else {
         PrepareElementsForH1Reconstruction();
     }
 
@@ -420,10 +421,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeElementStiffnesses() {
         if (subcmesh) {
             subcmesh->Assemble();
         }
+        else{
 
-        //        if(!subcmesh || !condense){
-        //            DebugStop();
-        //        }
+            DebugStop();
+        }
+        
 
 #ifdef ERRORESTIMATION_DEBUG
         if (subcmesh && condense) {
@@ -1865,7 +1867,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
     std::ofstream outafter("ReconstructionSteps/MFMeshAfterManualTransfer.txt");
     fPostProcMesh.Print(outafter);
-    ComputeElementStiffnesses();
+    
+    //ComputeElementStiffnesses();
 
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     //PlotState("ReconstructionSteps/VolumeMFPressureAfterLoadSolution", 2, &fPostProcMesh, false);
@@ -2198,8 +2201,15 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrepareElementsForH1Reconstruction() 
         if (!cel) continue;
         TPZGeoEl *gel = cel->Reference();
         if (!gel) continue;
+        
+        std::cout<<"MatId = "<<gel->MaterialId()<<std::endl;
+        std::cout<<"fPrimalSkeletonMatId = "<<fPrimalSkeletonMatId<<std::endl;
+        
+        std::cout<<"fWrapMaterialId = "<<  fConfig.fWrapMaterialId<<std::endl;
+       
 
-        if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
+       // if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
+        if (gel->MaterialId() != fConfig.fWrapMaterialId) continue;
 
         TPZGeoElSide skelSide(gel, gel->NSides() - 1);
         TPZStack<TPZCompElSide> compNeighSides;

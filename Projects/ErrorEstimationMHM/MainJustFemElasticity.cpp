@@ -109,10 +109,10 @@ int main() {
         default:
             // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
             // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::Etest1;
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EPoly;
+            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
            // pConfig.problemname = "ETrap-EHarmonic";
             pConfig.problemname = "EHarmonic";
-            pConfig.lambda = 123.;
+            pConfig.lambda = 1.;//123.;
             pConfig.mu = 79.3;
            // pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
             break;
@@ -124,7 +124,7 @@ int main() {
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
     pConfig.isHibridized = true;
-    pConfig.isAdaptivity = true;
+    pConfig.isAdaptivity = false;
     
     
    
@@ -149,12 +149,12 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs = {xdiv,xdiv};
-    TPZVec<int> divs = {8};//{2,4,8,16,32,64};
+    TPZVec<int> divs = {4,8,16,32,64};
     
     int pend = 2;
 
     
-    int nsteps = 4;
+    int nsteps = 2;
    
     
     for (int iorder = 1; iorder < pend; iorder++){
@@ -312,7 +312,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 an.LoadSolution(); // compute internal dofs
                 
                 // //Compute error
-                std::ofstream anPostProcessFile("postprocess.txt");
+                std::ofstream anPostProcessFile("PostprocessFem.txt");
                 TPZManVector<REAL,7> error;
                 an.LoadSolution();
                  cmesh->LoadSolution(cmesh->Solution());
@@ -484,8 +484,7 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
     TPZManVector<REAL, 6> errors;
     TPZManVector<REAL, 6> elementerrors;
     std::stringstream outVTK;
-    outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref << "-" << config.adaptivityStep
-           << "- lambda "<<config.lambda<<"-Errors.vtk";
+    outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref << "-" << config.adaptivityStep<<"k-" << config.porder<<"-lambda- "<<config.lambda<<"-Errors.vtk";
     std::string outVTKstring = outVTK.str();
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
     
@@ -514,6 +513,8 @@ void EstimateErrorElasticity(const ProblemConfig &config, TPZMultiphysicsCompMes
         std::ofstream file(fileName, std::ios::app);
         Tools::PrintElasticityErrors(file, config, errors);
     }
+    
+  
     
     // Prints gmesh mesh properties
     std::string vtk_name = "geoMeshAfterAdapt_1.vtk";

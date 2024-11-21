@@ -248,6 +248,22 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
             }
         }
     }
+    
+    
+   //TODO: nao esta executando
+   // NewVerifyConnectConsistency(&fPostProcMesh); // TODO
+
+    if (fPostProcesswithHDiv) {
+        // construction of the multiphysics mesh
+        //cria elementos de interface
+        fHybridizer.CreateInterfaceElements(&fPostProcMesh);
+        fHybridizer.GroupandCondenseElements(&fPostProcMesh);
+        fPostProcMesh.CleanUpUnconnectedNodes();
+    } 
+//    else {
+//        PrepareElementsForH1Reconstruction();//aqui que cria elementos condensados
+//    }
+    
 
     ComputePrimalWeights();
 
@@ -1779,6 +1795,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     BoundExact.Zero();
 
     int dim = cmesh->Dimension();
+    int order = cmesh->GetDefaultOrder();
     elsol.Resize(nrows, ncols + 2);
     REAL tol = 1.e-10;
 
@@ -1943,6 +1960,8 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
             } else {
                 
                 if(i==2){
+                    //Ieff_local
+           // std::cout<<" LocalErrorEstimate "<<ErrorEstimate<< " Localoscilatorytherm= "<<oscilatorytherm<<" antiSym= "<< antiSym<<" ErrorExact= "<<ErrorExact<<std::endl;
                     REAL EfIndex = ((ErrorEstimate  + oscilatorytherm )* (ErrorEstimate  + oscilatorytherm )+antiSym*antiSym)/ErrorExact;
                     dataIeff(el, 0) = EfIndex;
                     //std::cout<<"ncols + i / 2 --- "<<ncols + i / 2<<std::endl;
@@ -1963,26 +1982,22 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     
     globalEstim = sqrt((sqrt(n1)+n2)*(sqrt(n1)+n2)+n3);
     
-   // std::cout << "n1: " << n1 <<" n2: " << n2 <<" n3: " <<n3<<"\n";
-    
     if ( globalEstim< tol || globalExact<tol){
         globalIeff=1.;
     }
     else{
-        
-    //    std::cout << "aux: " << globalEstim<<"\n";
         globalIeff = globalEstim/globalExact;
     }
-    std::cout << "GlobalIeff: " << globalIeff << "\n";
+    std::cout << "Order: " << order<<" GlobalIeff: " << globalIeff << "\n";
+    
+    fEffIndex = globalIeff;
+
+    fEstimatedError = globalEstim;
+    
     {
-        std::ofstream file("GlobalIeff.txt", std::ios::app);
-        
-        // Escrever no arquivo
-        file << "ProblemName " << fConfig.problemname<<" k= " <<fConfig.porder<<" Ndivision "<<fConfig.ndivisions<<" lambda "<<fConfig.lambda<< std::endl;
-        
-        // Fechar o arquivo
+        std::ofstream arquivo("GlobalIeff.txt", std::ios::app);
+        arquivo  <<"Problem Name = "<<fConfig.problemname<<" k= "<<fConfig.porder <<" nref "<<fConfig.ndivisions<< " lambda= "<<fConfig.lambda <<" GlobalIeff = "<<fEffIndex <<" GlobalEstim= "<<globalEstim<<"\n";
         arquivo.close();
-        
     }
 
 
