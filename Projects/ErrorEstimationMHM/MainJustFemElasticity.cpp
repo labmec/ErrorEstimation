@@ -188,7 +188,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     for (int iorder = 1; iorder < pend; iorder++){
         
-        printerrors <<  " porder " << " h " <<   " error stress "<< " error diplacement"<<std::endl;
+        printerrors <<  " porder " << " h " <<   " error stress "<< " error displacement"<<std::endl;
                     
         for(int refsteps = 1; refsteps< nsteps; refsteps ++){
         
@@ -470,9 +470,9 @@ CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId, REAL distortion)
     TPZVec<int> matIds(nMats,bcId);
     matIds[0] = volId;
     matIds[1] = bcId;
-    matIds[2] = EBoundary;
-    matIds[3] = EBoundary;
-    matIds[4] = EBoundary;
+    matIds[2] = bcId;
+    matIds[3] = bcId;
+    matIds[4] = bcId;
     
     TPZGeoMesh* gmesh = TPZGeoMeshTools::CreateGeoMeshOnGrid(dim, minX, maxX,
                         matIds, nDivs, meshType,createBoundEls, distortion);
@@ -563,7 +563,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
     
     Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
-    //TODO
+    
     int nel=config.gmesh->NElements();
     for (int iel=0; iel<nel; iel++) {
         TPZGeoEl * geo =config.gmesh->ElementVec()[iel];
@@ -571,7 +571,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
             continue;
         }
         int matId = geo->MaterialId();
-        if (matId==config.fSkeletonMatId || matId == config.fHangingNodeMatId) {
+        if ((matId==config.fSkeletonMatId || matId == config.fHangingNodeMatId) && geo->FatherIndex() == -1) {
             config.gmesh-> DeleteElement(geo);
         }
     }
