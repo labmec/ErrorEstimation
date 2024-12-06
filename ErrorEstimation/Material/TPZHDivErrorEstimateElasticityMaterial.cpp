@@ -134,11 +134,6 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     eps_exact(0, 0) = du_exact(0, 0);
     eps_exact(1, 0) = eps_exact(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
     eps_exact(1, 1) = du_exact(1, 1);
-    
-    //eps(exact displacement)
-//    eps_reconstructed(0, 0) = du_exact(0, 0);
-//    eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
-//    eps_reconstructed(1, 1) = du_exact(1, 1);
 
     //eps(reconstructed displacement)
     const auto &dudxreconstructed = data[H1functionposition].dsol[0];
@@ -634,6 +629,7 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
     if (name == "ResidualError") return 104;
     if (name == "DisplacementEffectivityIndex") return 107;
     if (name == "EnergyEffectivityIndex") return 108;
+    if (name == "LocalErrorIndicator") return 109;
     if (name == "StressReconstructed") return 46;
     if (name == "EpsExact") return 47;
     if (name == "EpsRec") return 48;
@@ -664,6 +660,7 @@ int TPZHDivErrorEstimateElasticityMaterial::NSolutionVariables(int var) const
         case 104:
         case 107:
         case 108:
+        case 109:
         case 45:
             return 1;
             break;

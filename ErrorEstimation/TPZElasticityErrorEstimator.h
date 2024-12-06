@@ -42,8 +42,16 @@ public:
     virtual ~TPZElasticityErrorEstimator() = default;
     
      void DisplacementReconstruction();
+    
+    
+    REAL fEffIndex = -1.;
+
+    REAL fEstimatedError = -1.;
 
 private:
+
+    
+    
     // material id of the dim-1 multiphysic inerface and wrap elements
     // (only used for HDiv reconstruction)
     int fMultiPhysicsInterfaceMatId = 0;

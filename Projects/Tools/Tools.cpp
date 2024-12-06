@@ -695,9 +695,21 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
 }
 
 void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, ProblemConfig& config) {
-
+    
+//    std::string vtk_name2 = "geoMeshToAdapty.vtk";
+//    std::ofstream vtkfile2(vtk_name2.c_str());
+//    TPZVTKGeoMesh::PrintGMeshVTK(gmeshToRefine, vtkfile2, true);
+//    
+//    {
+//        std::ofstream out("CompMeshToAdapty.txt");
+//        postProcessMesh->Print(out);
+//    }
+    
+    
     // Column of the flux error estimate on the element solution matrix
-    const int fluxErrorEstimateCol = 3;
+    const int fluxErrorEstimateCol = 8;//3;
+    
+    
 
     TPZFMatrix<STATE> &elsol = postProcessMesh->ElementSolution();
     int64_t nelem = elsol.Rows();
@@ -732,12 +744,14 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         //prefinement
         if (elementError > threshold) {
 
-            std::cout << "element error " << elementError << "el " << iel << "\n";
+            std::cout << "element error " << elementError << " el " << iel << "\n";
             TPZGeoEl* gel = cel->Reference();
-            int iel = gel->Id();
+            //int iel = gel->Id();
+            int64_t geoId = gel->Id();
+            
 
             TPZVec<TPZGeoEl*> sons;
-            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[iel];
+            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[geoId];
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
 
@@ -758,7 +772,8 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 #endif
             }
         } else {
-            std::cout << "como refinar em p? " << "\n";
+            continue;
+           // std::cout << "como refinar em p? " << "\n";
             //            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
             //            if(!sp) continue;
             //            int level = sp->Reference()->Level();
@@ -769,9 +784,9 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         }
     }
 
-    // std::string vtk_name = "geoMeshAux.vtk";
-    // std::ofstream vtkfile(vtk_name.c_str());
-    // TPZVTKGeoMesh::PrintGMeshVTK(gmeshToRefine, vtkfile, true);
+     std::string vtk_name = "geoMeshAux.vtk";
+     std::ofstream vtkfile(vtk_name.c_str());
+     TPZVTKGeoMesh::PrintGMeshVTK(gmeshToRefine, vtkfile, true);
 
     // for (int64_t iel = 0; iel < nelem; iel++) {
     //     TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
@@ -1133,10 +1148,10 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
      */
 
     std::stringstream ss;
-    ss << "\nEstimator errors for Problem " << config.problemtype;
+    ss << "\nEstimator errors for Problem " << config.problemname;
     ss << "\n-------------------------------------------------- \n";
     ss << "Ndiv = " << config.ndivisions << ", NIntRef = " << config.ninternalref <<
-            ", Order k = " << config.porder << ", Order n = " << config.hdivmais;
+            ", Order k = " << config.porder << ", Order n = " << config.hdivmais<<" lambda= "<<config.lambda;
     if (config.adaptivityStep != -1) {
         ss << ", AdaptivityStep = " << config.adaptivityStep;
     }
@@ -1150,17 +1165,10 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
         ss << "|u_ex-u_fem| = " << error_vec[0] << "\n";
         ss << "|u_ex-u_rec| = " << error_vec[1] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
-        REAL global_index = 1;
-        if (!IsZero(error_vec[5] + error_vec[3]) && !IsZero(error_vec[2])) {
-            global_index = sqrt(error_vec[5] + error_vec[3]) / sqrt(error_vec[2]);
-        }
-        ss << "Global Index = " << global_index << "\n\n";
-    } else {
-        ss << "[Unknown exact solution and errors]\n";
+        
+        out << ss.str();
+        std::cout << ss.str();
     }
-
-    out << ss.str();
-    std::cout << ss.str();
 }
 
 void Tools::PrintElasticityErrorsFEM(std::ofstream& out, ProblemConfig& config, const TPZVec<REAL>& error_vec) {

@@ -1544,6 +1544,7 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
             scalnames.Push("DisplacementEffectivityIndex");
             scalnames.Push("EnergyEffectivityIndex");
             vecnames.Push("StressExact");
+            vecnames.Push("EpsExact");
         }
         vecnames.Push("DisplacementFem");
         vecnames.Push("DisplacementReconstructed");
@@ -1553,7 +1554,8 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
         vecnames.Push("StressReconstructed");
         scalnames.Push("POrder");
         vecnames.Push("EpsRec");
-        vecnames.Push("EpsExact");
+        scalnames.Push("LocalErrorIndicator");
+        
         //vecnames.Push("State");
         
         int dim = fPostProcMesh.Reference()->Dimension();
@@ -1568,8 +1570,7 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &o
 }
 
 void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
-    
-    /**The  ElementSolution() is a matrix with 6 cols,
+    /**The  ElementSolution() is a matrix with 7 cols,
      col[0] - error computed with exact displacement (|| u_fem-u_exact ||) --> exact error
      col[1] - error computed with reconstructed displacement  (|| u_exact-u_rec ||) --> estimated error
      col[2] - energy error computed with exact solution  (|| sigma - sigma_fem ||_{C})---> exact error
@@ -1578,14 +1579,9 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
      col[5] - oscilatory data error (|| f - Proj_divsigma ||)
      col[6] - ||sigma_fem^AS||_C --> antisymetric error
     
-     Is increased 2 cols on ElementSolution() to store the effectivity index for displacement and stress
+     Added 3 columns to ElementSolution() to store the effectivity indices for displacement and stress and the last column for indicator error. Errors in ElementSolution are stored as square roots.
      **/
-
-    // TODO: aqui devemos rever o calculo de Ieff para o caso de elasticidade
-    std::cout<<" EffectivityIndices - This part of code is not adapted for the elasticity problem with 7 errors"<<"\n";
     
-    //esta armazenando na posicao do Ieff para displacement dados do erro da parte antisimetrica, ver como arrumar
-
     TPZCompMesh *cmesh = &fPostProcMesh;
     cmesh->Reference()->ResetReference();
     cmesh->LoadReferences();
@@ -1593,121 +1589,30 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     int64_t nrows = elsol.Rows();
     int64_t ncols = elsol.Cols();
 
-   //  std::ostream *out;
-    //    cmesh->ElementSolution().Print("ElSolution",std::cout);
+     //std::ostream *out;
+    //cmesh->ElementSolution().Print("ElSolution",std::cout);
 
     TPZFMatrix<REAL> dataIeff(nrows, 1);
     dataIeff.Zero();
-    TPZFMatrix<REAL> InnerEstimated(nrows, 1);
-    InnerEstimated.Zero();
-    TPZFMatrix<REAL> InnerExact(nrows, 1);
-    InnerExact.Zero();
-    TPZFMatrix<REAL> BoundEstimated(nrows, 1);
-    BoundEstimated.Zero();
-    TPZFMatrix<REAL> BoundExact(nrows, 1);
-    BoundExact.Zero();
 
     int dim = cmesh->Dimension();
-    elsol.Resize(nrows, ncols + 2);
+    int order = cmesh->GetDefaultOrder();
+    elsol.Resize(nrows, ncols + 3);
     REAL tol = 1.e-10;
 
     std::set<int> bcMatIDs = fConfig.bcmaterialids;// GetBCMatIDs(&fPostProcMesh);
-
-    for (int64_t el = 0; el < nrows; el++) {
-
-        TPZCompEl *cel = cmesh->Element(el);
-        if (!cel) continue;
-        TPZSubCompMesh *subcmesh = dynamic_cast<TPZSubCompMesh *> (cel);
-        if (subcmesh) {
-          TPZHDivErrorEstimator:: ComputeEffectivityIndices(subcmesh);
-        }
-        TPZGeoEl *gel = cel->Reference();
-        if (!gel) continue;
-        if (gel->Dimension() != dim) continue;
-        int nsides = gel->NSides();
-        for (int is = 0; is < nsides; is++) {
-            if (gel->SideDimension(is) != dim - 1) continue;
-            TPZStack<TPZCompElSide> equal;
-            TPZGeoElSide gelside(gel, is);
-            gelside.EqualLevelCompElementList(equal, 0, 0);
-            //            if(equal.size() != 1){
-            //                std::cout<<"Number of neighbour "<<equal.size()<<"\n";
-            //                DebugStop();
-            //            }
-            TPZGeoElSide neighbour;
-            TPZCompElSide selected;
-            for (int i = 0; i < equal.size(); i++) {
-                TPZGeoEl *gequal = equal[i].Element()->Reference();
-                int eldim = gequal->Dimension();
-                if (eldim != dim - 1) continue;
-                int elmatid = gequal->MaterialId();
-                if (bcMatIDs.find(elmatid) != bcMatIDs.end()) {
-                    neighbour = equal[i].Reference();
-                    selected = equal[i];
-                    break;
-                }
-            }
-
-            if (!neighbour) continue;
-            if (neighbour.Element()->Dimension() != dim - 1) DebugStop();
-            int64_t neighindex = selected.Element()->Index();
-            for (int i = 0; i < 3; i += 2) {
-               std::cout<< "i --"<<i<<" i+1 -- "<<i+1<<std::endl;
-
-                // std::cout << "linha = " << el << " col = " << 4 + i / 2 << " neinEl " << neighindex << std::endl;
-
-                if (neighindex > nrows) {
-                    std::cout << " neighindex= " << neighindex << " nrows " << nrows << "\n";
-                    DebugStop();
-                }
-
-                REAL NeighbourErrorEstimate = elsol(neighindex, i + 1);
-                
     
-                
-                REAL NeighbourErrorExact = elsol(neighindex, i);
-                
-               std::cout << " NeighbourErrorEstimate= " << NeighbourErrorEstimate << " NeighbourErrorExact " << NeighbourErrorExact << "\n";
-                
-                REAL ErrorEstimate = elsol(el, i + 1);
-                REAL ErrorExact = elsol(el, i);
-                
-        //        std::cout << " ErrorEstimate= " << ErrorEstimate << " ErrorExact " << ErrorExact << "\n";
-
-                InnerEstimated(el, 0) = ErrorEstimate;
-                InnerExact(el, 0) = ErrorExact;
-                BoundExact(el, 0) = NeighbourErrorExact;
-                BoundEstimated(el, 0) = NeighbourErrorEstimate;
-
-#ifdef LOG4CXX
-                if (logger->isDebugEnabled()) {
-                    std::stringstream sout;
-                    sout << "El " << el << " dim " << dim << " ErrorEstimate " << ErrorEstimate << " ErrorExact "
-                            << ErrorExact << "\n";
-                    sout << "neighbour " << neighindex << " dim " << neighbour.Element()->Dimension()
-                            << " NeighbourErrorEstimate " << NeighbourErrorEstimate << " NeighbourErrorExact "
-                            << NeighbourErrorExact << "\n";
-
-                    LOGPZ_DEBUG(logger, sout.str())
-                }
-#endif
-
-                REAL sumErrorExact = sqrt(NeighbourErrorExact * NeighbourErrorExact + ErrorExact * ErrorExact);
-                REAL sumErrorEstimate =
-                        sqrt(NeighbourErrorEstimate * NeighbourErrorEstimate + ErrorEstimate * ErrorEstimate);
-                elsol(neighindex, i + 1) = 0.;
-                elsol(neighindex, i) = 0.;
-                elsol(el, i) = sumErrorExact;
-                elsol(el, i + 1) = sumErrorEstimate;
-            }
-        }
-    }
     double globalIeff = 0.;
-    // double globalRight = 0.;
-    // double globalLeft = 0.;
     double globalEstim = 0.;
     double globalExact = 0.;
-    double antiSym = 0.;
+
+
+    REAL etaEstim=0.;
+    REAL etaAssym=0.;
+    
+    REAL n1 = 0.,n2n3 = 0.,ex = 0.,n3 =0.;
+
+    
     for (int64_t el = 0; el < nrows; el++) {
 
         TPZCompEl *cel = cmesh->Element(el);
@@ -1718,11 +1623,15 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
         TPZGeoEl *gel = cel->Reference();
         if (!gel) continue;
+        
         REAL hk = gel->CharacteristicSize();
+        REAL oscilatorytherm = 0;
+        REAL antiSym = 0.;
+        REAL CKorn= 2.;
 
         for (int i = 0; i < 3; i += 2) {
            // std::cout<<"i = "<<i<<std::endl;
-             // std::cout<<"linha = "<<el<< "col = "<<4 + i / 2<<std::endl;
+             
 
             REAL tol = 1.e-10;
             REAL ErrorEstimate = elsol(el, i + 1);
@@ -1740,55 +1649,72 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
             TPZGeoEl *gel = cel->Reference();
 
             REAL hk = gel->CharacteristicSize();
-
-            REAL oscilatorytherm = 0;
-
-            REAL CKorn=0.5*(1+sqrt(2))*hk;
             
-            
-            REAL constOsc= sqrt((CKorn/(1-CKorn)));
-            if (i == 2) {
+            if (i == 2) {// the really estimated error
                 oscilatorytherm = elsol(el, i + 3);
-                // oscilatorytherm *= (hk / M_PI);
-                oscilatorytherm *= constOsc;
+               CKorn= 0.5*(1+sqrt(2))*hk;
+                oscilatorytherm *= CKorn;
+               
+               // std::cout<< "constOsc "<<CKorn2<< " CKorn "<<CKorn<<std::endl;
                 antiSym =elsol(el, i + 4);
-
-                globalEstim += (ErrorEstimate * ErrorEstimate + oscilatorytherm * oscilatorytherm)+antiSym*antiSym;
-                globalExact += (ErrorExact * ErrorExact);
+               // n1 += ErrorEstimate*ErrorEstimate;
+               // n2 += oscilatorytherm;
+                n3 += antiSym*antiSym;
+                globalExact += ErrorExact*ErrorExact;
+                n2n3 += (oscilatorytherm + ErrorEstimate)*(oscilatorytherm + ErrorEstimate);
             }
 
             if ((abs(ErrorEstimate) < tol)||abs(ErrorExact) < tol) {
                 elsol(el, ncols + i / 2) = 1.;
                 dataIeff(el, 0) = 1.;
             } else {
-                REAL EfIndex = (ErrorEstimate + oscilatorytherm + antiSym) / ErrorExact;
-                dataIeff(el, 0) = EfIndex;
-                //std::cout<<"ncols + i / 2 --- "<<ncols + i / 2<<std::endl;
-                elsol(el, ncols + i / 2) = EfIndex;
+                
+                if(i==2){
+                    REAL Estim_local=((ErrorEstimate  + oscilatorytherm )* (ErrorEstimate  + oscilatorytherm )+antiSym*antiSym);
+                    
+                    REAL EfIndex = sqrt(Estim_local)/ErrorExact;
+                    dataIeff(el, 0) = EfIndex;
+                    elsol(el, ncols + i / 2) = EfIndex;//
+                    elsol(el, 9) = Estim_local;
+                }
+                else{
+                    //TODO: aqui é o Ieff so do deslocamento
+                    REAL EfIndex = ErrorEstimate / ErrorExact;
+                    dataIeff(el, 0) = EfIndex;
+                    elsol(el, ncols + i / 2) = EfIndex;
+                    
+                }
             }
         }
     }
 
-    if (globalEstim<tol || globalExact<tol){
+    
+    //std::cout << "globalEstim: " << globalEstim <<"globalExact: " << globalExact << "\n";
+    
+    REAL globalIndex = n2n3+n3;
+    
+    if ( globalIndex< tol || globalExact<tol){
         globalIeff=1.;
     }
     else{
-        globalIeff = sqrt(globalEstim / globalExact);
+        globalIeff = sqrt(globalIndex/globalExact);
     }
-    std::cout << "GlobalIeff: " << globalIeff << "\n";
-   // std::cout << "GlobalIeff: " << globalIeff << "\n";
+    std::cout << "Order: " << order<<" GlobalIeff: " << globalIeff << "\n";
+    
+    fEffIndex = globalIeff;
+    fEstimatedError = globalEstim;
+    
+    
+    {
+        std::string command = "mkdir -p " + fConfig.dir_name;
+        system(command.c_str());
+        
+        std::ofstream arquivo("GlobalIeff.txt", std::ios::app);
 
-//    {
-//        std::ofstream out("IeffPerElement.nb");
-//        dataIeff.Print("Ieff = ", out, EMathematicaInput);
-//        std::ofstream out1("InnerEstimated.nb");
-//        InnerEstimated.Print("InnerEstimated = ", out1, EMathematicaInput);
-//        std::ofstream out2("InnerExact.nb");
-//        InnerExact.Print("InnerExact = ", out2, EMathematicaInput);
-//        std::ofstream out3("BoundExact.nb");
-//        BoundExact.Print("BoundExact = ", out3, EMathematicaInput);
-//        std::ofstream out4("BoundEstimated.nb");
-//        BoundEstimated.Print("BoundEstimated = ", out4, EMathematicaInput);
-//    }
+        arquivo  << fConfig.dir_name << "/"  <<"Problem Name = "<<fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<"Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalEstim= "<<globalEstim<<"\n";
+        arquivo.close();
+    }
+    
+    
 }
 
