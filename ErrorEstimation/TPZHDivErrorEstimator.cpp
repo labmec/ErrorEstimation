@@ -6,6 +6,8 @@
 //  Created by Philippe Devloo on 10/06/18.
 //
 
+#include <filesystem>
+
 #include "TPZHDivErrorEstimator.h"
 #include "TPZGeoElSideAncestors.h"
 #include "TPZGeoElSidePartition.h"
@@ -1825,11 +1827,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
     //#ifdef ERRORESTIMATION_DEBUG
     // Create directories to store debugging files
-    std::string command;
-    command = "mkdir -p ReconstructionSteps";
-    system(command.c_str());
-    command = "mkdir -p DebuggingTransfer";
-    system(command.c_str());
+    std::filesystem::create_directory("ReconstructionSteps");
+    std::filesystem::create_directory("DebuggingTransfer");
     //#endif
     
     CreatePostProcessingMesh();
