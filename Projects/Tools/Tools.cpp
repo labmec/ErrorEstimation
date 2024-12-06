@@ -747,14 +747,13 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         TPZGeoEl* gel = cel->Reference();
         if (!gel) continue;
         int el_id = gel->Id();
-        TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[el_id];
+        TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
         if (!gelToRefine) continue;
         current_level[el_id] = gelToRefine->Level();
         
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
         // h refinement
-        if (el_id == 0 || el_id == 17){
-        //if (elementError > threshold) {
+        if (elementError > threshold) {
             //std::cout << "element error " << elementError << "el " << iel << "\n";
 
             if (!gelToRefine->HasSubElement()) {
@@ -773,7 +772,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         // Ensures that no element has a neighbor that is more than one refinement level apart
         for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
             //std::cout << "Element: " << el_id << std::endl;
-            TPZGeoEl* gel = gmeshToRefine->ElementVec()[el_id];
+            TPZGeoEl* gel = gmeshToRefine->FindElement(el_id);
             if (!gel || gel->Dimension() != gmeshToRefine->Dimension() || gel->HasSubElement()) continue;
             for (int side = gel->FirstSide(gel->Dimension()-1); side < gel->FirstSide(gel->Dimension()); ++side){
                 //std::cout << "Side: " << side << std::endl;
@@ -808,7 +807,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
         if (gelsToRefine[el_id]){
             TPZVec<TPZGeoEl*> sons;
-            TPZGeoEl* gelToRefine = gmeshToRefine->ElementVec()[el_id];
+            TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
             if (gelToRefine && !gelToRefine->HasSubElement()) {
                 gelToRefine->Divide(sons);
 
