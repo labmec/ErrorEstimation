@@ -1605,6 +1605,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     double globalIeff = 0.;
     double globalEstim = 0.;
     double globalExact = 0.;
+    REAL globalResidual=0.;
 
 
     REAL etaEstim=0.;
@@ -1628,9 +1629,10 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         REAL oscilatorytherm = 0;
         REAL antiSym = 0.;
         REAL CKorn= 2.;
+        
 
         for (int i = 0; i < 3; i += 2) {
-           // std::cout<<"i = "<<i<<std::endl;
+         
              
 
             REAL tol = 1.e-10;
@@ -1654,13 +1656,18 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
                 oscilatorytherm = elsol(el, i + 3);
                CKorn= 0.5*(1+sqrt(2))*hk;
                 oscilatorytherm *= CKorn;
-               
-               // std::cout<< "constOsc "<<CKorn2<< " CKorn "<<CKorn<<std::endl;
+                globalResidual += oscilatorytherm;
+                
+//                if(oscilatorytherm< tol){
+//                       
+//                    oscilatorytherm = 0.;
+//                    globalResidual = 0.;
+//                }
+                
                 antiSym =elsol(el, i + 4);
-               // n1 += ErrorEstimate*ErrorEstimate;
-               // n2 += oscilatorytherm;
                 n3 += antiSym*antiSym;
                 globalExact += ErrorExact*ErrorExact;
+                globalEstim += ErrorEstimate*ErrorEstimate;
                 n2n3 += (oscilatorytherm + ErrorEstimate)*(oscilatorytherm + ErrorEstimate);
             }
 
@@ -1678,7 +1685,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
                     elsol(el, 9) = Estim_local;
                 }
                 else{
-                    //TODO: aqui é o Ieff so do deslocamento
+                    //TODO: Ieff so do deslocamento
                     REAL EfIndex = ErrorEstimate / ErrorExact;
                     dataIeff(el, 0) = EfIndex;
                     elsol(el, ncols + i / 2) = EfIndex;
@@ -1689,30 +1696,36 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     }
 
     
-    //std::cout << "globalEstim: " << globalEstim <<"globalExact: " << globalExact << "\n";
+ 
     
     REAL globalIndex = n2n3+n3;
     
-    if ( globalIndex< tol || globalExact<tol){
+    fEstimatedError = sqrt(globalIndex);
+    REAL NormExact= sqrt(globalExact);
+    
+    if ( fEstimatedError< tol || NormExact<tol){
         globalIeff=1.;
     }
     else{
-        globalIeff = sqrt(globalIndex/globalExact);
+        globalIeff = fEstimatedError/NormExact;
     }
     std::cout << "Order: " << order<<" GlobalIeff: " << globalIeff << "\n";
     
     fEffIndex = globalIeff;
-    fEstimatedError = globalEstim;
+    
     
     
     {
-        std::string command = "mkdir -p " + fConfig.dir_name;
-        system(command.c_str());
-        
-        std::ofstream arquivo("GlobalIeff.txt", std::ios::app);
+  
+            std::string fileName = "GlobalIeff.txt";
+            std::string filePath = fConfig.dir_name + "/" + fileName;
 
-        arquivo  << fConfig.dir_name << "/"  <<"Problem Name = "<<fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<"Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalEstim= "<<globalEstim<<"\n";
-        arquivo.close();
+        
+            std::ofstream outFile(filePath, std::ios::app);
+
+        outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<fEffIndex <<" GlobalEstim= "<<fEstimatedError<<" AntiSymmetric= "<<n3<< " GlobalResidual= "<<globalResidual<<" GlobalRecTensor = "<< globalEstim <<" Global Exact= "<<NormExact<<"\n";
+        outFile.close();
+        
     }
     
     

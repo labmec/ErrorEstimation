@@ -78,15 +78,43 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivc, TPZAnalyticSolution *fAn);
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh);
 void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh, int step);
+template<class tshape>
+void RunSmoothProblemSquareMesh(ProblemConfig &pConfig);
+
+template<class tshape>
+void RunSmoothProblemTrapMesh(ProblemConfig &pConfig);
+
+template<class tshape>
+void RunLShapeProblem(ProblemConfig &pConfig);
+
+template<class tshape>
+void RunLambdaTest(ProblemConfig &pConfig);
+
+template<class tshape>
+void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,ProblemConfig &config);
+
 
 //%%%%
-
-
 int main() {
     
 
     ProblemConfig pConfig;
-    pConfig.geometry = ProblemConfig::EGeometry::ETrap;
+   
+    pConfig.exactElast = new TElasticity2DAnalytic;
+    //RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
+   // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
+  // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+    RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
+   
+    return 0;
+}
+
+
+int main2() {
+    
+
+    ProblemConfig pConfig;
+    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
     pConfig.exactElast = new TElasticity2DAnalytic;
     //pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
     switch (pConfig.geometry){
@@ -101,6 +129,8 @@ int main() {
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
             pConfig.mu = 1.;
             pConfig.lambda = 5.0;
+            pConfig.dir_name = "LShapeAdapt";
+            //pConfig.dir_name = "LShape-Uniform";
             break;
         case ProblemConfig::EGeometry::EQuad:
         case ProblemConfig::EGeometry::ETrap:
@@ -108,15 +138,16 @@ int main() {
             pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
             pConfig.lambda= 123.;//1000.;//123.;//100;//10000.;//10000.;
             pConfig.mu= 79.3;//1.;//
-            pConfig.problemname="EHarmonic-ETrap";
+            //pConfig.problemname="EHarmonic-ETrap";
             pConfig.dir_name = "ArticleEx01";
-            //pConfig.dir_name = "LambdaTest";
+            //pConfig.dir_name = "CompareErrors";
+            //pConfig.dir_name = "QuadMeshRef-Trap";
             break;
     }
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 1; // Polynomial degree
-    pConfig.porder = pOrder;
+    const int pOrder = 4; // Polynomial degree
+    //pConfig.porder = pOrder;
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
     pConfig.isAdaptivity = false;
@@ -128,9 +159,217 @@ int main() {
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     
     //Creates the geometric mesh for the given topology and solve the FEM problem.
-    SolveFEMProblem<pzshape::TPZShapeQuad>(xdiv,pOrder,hdivfam, pConfig);
+   // TPZVec<int64_t> values = {1,10,100,1000,10000};
+    
+   // for (int64_t ilambda=0; ilambda< values.size(); ilambda++) {
+        
+     //   pConfig.lambda = values[ilambda];
+//    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+//        pConfig.porder = iorder;
+//    
+//        
+//        SolveFEMProblem<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
+//    }
+
+  //  }
+    
+ //RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
+}
+template<class tshape>
+void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
+    
+    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+    pConfig.lambda= 123.;
+    pConfig.mu= 79.3;
+    pConfig.problemname="EHarmonic-EQuad";
+    pConfig.dir_name = "SmoothProb";
+    
+    const int xdiv = 10; //Number of elements in each direction
+    const int pOrder = 4;
+
+    pConfig.ndivisions = xdiv;
+    pConfig.hdivmais = 1;// internal order
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    HDivFamily hdivfam = HDivFamily::EHDivStandard;
+    TPZGeoMesh *gmesh;
+    REAL distortion = 0;
+    int DIM = tshape::Dimension;
+    TPZVec<int> nDivs = {4,4};
+   
+    
+    TPZVec<int> divs = {4,8,16,32,64,128,256,512};
+    
+    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+        pConfig.porder = iorder;
+        
+        for (int idiv = 0; idiv < divs.size(); idiv++){
+            pConfig.ndivisions =divs[idiv];
+            int divx = divs[idiv];
+            nDivs = {divx,divx};
+            
+            gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
+            
+            pConfig.gmesh=gmesh;
+            
+            
+            SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
+        }
+        
+    }
+    
+}
+template<class tshape>
+void RunLambdaTest(ProblemConfig &pConfig){
+    
+    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+    pConfig.mu= 1;
+    pConfig.problemname="EHarmonic-EQuad";
+    pConfig.dir_name = "SmoothLambdaTest";
+    
+    const int xdiv = 10; //Number of elements in each direction
+    const int pOrder = 4;
+
+    pConfig.ndivisions = xdiv;
+    pConfig.hdivmais = 1;// internal order
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    HDivFamily hdivfam = HDivFamily::EHDivStandard;
+    TPZGeoMesh *gmesh;
+    REAL distortion = 0;
+    int DIM = tshape::Dimension;
+    TPZVec<int> nDivs = {4,4};
+   
+    
+    TPZVec<int> divs = {4,8,16,32,64,128,256,512};
+    
+     TPZVec<int64_t> values = {1,10,100,1000,10000};
+     
+for (int64_t ilambda=0; ilambda< values.size(); ilambda++) {
+         
+         pConfig.lambda = values[ilambda];
+    
+    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+        pConfig.porder = iorder;
+        
+        for (int idiv = 0; idiv < divs.size(); idiv++){
+            pConfig.ndivisions =divs[idiv];
+            int divx = divs[idiv];
+            nDivs = {divx,divx};
+            
+            gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
+            
+            pConfig.gmesh=gmesh;
+            
+            
+            SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
+        }
+    }
+        
+    }
+    
+}
+
+
+template<class tshape>
+void RunSmoothProblemTrapMesh(ProblemConfig &pConfig){
+    
+    pConfig.geometry = ProblemConfig::EGeometry::ETrap;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+    pConfig.lambda= 123.;
+    pConfig.mu= 79.3;
+    pConfig.problemname="EHarmonic-ETrap";
+    pConfig.dir_name = "SmoothProb";
+    
+    const int xdiv = 10; //Number of elements in each direction
+    const int pOrder = 4;
+
+    pConfig.ndivisions = xdiv;
+    pConfig.hdivmais = 1;// internal order
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    HDivFamily hdivfam = HDivFamily::EHDivStandard;
+    TPZGeoMesh *gmesh;
+    REAL distortion = 1./3;
+    int DIM = tshape::Dimension;
+    TPZVec<int> nDivs = {4,4};
+   
+    
+    TPZVec<int> divs = {4,8,16,32,64,128,256,512};
+    
+    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+        pConfig.porder = iorder;
+        
+        for (int idiv = 0; idiv < divs.size(); idiv++){
+            pConfig.ndivisions =divs[idiv];
+            int divx = divs[idiv];
+            nDivs = {divx,divx};
+            
+            gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary, distortion);
+            
+            pConfig.gmesh=gmesh;
+            
+            
+            SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
+        }
+        
+    }
+    
+}
+
+
+template<class tshape>
+void RunLShapeProblem(ProblemConfig &pConfig){
+    pConfig.geometry = ProblemConfig::EGeometry::ELShape;
+    pConfig.problemname = "ELShape";
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
+    pConfig.mu = 1.;
+    pConfig.lambda = 5.0;
+    pConfig.dir_name = "LShapeProblem";
+    
+    const int xdiv = 10; //Number of elements in each direction
+    const int pOrder = 4;
+
+    pConfig.ndivisions = xdiv;
+    pConfig.hdivmais = 1;// internal order
+    pConfig.isAdaptivity = true;
+    pConfig.adaptivityStep = 7;//numero de steps no refinamento
+    HDivFamily hdivfam = HDivFamily::EHDivStandard;
+    TPZGeoMesh *gmesh;
+
+    int DIM = tshape::Dimension;
+   
+    TPZVec<int> nDivs = {4,4};
+    TPZVec<int> divs = {2};//,8,16,32,64,128,256,512};
+    
+    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+        pConfig.porder = iorder;
+        
+        for (int idiv = 0; idiv < divs.size(); idiv++){
+            pConfig.ndivisions =divs[idiv];
+            int divx = divs[idiv];
+            
+            nDivs = {divx,divx};
+            
+            TPZVec<int> bcids(8, EBoundary);
+            gmesh = Tools::CreateQuadLShapeMesh(bcids);
+
+            int uniref = divx;
+            Tools::UniformRefinement(uniref, gmesh);
+            
+            
+            pConfig.gmesh=gmesh;
+            
+            
+            SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
+        }
+        
+    }
+    
 }
 
 
@@ -144,7 +383,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
     
     int DIM = tshape::Dimension;
     TPZVec<int> nDivs = {4,4};
-    TPZVec<int> divs = {16};//{4,8,16,32,64};
+    TPZVec<int> divs = {4};//,8,16,32,64,128,256,512};
     
     int pend = 2;
     //config.ndivisions=divs[0];
@@ -166,9 +405,6 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                             if (DIM == 2) nDivs = {divx,divx};
                             if (DIM == 3) nDivs = {divx,divx,divx};
 
-
-                        //TPZGeoMesh *gmesh;
-
                         switch(config.geometry) {
                             case ProblemConfig::EGeometry::ECrack:
                             {
@@ -180,7 +416,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                                 TPZVec<int> bcids(8, EBoundary);
                                 gmesh = Tools::CreateQuadLShapeMesh(bcids);
 
-                                int uniref = 2;
+                                int uniref = divx;
                                 Tools::UniformRefinement(uniref, gmesh);
                                 break;
                             }
@@ -200,37 +436,18 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
 
                         config.gmesh = gmesh;
             
-                        {
-                            // Prints gmesh mesh properties
-                            std::string vtk_name = "geoMeshToSolveProbem.vtk";
-                            std::ofstream vtkfile(vtk_name.c_str());
-                            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
-                        }
+                       
 
                     
         for(int refsteps = 1; refsteps< config.adaptivityStep; refsteps ++){
-            
-        
-//            for (int idiv = 0; idiv < divs.size(); idiv++){
-//                config.ndivisions =divs[idiv];
-//                config.porder= iorder;
-//                int divx = divs[idiv];
-                
-                
-                //    if (DIM == 2) nDivs = {divx,divx};
-                //    if (DIM == 3) nDivs = {divx,divx,divx};
-                
-                // Creates/import a geometric mesh
-                //  auto gmesh = CreateGeoMesh<tshape>(nDivs, EDomain, EBoundary);
-                
-                
-                //  int uniref= divx/2;
-                //  Tools::UniformRefinement(uniref, gmesh);
-                
+            {
                 // Prints gmesh mesh properties
-//                std::string vtk_name3 = "geoMeshLshape0.vtk";
-//                std::ofstream vtkfile3(vtk_name3.c_str());
-//                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile3, true);
+                std::string vtk_name = "geoMeshToSolveProbem.vtk";
+                std::ofstream vtkfile(vtk_name.c_str());
+                TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
+            }
+            
+
                 
                 // Creates an hdivApproxCreator object. It is an environment developped to
                 // help creating H(div)-family possible approximation spaces.
@@ -306,7 +523,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 strmat.SetNumThreads(8);
 #else
                 TPZSkylineStructMatrix<STATE> strmat(cmesh);
-                strmat.SetNumThreads(0);
+                strmat.SetNumThreads(4);
 #endif
                 
                 an.SetStructuralMatrix(strmat);
@@ -538,4 +755,111 @@ ReadMeshFromGmsh(std::string file_name)
         reader.GeometricGmshMesh(file_name,gmesh);
     }
     return gmesh;
+}
+
+template<class tshape>
+void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,ProblemConfig &config)
+{
+
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
+#endif
+    
+    int DIM = tshape::Dimension;
+
+        for(int refsteps = 1; refsteps< config.adaptivityStep; refsteps ++){
+            {
+                // Prints gmesh mesh properties
+                std::string vtk_name = "geoMeshToSolveProbem.vtk";
+                std::ofstream vtkfile(vtk_name.c_str());
+                TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+            }
+            
+                // Creates an hdivApproxCreator object. It is an environment developped to
+                // help creating H(div)-family possible approximation spaces.
+                TPZHDivApproxCreator hdivCreator(config.gmesh);
+                //Set the family of H(div) functions: Standard, Constant or Kernel
+                hdivCreator.HdivFamily() = hdivfamily;
+                //Set the problem type to be solved: Only EDarcy and EElastic are currently available
+                hdivCreator.ProbType() = ProblemType::EElastic;
+                //Includes the rigid body spaces (constant flux and pressure) if set as true
+                hdivCreator.IsRigidBodySpaces() = false;
+                //Set the default polynomial order
+                hdivCreator.SetDefaultOrder(config.porder);
+                //Set the extra polynomial order for the bubble functions. If zero, the polynomial degree
+                //of the internal functions are the same as the default order
+                hdivCreator.SetExtraInternalOrder(config.hdivmais);
+                //Sets if the resulting problem should or not be condensed
+                hdivCreator.SetShouldCondense(true);
+                // hdivCreator.SetShouldCondense(false);
+                
+                //Sets the type of hybridizantion desired.
+                //The current options are HybridizationType::ENone, HybridizationType::EStandard
+                //and HybridizationType::ESemi (the last only works with H(div)-constant spaces)
+                hdivCreator.HybridType() = HybridizationType::ENone;
+                // hdivCreator.HybridType() = HybridizationType::EStandard;
+                
+                //Creates an analytical solution to test
+                TPZAnalyticSolution *gAnalytic = 0;
+                if (hdivCreator.ProbType() == ProblemType::EDarcy){
+                    TLaplaceExample1 *lap = new TLaplaceExample1;
+                    lap->fExact = TLaplaceExample1::EHarmonic;
+                    gAnalytic = lap;
+                } else if (hdivCreator.ProbType() == ProblemType::EElastic){
+                    if (DIM == 2){
+                        TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
+                        elas->gE = config.mu*(3*config.lambda+2*config.mu)/(config.lambda+config.mu);
+                        elas->gPoisson = 0.5*config.lambda/(config.lambda+config.mu);
+                        elas->fProblemType = config.exactElast->fProblemType;
+                        elas->fPlaneStress=0;
+                        gAnalytic = elas;
+                    } else if (DIM == 3){
+                        TElasticity3DAnalytic *elas = new TElasticity3DAnalytic;
+                        elas->fE = 1.;
+                        elas->fPoisson = 0.0;
+                        elas->fProblemType = TElasticity3DAnalytic::ELoadedBeam;
+                        gAnalytic = elas;
+                    }
+                } else {
+                    DebugStop();
+                }
+         
+                
+                //Insert Materials
+                InsertMaterials(DIM,hdivCreator,gAnalytic);
+                
+                //Gets the Multiphysics mesh from the HdivApproxCreator
+                TPZMultiphysicsCompMesh *cmesh = hdivCreator.CreateApproximationSpace();
+
+                
+                //Create the analysis environment
+                TPZLinearAnalysis an(cmesh,RenumType::ESloan);
+                // TPZLinearAnalysis an(cmesh,RenumType::EMetis);
+                an.SetExact(gAnalytic->ExactSolution(),4);
+                
+#ifdef PZ_USING_MKL
+                TPZSSpStructMatrix<> strmat(cmesh);
+                strmat.SetNumThreads(8);
+#else
+                TPZSkylineStructMatrix<STATE> strmat(cmesh);
+                strmat.SetNumThreads(4);
+#endif
+                
+                an.SetStructuralMatrix(strmat);
+                TPZStepSolver<STATE> step;
+                step.SetDirect(ELDLt);
+                an.SetSolver(step);
+                std::cout << "Assembling\n";
+                an.Assemble();
+                
+                std::cout << "Solving\n";
+                an.Solve();
+                std::cout << "Finished\n";
+                an.LoadSolution(); // compute internal dofs
+            
+                EstimateErrorElasticity(config, cmesh, refsteps);
+                
+            }
+    
+   
 }

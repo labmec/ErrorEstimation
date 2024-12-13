@@ -732,13 +732,17 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
     std::cout << "max error " << maxError << "\n";
 
-    // The elements which error are larger than 20% of the maximum error are
-    // marked to be refined
-    REAL threshold = 0.8 * maxError;
+  //   The elements which error are larger than 20% of the maximum error are
+   //  marked to be refined
+    REAL threshold = 0.7 * maxError;
+   std::cout << "Threshold: " << threshold << "\n";
     auto nelem_gmeshToRefine = gmeshToRefine->NElements();
     std::vector<int> current_level(nelem_gmeshToRefine, 0);
     std::vector<int> new_level(nelem_gmeshToRefine, 0);
     std::vector<bool> gelsToRefine(nelem_gmeshToRefine, false);
+    
+    TPZVec<int64_t> elementsToRefine;
+    
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
         if (!cel) continue;
@@ -746,24 +750,35 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         
         TPZGeoEl* gel = cel->Reference();
         if (!gel) continue;
-        int el_id = gel->Id();
+        int64_t el_id = gel->Id();
         TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
-        if (!gelToRefine) continue;
+        if (!gelToRefine){
+            std::cout << "Element ID " << el_id << " not found in gmeshToRefine.\n";
+            continue;}
         current_level[el_id] = gelToRefine->Level();
         
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
-        // h refinement
+            std::cout << "Element ID: " << el_id<< ", Error: " << elementError<< ", Threshold: " << threshold<< "\n";
         if (elementError > threshold) {
-            //std::cout << "element error " << elementError << "el " << iel << "\n";
+            std::cout << "element error " << elementError << "el " << el_id << "\n";
 
             if (!gelToRefine->HasSubElement()) {
+            std::cout << "Marking to refine Element ID: " << el_id << "\n";
+        
                 gelsToRefine[el_id] = true;
+                //TODO: including a vector to store the elements to refine
+                elementsToRefine.push_back(el_id);
                 new_level[el_id] = current_level[el_id] + 1;
             }
         } else {
+            std::cout << "Element ID " << el_id << " already has subelements.\n";
             new_level[el_id] = current_level[el_id];
         }
     }
+    
+    
+    
+    
 
 
     bool checkEnabled;
@@ -771,7 +786,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         checkEnabled = false;
         // Ensures that no element has a neighbor that is more than one refinement level apart
         for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
-            //std::cout << "Element: " << el_id << std::endl;
+
             TPZGeoEl* gel = gmeshToRefine->FindElement(el_id);
             if (!gel || gel->Dimension() != gmeshToRefine->Dimension() || gel->HasSubElement()) continue;
             for (int side = gel->FirstSide(gel->Dimension()-1); side < gel->FirstSide(gel->Dimension()); ++side){
@@ -798,17 +813,21 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                         ++(new_level[el_id]);
                         gelsToRefine[el_id] = true;
                         checkEnabled = true;
+                        
                     }
                 }
             }
         }
     } while (checkEnabled);
     
+    int64_t nel= gelsToRefine.size();
     for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
+
         if (gelsToRefine[el_id]){
             TPZVec<TPZGeoEl*> sons;
             TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
             if (gelToRefine && !gelToRefine->HasSubElement()) {
+                std::cout<<" Element finally refined "<<el_id <<"\n";
                 gelToRefine->Divide(sons);
 
 #ifdef LOG4CXX2
@@ -840,34 +859,12 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
         }
     }
-    
+
     DivideLowerDimensionalElements(gmeshToRefine);
 
 //    std::string vtk_name = "geoMeshAux.vtk";
 //    std::ofstream vtkfile(vtk_name.c_str());
 //    TPZVTKGeoMesh::PrintGMeshVTK(gmeshToRefine, vtkfile, true);
-
-
-    // for (int64_t iel = 0; iel < nelem; iel++) {
-    //     TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
-    //     if (!cel) continue;
-    //     if (cel->Dimension() != postProcessMesh->Dimension()) continue;
- 
-    //     TPZGeoEl* gel = cel->Reference();
-    //     if (!gel) continue;
-        
-    //     //Check if the volumetric neighbours are at maximum 1 level of refinement
-    //     int nsides = gel->NSides();
-    //     for (int iside = 0; iside < nsides; iside++){
-    //         TPZCompElSide celside(cel,iside);
-    //         TPZGeoElSide gelside(gel,iside);
-    //         auto aaa = gelside.LowerLevelSide();
-    //         if (aaa.Element()){
-    //             int a = 0;
-    //         }
-    //     }
-    // }
-
 
 
 
