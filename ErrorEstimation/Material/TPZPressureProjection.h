@@ -14,7 +14,7 @@
 
 
 
-
+/// class to compute and H1 reconstruction when the original approximation is and Hybrid H1 approximation
 class TPZPressureProjection : public TPZHDivErrorEstimateMaterial
 {
 
