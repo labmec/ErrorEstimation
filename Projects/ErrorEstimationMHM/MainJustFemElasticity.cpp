@@ -103,8 +103,8 @@ int main() {
     pConfig.exactElast = new TElasticity2DAnalytic;
     //RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
    // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-  // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
-    RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
+   RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+   // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
 }
@@ -329,10 +329,10 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
     pConfig.mu = 1.;
     pConfig.lambda = 5.0;
-    pConfig.dir_name = "LShapeProblem";
+    
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 4;
+    const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
@@ -342,9 +342,16 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     TPZGeoMesh *gmesh;
 
     int DIM = tshape::Dimension;
-   
+    TPZVec<int> divs;
     TPZVec<int> nDivs = {4,4};
-    TPZVec<int> divs = {2};//,8,16,32,64,128,256,512};
+    if (pConfig.isAdaptivity) {
+         divs = {2};
+        pConfig.dir_name = "LShapeProblem-Adapt";
+    }
+    else{
+        divs = {1,2,3,4,5};
+        pConfig.dir_name = "LShapeProblem-Uni";
+    }
     
     for (int64_t iorder=1; iorder< pOrder;iorder++) {
         pConfig.porder = iorder;
@@ -685,7 +692,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
 
 void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh, int step) {
 
-    std::cout << "\nError Estimation processing for MHM-Hdiv problem " << std::endl;
+    std::cout << "\nError Estimation processing for Elasticity problem " << std::endl;
 
     // Error estimation
     if (!originalMesh) DebugStop();

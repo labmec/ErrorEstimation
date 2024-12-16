@@ -734,7 +734,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
   //   The elements which error are larger than 20% of the maximum error are
    //  marked to be refined
-    REAL threshold = 0.7 * maxError;
+    REAL threshold = 0.5 * maxError;
    std::cout << "Threshold: " << threshold << "\n";
     auto nelem_gmeshToRefine = gmeshToRefine->NElements();
     std::vector<int> current_level(nelem_gmeshToRefine, 0);
@@ -820,45 +820,55 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         }
     } while (checkEnabled);
     
-    int64_t nel= gelsToRefine.size();
-    for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
-
-        if (gelsToRefine[el_id]){
-            TPZVec<TPZGeoEl*> sons;
-            TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
-            if (gelToRefine && !gelToRefine->HasSubElement()) {
-                std::cout<<" Element finally refined "<<el_id <<"\n";
-                gelToRefine->Divide(sons);
-
-#ifdef LOG4CXX2
-                int nsides = gelToRefine->NSides();
-                TPZVec<REAL> loccenter(gelToRefine->Dimension());
-                TPZVec<REAL> center(3);
-                gelToRefine->CenterPoint(nsides - 1, loccenter);
-
-                gelToRefine->X(loccenter, center);
-                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
-                if (logger->isDebugEnabled()) {
-                    std::stringstream sout;
-                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
-                    sout << "Error = " << elementError << "\n\n";
-                    LOGPZ_DEBUG(logger, sout.str())
-                }
-#endif
-            }
-        } else {
-
-            continue;
-           // std::cout << "como refinar em p? " << "\n";
-            //            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
-            //            if(!sp) continue;
-            //            int level = sp->Reference()->Level();
-            //            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
-            //            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
-            //            sp->PRefine(ordem);
-
-        }
+    
+    for (int64_t iel=0; iel<elementsToRefine.size(); iel++) {
+        int geoId=elementsToRefine[iel];
+        TPZVec<TPZGeoEl*> sons;
+        TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
+        std::cout<<" iel "<<geoId<<"\n";
+        gelToRefine->Divide(sons);
     }
+    
+    
+//    int64_t nel= gelsToRefine.size();
+//    for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
+//
+//        if (gelsToRefine[el_id]){
+//            TPZVec<TPZGeoEl*> sons;
+//            TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
+//            if (gelToRefine && !gelToRefine->HasSubElement()) {
+//                std::cout<<" Element finally refined "<<el_id <<"\n";
+//                gelToRefine->Divide(sons);
+//
+//#ifdef LOG4CXX2
+//                int nsides = gelToRefine->NSides();
+//                TPZVec<REAL> loccenter(gelToRefine->Dimension());
+//                TPZVec<REAL> center(3);
+//                gelToRefine->CenterPoint(nsides - 1, loccenter);
+//
+//                gelToRefine->X(loccenter, center);
+//                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
+//                if (logger->isDebugEnabled()) {
+//                    std::stringstream sout;
+//                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
+//                    sout << "Error = " << elementError << "\n\n";
+//                    LOGPZ_DEBUG(logger, sout.str())
+//                }
+//#endif
+//            }
+//        } else {
+//
+//            continue;
+//           // std::cout << "como refinar em p? " << "\n";
+//            //            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
+//            //            if(!sp) continue;
+//            //            int level = sp->Reference()->Level();
+//            //            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
+//            //            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
+//            //            sp->PRefine(ordem);
+//
+//        }
+//    }
 
     DivideLowerDimensionalElements(gmeshToRefine);
 
