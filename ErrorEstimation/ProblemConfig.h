@@ -71,6 +71,11 @@ struct ProblemConfig
     /// set of elements to be increment his p-order after each adaptivity step
     std::list<std::map<int64_t,int> > fElIndexPplus;
     
+    int fWrapMatid = 10;
+    int fFluxMaterialId = 15;
+    std::pair<int,int> fLeftInterfaceMatid = {20,25};
+
+    
     ProblemConfig() = default;
 
     ProblemConfig(const ProblemConfig &cp) = default;
