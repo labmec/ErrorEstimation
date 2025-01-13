@@ -13,7 +13,7 @@ def main():
     # Any changes you wann do, do it here
 
     # file name
-    file_name: str = "naca" 
+    file_name: str = "naca-circle" 
 
     # z-coordinate
     depth: float = 0. 
@@ -209,7 +209,7 @@ def main():
     TPZMeshModeling.CreatePhysicalGroup(gp)
 
     dim = 1 # dimension of the entity
-    tag = [l34,l41[0]] # tag of the entity
+    tag = [l33,l41[0]] # tag of the entity
     ID = 5
     gp = [
 #        [(dim, tag), ID, "name"]
@@ -245,7 +245,7 @@ def main():
     # domain lines
     domain_lines: list[int] = [i + 1 for i in range(36)]
     circle_lines: list[int] = [37, 38, 39, 40]
-    domain_surfaces: list[int] = surfaces[0:-2]
+    domain_surfaces: list[int] = surfaces[0:-1]
     circle_surface: int = surfaces[-1]
 
     # creating the transfinte lines and surfaces
