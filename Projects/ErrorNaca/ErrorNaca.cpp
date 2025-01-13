@@ -825,7 +825,7 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, int64_t &
         for(auto el : blueelements) elcolor[el] = -1;
         for(auto el : redelements) elcolor[el] = 1;
         std::ofstream out("cutcolor.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, elcolor);
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out, elcolor, "CutColor", true);
     }
     for(int64_t el = 0; el<nel; el++) {
         TPZGeoEl *gel = gmesh->Element(el);
