@@ -1,4 +1,4 @@
-elem = 10;
+elem = 1;
 //+
 SetFactory("OpenCASCADE");
 //+

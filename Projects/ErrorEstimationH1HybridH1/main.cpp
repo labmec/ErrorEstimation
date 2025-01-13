@@ -48,7 +48,7 @@
 #include <iostream>
 // Global variables
 const int problemDimension = 2;
-const bool readGMeshFromFile = false;
+const bool readGMeshFromFile = true;
 
 const int matID = 1;
 
@@ -1633,7 +1633,7 @@ void ComputeErrors(TPZCompMesh *cmeshH1, TPZMultiphysicsCompMesh *mphys, TPZFMat
         auto intrule = gel->CreateSideIntegrationRule(gel->NSides()-1, 20);
         int npoints = intrule->NPoints();
         TPZFNMatrix<6> jac(2, 2),jacinv(2,2),gradx(3,2),axes(2,3);
-        TPZManVector<REAL,3> dsolH1(3,0.),dsolmphys(3,0.);
+        TPZManVector<REAL,3> dsolH1(2,0.),dsolmphys(3,0.);
         REAL detjac, weight;
         TPZManVector<REAL,2> point(2);
         REAL elerror = 0.;
