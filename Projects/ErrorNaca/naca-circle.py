@@ -119,7 +119,7 @@ def main():
     l25, l26, l27, l28, l29, l30, l31, l32, l33, l34, l35, l36 = TPZMeshModeling.CreateLines(inner_lines)
 
     #%% Creating the exterior boundary (these lines you use to apply BCs)
-    radius: float = 12
+    radius: float = 36
     center: list[float] = [6.4000000000000012, 0, depth]
     boundary_coord: list[float] = [
         center, # p25 circle center
@@ -250,8 +250,8 @@ def main():
 
     # creating the transfinte lines and surfaces
     TPZMeshModeling.TransfiniteCurve(domain_lines, nNodes)
-    TPZMeshModeling.TransfiniteCurve(circle_lines, 6)
-    TPZMeshModeling.TransfiniteCurve(l41, 5)
+    TPZMeshModeling.TransfiniteCurve(circle_lines, 12)
+    TPZMeshModeling.TransfiniteCurve(l41, 10)
     TPZMeshModeling.TransfiniteSurface(domain_surfaces, "Left") # it really doesn't matter whether you use "Left" or "Right"
 
     # recombining elements to have quadrilateral ones
@@ -261,7 +261,7 @@ def main():
     TPZMeshModeling.CreateMesh(mesh_dim) 
 
     # showing model on gmsh
-    TPZMeshModeling.ShowModel()
+    # TPZMeshModeling.ShowModel()
 
     # writing .msh file
     TPZMeshModeling.WriteMeshFiles(file_name, ".msh")
