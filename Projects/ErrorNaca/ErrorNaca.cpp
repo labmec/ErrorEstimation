@@ -691,8 +691,8 @@ void BuildBlueRedElements(TPZGeoMesh *gmesh, std::set<int64_t> &blue, std::set<i
                     gelside.SideTransform3(neighbour, tr);
                     if(tr.Mult()(0,0) > 0.) {
                         blue.insert(neighindex);
-                        if (ncorners == 3) //for triangles we also need to include the elements that touch the cut elements by the vertices
-                        {
+                        // if (ncorners == 3) //for triangles we also need to include the elements that touch the cut elements by the vertices
+                        // {
                             int neighbourside = neighbour.Side();
                             for (int side = neighbour.Element()->FirstSide(1); side < neighbour.Element()->NSides() - 1; side++)
                             {
@@ -701,17 +701,19 @@ void BuildBlueRedElements(TPZGeoMesh *gmesh, std::set<int64_t> &blue, std::set<i
                                 neighbour2 = neighbour2.Neighbour();
                                 if (neighbour2.Element()->MaterialId() == volmat)
                                 {
+                                    int ncorners2 = neighbour2.Element()->NCornerNodes();
+                                    if (ncorners2 == 4) continue;
                                     int64_t neigh2index = neighbour2.Element()->Index();
                                     blue.insert(neigh2index);
                                     nfound++;
                                 }
                                 
                             }
-                        }
+                       //  }
                     } else {
                         red.insert(neighindex);
-                        if (ncorners == 3) //for triangles we also need to include the elements that touch the cut elements by the vertices
-                        {
+                        // if (ncorners == 3) //for triangles we also need to include the elements that touch the cut elements by the vertices
+                       //  {
                             int neighbourside = neighbour.Side();
                             for (int side = neighbour.Element()->FirstSide(1); side < neighbour.Element()->NSides() - 1; side++)
                             {
@@ -720,13 +722,15 @@ void BuildBlueRedElements(TPZGeoMesh *gmesh, std::set<int64_t> &blue, std::set<i
                                 neighbour2 = neighbour2.Neighbour();
                                 if (neighbour2.Element()->MaterialId() == volmat)
                                 {
+                                    int ncorners2 = neighbour2.Element()->NCornerNodes();
+                                    if (ncorners2 == 4) continue;
                                     int64_t neigh2index = neighbour2.Element()->Index();
                                     red.insert(neigh2index);
                                     nfound++;
                                 }
                                 
                             }
-                        }
+                      //   }
                     }
                     nfound++;
                 }
