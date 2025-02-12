@@ -1530,7 +1530,7 @@ void TPZElasticityErrorEstimator::ComputePrimalWeights() {
     std::cout << "Finished computing pressure weights\n";
 }
 
-void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
+void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, const std::string &out) {
 
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
     int varindex = -1;
@@ -1574,10 +1574,10 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
      col[0] - error computed with exact displacement (|| u_fem-u_exact ||) --> exact error
      col[1] - error computed with reconstructed displacement  (|| u_exact-u_rec ||) --> estimated error
      col[2] - energy error computed with exact solution  (|| sigma - sigma_fem ||_{C})---> exact error
-     col[3] - energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})---> estimatd error
+     col[3] - energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})---> estimated error
      col[4] = || u_rec - u_fem ||
      col[5] - oscilatory data error (|| f - Proj_divsigma ||)
-     col[6] - ||sigma_fem^AS||_C --> antisymetric error
+     col[6] - ||sigma_fem^AS||_C --> antisymmetric error
     
      Added 3 columns to ElementSolution() to store the effectivity indices for displacement and stress and the last column for indicator error. Errors in ElementSolution are stored as square roots.
      **/
@@ -1626,78 +1626,64 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         if (!gel) continue;
         
         REAL hk = gel->CharacteristicSize();
-        REAL oscilatorytherm = 0;
+        REAL oscilatoryterm = 0;
         REAL antiSym = 0.;
         REAL CKorn= 2.;
-        
 
         for (int i = 0; i < 3; i += 2) {
-         
-             
-
-            REAL tol = 1.e-10;
             REAL ErrorEstimate = elsol(el, i + 1);
             REAL ErrorExact = elsol(el, i);
 
- #ifdef LOG4CXX
-             if (logger->isDebugEnabled()) {
-                 std::stringstream sout;
+#ifdef LOG4CXX
+            if (logger->isDebugEnabled()) {
+                std::stringstream sout;
                 std::cout << "El " << el << " dim " << gel->Dimension() << " ErrorEstimate " << ErrorEstimate
-                        << " ErrorExact " << ErrorExact << "\n";
-                 LOGPZ_DEBUG(logger, sout.str())
-             }
- #endif
+                          << " ErrorExact " << ErrorExact << "\n";
+                LOGPZ_DEBUG(logger, sout.str())
+            }
+#endif
 
-            TPZGeoEl *gel = cel->Reference();
+            if (i == 2) { // the really estimated error (i.e., for sigma)
+                oscilatoryterm = elsol(el, 5);
+                CKorn = 0.5 * (1 + M_SQRT2) * hk;
+                oscilatoryterm *= CKorn;
+                globalResidual += oscilatoryterm;
 
-            REAL hk = gel->CharacteristicSize();
-            
-            if (i == 2) {// the really estimated error
-                oscilatorytherm = elsol(el, i + 3);
-               CKorn= 0.5*(1+sqrt(2))*hk;
-                oscilatorytherm *= CKorn;
-                globalResidual += oscilatorytherm;
-                
-//                if(oscilatorytherm< tol){
-//                       
-//                    oscilatorytherm = 0.;
-//                    globalResidual = 0.;
-//                }
-                
-                antiSym =elsol(el, i + 4);
-                n3 += antiSym*antiSym;
-                globalExact += ErrorExact*ErrorExact;
-                globalEstim += ErrorEstimate*ErrorEstimate;
-                n2n3 += (oscilatorytherm + ErrorEstimate)*(oscilatorytherm + ErrorEstimate);
+                //                if(oscilatorytherm< tol){
+                //
+                //                    oscilatorytherm = 0.;
+                //                    globalResidual = 0.;
+                //                }
+
+                antiSym = elsol(el, 6);
+                n3 += antiSym * antiSym;
+                globalExact += ErrorExact * ErrorExact;
+                globalEstim += ErrorEstimate * ErrorEstimate;
+                n2n3 += (oscilatoryterm + ErrorEstimate) * (oscilatoryterm + ErrorEstimate);
             }
 
-            if ((abs(ErrorEstimate) < tol)||abs(ErrorExact) < tol) {
+            if ((abs(ErrorEstimate) < tol) || abs(ErrorExact) < tol) {
                 elsol(el, ncols + i / 2) = 1.;
                 dataIeff(el, 0) = 1.;
             } else {
-                
-                if(i==2){
-                    REAL Estim_local=((ErrorEstimate  + oscilatorytherm )* (ErrorEstimate  + oscilatorytherm )+antiSym*antiSym);
-                    
-                    REAL EfIndex = sqrt(Estim_local)/ErrorExact;
+                if (i == 2) {
+                    REAL Estim_local =
+                        ((ErrorEstimate + oscilatoryterm) * (ErrorEstimate + oscilatoryterm) + antiSym * antiSym);
+
+                    REAL EfIndex = sqrt(Estim_local) / ErrorExact;
                     dataIeff(el, 0) = EfIndex;
-                    elsol(el, ncols + i / 2) = EfIndex;//
+                    elsol(el, ncols + i / 2) = EfIndex; //
                     elsol(el, 9) = Estim_local;
-                }
-                else{
-                    //TODO: Ieff so do deslocamento
+                } else {
+                    // TODO: Ieff so do deslocamento
                     REAL EfIndex = ErrorEstimate / ErrorExact;
                     dataIeff(el, 0) = EfIndex;
                     elsol(el, ncols + i / 2) = EfIndex;
-                    
                 }
             }
         }
     }
 
-    
- 
-    
     REAL globalIndex = n2n3+n3;
     
     fEstimatedError = sqrt(globalIndex);

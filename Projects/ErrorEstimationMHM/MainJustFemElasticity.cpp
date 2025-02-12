@@ -337,7 +337,7 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
     pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 7;//numero de steps no refinamento
+    pConfig.adaptivityStep = 15;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
 
@@ -352,31 +352,27 @@ void RunLShapeProblem(ProblemConfig &pConfig){
         divs = {1,2,3,4,5};
         pConfig.dir_name = "LShapeProblem-Uni";
     }
-    
-    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+
+    for (int64_t iorder = 1; iorder < pOrder; iorder++) {
         pConfig.porder = iorder;
-        
-        for (int idiv = 0; idiv < divs.size(); idiv++){
-            pConfig.ndivisions =divs[idiv];
+
+        for (int idiv = 0; idiv < divs.size(); idiv++) {
+            pConfig.ndivisions = divs[idiv];
             int divx = divs[idiv];
-            
-            nDivs = {divx,divx};
-            
+
+            nDivs = {divx, divx};
+
             TPZVec<int> bcids(8, EBoundary);
             gmesh = Tools::CreateQuadLShapeMesh(bcids);
 
             int uniref = divx;
             Tools::UniformRefinement(uniref, gmesh);
-            
-            
-            pConfig.gmesh=gmesh;
-            
-            
-            SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
+
+            pConfig.gmesh = gmesh;
+
+            SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv, pConfig.porder, hdivfam, pConfig);
         }
-        
     }
-    
 }
 
 
@@ -442,9 +438,6 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                         }
 
                         config.gmesh = gmesh;
-            
-                       
-
                     
         for(int refsteps = 1; refsteps< config.adaptivityStep; refsteps ++){
             {
@@ -712,8 +705,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     std::stringstream outVTK;
     outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-k-" << config.porder<<"-lambda-"<<config.lambda
            << "-step "<<step << "-Errors.vtk";
-    std::string outVTKstring = outVTK.str();
-    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
+    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK.str());
 
     
     if(config.isAdaptivity){
@@ -774,10 +766,10 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
     
     int DIM = tshape::Dimension;
 
-        for(int refsteps = 1; refsteps< config.adaptivityStep; refsteps ++){
+        for(int refsteps = 1; refsteps <= config.adaptivityStep; refsteps ++){
             {
                 // Prints gmesh mesh properties
-                std::string vtk_name = "geoMeshToSolveProbem.vtk";
+                std::string vtk_name = "geoMeshToSolveProblem.vtk";
                 std::ofstream vtkfile(vtk_name.c_str());
                 TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
             }

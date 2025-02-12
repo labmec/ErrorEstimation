@@ -37,7 +37,7 @@ public:
     TPZElasticityErrorEstimator &operator=(const TPZElasticityErrorEstimator &cp) = delete;
 
     /// create graphical output of estimated and true errors using the analysis
-    virtual void PostProcessing(TPZAnalysis &an, std::string &out) override;
+    virtual void PostProcessing(TPZAnalysis &an, const std::string &out) override;
     
     virtual ~TPZElasticityErrorEstimator() = default;
     
@@ -103,7 +103,7 @@ private:
     // Fill a list with the connect indexes of volumetric elements sides
     // in the neighbourhood of the skeleton
     void ComputeConnectsNextToSkeleton(std::set<int64_t>& connectList);
-    void ComputeEffectivityIndices();
+    void ComputeEffectivityIndices() override;
     
     void ComputePrimalWeights();
     

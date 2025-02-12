@@ -59,6 +59,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     TPZFNMatrix<9, STATE> stressfemAS(dim, dim, 0.);
     for (unsigned int i = 0; i < dim; i++) {
         for (unsigned int j = 0; j < dim; j++) {
+            if (i==j) continue;
             // stressfem(i, j) = data[2].sol[i][j];
             stressfemAS(i,j) = 0.5*(stressfem(i, j)-stressfem(j, i));
         }
@@ -70,11 +71,11 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         divstressfem[i] = data[2].divsol[0][i];
     }
 
-    STATE divtest = 0.;
+    // STATE divtest = 0.;
 
-    for (int j = 0; j < dim; j++) {
-        divtest += data[2].dsol[0](j, j);
-    }
+    // for (int j = 0; j < dim; j++) {
+    //     divtest += data[2].dsol[0](j, j);
+    // }
 
     int H1functionposition = 0;
     H1functionposition = FirstNonNullApproxSpaceIndex(data);

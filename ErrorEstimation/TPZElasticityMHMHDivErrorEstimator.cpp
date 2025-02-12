@@ -79,7 +79,7 @@ void TPZElasticityMHMHDivErrorEstimator::ComputePrimalWeights() {
 }
 
 
-void TPZElasticityMHMHDivErrorEstimator::PostProcessing(TPZAnalysis &an, std::string &out) {
+void TPZElasticityMHMHDivErrorEstimator::PostProcessing(TPZAnalysis &an, const std::string &out) {
 
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
     int varindex = -1;

@@ -735,11 +735,10 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
   //   The elements which error are larger than 20% of the maximum error are
    //  marked to be refined
     REAL threshold = 0.5 * maxError;
-   std::cout << "Threshold: " << threshold << "\n";
-    auto nelem_gmeshToRefine = gmeshToRefine->NElements();
-    std::vector<int> current_level(nelem_gmeshToRefine, 0);
-    std::vector<int> new_level(nelem_gmeshToRefine, 0);
-    std::vector<bool> gelsToRefine(nelem_gmeshToRefine, false);
+    std::cout << "Threshold: " << threshold << "\n";
+    std::map<int64_t,unsigned int> current_level;
+    std::map<int64_t,unsigned int> new_level;
+    //std::map<int64_t,unsigned int> current_level;
     
     TPZVec<int64_t> elementsToRefine;
     
@@ -755,6 +754,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         if (!gelToRefine){
             std::cout << "Element ID " << el_id << " not found in gmeshToRefine.\n";
             continue;}
+
         current_level[el_id] = gelToRefine->Level();
         
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
@@ -765,7 +765,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
             if (!gelToRefine->HasSubElement()) {
             std::cout << "Marking to refine Element ID: " << el_id << "\n";
         
-                gelsToRefine[el_id] = true;
+//                gelsToRefine[el_id] = true;
                 //TODO: including a vector to store the elements to refine
                 elementsToRefine.push_back(el_id);
                 new_level[el_id] = current_level[el_id] + 1;
@@ -776,18 +776,12 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         }
     }
     
-    
-    
-    
-
-
     bool checkEnabled;
     do {
         checkEnabled = false;
         // Ensures that no element has a neighbor that is more than one refinement level apart
-        for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
-
-            TPZGeoEl* gel = gmeshToRefine->FindElement(el_id);
+        for (int64_t iel = 0; iel < gmeshToRefine->NElements(); iel++) {
+            TPZGeoEl* gel = gmeshToRefine->Element(iel);
             if (!gel || gel->Dimension() != gmeshToRefine->Dimension() || gel->HasSubElement()) continue;
             for (int side = gel->FirstSide(gel->Dimension()-1); side < gel->FirstSide(gel->Dimension()); ++side){
                 //std::cout << "Side: " << side << std::endl;
@@ -801,19 +795,20 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                             || neighbour.Element()->Dimension() != gmeshToRefine->Dimension() 
                             || neighbour.Element()->HasSubElement()) continue;
                     auto neighbour_id = neighbour.Element()->Id();
+                    auto el_id = gel->Id();
                     //std::cout << "  Neighbor: " << neighbour_id << std::endl;
                     //std::cout << "   Levels: "<< new_level[neighbour_id] << "  " << new_level[el_id] << std::endl;
                     if (new_level[neighbour_id] > new_level[el_id]+1) {
                         //std::cout << "   !!! Will refine this element !!!" << std::endl;
-                        if (gelsToRefine[el_id]){
+                        if (new_level.find(el_id) != new_level.end()) {
                             // This element has a neighbor that is more than one refinement level apart from it,
                             // but is already marked for refinement.
                             DebugStop();
                         }
+                        //gelsToRefine[el_id] = true;
+                        elementsToRefine.push_back(el_id);
                         ++(new_level[el_id]);
-                        gelsToRefine[el_id] = true;
                         checkEnabled = true;
-                        
                     }
                 }
             }
@@ -1288,8 +1283,7 @@ void Tools::EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMe
     std::stringstream outVTK;
     outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-" << config.ninternalref
            << "-Errors.vtk";
-    std::string outVTKstring = outVTK.str();
-    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTKstring);
+    ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK.str());
 
     {
         std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";

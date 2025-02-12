@@ -75,13 +75,13 @@ public:
      * average pressures/displacements
      * with the original solution
      */
-    virtual void ComputeErrors(TPZVec<REAL> &error_vec, TPZVec<REAL> &element_errors, std::string& vtkPath);
+    virtual void ComputeErrors(TPZVec<REAL> &error_vec, TPZVec<REAL> &element_errors, const std::string& vtkPath);
 
     // reconstruction of pressure/displacement using hybrid solution on enrichment space
     virtual void PrimalReconstruction();
 
     /// create graphical output of estimated and true errors using the analysis
-  virtual  void PostProcessing(TPZAnalysis &an, std::string &out);
+  virtual  void PostProcessing(TPZAnalysis &an, const std::string &out);
 
     void PlotPrimalSkeleton(const std::string &filename, bool reconstructed = true);
     void PlotInterfaceFluxes(const std::string &filename, bool reconstructed = true);

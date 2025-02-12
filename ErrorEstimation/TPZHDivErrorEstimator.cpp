@@ -74,7 +74,7 @@ TPZHDivErrorEstimator<MixedMaterial>::~TPZHDivErrorEstimator() {
 /// with the original solution
 
 template <typename MixedMaterial>
-void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& elementErrors, std::string& vtkPath) {
+void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, TPZVec<REAL>& elementErrors, const std::string& vtkPath) {
     TPZLinearAnalysis an(&fPostProcMesh, RenumType::ENone);
 
     if (fExact) {
@@ -130,7 +130,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
 }
 
 template <typename MixedMaterial>
-void TPZHDivErrorEstimator<MixedMaterial>::PostProcessing(TPZAnalysis &an, std::string &out) {
+void TPZHDivErrorEstimator<MixedMaterial>::PostProcessing(TPZAnalysis &an, const std::string &out) {
 
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
     int varindex = -1;
