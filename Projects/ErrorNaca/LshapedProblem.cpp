@@ -179,6 +179,7 @@ int volmat = 1;
 int dirichletmat = 2;
 int neumannmat = 3;
 int trailingedgemat = 4;
+int pointmat = 5;
 
 int sbfem_skeleton = 8;
 int sbfem_domain = 9;
@@ -189,10 +190,10 @@ REAL shift_distance = 1.e-2;
 TPZSBFemElementGroup *sbfem_groupH1 = 0;
 TPZSBFemElementGroup *sbfem_groupHdiv = 0;
 enum MMeshStyle { ETraditional, ECollapsed, EQuarterPoint, ESBFem };
-MMeshStyle meshstyle = ETraditional;
+MMeshStyle meshstyle = ESBFem;
 int defaultporder = 1;
 int SBFemOrder = 2;
-int nuniform = 1;
+int nuniform = 0;
 int nrefinements = 13;
 // set of geometric element indices that are SBFem elements
 std::set<int64_t> sbfem_elements;
@@ -284,9 +285,12 @@ int main() {
         PrintTrailingEdgeElements(gmesh);
     }
 
-    // Creating the analytical solution
-    TLaplaceExample1 *analytic = new TLaplaceExample1();
-    analytic->fExact = TLaplaceExample1::ESinMark;
+    // Creating the analytical solution Sin
+    TLaplaceExample1 *analyticSin = new TLaplaceExample1();
+    analyticSin->fExact = TLaplaceExample1::ESinMark;
+    // Creating the analytical solution Cos
+    TLaplaceExample1 *analyticCos = new TLaplaceExample1();
+    analyticCos->fExact = TLaplaceExample1::ECosMark;
 
     int minh = 1;
     // indicating the flux order
@@ -311,13 +315,13 @@ int main() {
             TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
         }
 
-        cmesh_m = SimulateHDiv(gmesh, porders, analytic);
+        cmesh_m = SimulateHDiv(gmesh, porders, analyticCos);
         {
             std::ofstream out("cmeshHdiv.txt");
             cmesh_m->Print(out);
         }
 
-        cmesh = SimulateH1(gmesh, porders, analytic);
+        cmesh = SimulateH1(gmesh, porders, analyticSin);
         {
             std::ofstream out("cmeshH1.txt");
             cmesh->Print(out);
@@ -484,6 +488,7 @@ TPZGeoMesh *ReadGmsh(const std::string &meshfilename) {
     TPZGmshReader gmsh;
     gmsh.SetVerbose(1);
     gmsh.GetDimNamePhysical()[0]["Trailingedge"] = trailingedgemat;
+    gmsh.GetDimNamePhysical()[0]["Fixedpoint"] = pointmat;
     gmsh.GetDimNamePhysical()[1]["Dirichlet"] = dirichletmat;
     gmsh.GetDimNamePhysical()[1]["Neumman"] = neumannmat;
     gmsh.GetDimNamePhysical()[2]["Domain"] = volmat;
@@ -500,6 +505,7 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnalyt
     int dim = 2;
     TPZDarcyFlow *material = new TPZDarcyFlow(volmat, dim);
     material->SetExactSol(analyticSol->ExactSolution(), 4);
+    material->SetForcingFunction(analyticSol->ForceFunc(),4);
     cmesh->InsertMaterialObject(material);
     cmesh->SetDimModel(dim);
     cmesh->SetDefaultOrder(defaultporder);
@@ -510,9 +516,9 @@ TPZCompMesh *CreateH1CompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnalyt
     auto bnd1 = material->CreateBC(material, dirichletmat, 0, val1, val2);
     bnd1->SetForcingFunctionBC(analyticSol->ExactSolution(), 4);
     cmesh->InsertMaterialObject(bnd1);
-    // auto bnd2 = material->CreateBC(material, neumannmat, 1, val1, val2);
-    // bnd2->SetForcingFunctionBC(analyticSol->ExactSolution(),4);
-    // cmesh->InsertMaterialObject(bnd2);
+    auto bnd2 = material->CreateBC(material, neumannmat, 1, val1, val2);
+    bnd2->SetForcingFunctionBC(analyticSol->ExactSolution(),4);
+    cmesh->InsertMaterialObject(bnd2);
     if (meshstyle == ESBFem) {
         auto bnd4 = material->CreateBC(material, sbfem_skeleton, 1, val1, val2);
         cmesh->InsertMaterialObject(bnd4);
@@ -609,6 +615,7 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnal
     int dim = 2;
     TPZDarcyFlow *material = new TPZDarcyFlow(volmat, dim);
     material->SetExactSol(analyticSol->ExactSolution(), 4);
+    // material->SetForcingFunction(analyticSol->ForceFunc(),4);
     cmesh->InsertMaterialObject(material);
     cmesh->SetDimModel(dim);
     cmesh->SetDefaultOrder(defaultporder);
@@ -620,15 +627,15 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnal
     TPZFMatrix<STATE> val1(2, 2, 0.);
     TPZManVector<STATE> val2(2, 0.);
 
-    // Dirichlet condition
-    auto bnd1 = material->CreateBC(material, dirichletmat, 0, val1, val2);
+    // // Dirichlet condition
+    auto bnd1 = material->CreateBC(material, dirichletmat, 5, val1, val2);
     bnd1->SetForcingFunctionBC(analyticSol->ExactSolution(), 4);
     cmesh->InsertMaterialObject(bnd1);
 
     // Neumann condition
-    auto bnd2 = material->CreateBC(material, neumannmat, 5, val1, val2);
-    // bnd1->SetForcingFunctionBC(analyticSol->ExactSolution(),4);
-    cmesh->InsertMaterialObject(bnd2);
+    //  auto bnd2 = material->CreateBC(material, neumannmat, 5, val1, val2);
+    // bnd2->SetForcingFunctionBC(analyticSol->ExactSolution(),4);
+    // cmesh->InsertMaterialObject(bnd2);
 
     if (meshstyle == ESBFem) {
         auto bnd3 = material->CreateBC(material, sbfem_skeleton, 0, val1, val2);
@@ -683,6 +690,12 @@ TPZCompMesh *CreateHDivCompMesh(TPZGeoMesh *gmesh, TPZVec<int> &porders, TPZAnal
 
     // cmesh->AutoBuild(matidshdiv);
     cmesh->ApproxSpace().SetAllCreateFunctionsContinuous();
+    // Fixed point condition   
+    // auto bnd3 = new TPZNullMaterial(pointmat);
+    // bnd3->SetDimension(0);
+    // cmesh->InsertMaterialObject(bnd3);
+    // std::set<int> Pointmat = {pointmat};
+    // cmesh->AutoBuild(Pointmat);
 
     // force the side corresponding to a collapsed connect to have order 1
     int64_t nelem = cmesh->NElements();
@@ -753,6 +766,7 @@ TPZMultiphysicsCompMesh *CreateMultiphysicsMesh(TPZCompMesh *cmeshHDiv, TPZCompM
     std::set<int> materialIDs;
     TPZMixedDarcyFlow *material = new TPZMixedDarcyFlow(volmat, dim);
     material->SetExactSol(analyticSol->ExactSolution(), 4);
+    // material->SetForcingFunction(analyticSol->ForceFunc(),4);
     cmesh_m->InsertMaterialObject(material);
     materialIDs.insert(volmat);
 
@@ -761,17 +775,21 @@ TPZMultiphysicsCompMesh *CreateMultiphysicsMesh(TPZCompMesh *cmeshHDiv, TPZCompM
     TPZManVector<STATE> val2(2, 0.);
 
     // 2.1 Dirichlet condition
-    auto bnd1 = material->CreateBC(material, dirichletmat, 0, val1, val2);
+    auto bnd1 = material->CreateBC(material, dirichletmat, 5, val1, val2);
     bnd1->SetForcingFunctionBC(analyticSol->ExactSolution(), 4);
     cmesh_m->InsertMaterialObject(bnd1);
 
-    // // 2.2 Neumann condition
-    auto bnd2 = material->CreateBC(material, neumannmat, 5, val1, val2);
+    // 2.2 Neumann condition
+    // auto bnd2 = material->CreateBC(material, neumannmat, 5, val1, val2);
     // bnd2->SetForcingFunctionBC(analyticSol->ExactSolution(),4);
-    cmesh_m->InsertMaterialObject(bnd2);
+    // cmesh_m->InsertMaterialObject(bnd2);
 
     TPZNullMaterialCS<STATE> *bnd3 = new TPZNullMaterialCS<STATE>(sbfem_skeleton);
     cmesh_m->InsertMaterialObject(bnd3);
+
+    // 2.3 Fixed point condition
+    // auto bnd4 = new TPZL2ProjectionCS(pointmat,0);
+    // cmesh_m->InsertMaterialObject(bnd4);
 
     // 3. VECTOR OF COMPUTATIONAL MESHES (datavec)
     TPZManVector<int, 2> active_approx_spaces(2, 1);
@@ -948,7 +966,7 @@ void ComputeErrorEstimator(TPZCompMesh *cmesh, TPZMultiphysicsCompMesh *cmesh_m,
     // TPZAdmChunkVector<TPZCompEl *> &elementvec = cmesh->ElementVec();
     TPZAdmChunkVector<TPZCompEl *> &elementvec_m = cmesh_m->ElementVec();
     TLaplaceExample1 *analytic = new TLaplaceExample1();
-    analytic->fExact = TLaplaceExample1::ESquareRoot;
+    analytic->fExact = TLaplaceExample1::ESinMark;
     TPZFMatrix<STATE> &MFelementsol = cmesh_m->ElementSolution();
     TPZFMatrix<STATE> &Elementsol = cmesh->ElementSolution();
     REAL total_est_trad = 0.;
@@ -1135,7 +1153,7 @@ void Hrefinement(TPZMultiphysicsCompMesh *cmesh_m, TPZVec<REAL> &ErrorEstimator,
     RefinementIndicator.Resize(nel, 0.);
     RefinementIndicator = 0.;
     auto tolel = std::max_element(ErrorEstimator.begin(), ErrorEstimator.end());
-    REAL tol = *tolel / 5.0;
+    REAL tol = *tolel / 2.0;
     // divide all two dimensional elements with error larger than tol
     for (int64_t iel = 0; iel < nel_m; iel++) {
         TPZCompEl *cel = cmesh_m->Element(iel);
@@ -1710,7 +1728,7 @@ void PrintResults(TPZLinearAnalysis &an, TPZCompMesh *cmesh)
     // essa constante, e portanto não será alterado, com valor determinado na hora de compilação. define a resolução
     // para o formato de arquivo VTK. Neste caso, a resolução é definida como 0, o que geralmente significa que a
     // resolução será automática.
-    TPZVec<std::string> fields = {"Pressure", "Flux"};
+    TPZVec<std::string> fields = {"Pressure", "Flux", "ExactPressure"};
     // nesse conjunto de linhas de código, temos que TPZVec é uma estrutura do tipo vetor que contém como argumento uma
     // variável chamda "fields" que é uma lista de strings, que, pelo que se chamam, são relacionadas à pressão e ao
     // fluxo. cria um vetor de strings chamado fields que contém os nomes dos campos que serão pós-processados. Neste

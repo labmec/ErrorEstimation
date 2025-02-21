@@ -33,6 +33,7 @@ Physical Surface("Domain", 1) = {1, 2};
 Physical Curve("Dirichlet", 2) = {1, 2, 5, 6, 7, 8, 4};
 Physical Curve("Neumann", 3) = {};
 Physical Point("Trailingedge", 4) = {3};
+Physical Point("Fixedpoint", 5) = {1};
 
 // Transfinite definitions
 Transfinite Curve {1, 2, 3, 4} = 5 Using Progression 1;
