@@ -69,19 +69,19 @@ Plane Surface(3) = {3};
 Plane Surface(4) = {4};
 
 
-Physical Surface("Domain", 1) = {1,2,3,4};
+Physical Surface("Domain1", 1) = {1,3};
 //+
-//Physical Surface("Domain2", 2) = {2};
+Physical Surface("Domain2", 2) = {2,4};
 //+
-//Physical Surface("Domain3", 3) = {3};
+Physical Curve("Dirichlet1", 3) = {2,3,8,10};  
 //+
-//Physical Surface("Domain4", 4) = {4};
+Physical Curve("Dirichlet2", 4) = {6,7,11,12};
 //+
-Physical Curve("Dirichlet", 2) = {2,3,6,7,8,10,11,12};
+Physical Curve("Neumman1", 5) = {};
 //+
-Physical Curve("Neumman", 3) = {};
+Physical Curve("Neumman2", 6) = {};
 //+
-Physical Point("Trailingedge", 4) = {1};
+Physical Point("Trailingedge", 7) = {1};
 
 //+
 Transfinite Curve {1,2,3,4,5,6,7,8,9,10,11,12} = 5 Using Progression 1;
