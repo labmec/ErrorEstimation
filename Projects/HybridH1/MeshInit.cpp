@@ -675,8 +675,8 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
         K.Identity(); invK.Identity();
         K(0,0) = K(1,1) = pConfig.perm_Q1;
         invK(0,0) = invK(1,1) = 1./pConfig.perm_Q1;
-        
         mat1->setPermeabilyTensor(K,invK);
+        
         K(0,0) = K(1,1) = pConfig.perm_Q2;
         invK(0,0) = invK(1,1) =  1./pConfig.perm_Q2;
         mat2->setPermeabilyTensor(K,invK);

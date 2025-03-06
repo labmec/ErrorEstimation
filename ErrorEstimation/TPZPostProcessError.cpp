@@ -528,7 +528,6 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
                 TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
                 int64_t seqnum = c.SequenceNumber();
-                
                 weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
                                 
             }
@@ -875,7 +874,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 int64_t partitionindex = fVecVecPatches[color_][patch_].fPartitionConnectIndex;
                 TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
                 int64_t seqnum = c.SequenceNumber();
-                if(partitionindex == 11){
+                if(color_ == 6){
                     weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
                     
                 }else{
@@ -923,8 +922,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         multiphysicsmesh->ElementSolution().Redim(nels, 6);
     }
     
-    an.DefineGraphMesh(multiphysicsmesh->Dimension(),scalnames,vecnames,sout.str());
-    an.PostProcess(3,multiphysicsmesh->Dimension());
+    if(0){//Plot reconstructed flux
+        an.DefineGraphMesh(multiphysicsmesh->Dimension(),scalnames,vecnames,sout.str());
+        an.PostProcess(3,multiphysicsmesh->Dimension());
+    }
     
     TPZManVector<REAL,6> errors(6,0.);
     an.PostProcessError(errors);

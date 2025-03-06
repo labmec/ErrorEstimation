@@ -26,7 +26,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[1] = bcids[3] = -2;
     }
     
-    if(1){ //Square shape domain quadrilateral mesh
+    if(0){ //Square shape domain quadrilateral mesh
         isOriginCentered = 1;
         gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
         //gmesh->Print();
@@ -34,10 +34,16 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         if(config.gmesh) delete config.gmesh;
         config.gmesh = gmesh;
     }
-    else{ //Lshape domain quadrilateral mesh
+    else{ //Lshape domain
     TPZManVector<int, 8> Lshape_bcids(8, -1);
-    gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
-    //gmesh = Tools::CreateTriangLShapeMesh(1, Lshape_bcids);
+        
+    if(pConfig.topology=="Quadrilateral"){
+        gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
+    }
+    if(pConfig.topology=="Triangular"){
+        gmesh = Tools::CreateTriangLShapeMesh(1, Lshape_bcids);
+    }
+        
     if(config.gmesh) delete config.gmesh;
     config.gmesh = gmesh;
     }
@@ -66,7 +72,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
 
     // Assumes Dirichlet Condition
-    if (pConfig.type  == 2) {
+    if (pConfig.type  == 2) { 
         config.materialids.insert(2);
         config.materialids.insert(3);
         config.materialids.erase(1);
@@ -396,8 +402,8 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             solutionCase = TLaplaceExample1::ESteepWave;
             break;
         case 10:
-            DebugStop();
-//            solutionCase = TLaplaceExample1::ESinMarkHom;
+            //DebugStop();
+            solutionCase = TLaplaceExample1::ESinMarkHom;
             break;
         case 11:
             DebugStop();

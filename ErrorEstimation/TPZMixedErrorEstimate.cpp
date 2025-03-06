@@ -130,8 +130,8 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
             }
             STATE inner = 0.;
             for(int i=0; i<3; i++) {
-                inner += jvec(i,0)*perm*gradpressure(i,0);
-                //inner += jvec(i,0)*gradpressure(i,0);
+                //inner += jvec(i,0)*perm*gradpressure(i,0);
+                inner += jvec(i,0)*gradpressure(i,0);
             }
             ef(jq) -= weight*psival*inner;
         }

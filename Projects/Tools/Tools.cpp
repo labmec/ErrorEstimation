@@ -220,6 +220,7 @@ void Tools::UniformRefinementHangingNodes(int nDiv, TPZGeoMesh *gmesh) {
     for(int division = 0; division < nDiv; division++) {
         
         int64_t nels = gmesh->NElements();
+        
         for(int64_t elem = 0; elem < nels; elem++) {
             
             TPZGeoEl * gel = gmesh->ElementVec()[elem];

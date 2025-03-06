@@ -234,7 +234,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         REAL tau1 = config.division_threshold;
         REAL tau2 = 0.3;
         REAL rho = 0.05;
-        int algor = 1;
+        int algor = 2;
         switch (algor) {
             case 0: // in case of smooth solutions, even with extreme behavior
                 for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
@@ -280,7 +280,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     int porder = intel->GetPreferredOrder();
                     gelstoPplus[gel->Index()] = porder;
                     
-                    if(elementerror < 0.00000001){
+                    if(elementerror < 0.000000001){
                         continue;
                     }else if (elementerror > tau1 * maxerror){
                         gelstohref.insert(gel->Index());
@@ -307,7 +307,9 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     int porder = intel->GetPreferredOrder();
                     gelstoPplus[gel->Index()] = porder;
                     
-                    //Selects elements adjacent to the selected node
+                    //Selects elements adjacent to the selected node:
+                    //Quadrilateral 0 for Lshape and 8 for Steklov
+                    //Triangular  6 for Steklov
                     TPZGeoNode node = config.gmesh->NodeVec()[0];
                     const int nnodes = gel->NNodes();
                     std::set<int64_t> nodeindices;
@@ -906,7 +908,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> &true_elerror, TPZF
         fileouput.close();
     }
     
-    {
+    if(1){
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Solution");
         scalnames.Push("ExactSolution");
