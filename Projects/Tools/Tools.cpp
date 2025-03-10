@@ -734,7 +734,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
   //   The elements which error are larger than 20% of the maximum error are
    //  marked to be refined
-    REAL threshold = 0.5 * maxError;
+    REAL threshold = 0.8 * maxError;
     std::cout << "Threshold: " << threshold << "\n";
     std::map<int64_t,unsigned int> current_level;
     std::map<int64_t,unsigned int> new_level;
@@ -1205,8 +1205,12 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
      error[2] - energy error computed with exact solution  (|| sigma_ex - sigma_fem ||_{C})
      error[3] -  energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})
      error[4] = || u_rec - u_fem ||
-     error[5] - oscilatory data error (|| f - Proj_divsigma ||)
+     error[5] = oscilatory data error (|| f - Proj_divsigma ||)
+     error[6] = antisymmetric error
+     erro[7] = |u_femH1-u_rec|
+     erro[8] = (|| sigma_fem - A epsilon(u_h1)||_{C})
      */
+
 
     std::stringstream ss;
     ss << "\nEstimator errors for Problem " << config.problemname;
@@ -1218,13 +1222,17 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
     }
     ss << '\n';
     ss << "|sigma_fem-Aeps(u_rec)| = " << error_vec[3] << "\n";
+    ss<< "|sigma_fem - Aeps(u_h1)|_{C}= "<< error_vec[8] << "\n";
+    
     ss << "|u_fem-u_rec| = " << error_vec[4] << "\n";
     ss << "Residual Error L2 = " << error_vec[5] << "\n";
     ss << "|sigma_femAS|_{C}= " << error_vec[6]<< "\n";
+    
     if (config.exactElast) {
         //ss << "Global exact error = " << error_vec[2] << "\n";
-        ss << "|u_ex-u_fem| = " << error_vec[0] << "\n";
-        ss << "|u_ex-u_rec| = " << error_vec[1] << "\n";
+        ss << "|u_ex-u_fem| = " << error_vec[0]<< "\n";
+        ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
+        ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
         
         out << ss.str();
@@ -1241,6 +1249,7 @@ void Tools::PrintElasticityErrorsFEM(std::ofstream& out, ProblemConfig& config, 
      error[4] = error_r
      error[5] = error_as
      error[6] = energy_norm_exact_sol
+    
      */
 
     std::stringstream ss;
@@ -1256,6 +1265,7 @@ void Tools::PrintElasticityErrorsFEM(std::ofstream& out, ProblemConfig& config, 
     ss << "|sigma_ex-sigma_fem|_E = " << error_vec[1] << "\n";
     ss << "Residual Error L2 = " << error_vec[2] << "\n";
     ss << "|u_ex-u_fem| = " << error_vec[3] << "\n";
+    
 
 
     out << ss.str();

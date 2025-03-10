@@ -14,6 +14,7 @@
 #include "pzmultiphysicscompel.h"
 #include "pzbuildmultiphysicsmesh.h"
 #include "Projection/TPZL2Projection.h"
+#include "Elasticity/TPZElasticity2D.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("ElasticityErrorEstimator"));
@@ -149,6 +150,65 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
     }
 }
+//Mesh to compare H1 with the recontructed displacement
+TPZCompMesh *TPZElasticityErrorEstimator::CreateH1Mesh() {
+    
+    TPZCompMesh* cmesh = new TPZCompMesh(fConfig.gmesh);
+    const int dim = fConfig.gmesh->Dimension();
+    cmesh->SetDimModel(dim);
+    cmesh->SetDefaultOrder(fConfig.porder);
+    cmesh->SetAllCreateFunctionsContinuous();
+
+    
+    TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
+    elas->fProblemType = fConfig.exactElast->fProblemType;
+
+
+    elas->gE = fConfig.mu*(3*fConfig.lambda+2*fConfig.mu)/(fConfig.lambda+fConfig.mu);
+    elas->gPoisson = 0.5*fConfig.lambda/(fConfig.lambda+fConfig.mu);
+    elas->fProblemType = fConfig.exactElast->fProblemType;
+    elas->fPlaneStress = 0.;
+    
+    const STATE E = elas->gE, nu = elas->gPoisson;
+    
+    int EDomain = 1;
+    int planestress = elas->fPlaneStress;
+   // std::cout<<"-----planestress no CreateH1Mesh = "<<planestress<<std::endl;
+    
+    TPZElasticity2D *mat= new TPZElasticity2D(EDomain, E, nu, 0, 0, planestress);
+    
+    
+    mat->SetExactSol(elas->ExactSolution(), 4);
+    
+    mat->SetForcingFunction(elas->ForceFunc(), 4);
+    
+    cmesh->InsertMaterialObject(mat);
+
+    
+    // BC
+    
+    TPZFMatrix<STATE> val1(dim,dim,0.);
+    TPZManVector<STATE> val2(dim,0.);
+    int EBoundary=2;
+    TPZBndCondT<STATE> *BCond1 = mat->CreateBC(mat, EBoundary, 0, val1, val2);
+    BCond1->SetForcingFunctionBC(elas->ExactSolution(),4);
+    cmesh->InsertMaterialObject(BCond1);
+    
+    
+
+    // Constructs mesh
+    cmesh->AutoBuild();
+    
+    {
+        std::ofstream outTXT("PostProcH1Mesh.txt");
+        cmesh->Print(outTXT);
+    }
+     
+    
+    return cmesh;
+
+    
+}
 
 
 
@@ -164,15 +224,18 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     // Switch the material from mixed to TPZMHMHDivErrorEstimationMaterial
     SwitchMaterialObjects();
     //create 5 meshes: stress (fem and reconstructed), displacement (fem and reconstructed) and rotation (?)
-    TPZManVector<TPZCompMesh *> meshvec(5);
-    TPZManVector<int,5> active(5,0);
+    TPZManVector<TPZCompMesh *> meshvec(6);
+    TPZManVector<int,6> active(6,0);
     active[1] = 1;
     
     meshvec[0] = 0;
-    meshvec[1] = CreateDisplacementMesh(); // CreatePressureMesh();
+    meshvec[1] = CreateDisplacementMesh();
     meshvec[2] = fOriginal->MeshVector()[0];
     meshvec[3] = fOriginal->MeshVector()[1];
     meshvec[4] = fOriginal->MeshVector()[2];
+    //active[5] = 1;
+    meshvec[5] = CreateH1Mesh();
+  
 
     if (fPostProcesswithHDiv) {
         meshvec[0] = CreateStressMesh(); // CreateFluxMesh(); 
@@ -540,13 +603,10 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateHDivMesh()
 }
 
 TPZCompMesh *TPZElasticityErrorEstimator::CreatePrimalMesh() {
+    
+   
     return TPZHDivErrorEstimator::CreatePrimalMesh();
-    /*
-    if (fPostProcesswithHDiv) {
-        return CreateDiscontinuousDisplacementMesh();
-    } else {
-        return CreateInternallyContinuousDisplacementMesh();
-    }*/
+    
 }
 
 
@@ -1555,6 +1615,8 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, const std::str
         scalnames.Push("POrder");
         vecnames.Push("EpsRec");
         scalnames.Push("LocalErrorIndicator");
+        vecnames.Push("DisplacementFemH1");
+        //scalnames.Push("ErrorDispFemH1Rec");
         
         //vecnames.Push("State");
         

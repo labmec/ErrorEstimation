@@ -67,8 +67,8 @@ private:
     TPZCompMesh *CreateDiscontinuousDisplacementMesh();
     // method for creating a displacement mesh that is continuous in each MHM domain, but not globally
     TPZCompMesh *CreateInternallyContinuousDisplacementMesh();
-
-
+    // method for creating a displacement mesh that is globally continuous
+    TPZCompMesh *CreateH1Mesh();
     // Creates skeleton geometric elements on which the average pressure will be calculated
     void CreateSkeletonElements(TPZCompMesh *pressure_mesh) override;
     // Creates H1 discontinuous space on skeleton elements
@@ -110,6 +110,11 @@ private:
     //------- New methods for elasticity ----
     TPZCompMesh *CreateDisplacementMesh();
     TPZCompMesh *CreateStressMesh();
+    
+//    TPZMultiphysicsCompMesh *PostProcMesh(){
+//        
+//        return &fPostProcMesh;
+//    }
 
    
 };

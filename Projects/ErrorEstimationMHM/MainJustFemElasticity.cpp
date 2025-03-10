@@ -37,6 +37,9 @@
 #include <iostream>
 #include <fstream>
 #include "TPZElasticityErrorEstimator.h"
+#include "TPZH1ApproxCreator.h"
+#include "Elasticity/TPZElasticity2D.h"
+
 
 //
 
@@ -57,7 +60,7 @@
 //
 TPZGeoMesh* ReadMeshFromGmsh(std::string file_name);
 
-std::ofstream printerrors("results_errors2.txt",std::ios::app);
+std::ofstream printerrors("ErrorsH1.txt",std::ios::app);
 
 enum EMatid  {ENone, EDomain, EBoundary};
 
@@ -74,10 +77,17 @@ CreateGeoMesh(TPZVec<int> &nDivs, EMatid volId, EMatid bcId, REAL distortion);
 // The test function
 template<class tshape>
 void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,ProblemConfig &config);
+template<class tshape>
+void SolveH1Problem(const int &xdiv, const int &pOrder, H1Family &h1family,ProblemConfig &config);
+template<class tshape>
+void SolvingH1Displacement(TPZCompMesh *cH1Mesh,ProblemConfig &config);
+
 
 void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivc, TPZAnalyticSolution *fAn);
+void InsertH1Materials(int &dim, TPZH1ApproxCreator& h1Creator,TPZAnalyticSolution *fAn);
 void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh);
 void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh, int step);
+TPZCompMesh* CreateH1CMesh(TPZGeoMesh* gmesh, const int pord, TElasticity2DAnalytic *elas,ProblemConfig &config);
 template<class tshape>
 void RunSmoothProblemSquareMesh(ProblemConfig &pConfig);
 
@@ -101,9 +111,9 @@ int main() {
     ProblemConfig pConfig;
    
     pConfig.exactElast = new TElasticity2DAnalytic;
-    //RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
+    RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
    // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-   RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+  // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
    // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
@@ -181,19 +191,20 @@ template<class tshape>
 void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     pConfig.geometry = ProblemConfig::EGeometry::EQuad;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="EHarmonic-EQuad";
-    pConfig.dir_name = "SmoothProb";
+   // pConfig.dir_name = "SmoothProb";
+    pConfig.dir_name = "SymmetricTest";
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 4;
+    const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
     pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
@@ -201,7 +212,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {4,4};
    
     
-    TPZVec<int> divs = {4,8,16,32,64,128,256,512};
+    TPZVec<int> divs = {1};//{4,8,16,32,64,128,256,512};
     
     for (int64_t iorder=1; iorder< pOrder;iorder++) {
         pConfig.porder = iorder;
@@ -217,7 +228,10 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
             
             
             SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
+            H1Family h1family=H1Family::EH1Standard;
+           SolveH1Problem<pzshape::TPZShapeQuad>(xdiv, pConfig.porder, h1family,pConfig);
         }
+        
         
     }
     
@@ -681,7 +695,24 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
     }
 }
 
-
+void InsertH1Materials(int &dim, TPZH1ApproxCreator& h1Creator,TPZAnalyticSolution *fAn){
+    
+    
+    TElasticity2DAnalytic *elas2D;
+    elas2D = dynamic_cast<TElasticity2DAnalytic*> (fAn) ;
+    TPZElasticity2D *matelas= new TPZElasticity2D(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress);
+    
+    matelas->SetExactSol(elas2D->ExactSolution(),4);
+    matelas->SetForcingFunction(elas2D->ForceFunc(),4);
+    h1Creator.InsertMaterialObject(matelas);
+    
+    TPZFMatrix<STATE> val1(dim,dim,0.);
+    TPZManVector<STATE> val2(dim,0.);
+    TPZBndCondT<STATE> *BCond1 = matelas->CreateBC(matelas, EBoundary, 0, val1, val2);
+    BCond1->SetForcingFunctionBC(elas2D->ExactSolution(),4);
+    h1Creator.InsertMaterialObject(BCond1);
+    
+}
 
 void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *originalMesh, int step) {
 
@@ -696,6 +727,40 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     ErrorEstimator.SetAnalyticSolution(*config.exactElast);
     
     ErrorEstimator.PrimalReconstruction();
+    
+    TPZMultiphysicsCompMesh *PostProcMesh =ErrorEstimator.TPZHDivErrorEstimator<TPZMixedElasticityND>::PostProcMesh();
+    
+    TPZCompMesh *H1Mesh= PostProcMesh->MeshVector()[5];
+    
+    {
+        std::ofstream outTXT("H1MeshVector5.txt");
+        H1Mesh->Print(outTXT);
+    }
+    SolvingH1Displacement<pzshape::TPZShapeQuad>(H1Mesh,config);
+    
+    //PostProcMesh->MeshVector()[5]->ExpandSolution();
+    
+    {
+//        std::ofstream outTXT("SolutionH1.txt");
+//        PostProcMesh->MeshVector()[5]->Solution().Print(outTXT);
+        std::ofstream out1("SolutionH1.nb");
+        PostProcMesh->MeshVector()[5]->ElementSolution().Print("SolutionH1 = ", out1, EMathematicaInput);
+     //   std::ostream *out;
+//        PostProcMesh->MeshVector()[5]->ElementSolution().Print("SolutionH1",std::cout);
+        
+    }
+    
+    {
+        std::ofstream outTXT("H1MeshVector5AfterSol.txt");
+        H1Mesh->Print(outTXT);
+    }
+    
+    
+    {
+        std::ofstream outTXT("MultiMesh.txt");
+        PostProcMesh->Print(outTXT);
+    }
+    
 
     std::string command = "mkdir -p " + config.dir_name;
     system(command.c_str());
@@ -789,8 +854,8 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 //of the internal functions are the same as the default order
                 hdivCreator.SetExtraInternalOrder(config.hdivmais);
                 //Sets if the resulting problem should or not be condensed
-                hdivCreator.SetShouldCondense(true);
-                // hdivCreator.SetShouldCondense(false);
+              //  hdivCreator.SetShouldCondense(true);
+                 hdivCreator.SetShouldCondense(false);
                 
                 //Sets the type of hybridizantion desired.
                 //The current options are HybridizationType::ENone, HybridizationType::EStandard
@@ -812,6 +877,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                         elas->fProblemType = config.exactElast->fProblemType;
                         elas->fPlaneStress=0;
                         gAnalytic = elas;
+                        //std::cout<<"-----planestress no misto "<<elas->fPlaneStress<<std::endl;
                     } else if (DIM == 3){
                         TElasticity3DAnalytic *elas = new TElasticity3DAnalytic;
                         elas->fE = 1.;
@@ -856,9 +922,222 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 std::cout << "Finished\n";
                 an.LoadSolution(); // compute internal dofs
             
+            
+            
                 EstimateErrorElasticity(config, cmesh, refsteps);
                 
             }
     
    
+}
+
+template<class tshape>
+void SolveH1Problem(const int &xdiv, const int &pOrder, H1Family &h1family,ProblemConfig &config)
+{
+
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
+#endif
+    
+    int DIM = tshape::Dimension;
+
+    for(int refsteps = 1; refsteps <= config.adaptivityStep; refsteps ++){
+//        {
+//            // Prints gmesh mesh properties
+//            std::string vtk_name = "H1geoMesh.vtk";
+//            std::ofstream vtkfile(vtk_name.c_str());
+//            TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+//        }
+        
+        
+        //Creates an analytical solution to test
+//        TPZAnalyticSolution *gAnalytic = 0;
+//        gAnalytic= config.exactElast;
+        
+        TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
+        elas->gE = config.mu*(3*config.lambda+2*config.mu)/(config.lambda+config.mu);
+        elas->gPoisson = 0.5*config.lambda/(config.lambda+config.mu);
+        elas->fProblemType = config.exactElast->fProblemType;
+        elas->fPlaneStress=0;
+        //gAnalytic = elas;
+        
+       // std::cout<<"fPlaneStress no metodo sozinho "<<elas->fPlaneStress<< std::endl;
+    
+        
+        TPZCompMesh *cmesh=CreateH1CMesh(config.gmesh, config.porder,elas,config);
+        {
+            std::ofstream outTXT("H1MeshSolveH1Problem.txt");
+            cmesh->Print(outTXT);
+        }
+       
+        
+        //Create the analysis environment
+        TPZLinearAnalysis an(cmesh,RenumType::ESloan);
+        // TPZLinearAnalysis an(cmesh,RenumType::EMetis);
+        an.SetExact(elas->ExactSolution(),4);
+        
+#ifdef PZ_USING_MKL
+        TPZSSpStructMatrix<> strmat(cmesh);
+        strmat.SetNumThreads(8);
+#else
+        TPZSkylineStructMatrix<STATE> strmat(cmesh);
+        strmat.SetNumThreads(4);
+#endif
+        
+        an.SetStructuralMatrix(strmat);
+        TPZStepSolver<STATE> step;
+        step.SetDirect(ELDLt);
+        an.SetSolver(step);
+        std::cout << "Assembling\n";
+        an.Assemble();
+        
+        std::cout << "Solving\n";
+        an.Solve();
+        std::cout << "Finished\n";
+        an.LoadSolution(); // compute internal dofs
+        
+        {
+            std::ofstream outTXT("H1MeshSolveH1ProblemPostSol.txt");
+            cmesh->Print(outTXT);
+        }
+        
+        
+        
+        //Compute error
+        std::ofstream anPostProcessFile("PostprocessFem.txt");
+        TPZManVector<REAL,7> error(6,0);
+        an.LoadSolution();
+        cmesh->LoadSolution(cmesh->Solution());
+        cmesh->ExpandSolution();
+        int64_t nelem = an.Mesh()->NElements();
+        
+        
+        an.Mesh()->ElementSolution().Redim(nelem, 6);
+        an.SetExact(elas->ExactSolution(),5);
+        an.PostProcessError(error,true,anPostProcessFile);
+        
+        double haux=pow(2, -xdiv);
+        printerrors << pOrder << ", " << std::fixed << std::setprecision(5) <<  1./haux << ", "
+        << std::scientific << std::setprecision(15) << "L2 Error for Disp= "<<error[1]<<std::endl;
+        
+       
+        std::cout<<"L2 error for displacement= "<<error[1]<<std::endl;
+    
+        
+        //PosProcess Graph
+        
+        TPZStack<std::string> vecnames,scalnames;
+        vecnames.Push("Displacement");
+        vecnames.Push("DisplacementExact");
+        std::stringstream out;
+        out << config.dir_name << "/" << "Fem_Solution_k" << config.porder << "Nref_" << config.ndivisions
+                << "NAdapStep_" << config.adaptivityStep << ".vtk";
+        an.DefineGraphMesh(DIM, scalnames, vecnames, out.str());
+        an.PostProcess(0, DIM);
+        
+        
+        
+    }
+}
+
+TPZCompMesh* CreateH1CMesh(TPZGeoMesh* gmesh, const int pord, TElasticity2DAnalytic *elas2D,ProblemConfig &config) {
+    
+    TPZCompMesh* cmesh = new TPZCompMesh(gmesh);
+    const int dim = gmesh->Dimension();
+    cmesh->SetDimModel(dim);
+    cmesh->SetDefaultOrder(pord);
+    cmesh->SetAllCreateFunctionsContinuous();
+    
+    // Domain elas mat
+    const STATE E = elas2D->gE, nu = elas2D->gPoisson;
+    TPZManVector<STATE> force = {0,0,0};
+
+    TPZElasticity2D *mat= new TPZElasticity2D(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress);
+    
+    mat->SetExactSol(elas2D->ExactSolution(), 4);
+    mat->SetForcingFunction(elas2D->ForceFunc(), 4);
+    cmesh->InsertMaterialObject(mat);
+
+    
+    // BC
+    
+    TPZFMatrix<STATE> val1(dim,dim,0.);
+    TPZManVector<STATE> val2(dim,0.);
+    TPZBndCondT<STATE> *BCond1 = mat->CreateBC(mat, EBoundary, 0, val1, val2);
+    BCond1->SetForcingFunctionBC(elas2D->ExactSolution(),4);
+    cmesh->InsertMaterialObject(BCond1);
+
+    // Constructs mesh
+    cmesh->AutoBuild();
+    
+    return cmesh;
+    
+}
+template<class tshape>
+void SolvingH1Displacement(TPZCompMesh *cH1Mesh,ProblemConfig &config){
+    
+    {
+        std::ofstream outTXT("H1MeshInitial-2.txt");
+        cH1Mesh->Print(outTXT);
+    }
+    
+            //Create the analysis environment
+            TPZLinearAnalysis an(cH1Mesh,RenumType::ESloan);
+            an.SetExact(config.exactElast->ExactSolution(),4);
+    
+    #ifdef PZ_USING_MKL
+            TPZSSpStructMatrix<> strmat(cmesh);
+            strmat.SetNumThreads(8);
+    #else
+            TPZSkylineStructMatrix<STATE> strmat(cH1Mesh);
+            strmat.SetNumThreads(4);
+    #endif
+    
+            an.SetStructuralMatrix(strmat);
+            TPZStepSolver<STATE> step;
+            step.SetDirect(ELDLt);
+            an.SetSolver(step);
+            std::cout<< "Assembling\n";
+            an.Assemble();
+            std::cout<< "Solving\n";
+            an.Solve();
+            std::cout << "Finished\n";
+            an.LoadSolution(); // compute internal dofs
+    
+    {
+        std::ofstream outTXT("H1MeshAfterSolution.txt");
+        cH1Mesh->Print(outTXT);
+    }
+    
+    
+    
+    TPZStack<std::string> vecnames,scalnames;
+        vecnames.Push("Displacement");
+    vecnames.Push("DisplacementExact");
+    
+        int dim = 2;
+
+        an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionH1.vtk");
+        an.PostProcess(0, dim);
+    
+    //Compute error
+  
+    std::ofstream anPostProcessFile("PostprocessFemH1.txt");
+    TPZManVector<REAL,7> error(6,0);
+    an.LoadSolution();
+    cH1Mesh->LoadSolution(cH1Mesh->Solution());
+    cH1Mesh->ExpandSolution();
+    int64_t nelem = an.Mesh()->NElements();
+    
+    
+    an.Mesh()->ElementSolution().Redim(nelem, 6);
+    an.PostProcessError(error,true,anPostProcessFile);
+    
+    printerrors << config.porder <<  "L2 Error for Disp= "<<error[1]*error[1]<<std::endl;
+    std::cout<<"L2 Error for Disp= "<<error[1]*error[1]<<std::endl;
+   // std::cout<<"Vector Error= "<<error<<std::endl;
+    
+    
+
+    
 }

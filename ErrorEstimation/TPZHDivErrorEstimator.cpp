@@ -34,6 +34,13 @@
 #include "TPZHDivErrorEstimateDarcyMaterial.h"
 #include "TPZHDivErrorEstimateElasticityMaterial.h"
 
+#include "TPZLinearAnalysis.h"
+
+#include "TPZSSpStructMatrix.h"
+#include "pzstepsolver.h"
+#include "TPZStructMatrixT.h"
+#include "pzskylstrmatrix.h"
+
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
 #endif
@@ -81,7 +88,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
         an.SetExact(fExact->ExactSolution());
     }
 
-    int64_t nErrorCols = 7;
+    int64_t nErrorCols =  9;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -91,6 +98,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     fPostProcMesh.ExpandSolution();
     
+//    {
+//        std::ostream *out;
+//        fPostProcMesh.MeshVector()[5]->ElementSolution().Print("SolutionH1ForError",std::cout);
+//        
+//        std::ofstream out1("SolutionH1ForError.nb");
+//        fPostProcMesh.MeshVector()[5]->ElementSolution().Print("SolutionH1ForError = ", out1, EMathematicaInput);
+//    }
     
     fPostProcMesh.ElementSolution().Redim(nelem, nErrorCols);
     for (int64_t el = 0; el < nelem; el++) {
@@ -100,6 +114,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
             int64_t nelsub = subc->NElements();
             subc->ElementSolution().Redim(nelsub, nErrorCols);
         }
+    }
+    
+    {
+        std::ofstream outTXT("H1MeshInErrorEstimation.txt");
+        fPostProcMesh.MeshVector()[5]->Print(outTXT);
     }
 
     // Calculate error and store in element solution
@@ -284,6 +303,11 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
         // #endif
 
         CreateSkeletonElements(pressureMesh);
+        
+        {
+            std::ofstream outTXT("PostProcOriginalMesh.txt");
+            pressureMesh->Print(outTXT);
+        }
 
         return pressureMesh;
     }
@@ -1889,6 +1913,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     // fPostProcMesh[1] is the L2 mesh
     meshvec[0] = fPostProcMesh.MeshVector()[0];
     meshvec[1] = fPostProcMesh.MeshVector()[1];
+
+    
+    
 
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
 
