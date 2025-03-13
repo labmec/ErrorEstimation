@@ -10,7 +10,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(cmake/StandardProjectSettings.cmake)
 
 # Enables NeoPZ library
-find_package(NeoPZ REQUIRED)
+find_package(NeoPZ REQUIRED HINTS ../neopz_install)
 
 # Mac OS X specific code
 if (APPLE)
