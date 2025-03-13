@@ -88,7 +88,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
         an.SetExact(fExact->ExactSolution());
     }
 
-    int64_t nErrorCols =  9;
+    int64_t nErrorCols = 10;
     errorVec.resize(nErrorCols);
     for (int64_t i = 0; i < nErrorCols; i++) {
         errorVec[i] = 0;
@@ -116,10 +116,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
         }
     }
     
-    {
-        std::ofstream outTXT("H1MeshInErrorEstimation.txt");
-        fPostProcMesh.MeshVector()[5]->Print(outTXT);
-    }
+//    {
+//        std::ofstream outTXT("H1MeshInErrorEstimation.txt");
+//        fPostProcMesh.MeshVector()[5]->Print(outTXT);
+//    }
 
     // Calculate error and store in element solution
     bool store_error = true;

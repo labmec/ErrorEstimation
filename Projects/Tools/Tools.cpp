@@ -1234,6 +1234,8 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
         ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
         ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
+        ss<<"|sigma_ex-Aeps(u_h1)| = " << error_vec[9] << "\n";
+       
         
         out << ss.str();
         std::cout << ss.str();
