@@ -234,7 +234,15 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         REAL tau1 = config.division_threshold;
         REAL tau2 = 0.3;
         REAL rho = 0.05;
-        int algor = 2;
+        bool hasSingularity = false;
+        TPZGeoNode node;
+        if (hasSingularity){//If initial mesh have reflevel = 2
+            //Selects elements adjacent to the selected node:
+            //Quadrilateral 0 for Lshape and 8 for Steklov
+            //Triangular  0 for Lshape 6 for Steklov
+            node = config.gmesh->NodeVec()[8];
+        }
+        int algor = 0;
         switch (algor) {
             case 0: // in case of smooth solutions, even with extreme behavior
                 for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
@@ -250,12 +258,15 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
                     int porder = intel->GetPreferredOrder();
                     gelstoPplus[gel->Index()] = porder;
+                    std::set<int64_t> nodeindices;
+                    gel->GetNodeIndices(nodeindices);
                     
                     if(elementerror < 0.000000001){
                         continue;
+                    }else if (nodeindices.count(node.Id())){
+                        gelstohref.insert(gel->Index());
                     }else if (elementerror > tau1 * maxerror && ratio > rho){
                         gelstohref.insert(gel->Index());
-
                     }else if (tau2*maxerror >= elementerror || ratio <= rho){
                         if(porder < 10){
                             gelstoPplus[gel->Index()] = porder+1;
@@ -265,36 +276,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                 config.fElIndexDivide.push_back(gelstohref);
                 config.fElIndexPplus.push_back(gelstoPplus);
                 break;
-            case 1: //In case of presence of singularity
-                for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
-                    REAL elementerror = estimate_elerror(i,2);//+estimate_elerror(i,3);
-                    REAL elemresidual = estimate_elerror(i,3);
-                    REAL ratio = elemresidual/elementerror;
-    
-                    TPZCompEl* cel = cmeshH1->Element(i);
-                    if (cel->Dimension() != cmeshH1->Dimension()){
-                        continue;
-                    }
-                    TPZGeoEl* gel = cel->Reference();
-                    TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement*>(cel);
-                    int porder = intel->GetPreferredOrder();
-                    gelstoPplus[gel->Index()] = porder;
-                    
-                    if(elementerror < 0.000000001){
-                        continue;
-                    }else if (elementerror > tau1 * maxerror){
-                        gelstohref.insert(gel->Index());
-                    }else if (tau2*maxerror >= elementerror){
-                        if(porder < 10){
-                            gelstoPplus[gel->Index()] = porder+1;
-                        }
-                    }
-                }
-                
-                config.fElIndexDivide.push_back(gelstohref);
-                config.fElIndexPplus.push_back(gelstoPplus);
-                break;
-            case 2:
+            case 1:
                 for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
                     REAL elementerror = estimate_elerror(i,2);
                     
@@ -311,7 +293,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
                     //Quadrilateral 0 for Lshape and 8 for Steklov
                     //Triangular  6 for Steklov
                     TPZGeoNode node = config.gmesh->NodeVec()[0];
-                    const int nnodes = gel->NNodes();
+                    //const int nnodes = gel->NNodes();
                     std::set<int64_t> nodeindices;
                     gel->GetNodeIndices(nodeindices);
                     if (nodeindices.count(node.Id())){

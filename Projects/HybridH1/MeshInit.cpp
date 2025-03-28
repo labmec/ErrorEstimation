@@ -214,6 +214,10 @@ void SetFExact(TLaplaceExample1 *mat1, TLaplaceExample1 *mat2,PreConfig &pConfig
             mat1->fExact = TLaplaceExample1::ESteklovNonConst;
             mat2->fExact = TLaplaceExample1::ESteklovNonConst;
             break;
+        case 15:
+            mat1->fExact = TLaplaceExample1::ESteklovNonConst2;
+            mat2->fExact = TLaplaceExample1::ESteklovNonConst2;
+            break;
         default:
             DebugStop();
             break;
@@ -643,7 +647,7 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
     int neumann = 1;
     int dim = config.gmesh->Dimension();
 
-    if(pConfig.type != 2) {
+    if(pConfig.type != 2 && pConfig.type != 15) {
         for (auto matid : config.materialids) {
             TPZDarcyFlow *mix = new TPZDarcyFlow(matid, cmesh->Dimension());
 //            mix->SetExactSol(config.exact->ExactSolution(), mix->PolynomialOrderExact());

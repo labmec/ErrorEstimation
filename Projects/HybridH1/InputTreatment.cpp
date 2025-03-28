@@ -26,7 +26,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         bcids[1] = bcids[3] = -2;
     }
     
-    if(0){ //Square shape domain quadrilateral mesh
+    if(1){ //Square shape domain quadrilateral mesh
         isOriginCentered = 1;
         gmesh = Tools::CreateGeoMesh(1, bcids, config.dimension,isOriginCentered,pConfig.topologyMode);
         //gmesh->Print();
@@ -72,7 +72,7 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
     }
 
     // Assumes Dirichlet Condition
-    if (pConfig.type  == 2) { 
+    if (pConfig.type  == 2 || pConfig.type  == 15  ) {
         config.materialids.insert(2);
         config.materialids.insert(3);
         config.materialids.erase(1);
@@ -239,11 +239,14 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "ESing2D") pConfig.type = 7;
         else if (pConfig.problem == "ESinMark") pConfig.type = 8;
         else if (pConfig.problem == "ESteepWave") pConfig.type = 9;
-        else if (pConfig.problem == "ESinMarkHom") pConfig.type = 10;
+        else if (pConfig.problem == "ESinMark2") pConfig.type = 10;
         else if (pConfig.problem == "EBubble2DTemp") pConfig.type = 11;
         else if (pConfig.problem == "ESteepMountain2D") pConfig.type = 12;
         else if (pConfig.problem == "ESharpGaussian2D") pConfig.type = 13;
         else if (pConfig.problem == "ELineSingularity") pConfig.type = 14;
+        else if (pConfig.problem == "ESteklovNonConst2") pConfig.type = 15;
+        else if (pConfig.problem == "ESteepWave2") pConfig.type = 16;
+
         else DebugStop();
     }
 
@@ -403,7 +406,7 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             break;
         case 10:
             //DebugStop();
-            solutionCase = TLaplaceExample1::ESinMarkHom;
+            solutionCase = TLaplaceExample1::ESinMark2;
             break;
         case 11:
             DebugStop();
@@ -414,12 +417,17 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             // solutionCase = TLaplaceExample1::ESteepMountain2D;
             break;
         case 13:
-            DebugStop();
-//            solutionCase = TLaplaceExample1::ESharpGaussian2D;
+            solutionCase = TLaplaceExample1::ESharpGaussian2D;
             break;
         case 14:
             DebugStop();
 //            solutionCase = TLaplaceExample1::ELineSingularity;
+            break;
+        case 15:
+            solutionCase = TLaplaceExample1::ESteklovNonConst2;
+            break;
+        case 16:
+            solutionCase = TLaplaceExample1::ESteepWave2;
             break;
         default:
             DebugStop();
