@@ -544,7 +544,7 @@ void InsertMaterialsInMHMMesh(TPZMHMixedMeshControl &control, const ProblemConfi
         TPZManVector<STATE,1> val2(1, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(config.exact->ExactSolution());
+        bc->SetForcingFunctionBC(config.exact->ExactSolution(),4);
         cmesh.InsertMaterialObject(bc);
     }
 }

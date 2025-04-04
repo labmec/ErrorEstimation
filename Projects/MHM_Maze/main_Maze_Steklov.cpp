@@ -89,8 +89,8 @@ int main(){
     TPZLogger::InitializePZLOG();
     
     ConfigCasesMaze ConfCasesMeze;
-//    ConfCasesMeze.SetImageName("⁨../Mazes/maze128x128.png");
-    ConfCasesMeze.SetImageName("../Mazes/maze8x8.png");
+//    ConfCasesMeze.SetImageName("../Mazes/maze128x128.png");
+    ConfCasesMeze.SetImageName("Mazes/maze8x8.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);//pouco permeavel
     ConfCasesMeze.SetPermeableMatPermeability(100000);//dentro do labirinto
     ConfCasesMeze.SetFluxOrder(1);

@@ -334,7 +334,7 @@ bool SolvePoissonProblem(struct SimulationCase &sim_case) {
                 mat->SetForcingFunction(example.ForceFunc(),3);
             }
             else {
-                bc->SetForcingFunctionBC(example.ExactSolution());
+                bc->SetForcingFunctionBC(example.ExactSolution(),3);
             }
         }
     }
@@ -491,7 +491,7 @@ TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case) {
             bctype = 1;
         }
         TPZBndCondT<STATE> *bc = material->CreateBC(material, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(sim_case.exact.ExactSolution());
+        bc->SetForcingFunctionBC(sim_case.exact.ExactSolution(),4);
         cmesh->InsertMaterialObject(bc);
     }
     
@@ -614,7 +614,7 @@ TPZCompMesh *CompMeshH1(struct SimulationCase &problem) {
         int bctype = 0;
         val2.Fill(0.);
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(problem.exact.ExactSolution());
+        bc->SetForcingFunctionBC(problem.exact.ExactSolution(),4);
         
         cmesh->InsertMaterialObject(bc);
     }

@@ -278,7 +278,7 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
     TPZManVector<STATE, 2> val2(11, 1.);
     auto *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
     if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-        BCond0->SetForcingFunctionBC(config.exact->ExactSolution());
+        BCond0->SetForcingFunctionBC(config.exact->ExactSolution(),4);
     }
     auto *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
 
