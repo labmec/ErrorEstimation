@@ -96,7 +96,7 @@ int main(){
     
     ConfigCasesMaze ConfCasesMaze;
 //    ConfCasesMeze.SetImageName("⁨../Mazes/maze128x128.png");
-    ConfCasesMaze.SetImageName("Mazes/maze128x128.png");
+    ConfCasesMaze.SetImageName("Mazes/maze8x8.png");
     ConfCasesMaze.SetImperviousMatPermeability(1);//pouco permeavel
     ConfCasesMaze.SetPermeableMatPermeability(100000);//dentro do labirinto
     ConfCasesMaze.SetFluxOrder(1);
@@ -106,7 +106,7 @@ int main(){
     ConfCasesMaze.SetMHMOpenChannel(false);
     ConfCasesMaze.SetVTKName("maze8x8.vtk");
     ConfCasesMaze.SetNumberOfSubdomains(2);
-    ConfCasesMaze.SetSkeletonDivision(6);
+    ConfCasesMaze.SetSkeletonDivision(2);
 
     std::map<int,std::pair<int64_t,int64_t>> intersectGeoElIndex;
     std::map<int64_t,int> indexToSide;
@@ -289,6 +289,7 @@ int SteklovTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> 
 
         // criam-se apenas elementos geometricos
         mhm->DefinePartitionbyCoarseIndices(coarseindices);
+        mhm->SetHDivFamily(HDivFamily::EHDivConstant);
         MHMixed = mhm;
 
         AddDomainWrapElements(*mhm, matextend);
