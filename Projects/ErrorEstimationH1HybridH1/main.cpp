@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
     
     for(int ndiv = 0; ndiv < 1; ndiv++){
         
-        std::string meshfilename = "../Quad.msh";
+        std::string meshfilename = "Quad.msh";
         
         TPZGeoMesh *gmesh = nullptr;
         
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
         
         //Case1.nthreads = 0;
         
-        pConfig.refLevel = 2;
+        pConfig.refLevel = 0;
         config.ndivisions = pConfig.refLevel;
         //Case1.numinitialrefine = 1;//ndiv;
         
@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
         pConfig.problem = "ESinSin";
         config.problemname = "SinSin";
         config.dir_name = "ESinSin";
-        config.porder = 1;
+        config.porder = 0;
         config.hdivmais = 2;
         //Case1.exact.fExact = example.ESinSin;//ESinMark//ESinSin//ESinSinDirNonHom
         
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
             
             //            TPZLinearAnalysis an(cmeshH1);
             //            an.SetExact(Case1.exact.ExactSolution());
-            if(0)
+            if(1)
             {
                 TPZManVector<TPZCompMesh *> meshvec = mphysics->MeshVector();
                 std::cout << "0 solsize " << meshvec[0]->Solution().Rows() << std::endl;
@@ -742,7 +742,7 @@ TPZCompMesh *CMeshPressure(struct SimulationCase &sim_case) {
 void SolveH1Problem(TPZCompMesh *cmeshH1, ProblemConfig &config){
     
     TPZMultiphysicsCompMesh *mphys = dynamic_cast<TPZMultiphysicsCompMesh *>(cmeshH1);
-    TPZLinearAnalysis an(cmeshH1);
+    TPZLinearAnalysis an(cmeshH1, RenumType::ENone);
     an.SetExact(config.exact.operator*().ExactSolution());
     
     
@@ -1006,7 +1006,9 @@ TPZCompMesh *CreateHDivFluxes(ProblemConfig &problem, TPZGeoMesh *gmeshlocal) {
     TPZNullMaterial<STATE> *nullmat = new TPZNullMaterial<STATE>(problem.fFluxMaterialId,dim-1);
     cmesh->InsertMaterialObject(nullmat);
     cmesh->SetAllCreateFunctionsHDiv();
-    cmesh->SetDefaultOrder(problem.porder-1);
+    int porder = problem.porder-1;
+    if(porder<0) porder = 0;
+    cmesh->SetDefaultOrder(porder);
     std::set<int> matids = {problem.fFluxMaterialId};
     cmesh->AutoBuild(matids);
     return cmesh;
@@ -1197,7 +1199,6 @@ void PostProcessing(TPZCompMesh * pressuremesh, TPZMultiphysicsCompMesh *mphysic
         vtk.Do();
     }
 
-    return true;
 }
 
 TPZGeoMesh *CreateGeoCircleMesh() {

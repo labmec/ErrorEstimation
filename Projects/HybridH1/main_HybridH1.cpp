@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
         createspace.CreateAtomicMeshes(meshvec,config.porder,orderlagrange);
 
         TPZMultiphysicsCompMesh *cmesh_H1Hybrid = new TPZMultiphysicsCompMesh(gmesh);
+        cmesh_H1Hybrid->ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
         InsertMaterialObjectsH1Hybrid(cmesh_H1Hybrid, config);
         createspace.InsertPeriferalMaterialObjects(cmesh_H1Hybrid);
 

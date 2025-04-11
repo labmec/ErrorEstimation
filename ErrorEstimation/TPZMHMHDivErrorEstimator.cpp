@@ -62,6 +62,7 @@ void TPZMHMHDivErrorEstimator::CreatePostProcessingMesh()
     }
 
     RemoveMaterialObjects(fPostProcMesh.MaterialVec());
+    fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
 
     if(fPostProcesswithHDiv) {

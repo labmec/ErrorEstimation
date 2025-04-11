@@ -38,9 +38,9 @@ int main() {
     TPZLogger::InitializePZLOG();
 #endif
     gRefDBase.InitializeAllUniformRefPatterns();
-    //RunSmoothProblem();
+    RunSmoothProblem();
     //RunHighGradientProblem();
-    RunOscillatoryProblem();
+//    RunOscillatoryProblem();
     //RunNonConvexProblem();
     //Run3DProblem();
     //RunInnerSingularityProblem();
