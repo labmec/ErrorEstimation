@@ -109,11 +109,12 @@ int main() {
     
 
     ProblemConfig pConfig;
+    pConfig.vtkResolution = 2;
    
     pConfig.exactElast = new TElasticity2DAnalytic;
-    //RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
-    RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-  // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+    // RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
+    // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
+  RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
    // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
@@ -198,7 +199,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
    // pConfig.dir_name = "SmoothProb";
     pConfig.dir_name = "SymmetricTest";
     
-    const int xdiv = 10; //Number of elements in each direction
+    const int xdiv = 4; //Number of elements in each direction
     const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
@@ -212,7 +213,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {4,4};
    
     
-    TPZVec<int> divs = {4,8,16,32};
+    TPZVec<int> divs = {4};
     
     for (int64_t iorder=1; iorder< pOrder;iorder++) {
         pConfig.porder = iorder;
@@ -346,7 +347,7 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 2;
+    const int pOrder = 1;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
@@ -367,7 +368,7 @@ void RunLShapeProblem(ProblemConfig &pConfig){
         pConfig.dir_name = "LShapeProblem-Uni";
     }
 
-    for (int64_t iorder = 1; iorder < pOrder; iorder++) {
+    for (int64_t iorder = 1; iorder <= pOrder; iorder++) {
         pConfig.porder = iorder;
 
         for (int idiv = 0; idiv < divs.size(); idiv++) {
@@ -855,7 +856,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 hdivCreator.SetExtraInternalOrder(config.hdivmais);
                 //Sets if the resulting problem should or not be condensed
               //  hdivCreator.SetShouldCondense(true);
-                 hdivCreator.SetShouldCondense(false);
+                hdivCreator.SetShouldCondense(false);
                 
                 //Sets the type of hybridizantion desired.
                 //The current options are HybridizationType::ENone, HybridizationType::EStandard
@@ -1071,7 +1072,7 @@ void SolvingH1Displacement(TPZCompMesh *cH1Mesh,ProblemConfig &config){
             an.SetExact(config.exactElast->ExactSolution(),4);
     
     #ifdef PZ_USING_MKL
-            TPZSSpStructMatrix<> strmat(cmesh);
+            TPZSSpStructMatrix<> strmat(cH1Mesh);
             strmat.SetNumThreads(8);
     #else
             TPZSkylineStructMatrix<STATE> strmat(cH1Mesh);

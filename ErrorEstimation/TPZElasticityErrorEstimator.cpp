@@ -1004,32 +1004,34 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             TPZManVector<REAL, 3> pt0_vol(1, 0.);
             neigh_intel->Solution(pt0_vol, 1, neigh_sol);
 
-            // {
-            //     for (int icon = 0; icon < 3; icon++)
-            //     {
-            //         int side = neigh_gelside.Side();
-            //         int64_t conindex = neigh_intel->ConnectIndex(icon);
-            //         TPZConnect &c = pressuremesh->ConnectVec()[conindex];
+            {
+                for (int icon = 0; icon < 3; icon++)
+                {
+                    int side = neigh_gelside.Side();
+                    int64_t conindex = neigh_intel->ConnectIndex(icon);
+                    TPZConnect &c = pressuremesh->ConnectVec()[conindex];
 
-            //         int64_t seqnum = c.SequenceNumber();
-            //         // if (c.NState() != nstate || c.NShape() != 1) DebugStop();
-            //         for (int istate = 0; istate < nstate; istate++) {
-            //             std::cout << "Coeficiente multiplicador " << istate << " " << sol.at(block.at(seqnum, 0, istate, 0)) << std::endl;
-            //             // sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
-            //         }
-            //     }
+                    int64_t seqnum = c.SequenceNumber();
+                    // if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+                    for (int istate = 0; istate < nstate; istate++) {
+                        std::cout << "Coeficiente multiplicador " << istate << " " << sol.at(block.at(seqnum, 0, istate, 0)) << std::endl;
+                        // sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
+                    }
+                }
                 
                 
 
-            //     TPZManVector<STATE, 3> neigh_sol2(nstate, 0.);
-            //     TPZManVector<REAL, 3> pt0_vol2(1, -1.);
-            //     neigh_intel->Solution(pt0_vol2, 1, neigh_sol2);
+                TPZManVector<STATE, 3> neigh_sol2(nstate, 0.);
+                TPZManVector<REAL, 3> pt0_vol2(1, -1.);
+                neigh_intel->Solution(pt0_vol2, 1, neigh_sol2);
 
-            //     TPZManVector<STATE, 3> neigh_sol3(nstate, 0.);
-            //     TPZManVector<REAL, 3> pt0_vol3(1, 1.);
-            //     neigh_intel->Solution(pt0_vol3, 1, neigh_sol3);
-            //     std::cout << "neigh_sol " << neigh_sol << " neigh_sol2 " << neigh_sol2 << " neigh_sol3 " << neigh_sol3 << std::endl;
-            // }
+                TPZManVector<STATE, 3> neigh_sol3(nstate, 0.);
+                TPZManVector<REAL, 3> pt0_vol3(1, 1.);
+                neigh_intel->Solution(pt0_vol3, 1, neigh_sol3);
+                std::cout << "neigh_sol " << neigh_sol << " neigh_sol2 " << neigh_sol2 << " neigh_sol3 " << neigh_sol3 << std::endl;
+                std::cout << "neigh_aver " << (neigh_sol2[0]+neigh_sol3[0])/2 << " " << (neigh_sol2[0]+neigh_sol3[1])/2 << std::endl;
+
+            }
             
             
             // ifnode_celside.Element()->Reference()->MaterialId()
@@ -1048,7 +1050,7 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             }
             break;
         }
-        // pressuremesh->LoadSolution(pressuremesh->Solution());
+        pressuremesh->LoadSolution(pressuremesh->Solution());
     }
 }
 
@@ -1354,7 +1356,7 @@ void TPZElasticityErrorEstimator::VerifySolutionConsistency(TPZCompMesh* cmesh) 
                         std::cout << "Side coord:  [" << x0[0] << ", " << x0[1] << ", " << x0[2] << "]\n";
                         std::cout << "Neigh coord: [" << x1[0] << ", " << x1[1] << ", " << x1[2] << "]\n";
                         
-                        // DebugStop();
+                        DebugStop();
 
 //                        LOGPZ_DEBUG(logger, sout.str())
                   }
@@ -1626,7 +1628,7 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, const std::str
         int dim = fPostProcMesh.Reference()->Dimension();
 
         an.DefineGraphMesh(dim, scalnames, vecnames, out);
-        an.PostProcess(0, dim);
+        an.PostProcess(fConfig.vtkResolution, dim);
     }
     else {
         std::cout << __PRETTY_FUNCTION__ << "\nPost Processing variable not found!\n";
