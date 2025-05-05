@@ -665,7 +665,7 @@ TPZCompMesh* InsertCMeshH1(ProblemConfig &config, PreConfig &pConfig) {
             TPZManVector<STATE, 2> val2(1, 0.); //Dirichlet
             int bctype = 0; //Dirichlet
             auto *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-            //bc->SetForcingFunctionBC(config.exact->ExactSolution(),pConfig.integrationorder);
+            bc->SetForcingFunctionBC(config.exact->ExactSolution(),pConfig.integrationorder);
             cmesh->InsertMaterialObject(bc);
         }
     }

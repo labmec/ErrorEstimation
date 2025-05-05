@@ -69,6 +69,7 @@ struct TPZPatch
     {
         out << "The generating partitionindex = " << fPartitionConnectIndex << std::endl;
         out << "Coordinate of the partition node " << fCo << std::endl;
+        out << "Patch is boundary " << fPatchIsBoundary << std::endl;
         out << "Element indices " << fElIndices << std::endl;
         out << "Open set connect indices " << fConnectIndices << std::endl;
         out << "Boundary set connect indices " << fBoundaryConnectIndices << std::endl;
@@ -85,9 +86,11 @@ class TPZPostProcessError
 {
 public:
     
-    TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config);
+    TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config, bool useHDiv);
     
     TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec);
+    
+    
     
 private:
     
@@ -97,6 +100,15 @@ private:
     // vector of vector of patches
     // each vector of patches corresponds to one color
     TPZManVector<TPZStack<TPZPatch>, 10> fVecVecPatches;
+    
+    /// use HDiv or hybrid H1 to construct a conservative approximation
+    bool fuseHDiv = true;
+    
+    /// material ids for building the hybrid H1 mesh
+    int fMatWrap = 10;
+    int fInterfacePositive = 11;
+    int fInterfaceNegative = 12;
+    int fMatFlux = 15;
     
     // build vector of patches of a same color
     void BuildPatchStructures();
@@ -125,7 +137,7 @@ private:
     void ComputePatchFluxes();// not implemented
     
     // determine if a given patch is boundary or not
-    bool PatchHasBoundary(TPZPatch &patch) const;
+    bool PatchHasBoundary(TPZPatch &patch, const std::set<int64_t> &internalconnects) const;
     
     // Sum the solution stored in fSolution of the multiphysics mesh to the fSolution vector
     void TransferAndSumSolution(TPZCompMesh *cmesh); // what is second mesh?
@@ -135,21 +147,40 @@ private:
 
     // check whether the connectsizes have changed
     void CheckConnectSizes();
+    
+    /// identify the material ids of the boundary conditions in the root mesh
+    std::set<int> BCMaterialIds() const;
 
     // create the meshes that allow us to compute the error estimate
-    void CreateAuxiliaryMeshes();
+    void CreateMultiphysicsMesh();
+    
+    /// add geometric wrappers, interface and interface flux elements
+    void AddWrapperElements();
 
     /// create a fluxmesh based on the original H1 mesh
-    // the flux mesh will be put in the second position of the mesh vector
+    // the flux mesh will be put in position EFlux of the mesh vector
     void CreateFluxMesh();
+    
+    /// create a boundary flux mesh based on the original H1 mesh
+    /// the boundary flux mesh will be put in position EFlux
+    void CreateBoundaryFluxMesh();
     
     /// create the lagrange mesh corresponding to the flux mesh
     void CreatePressureMesh();
+    
+    /// create the hybrid H1 mesh corresponding to the H1 mesh
+    void CreateDiscontinuousPressureMesh();
 
     void CreateAveragePressureMesh();
     
-    /// create the multiphysics mesh that will compute the projection matrix
-    void CreateMixedMesh();
+    /// create the multiphysics mesh combining hdiv elements that will compute the projection matrix
+    void CreateHdivMesh();
+    
+    /// create the multiphysics mesh using hybrid H1 mesh for reconstruction
+    void CreateHybridH1Mesh();
+    
+    /// Add the Interface elements to the multiphysics mesh
+    void AddInterfaceElements(TPZMultiphysicsCompMesh *mfmesh);
 
     /// create the partition of unity mesh
     void CreatePartitionofUnityMesh();
@@ -162,6 +193,8 @@ public:
     // print partition diagnostics
     void PrintPartitionDiagnostics(int64_t color, std::ostream &out) const ;
     
+    // include the wrap, interface and flux element in the connected element list
+    void IncludeDim1Neighbours(int64_t seednodeindex, TPZGeoEl *gel, std::set<TPZCompEl *> &patchwrappers);
     // Collect the connect indices and elements which will contribute to the patch caracterized by the set of nodes
     // generally each node will form a patch
     TPZPatch BuildPatch(TPZCompElSide &seed);

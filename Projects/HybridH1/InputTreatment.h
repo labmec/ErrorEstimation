@@ -12,6 +12,7 @@ void DataInitialization(int argc, char *argv[],PreConfig &hybConfig,PreConfig &m
 void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig);
 void InitializeOutstream(PreConfig &pConfig,char *argv[]);
 void IsInteger(char *argv);
+// this method apply h-refinement to the geometric mesh
 void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]);
 void ReadEntry(ProblemConfig &config, PreConfig &pConfig);
 TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig);

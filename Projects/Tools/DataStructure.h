@@ -42,6 +42,7 @@ struct PreConfig{
     int numErrors = 4;
 
     std::string plotfile;
+    // this parameter indicates whether we are estimating the error of H1, hybrid o mixed approximation
     int mode = -1;           // 0 = "H1"; 1 = "Hybrid"; 2 = "Mixed";
     // argc is the number of arguments passed by the command line. Will be set to 5 if the problem is run from command line
     int argc = 1;

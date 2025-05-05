@@ -86,17 +86,19 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
     
     //REAL solpatch = datavec[2].sol[0][0];
     //TPZFMatrix<STATE> &gradH1 = datavec[3].dsol[0];
-    
-    MixedMat::Contribute(datavec,weight,ek,ef);
+    TPZFMatrix<REAL> &phip = datavec[Epressure].phi;
+    int64_t phrp = phip.Rows();
+    int64_t phrq = datavec[Eflux].fVecShapeIndex.NElements();
+    TPZFMatrix<STATE> eks(phrp+phrq,phrp+phrq,0.),efs(phrp+phrq,1,0.);
+
+    MixedMat::Contribute(datavec,weight,eks,efs);
 //    {
 //        std::stringstream sout;
 //        sout<<"\n\n Matriz ek e vetor fk \n ";
 //        ek.Print("ekmph = ",sout,EMathematicaInput);
 //    }
     ef = efkeep;
-    TPZFMatrix<REAL> &phip = datavec[Epressure].phi;
-    int64_t phrp = phip.Rows();
-    int64_t phrq = datavec[Eflux].fVecShapeIndex.NElements();
+    ek.AddSub(0, 0, eks);
     STATE force = 0.;
     if(MixedMat::fForcingFunction) {
         TPZManVector<STATE> res(1);

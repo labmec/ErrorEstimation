@@ -16,6 +16,8 @@ target_sources(ErrorEstimationLib PUBLIC
     TPZHybridH1PressureRecMaterial.cpp
     TPZSteklovMaterial.h
     TPZSteklovMaterial.cpp
+	TPZH1ErrorHybridH1EstimateMaterial.h
+	TPZH1ErrorHybridH1EstimateMaterial.cpp
 )
 
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_LIST_DIR})

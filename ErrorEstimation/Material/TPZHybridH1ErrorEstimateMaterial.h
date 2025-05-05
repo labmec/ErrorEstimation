@@ -15,6 +15,8 @@
 
 typedef TPZMixedDarcyFlow TPZMixedPoisson;
 
+// this class estimates the error of an Hybrid H1 approximation
+// It project the hybrid H1 solution on an Hdiv space
 class TPZHybridH1ErrorEstimateMaterial: public TPZMixedPoisson
 {
 public:

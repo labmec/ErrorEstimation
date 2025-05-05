@@ -97,7 +97,7 @@ void ProblemConfig::ApplyTwoonOneRestraint2()
                     int maxlev = MaxLevel(neighbour);
                     if(maxlev > mylev+1) {
                         TPZStack<TPZGeoEl *> subs;
-                        std::cout << "gel index " << gel->Index() << " level " << gel->Level() << " maxlev " << maxlev << " needs divide " << std::endl;
+//                        std::cout << "gel index " << gel->Index() << " level " << gel->Level() << " maxlev " << maxlev << " needs divide " << std::endl;
                         gel->Divide(subs);
                         change = true;
                         break;

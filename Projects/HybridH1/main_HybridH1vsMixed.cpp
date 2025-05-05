@@ -39,8 +39,10 @@ int main(int argc, char *argv[]) {
     ProblemConfig config;
     config.division_threshold = 0.5;
     for (config.adaptivityStep = 0; config.adaptivityStep < pConfig.numberAdapativitySteps+1; config.adaptivityStep++) { //ndiv = 1 corresponds to a 2x2 mesh.
+        std::cout << "Step " << config.adaptivityStep << " out of " << pConfig.numberAdapativitySteps+1 << std::endl;
         pConfig.h = 1./pConfig.exp;
         
+        // apply h refinement
         Configure(config,pConfig.refLevel,pConfig,argv);
         
         Solve(config,pConfig);

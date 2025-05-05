@@ -23,6 +23,7 @@
 #include "TPZFrontSym.h"
 
 #include "pzvisualmatrix.h"
+#include "TPZVTKGeoMesh.h"
 #include "pzbuildmultiphysicsmesh.h"
 
 #include "TPZMaterial.h"
@@ -32,13 +33,14 @@
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
 #include "TPZNullMaterial.h"
 
-#define ERRORESTIMATION_DEBUG
+//#define ERRORESTIMATION_DEBUG
 
-TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config) : fMeshVector(5,0)
+TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config, bool useHDiv) : fMeshVector(5,0)
 {
+    fuseHDiv = useHDiv;
     fMeshVector[Eorigin] = origin;
     fExact = &(*(config.exact));
-    CreateAuxiliaryMeshes();
+    CreateMultiphysicsMesh();
 }
 
 
@@ -77,6 +79,47 @@ TPZPostProcessError::TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec)
     
 }
 
+void TPZPostProcessError::IncludeDim1Neighbours(int64_t seednodeindex, TPZGeoEl *gel, std::set<TPZCompEl *> &patchwrappers) {
+    TPZGeoMesh *gmesh = gel->Mesh();
+    int dim = gel->Dimension();
+    if(gmesh->Dimension() != dim) DebugStop();
+    int firstside = gel->FirstSide(dim-1);
+    int lastside = gel->NSides()-1;
+    for(int side = firstside; side < lastside; side++) {
+        TPZGeoElSide gelside(gel,side);
+        TPZGeoElSide wrapside = gelside.Neighbour();
+        if(wrapside.Element()->MaterialId() != fMatWrap) DebugStop();
+        if(wrapside.Element()->Reference() == NULL) DebugStop();
+        patchwrappers.insert(wrapside.Element()->Reference());
+        TPZGeoElSide interfaceside = wrapside.Neighbour();
+        int intfacematid = interfaceside.Element()->MaterialId();
+        if(intfacematid != fInterfacePositive && intfacematid != fInterfaceNegative) DebugStop();
+        if(interfaceside.Element()->Reference() == NULL) DebugStop();
+        patchwrappers.insert(interfaceside.Element()->Reference());
+        std::set<int> bcids = BCMaterialIds();
+        bcids.insert(fMatFlux);
+        TPZGeoElSide fluxside = interfaceside.HasNeighbour(bcids);
+        if(!fluxside) fluxside = interfaceside.HasLowerLevelNeighbour(fMatFlux);
+        if(!fluxside) DebugStop();
+        if(fluxside.Element()->Reference() == NULL) DebugStop();
+        TPZCompEl *cflux = fluxside.Element()->Reference();
+        TPZConnect &c = cflux->Connect(0);
+        if(c.NElConnected() > 2) {
+            patchwrappers.insert(cflux);
+        } else {
+            // this is a boundary flux element. Include only if it contains the seednode
+            int nnodes = fluxside.NSideNodes();
+            for(int in = 0; in < nnodes; in++) {
+                int64_t sidenodeindex = fluxside.SideNodeIndex(in);
+                if(sidenodeindex == seednodeindex) {
+                    patchwrappers.insert(cflux);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
 {
     // seed an element/side of multiphysics mesh
@@ -104,17 +147,20 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
     gelside.ConnectedCompElementList(connected,0,0);
     connected.Push(gelside.Reference());
     while (connected.size()) {
+        // complocside is a computational element and a zero dimensional side
         TPZCompElSide complocside = connected.Pop();
         patchelelements.insert(complocside.Element());
         TPZCompEl *cel = complocside.Element();
         int nc = cel->NConnects();
+        // connectset : all connects belonging to elements that touch the patch node
         for (int ic=0; ic<nc; ic++) {
             connectset.insert(cel->ConnectIndex(ic));
         }
         TPZStack<TPZGeoElSide> highsides;
         TPZGeoElSide geolocside = complocside.Reference();
+        // we identify all geosides of dimension dim-1 linked to the node
         geolocside.Element()->AllHigherDimensionSides(geolocside.Side(),meshdim-1,highsides);
-        int nsides = highsides.size();
+        int64_t nsides = highsides.size();
         for (int is = 0; is<nsides; is++) {
             // this is typical for HDiv approximation spaces
             TPZGeoEl *geolocel = geolocside.Element();
@@ -123,9 +169,22 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
             }
             // the element sides of dimension meshdim-1 starting from the corner node
             TPZGeoElSide geoloclocside(geolocside.Element(),highsides[is].Side());
-            // now we should include the elements connected to that side
+            // now we should include the smaller elements connected to that side
             geoloclocside.HigherLevelCompElementList2(connected,0,0);
         }
+    }
+    // patchelelements are all elements whose geometry include the seed node of the patch
+    // if the multiphysics mesh is H1 hybrid, then the neighbouring wrap, interface and flux elements need to be included
+    if(fuseHDiv == false) {
+        // include dim-1 elements
+        int64_t seednodeindex = gelside.SideNodeIndex(0);
+        std::set<TPZCompEl *> wrappers;
+        for(auto it : patchelelements) {
+            if(it->Reference()->Dimension() == meshdim) {
+                IncludeDim1Neighbours(seednodeindex, it->Reference(), wrappers);
+            }
+        }
+        patchelelements.merge(wrappers);
     }
     // the connects to be included are those who receive all contributions
     // build a nelconnected data structure for the elements in the patch
@@ -153,6 +212,7 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
             boundaryconnectset.insert(cindex);
         }
     }
+    // building the patch. The std structures are converted to TPZVec structures
     TPZPatch result;
     result.fConnectIndices.Resize(internalconnectset.size(), -1);
     result.fElIndices.Resize(patchelelements.size(), -1);
@@ -170,7 +230,7 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
         result.fBoundaryConnectIndices[count++] = *it;
     }
     
-    result.fPatchIsBoundary = PatchHasBoundary(result);
+    result.fPatchIsBoundary = PatchHasBoundary(result, internalconnectset);
     return result;
 }
 
@@ -259,7 +319,7 @@ void TPZPostProcessError::BuildPatchStructures()
 
 void TPZPostProcessError::BuildPatchStructures2()
 {
-    // vector indicating which connect indices of the H1 mesh have been processed
+    // vector indicating which connect indices of the H1 patch mesh have been processed
     TPZVec<int64_t> connectprocessed(fMeshVector[Epatch]->NConnects(),0);
     
     bool connectfailed = true;
@@ -267,6 +327,7 @@ void TPZPostProcessError::BuildPatchStructures2()
     // load the references of all elements of the mixed mesh
     fMeshVector[Emulti]->Reference()->ResetReference();
     fMeshVector[Emulti]->LoadReferences();
+    fMeshVector[Emulti]->ComputeNodElCon();
     
     // connectfailed will be true if there is an element patch that could not be inserted
     while (connectfailed) {
@@ -673,13 +734,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         multiphysicsmesh->ExpandSolution();
         
-        std::cout << "Color " << color << " Number of active elements " << nactiveel << " Number of equations " << nequations
-        << "\nNumber of internal equations " << nintequations << std::endl;
+//        std::cout << "Color " << color << " Number of active elements " << nactiveel << " Number of equations " << nequations
+//        << "\nNumber of internal equations " << nintequations << std::endl;
         // PrintPartitionDiagnostics(color, std::cout);
         
         nequations = multiphysicsmesh->NEquations();
         
-        std::cout<<"Solving mixed problem"<<std::endl;
+//        std::cout<<"Solving mixed problem"<<std::endl;
         TPZLinearAnalysis an(multiphysicsmesh,RenumType::ENone);
         //TPZLinearAnalysis an(multiphysicsmesh,RenumType::ESloan);
 
@@ -687,7 +748,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         TPZFStructMatrix<STATE> strmat(multiphysicsmesh);
         //TPZSSpStructMatrix<STATE> strmat(multiphysicsmesh);
         
-        int numthreads = 6;
+        int numthreads = 0;
         strmat.SetNumThreads(numthreads);
         
         strmat.SetEquationRange(0, nequations);
@@ -758,7 +819,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         }
         else
         {
-            std::cout << "The matrix has no singularity\n";
+//            std::cout << "The matrix has no singularity\n";
         }
         an.LoadSolution();
         
@@ -957,7 +1018,7 @@ void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream 
     // determine if the patch is a boundary patch or not
     TPZVec<int> IsInternalPatch(numpatch,0);
     for (int64_t p = 0; p<numpatch; p++) {
-        IsInternalPatch[p] = !PatchHasBoundary(vecpatch[p]);
+        IsInternalPatch[p] = !vecpatch[p].fPatchIsBoundary;
     }
     out << "Number of patches " << numpatch << std::endl;
     for (int64_t p = 0; p<numpatch; p++) {
@@ -999,9 +1060,10 @@ void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream 
 }
 
 // determine if a given patch is boundary or not
-bool TPZPostProcessError::PatchHasBoundary(TPZPatch &patch) const
+bool TPZPostProcessError::PatchHasBoundary(TPZPatch &patch, const std::set<int64_t> &internalconnects) const
 {
-    TPZCompMesh *meshmixed = fMeshVector[Eflux];
+    TPZCompMesh *meshmixed = fMeshVector[Emulti];
+    std::set<int> bcids = BCMaterialIds();
     int meshdim = meshmixed->Dimension();
     int64_t numel = patch.fElIndices.size();
     bool HasBoundary = false;
@@ -1015,9 +1077,16 @@ bool TPZPostProcessError::PatchHasBoundary(TPZPatch &patch) const
         if (!gel) {
             DebugStop();
         }
-        if (gel->Dimension() != meshdim) {
-            HasBoundary = true;
-            break;
+        if (bcids.find(gel->MaterialId()) != bcids.end()) {
+            // the boundary condition signals a boundary patch only if the boundary element is internal
+            int nc = cel->NConnects();
+            int64_t cindex = cel->ConnectIndex(nc-1);
+            if(internalconnects.find(cindex) != internalconnects.end()) {
+                HasBoundary = true;
+                break;
+            } else {
+                std::cout << __PRETTY_FUNCTION__ << " boundary is external\n";
+            }
         }
     }
     return HasBoundary;
@@ -1122,8 +1191,6 @@ void TPZPostProcessError::CreateFluxMesh()
     TPZMaterial *rootmat = cmeshroot->FindMaterial(matId);
     //int nstate = rootmat->NStateVariables();
     /// criar materiais
-    //  TPZAutoPointer<TPZFunction<STATE> > force1 = new TPZDummyFunction<STATE>(Forcing1);
-    //    material->SetForcingFunction(force1);
     TPZGeoMesh *gmesh = cmeshroot->Reference();
     TPZCompMesh * cmesh = new TPZCompMesh(gmesh);
     
@@ -1178,6 +1245,7 @@ void TPZPostProcessError::CreateFluxMesh()
         intelHDiv->PRefine(order+1);
     }
     
+    // adjust the order of the internal connect to be higher or equal the maximum order of the boundary connects
     {
         int meshdim = cmesh->Dimension();
         int64_t nel = cmesh->NElements();
@@ -1356,7 +1424,7 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
 }
 
 /// create the multiphysics mesh that will compute the projection matrix
-void TPZPostProcessError::CreateMixedMesh()
+void TPZPostProcessError::CreateHdivMesh()
 {
     // the H1 mesh is the rootmesh
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
@@ -1448,14 +1516,176 @@ void TPZPostProcessError::CreateMixedMesh()
     fMeshVector[Emulti] = mphysics;
 }
 
-// Create the meshes that allow us to compute the error estimate
-void TPZPostProcessError::CreateAuxiliaryMeshes()
+#include "TPZH1ErrorHybridH1EstimateMaterial.h"
+#include "TPZNullMaterialCS.h"
+/// create the multiphysics mesh that will compute the projection matrix
+void TPZPostProcessError::CreateHybridH1Mesh()
 {
-    CreateFluxMesh();
-    CreatePressureMesh();
+    // the H1 mesh is the rootmesh
+    TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
+    TPZGeoMesh *gmesh = fMeshVector[Eorigin]->Reference();
+    int dim = gmesh->Dimension();
+    //Creating computational mesh for multiphysic elements
+    gmesh->ResetReference();
+    int nstate = 1;
+    TPZMultiphysicsCompMesh *mphysics = new TPZMultiphysicsCompMesh(gmesh);
+    for (auto it:cmeshroot->MaterialVec()) {
+        TPZMaterialT<STATE> *mat = dynamic_cast<TPZMaterialT<STATE> *>(it.second);
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE>*>(mat);
+        if (!bnd) {
+            int matId = mat->Id();
+            nstate = mat->NStateVariables();
+            TPZMaterialT<STATE> *material = 0;
+            if (nstate == 1) {
+                TPZDarcyFlow *darcy = dynamic_cast<TPZDarcyFlow *>(mat);
+                if(!darcy) DebugStop();
+                TPZH1ErrorHybridH1EstimateMaterial *locmat = new TPZH1ErrorHybridH1EstimateMaterial(*darcy);
+                locmat->SetExactSol(darcy->ExactSol(), darcy->PolynomialOrderExact());
+                locmat->SetForcingFunction(darcy->ForcingFunction(), darcy->ForcingFunctionPOrder());
+                material = locmat;
+                
+                if(0){
+                    //auto exactsol= locmat->ExactSol();
+                    TPZVec<STATE> x(3,0);
+                    x[0]=0.5;
+                    x[1]=0.5;
+                    TPZFMatrix<STATE> du(3,1,0);
+                    TPZVec<STATE> u(3,0);
+                    
+                    fExact->ExactSolution()(x,u,du);
+                    std::cout << "u[0]=" << u[0] << std::endl;
+                    //exactsol(x,u,du);
+                }
+                
+                if (matId == 1){
+                    locmat->SetConstantPermeability(1.);
+                }
+                else if (matId == 2){
+                    locmat->SetConstantPermeability(5.);
+                }
+                else if (matId == 3){
+                    locmat->SetConstantPermeability(1.);
+                }
+            } else {
+                DebugStop();
+            }
+            
+            mphysics->InsertMaterialObject(material);
+        }
+    }
+    for (auto it:cmeshroot->MaterialVec()) {
+        TPZMaterialT<STATE> *mat = dynamic_cast<TPZMaterialT<STATE>*>(it.second);
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if(bnd)
+        {
+            TPZMaterialT<STATE> *matorig = dynamic_cast<TPZMaterialT<STATE> *>(bnd->Material());
+            int matid = matorig->Id();
+            TPZMaterialT<STATE> *matmixed = dynamic_cast<TPZMaterialT<STATE> *>(mphysics->FindMaterial(matid));
+            //matmixed->SetForcingFunction(matorig->ForcingFunction(),10);
+            //bnd->IntegrationRuleOrder(10);
+            TPZBndCondT<STATE> *bc = matmixed->CreateBC(matmixed, bnd->Id(), bnd->Type(), bnd->Val1(), bnd->Val2());
+            bc->SetForcingFunctionBC(bnd->ForcingFunctionBC(), bnd->ForcingFunctionBCPOrder());
+            //bc->IntegrationRuleOrder(15);
+            //bc->SetForcingFunctionBC(matorig->ForcingFunction(),10);
+            mphysics->InsertMaterialObject(bc);
+        }
+    }
+    
+    TPZNullMaterialCS<> *flux = new TPZNullMaterialCS<STATE>(fMatFlux,nstate,dim-1);
+    mphysics->InsertMaterialObject(flux);
+    TPZNullMaterialCS<STATE> *wrap = new TPZNullMaterialCS<STATE>(fMatWrap,nstate,dim-1);
+    mphysics->InsertMaterialObject(wrap);
+    TPZManVector<TPZCompMesh *> meshvec(5,0);
+    meshvec[0] = fMeshVector[Eflux];
+    meshvec[1] = fMeshVector[Epressure];
+    meshvec[2] = fMeshVector[Epatch];
+    meshvec[3] = fMeshVector[Eorigin];
+    meshvec[4] = fMeshVector[Epressureaverage];
+    
+    mphysics->SetAllCreateFunctionsMultiphysicElem();
+    
+    //Fazendo auto build
+    TPZManVector<int> activ = {1,1,0,0,1};
+    mphysics->BuildMultiphysicsSpace(activ, meshvec);
+    
+    mphysics->CleanUpUnconnectedNodes();
+    
+    AddInterfaceElements(mphysics);
+    fMeshVector[Emulti] = mphysics;
+
+}
+
+#include "TPZMultiphysicsInterfaceEl.h"
+#include "TPZLagrangeMultiplierCS.h"
+
+/// Add the Interface elements to the multiphysics mesh
+void TPZPostProcessError::AddInterfaceElements(TPZMultiphysicsCompMesh *mfmesh) {
+    TPZGeoMesh *gmesh = mfmesh->Reference();
+    gmesh->ResetReference();
+    mfmesh->LoadReferences();
+    int dim = gmesh->Dimension();
+    TPZLagrangeMultiplierCS<STATE> *lagrpos = new TPZLagrangeMultiplierCS<>(fInterfacePositive,dim-1);
+    mfmesh->InsertMaterialObject(lagrpos);
+    TPZLagrangeMultiplierCS<STATE> *lagrneg = new TPZLagrangeMultiplierCS<>(fInterfaceNegative,dim-1);
+    lagrneg->SetMultiplier(-1.);
+    mfmesh->InsertMaterialObject(lagrneg);
+    
+    int64_t nel = mfmesh->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = mfmesh->Element(el);
+        if(!cel) DebugStop();
+        TPZGeoEl *gel = cel->Reference();
+        if(!gel) DebugStop();
+        if(gel->MaterialId() != fMatWrap) continue;
+        TPZGeoElSide gelwrap(gel);
+        TPZCompElSide celwrap(gelwrap.Reference());
+        TPZGeoElSide gelintface(gelwrap.Neighbour());
+        {
+            TPZGeoEl *geli = gelintface.Element();
+            if(geli->MaterialId() != fInterfaceNegative && geli->MaterialId() != fInterfacePositive) {
+                DebugStop();
+            }
+        }
+        std::set<int> bcids = BCMaterialIds();
+        bcids.insert(fMatFlux);
+        TPZGeoElSide gelflux = gelintface.HasNeighbour(bcids);
+        if(!gelflux) gelflux = gelintface.HasLowerLevelNeighbour(fMatFlux);
+        if(!gelflux) DebugStop();
+        TPZCompElSide celflux = gelflux.Reference();
+        auto intface = new TPZMultiphysicsInterfaceElement(*mfmesh,gelintface.Element(),celwrap,celflux);
+        TPZManVector<int64_t> leftind = {1}, rightind = {0};
+        intface->SetLeftRightElementIndices(leftind, rightind);
+        
+    }
+
+}
+
+
+// Create the meshes that allow us to compute the error estimate
+void TPZPostProcessError::CreateMultiphysicsMesh()
+{
+    // this is where the Hdiv approximation mesh is created. Here we will need to create the hybrid h1 mesh
+    if(fuseHDiv) {
+        CreateFluxMesh();
+        CreatePressureMesh();
+    } else {
+        AddWrapperElements();
+        if(0)
+        {
+            std::ofstream out("../wrap.vtk");
+            TPZGeoMesh *gmesh = fMeshVector[Eorigin]->Reference();
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+        }
+        CreateBoundaryFluxMesh();
+        CreateDiscontinuousPressureMesh();
+    }
     CreatePartitionofUnityMesh();
     CreateAveragePressureMesh();
-    CreateMixedMesh();
+    if(fuseHDiv) {
+        CreateHdivMesh();
+    } else {
+        CreateHybridH1Mesh();
+    }
     
     TPZCompMesh* cmeshmulti = fMeshVector[Emulti];
     this->fSolution = cmeshmulti->Solution();
@@ -1476,7 +1706,12 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
             DebugStop();
         }
     }
-    
+    if(0)
+    {
+        std::ofstream out3("../gmesh.vtk");
+        TPZGeoMesh *gmesh = cmeshmulti->Reference();
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out3);
+    }
     BuildPatchStructures2(); // Use BuildPatchStructures2() for one patch by color
     
 #ifdef ERRORESTIMATION_DEBUG
@@ -1492,3 +1727,297 @@ void TPZPostProcessError::CreateAuxiliaryMeshes()
     
 }
 
+void TPZPostProcessError::AddWrapperElements()
+{
+    TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
+    std::set<int> bcids = BCMaterialIds();
+    bcids.insert(fMatFlux);
+    TPZGeoMesh *gmesh = cmeshroot->Reference();
+    int dim = gmesh->Dimension();
+    int64_t nel = gmesh->NElements();
+    /// create the wrapper and interface elements
+    for (int64_t el = 0; el<nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(!gel || gel->HasSubElement()) continue;
+        if(gel->Dimension() != dim) continue;
+        int firstside = gel->FirstSide(dim-1);
+        int lastside = gel->NSides()-1;
+        for (int side = firstside; side < lastside; side++) {
+            TPZGeoElBC bcwrap(gel, side, fMatWrap);
+            TPZGeoElSide wrapside(bcwrap.CreatedElement());
+            TPZGeoElBC bcintface(wrapside,fInterfaceNegative);
+        }
+    }
+    /// create the flux elements
+    nel = gmesh->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(!gel || gel->HasSubElement()) continue;
+        if(gel->MaterialId() != fMatWrap) continue;
+        TPZGeoElSide wrapside(gel);
+        int matinterface = fInterfacePositive;
+        bool restrained = wrapside.HasLowerLevelNeighbour(fMatWrap);
+        bool haswrapneigh = wrapside.HasNeighbour({fInterfaceNegative,fInterfacePositive});
+        if(restrained || haswrapneigh) {
+            matinterface = fInterfaceNegative;
+        }
+        TPZGeoElBC bcintface(wrapside,matinterface);
+        // bcids includes the flux
+        bool hasflux = wrapside.HasNeighbour(bcids);
+        if(!hasflux && !restrained) {
+            TPZGeoElSide intface = bcintface.CreatedElement();
+            TPZGeoElBC(intface, fMatFlux);
+        }
+    }
+}
+
+/// identify the material ids of the boundary conditions in the root mesh
+std::set<int> TPZPostProcessError::BCMaterialIds() const{
+    TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
+    std::set<int> bcids;
+    for (auto it:cmeshroot->MaterialVec()) {
+        TPZMaterial *mat = it.second;
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if(bnd)
+        {
+            int matid = bnd->Id();
+            bcids.insert(matid);
+        }
+    }
+    return bcids;
+}
+
+
+void TPZPostProcessError::CreateBoundaryFluxMesh(){
+    int matId = 1;
+    TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
+    int dim = cmeshroot->Dimension();
+    TPZMaterial *rootmat = cmeshroot->FindMaterial(matId);
+    //int nstate = rootmat->NStateVariables();
+    /// criar materiais
+    TPZGeoMesh *gmesh = cmeshroot->Reference();
+    TPZCompMesh * cmesh = new TPZCompMesh(gmesh);
+    std::set<int> allfluxids = {fMatFlux};
+    int nstate = 1;
+    {
+        auto it = cmeshroot->MaterialVec().begin();
+        TPZMaterial *mat = it->second;
+        nstate = mat->NStateVariables();
+    }
+    TPZNullMaterial<STATE> *fluxmat = new TPZNullMaterial<STATE>(fMatFlux,dim-1,nstate);
+    cmesh->InsertMaterialObject(fluxmat);
+    
+    for (auto it:cmeshroot->MaterialVec()) {
+        TPZMaterial *mat = it.second;
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if(bnd)
+        {
+            TPZMaterialT<STATE> *matorig = dynamic_cast<TPZMaterialT<STATE> *>(bnd->Material());
+            int matid = bnd->Id();
+            allfluxids.insert(matid);
+            TPZNullMaterial<STATE> *nullbc = new TPZNullMaterial<STATE>(matid,dim-1,nstate);
+            cmesh->InsertMaterialObject(nullbc);
+        }
+    }
+    
+    cmesh->SetDimModel(dim);
+    
+    cmesh->SetAllCreateFunctionsHDiv();
+    
+    cmesh->SetDefaultOrder(cmeshroot->GetDefaultOrder());
+    
+    //Ajuste da estrutura de dados computacional
+    cmesh->AutoBuild();
+    cmesh->CleanUpUnconnectedNodes();
+    cmesh->ExpandSolution();
+    
+    /// adjust the order of the elements
+    int64_t nel = cmeshroot->NElements();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = cmeshroot->Element(el);
+        if(!cel) continue;
+        TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(cel);
+        int nc = intel->NConnects();
+        int order = intel->Connect(nc-1).Order();
+        TPZGeoEl *gel = cel->Reference();
+        if(gel->Dimension() != dim) continue;
+        // Set the interpolation order of the flux element at least as high as the element order
+        int firstside = gel->FirstSide(dim-1);
+        int lastside = gel->NSides()-1;
+        for(int side = firstside; side<lastside; side++) {
+            TPZGeoElSide gelside(gel,side);
+            std::cout << "gel index " << gel->Index() << " matid " << gel->MaterialId() << " side " << side << std::endl;
+            for(auto it = gelside.Neighbour(); it != gelside; it++) {
+                std::cout << "neigh index " << it.Element()->Index() << " neighmatid " << it.Element()->MaterialId() << std::endl;
+            }
+            TPZGeoElSide fluxgel = gelside.HasNeighbour(allfluxids);
+            if(fluxgel) {
+                // take the associated compel (only one connect)
+                TPZCompEl *fluxcel = fluxgel.Element()->Reference();
+                TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(fluxcel);
+                intel->SetPreferredOrder(order);
+                
+                // set the order to be larger or equal than order
+            } else {
+                fluxgel = gelside.HasLowerLevelNeighbour(allfluxids);
+                if(!fluxgel) DebugStop();
+                // take the associated compel (only one connect
+                // set the order to be larger than order
+                TPZCompEl *fluxcel = fluxgel.Element()->Reference();
+                TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(fluxcel);
+                intel->SetPreferredOrder(order);
+            }
+        }
+    }
+    
+    cmesh->ExpandSolution();
+    if(0)
+    {
+        std::ofstream out("fluxmesh.txt");
+        cmesh->Print(out);
+    }
+    //#ifdef LOG4CXX
+    //    if(logdata->isDebugEnabled())
+    //    {
+    //        std::stringstream sout;
+    //        sout<<"\n\n Malha Computacional_1 Fluxo\n ";
+    //        cmesh->Print(sout);
+    //        LOGPZ_DEBUG(logdata,sout.str())
+    //    }
+    //#endif
+    
+    fMeshVector[Eflux] = cmesh;
+
+}
+void TPZPostProcessError::CreateDiscontinuousPressureMesh(){
+    int matId = 1;
+    TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
+    int dim = cmeshroot->Dimension();
+    TPZMaterial *rootmat = cmeshroot->FindMaterial(matId);
+    //int nstate = rootmat->NStateVariables();
+    /// criar materiais
+    TPZGeoMesh *gmesh = cmeshroot->Reference();
+    TPZCompMesh * cmesh = new TPZCompMesh(gmesh);
+    cmesh->SetAllCreateFunctionsContinuous();
+    cmesh->ApproxSpace().CreateDisconnectedElements(true);
+    int nstate = 1;
+    {
+        auto it = cmeshroot->MaterialVec().begin();
+        TPZMaterial *mat = it->second;
+        nstate = mat->NStateVariables();
+    }
+    for (auto it:cmeshroot->MaterialVec()) {
+        TPZMaterial *mat = it.second;
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if(!bnd)
+        {
+            int matid = mat->Id();
+            TPZNullMaterial<STATE> *nullmat = new TPZNullMaterial<STATE>(matid,dim,nstate);
+            cmesh->InsertMaterialObject(nullmat);
+        }
+    }
+    cmesh->AutoBuild();
+    gmesh->ResetReference();
+    
+    {
+        /// adjust the order of the elements
+        std::map<int64_t,int> gelorder;
+        int64_t nel = cmeshroot->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmeshroot->Element(el);
+            if(!cel) continue;
+            TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(cel);
+            int nc = intel->NConnects();
+            int order = intel->Connect(nc-1).Order();
+            TPZGeoEl *gel = cel->Reference();
+            gelorder[gel->Index()] = order;
+        }
+        nel = cmesh->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            if(!cel) continue;
+            TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(cel);
+            TPZGeoEl *gel = cel->Reference();
+            int64_t gelindex = gel->Index();
+            if(gelorder.find(gelindex) == gelorder.end()) DebugStop();
+            int intelorder = gelorder[gelindex];
+            intel->PRefine(intelorder+2);
+        }
+        cmesh->ExpandSolution();
+    }
+    // adjust the order of the elements as a function of the order of the boundary fluxes
+    gmesh->ResetReference();
+    std::set<int> allfluxids = {fMatFlux};
+    fMeshVector[Eflux]->LoadReferences();
+    for (auto it:cmeshroot->MaterialVec()) {
+        TPZMaterial *mat = it.second;
+        TPZBndCondT<STATE> *bnd = dynamic_cast<TPZBndCondT<STATE> *>(mat);
+        if(bnd)
+        {
+            TPZMaterialT<STATE> *matorig = dynamic_cast<TPZMaterialT<STATE> *>(bnd->Material());
+            int matid = mat->Id();
+            allfluxids.insert(matid);
+        }
+    }
+
+    // make sure the polynomial order is higher than any of the polynomial orders of the flux elements
+    {
+        gmesh->ResetReference();
+        fMeshVector[Eflux]->LoadReferences();
+        int64_t nel = cmesh->NElements();
+        std::map<TPZInterpolationSpace *,int> neworders;
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(cel);
+            int intelorder = intel->Connect(intel->NConnects()-1).Order();
+            int intelorderkeep = intelorder;
+            TPZGeoEl *gel = cel->Reference();
+            if(gel->Dimension() != dim) DebugStop();
+            int firstside = gel->FirstSide(dim-1);
+            int lastside = gel->NSides()-1;
+            for (int side = firstside; side<lastside; side++) {
+                TPZGeoElSide gelside(gel,side);
+                TPZGeoElSide fluxside = gelside.HasNeighbour(allfluxids);
+                if(!fluxside) fluxside = gelside.HasLowerLevelNeighbour(allfluxids);
+                if(!fluxside) DebugStop();
+                TPZCompEl *fluxcel = fluxside.Element()->Reference();
+                if(!fluxcel) DebugStop();
+                int sideorder = fluxcel->Connect(0).Order();
+                if(sideorder > intelorder-2) intelorder = sideorder+2;
+            }
+            if(intelorder > intelorderkeep) neworders[intel] = intelorder;
+        }
+        // the elements need to be discontinuous
+        gmesh->ResetReference();
+        for(auto it : neworders) {
+            it.first->PRefine(it.second);
+        }
+    }
+    {
+        TPZNullMaterial<STATE> *matwrap = new TPZNullMaterial<STATE>(fMatWrap, dim-1, nstate);
+        cmesh->InsertMaterialObject(matwrap);
+        // create the wrap elements
+        int64_t nel = cmesh->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            TPZGeoEl *gel = cel->Reference();
+            if(gel->Dimension() != dim) DebugStop();
+            int firstside = gel->FirstSide(dim-1);
+            int lastside = gel->NSides()-1;
+            for (int side = firstside; side<lastside; side++) {
+                TPZGeoElSide neigh = gel->Neighbour(side);
+                if(neigh.Element()->MaterialId() != fMatWrap) DebugStop();
+                cel->LoadElementReference();
+                TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(cel);
+                int order = intel->GetPreferredOrder();
+                cmesh->SetDefaultOrder(order);
+                TPZCompEl *wrap = cmesh->ApproxSpace().CreateCompEl(neigh.Element(), *cmesh);
+                gel->ResetReference();
+                neigh.Element()->ResetReference();
+            }
+        }
+    }
+    
+    fMeshVector[Epressure] = cmesh;
+
+}

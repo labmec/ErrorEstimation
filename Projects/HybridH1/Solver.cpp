@@ -41,6 +41,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     switch(preConfig.mode){
         case 0: //H1
             config.gmesh->ResetReference();
+            // create the computational mesh
             cmesh = InsertCMeshH1(config,preConfig);
             config.PorderIncrement2();
             if(0){
@@ -183,10 +184,14 @@ void PrintErrorsDiff(TPZVec<REAL> errorVec, ProblemConfig &config){
 }
 void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, TPZMultiphysicsCompMesh *multiCmesh){
 
+    // this is where we configure the error estimator for H1 using and Hdiv reconstruction
     if(preConfig.mode == 0){
         TPZCompMesh* cmeshH1 = config.gmesh->Reference();
         
-        TPZPostProcessError error(cmeshH1,config);
+        // this class does the solution reconstruction (in the constructor?)
+        // this is where we need to change the type of mesh used to reconstruction
+        bool useHDiv = true;
+        TPZPostProcessError error(cmeshH1,config,useHDiv);
         
         if(0){
             TPZVec<STATE> x(3,0);
@@ -201,6 +206,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         error.SetAnalyticSolution(config.exact);
 
         TPZVec<STATE> estimatedelementerror;
+        // this is where the error is reconstructed patch by patch
         error.ComputeElementErrors(estimatedelementerror);
         
         TPZFMatrix<STATE> true_elerror(cmeshH1->ElementSolution());
