@@ -190,7 +190,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         
         // this class does the solution reconstruction (in the constructor?)
         // this is where we need to change the type of mesh used to reconstruction
-        bool useHDiv = true;
+        bool useHDiv = false;
         TPZPostProcessError error(cmeshH1,config,useHDiv);
         
         if(0){
@@ -213,7 +213,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         TPZFMatrix<STATE> estimate_elerror(error.MultiPhysicsMesh()->ElementSolution());
         
         STATE maxerror = 0.;
-        int64_t nel = estimate_elerror.Rows();
+        int64_t nel = true_elerror.Rows();
         for (int64_t el = 0; el<nel; el++) {
             TPZCompEl *cel = cmeshH1->Element(el);
             if(!cel) continue;
@@ -251,7 +251,7 @@ void EstimateError(ProblemConfig &config, PreConfig &preConfig, int fluxMatID, T
         int algor = 0;
         switch (algor) {
             case 0: // in case of smooth solutions, even with extreme behavior
-                for (int64_t i = 0; i < estimate_elerror.Rows(); i++) {
+                for (int64_t i = 0; i < cmeshH1->NElements(); i++) {
                     REAL elementerror = estimate_elerror(i,2);//+estimate_elerror(i,3);
                     REAL elemresidual = estimate_elerror(i,3);
                     REAL ratio = elemresidual/elementerror;

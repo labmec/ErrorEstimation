@@ -34,18 +34,18 @@ void Configure(ProblemConfig &config,int ndiv,PreConfig &pConfig,char *argv[]){
         if(config.gmesh) delete config.gmesh;
         config.gmesh = gmesh;
     }
-    else{ //Lshape domain
-    TPZManVector<int, 8> Lshape_bcids(8, -1);
-        
-    if(pConfig.topology=="Quadrilateral"){
-        gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
-    }
-    if(pConfig.topology=="Triangular"){
-        gmesh = Tools::CreateTriangLShapeMesh(1, Lshape_bcids);
-    }
-        
-    if(config.gmesh) delete config.gmesh;
-    config.gmesh = gmesh;
+    else { //Lshape domain
+        TPZManVector<int, 8> Lshape_bcids(8, -1);
+            
+        if(pConfig.topology=="Quadrilateral"){
+            gmesh = Tools::CreateQuadLShapeMesh(Lshape_bcids);
+        }
+        if(pConfig.topology=="Triangular"){
+            gmesh = Tools::CreateTriangLShapeMesh(1, Lshape_bcids);
+        }
+            
+        if(config.gmesh) delete config.gmesh;
+        config.gmesh = gmesh;
     }
     
     Tools::UniformRefinement(config.ndivisions, gmesh);
@@ -246,6 +246,8 @@ void EvaluateEntry(int argc, char *argv[],PreConfig &pConfig){
         else if (pConfig.problem == "ELineSingularity") pConfig.type = 14;
         else if (pConfig.problem == "ESteklovNonConst2") pConfig.type = 15;
         else if (pConfig.problem == "ESteepWave2") pConfig.type = 16;
+        else if (pConfig.problem == "EConst") pConfig.type = 17;
+        else if (pConfig.problem == "EX") pConfig.type = 18;
 
         else DebugStop();
     }
@@ -428,6 +430,12 @@ TLaplaceExample1::EExactSol ChooseAnaliticSolution(PreConfig &preConfig){
             break;
         case 16:
             solutionCase = TLaplaceExample1::ESteepWave2;
+            break;
+        case 17:
+            solutionCase = TLaplaceExample1::EConst;
+            break;
+        case 18:
+            solutionCase = TLaplaceExample1::EX;
             break;
         default:
             DebugStop();

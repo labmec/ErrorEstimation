@@ -12,7 +12,7 @@
  * @param [in] name string containing the name of the post-processing variable. Ex: "Pressure".
  */
 int TPZH1ErrorHybridH1EstimateMaterial::VariableIndex(const std::string &name) const {
-    
+    return TPZHybridDarcyFlow::VariableIndex(name);
 }
 
 /**
@@ -20,8 +20,9 @@ int TPZH1ErrorHybridH1EstimateMaterial::VariableIndex(const std::string &name) c
  * @param [in] var index of the post-processing variable, according to TPZDarcyFlow::VariableIndex method.
  */
 int TPZH1ErrorHybridH1EstimateMaterial::NSolutionVariables(int var) const {
-    
+    return TPZHybridDarcyFlow::TPZDarcyFlow::NSolutionVariables(var);
 }
+#include "pzaxestools.h"
 
 //! @name Error
 /** @{*/
@@ -30,9 +31,38 @@ int TPZH1ErrorHybridH1EstimateMaterial::NSolutionVariables(int var) const {
   \param[in] datavec input data
   \param[out] errors The calculated errors.
  */
-void TPZH1ErrorHybridH1EstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data,
+void TPZH1ErrorHybridH1EstimateMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &datavec,
                                                 TPZVec<REAL> &errors) {
+    STATE KPerm = GetPermeability(datavec[0].x);
+    STATE fXfLoc = 0;
+
+    if(fForcingFunction) {            // phi(in, 0) = phi_in
+        TPZManVector<STATE,1> res(1);
+        fForcingFunction(datavec[0].x, res);
+        fXfLoc = res[0];
+    }
+    TPZManVector<STATE,3> exsol(1,0.);
+    TPZFNMatrix<3,STATE> dsol(2, 1,0.);
+    if(HasExactSol()) {
+        this->ExactSol()(datavec[3].x,exsol,dsol);
+    }
+    errors.Fill(0.);
+    errors[1] += (fXfLoc-datavec[0].sol[0][0])*(fXfLoc-datavec[0].sol[0][0]);
+    errors[3] = errors[1]*datavec[0].HSize*datavec[0].HSize*2/(M_PI*M_PI);
     
+    TPZFNMatrix<3,STATE> GraduH1xy(3,1,0.),GraduHybridxy(3,1,0.);
+    TPZFMatrix<STATE> &dpressorigin = datavec[3].dsol[0];
+    TPZFMatrix<STATE> &dH1Hybrid = datavec[1].dsol[0];
+
+    TPZAxesTools<STATE>::Axes2XYZ(dpressorigin, GraduH1xy, datavec[3].axes);
+    TPZAxesTools<STATE>::Axes2XYZ(dH1Hybrid, GraduHybridxy, datavec[1].axes);
+    
+    for (int d=0; d<2; d++) {
+        errors[0] += (GraduH1xy(d,0)-dsol(d,0))*(GraduH1xy(d,0)-dsol(d,0));
+        errors[4] += (GraduHybridxy(d,0)-dsol(d,0))*(GraduHybridxy(d,0)-dsol(d,0));
+        errors[2] += (GraduH1xy(d,0)-GraduHybridxy(d,0))*(GraduH1xy(d,0)-GraduHybridxy(d,0));
+    }
+    errors[2] *= KPerm;
 }
 
 /**
@@ -68,12 +98,11 @@ void TPZH1ErrorHybridH1EstimateMaterial::FillDataRequirements( TPZVec<TPZMateria
  * @param[out] ef is the rhs vector
  */
 
-#include "pzaxestools.h"
 
 void TPZH1ErrorHybridH1EstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec,
                         REAL weight,TPZFMatrix<STATE> &ek,
                                                     TPZFMatrix<STATE> &ef) {
-    std::cout << "Favor me implementar\n";
+    TPZFMatrix<REAL> &phires = datavec[0].phi;
     TPZFMatrix<REAL> &dphi = datavec[1].dphix;
     TPZFMatrix<REAL> &phi = datavec[1].phi;
     TPZFNMatrix<40> dphix;
@@ -88,7 +117,10 @@ void TPZH1ErrorHybridH1EstimateMaterial::Contribute(const TPZVec<TPZMaterialData
     TPZFNMatrix<3> dpressoriginxy(3, 1);
     TPZAxesTools<STATE>::Axes2XYZ(dpressorigin, dpressoriginxy, datavec[3].axes);
 
-    int nphi = phi.Rows();
+    int nphiRes = phires.Rows();
+    int nphiH1 = phi.Rows();
+    
+    if(ek.Rows() != nphiRes+nphiH1+1) DebugStop();
     
     STATE fXfLoc = 0;
 
@@ -97,20 +129,39 @@ void TPZH1ErrorHybridH1EstimateMaterial::Contribute(const TPZVec<TPZMaterialData
         fForcingFunction(x, res);
         fXfLoc = res[0];
     }
+    // contribution of the residual error estimator
+    ek.AddContribution(0,0, phires, 0, phires, 1, weight);
+    TPZFMatrix<REAL> onebyone(1,1,1.);
+    ef.AddContribution(0, 0, phires, 0, onebyone, 0, fXfLoc*weight*hatval);
+    
+    // contribution of the hybrid H1 contribution
     STATE KPerm = GetPermeability(datavec[0].x);
-    ek.AddContribution(0, 0, dphix, 1, dphix, 0, weight*KPerm*hatval);
+    ek.AddContribution(nphiRes, nphiRes, dphix, 1, dphix, 0, weight*KPerm);
     STATE gradhatgradorig = 0.;
-    for(int i=0; i<3; i++) gradhatgradorig += dhatvalxy(i,0)*dpressoriginxy(i,0);
+    for(int i=0; i<3; i++) gradhatgradorig += KPerm*dhatvalxy(i,0)*dpressoriginxy(i,0);
 
     TPZFNMatrix<1> forcemat(1, 1, fXfLoc*hatval-gradhatgradorig);
-    ef.AddContribution(0,0, phi, 0, forcemat, 0, weight);
+    ef.AddContribution(nphiRes,0, phi, 0, forcemat, 0, weight);
     
+    // computing KPerm \nabla psi_a u
+    TPZFNMatrix<3,STATE> uhAgradPsi(3, 1,0.);
+    for(int d=0; d<3; d++) uhAgradPsi(d,0) = KPerm*pressorigin*dhatvalxy(d,0);
+    ef.AddContribution(nphiRes, 0, dphix, 1, uhAgradPsi, 0, weight);
+    
+    // contribution of the lagrange multiplier
     TPZFMatrix<STATE> &phiconst = datavec[Eaveragepressure].phi;
     if(phiconst.Rows() != 1) DebugStop();
-    ek.AddContribution(nphi, 0, phiconst, 0, phi, 1, weight);
-    ek.AddContribution(0, nphi, phi, 0, phiconst, 0, weight);
+    ek.AddContribution(nphiRes+nphiH1, nphiRes, phiconst, 0, phi, 1, weight);
+    ek.AddContribution(nphiRes, nphiH1+nphiRes, phi, 0, phiconst, 0, weight);
+    ef(nphiRes+nphiH1,0) += weight*hatval*pressorigin;
 }
 /**@}*/
+
+void TPZH1ErrorHybridH1EstimateMaterial::FillBoundaryConditionDataRequirements(int type, TPZVec<TPZMaterialDataT<STATE> > &datavec) const
+{
+    //TPZHybridDarcyFlow::FillBoundaryConditionDataRequirements(type,datavec);
+    datavec[2].fNeedsSol = true;
+}
 
 /** @name ContributeBC
     @ingroup Contribute*/
@@ -128,11 +179,11 @@ void TPZH1ErrorHybridH1EstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDa
                           REAL weight, TPZFMatrix<STATE> &ek,
                           TPZFMatrix<STATE> &ef,
                                                       TPZBndCondT<STATE> &bc) {
-    std::cout << "Favor me implementar BC\n";
     int dim = Dimension();
 
     TPZFMatrix<REAL> &phiQ = datavec[0].phi;
     int64_t phrq = phiQ.Rows();
+    STATE hatval = datavec[2].sol[0][0];
 
     REAL v2 = bc.Val2()[0];
     REAL v1 = bc.Val1()(0, 0);
@@ -150,17 +201,12 @@ void TPZH1ErrorHybridH1EstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDa
             normflux += datavec[0].normal[i] * perm * gradu(i, 0);
         }
 
-        if (bc.Type() == 0 || bc.Type() == 4) {
+        if (bc.Type() == 0) {
             v2 = res[0];
             u_D = res[0];
             normflux *= (-1.);
-        } else if (bc.Type() == 1 || bc.Type() == 2) {
+        } else if (bc.Type() == 1) {
             v2 = -normflux;
-            if (bc.Type() == 2) {
-                v2 = -res[0] + v2 / v1;
-            }
-        } else if (bc.Type() == 5) {
-            v2 = res[0];
         } else {
             DebugStop();
         }
@@ -172,7 +218,7 @@ void TPZH1ErrorHybridH1EstimateMaterial::ContributeBC(const TPZVec<TPZMaterialDa
         case 0 :        // Dirichlet condition
             for (int iq = 0; iq < phrq; iq++) {
                 //the contribution of the Dirichlet boundary condition appears in the flow equation
-                ef(iq, 0) += (-1.) * v2 * phiQ(iq, 0) * weight;
+                ef(iq, 0) += (-1.) * v2 * phiQ(iq, 0) * hatval * weight;
             }
             break;
         default:

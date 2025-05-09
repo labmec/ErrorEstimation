@@ -58,6 +58,13 @@ void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDa
 
 }
 
+template<class MixedMat>
+void TPZMixedErrorEstimate<MixedMat>::FillBoundaryConditionDataRequirements(int type, TPZVec<TPZMaterialDataT<STATE> > &datavec) const
+{
+    MixedMat::FillBoundaryConditionDataRequirements(type,datavec);
+    datavec[2].fNeedsSol = true;
+}
+
 /**
  * @brief It computes a contribution to the stiffness matrix and load vector at one integration point to multiphysics simulation.
  * @param datavec [in] stores all input data
@@ -186,7 +193,7 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     //this->Solution(data,MixedMat::VariableIndex("Pressure"), pressure);
 
     REAL hsize = data[Eflux].HSize;
-    TPZVec<REAL> errorsaux;
+    TPZManVector<REAL> errorsaux;
     errorsaux.Fill(0.0);
     MixedMat::Errors(data,errorsaux);
     errors[1] += errorsaux[2];
@@ -232,6 +239,73 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
         }
         
         errors[4] += inner2; // for L2 norm
+    }
+}
+
+template<class MixedMat>
+void TPZMixedErrorEstimate<MixedMat>::ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
+                                     TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) {
+
+    int dim = MixedMat::Dimension();
+
+    TPZFMatrix<REAL> &phiQ = datavec[0].phi;
+    int phrq = phiQ.Rows();
+
+    REAL v2 = bc.Val2()[0];
+    REAL v1 = bc.Val1()(0, 0);
+    REAL u_D = 0;
+    REAL normflux = 0.;
+
+    if (bc.HasForcingFunctionBC()) {
+        TPZManVector<STATE> res(3);
+        TPZFNMatrix<9, STATE> gradu(3, 1);
+        bc.ForcingFunctionBC()(datavec[0].x, res, gradu);
+
+        const STATE perm = MixedMat::GetPermeability(datavec[0].x);
+
+        for (int i = 0; i < 3; i++) {
+            normflux += datavec[0].normal[i] * perm * gradu(i, 0);
+        }
+
+        if (bc.Type() == 0 || bc.Type() == 4) {
+            v2 = res[0];
+            u_D = res[0];
+            normflux *= (-1.);
+        } else if (bc.Type() == 1 || bc.Type() == 2) {
+            v2 = -normflux;
+            if (bc.Type() == 2) {
+                v2 = -res[0] + v2 / v1;
+            }
+        } else if (bc.Type() == 5) {
+            v2 = res[0];
+        } else {
+            DebugStop();
+        }
+    } else {
+        v2 = bc.Val2()[0];
+    }
+    
+    STATE hatval = datavec[2].sol[0][0];
+
+    switch (bc.Type()) {
+        case 0 :        // Dirichlet condition
+            for (int iq = 0; iq < phrq; iq++) {
+                //the contribution of the Dirichlet boundary condition appears in the flow equation
+                ef(iq, 0) += (-1.) * v2 *hatval * phiQ(iq, 0) * weight;
+            }
+            break;
+            
+        case 1 :            // Neumann condition
+            for (int iq = 0; iq < phrq; iq++) {
+                ef(iq, 0) += TPZMaterial::fBigNumber * v2 * hatval * phiQ(iq, 0) * weight;
+                for (int jq = 0; jq < phrq; jq++) {
+                    
+                    ek(iq, jq) += TPZMaterial::fBigNumber * phiQ(iq, 0) * phiQ(jq, 0) * weight;
+                }
+            }
+            break;
+        default:
+            DebugStop();
     }
 }
 

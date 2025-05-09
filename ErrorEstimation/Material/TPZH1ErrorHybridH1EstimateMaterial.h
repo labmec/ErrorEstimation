@@ -42,13 +42,17 @@ public:
         return *this;
     }
     void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec)const override;
+    
+    virtual void FillBoundaryConditionDataRequirements(int type, TPZVec<TPZMaterialDataT<STATE> > &datavec) const override;
+    
+
 
     /**
      * @brief Returns a 'std::string' with the name of the material
      */
     [[nodiscard]] std::string Name() const override { return "TPZH1ErrorHybridH1EstimateMaterial"; }
 
-    virtual int NEvalErrors()  const override {return 4;}
+    virtual int NEvalErrors()  const override {return 5;}
 
     /** @name Contribute */
     /** @{ */
@@ -90,7 +94,9 @@ public:
         @param[out] sol FEM Solution at the integration point
     */
     virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec,
-                          int var, TPZVec<STATE> &sol) override {}
+                          int var, TPZVec<STATE> &sol) override {
+        TPZDarcyFlow::Solution(datavec[1],var,sol);
+    }
     /**
      * @brief Returns an integer associated with a post-processing variable name
      * @param [in] name string containing the name of the post-processing variable. Ex: "Pressure".

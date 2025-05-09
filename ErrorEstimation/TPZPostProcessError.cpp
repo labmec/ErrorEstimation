@@ -821,6 +821,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         {
 //            std::cout << "The matrix has no singularity\n";
         }
+        
+//        std::cout << "Color " << color << std::endl;
+//        an.Solution().Print("Sol");
+        
         an.LoadSolution();
         
         if(0){
@@ -837,20 +841,34 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
         }
         
+        if(0){
+            std::ofstream out0("../multiphysicsmesh.txt");
+            multiphysicsmesh->Print(out0);
+            std::ofstream out1("../FluxCMesh.txt");
+            fMeshVector[Eflux]->Print(out1);
+            std::ofstream out2("../PressureCMesh.txt");
+            fMeshVector[Epressure]->Print(out2);
+            std::ofstream out3("../PartitionCMesh.txt");
+            fMeshVector[Epatch]->Print(out3);
+            std::ofstream out4("../CMeshH1.txt");
+            fMeshVector[Eorigin]->Print(out4);
+            std::ofstream out5("../AveragePressureCMesh.txt");
+            fMeshVector[Epressureaverage]->Print(out5);
+        }
         if(0){// now we have a partial solution (only in one color of the colors loop)
             /** Variable names for post processing */
             TPZStack<std::string> scalnames, vecnames;
             scalnames.Push("POrder");
             scalnames.Push("Pressure");
-            scalnames.Push("PartialErrorColor");
+//            scalnames.Push("PartialErrorColor");
             vecnames.Push("Flux");
             an.SetStep(color); //
             
             TPZVec<REAL> errorscolor(6,0);
-            int n = multiphysicsmesh->NElements();
+            int64_t n = multiphysicsmesh->NElements();
             multiphysicsmesh->ElementSolution().Resize(n,6);
             bool storeerrors = true;
-            an.PostProcessError(errorscolor,storeerrors);
+//            an.PostProcessError(errorscolor,storeerrors);
             int ModelDimension = multiphysicsmesh->Dimension();
             std::stringstream sout;
             sout << "../" << "Poisson" << ModelDimension << "HDiv_" << color <<".vtk";
@@ -962,18 +980,26 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     an.Solution() = fSolution;
     an.LoadSolution();
     
-    TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("POrder");
-    scalnames.Push("Pressure");
-    vecnames.Push("Flux");
-    std::stringstream sout;
-    sout << "../" << "Reconstructed_Flux" << multiphysicsmesh->Dimension() << "HDiv" << ".vtk";
-
+    multiphysicsmesh->TransferMultiphysicsSolution();
+    if(0){
+        std::ofstream out0("../multiphysicsmesh.txt");
+        multiphysicsmesh->Print(out0);
+        std::ofstream out1("../FluxCMesh.txt");
+        fMeshVector[Eflux]->Print(out1);
+        std::ofstream out2("../PressureCMesh.txt");
+        fMeshVector[Epressure]->Print(out2);
+        std::ofstream out3("../PartitionCMesh.txt");
+        fMeshVector[Epatch]->Print(out3);
+        std::ofstream out4("../CMeshH1.txt");
+        fMeshVector[Eorigin]->Print(out4);
+        std::ofstream out5("../AveragePressureCMesh.txt");
+        fMeshVector[Epressureaverage]->Print(out5);
+    }
     
     TPZManVector<TPZCompMesh *,2> mixed(2);
     mixed[0] = fMeshVector[Epressure];
     mixed[1] = fMeshVector[Epatch];
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, multiphysicsmesh);
+//    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(mixed, multiphysicsmesh);
 
 //    std::ofstream outfmesh("Fluxmesh.txt");
 //    fMeshVector[Eflux]->Print(outfmesh);
@@ -983,13 +1009,24 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         multiphysicsmesh->ElementSolution().Redim(nels, 6);
     }
     
-    if(0){//Plot reconstructed flux
+    if(1){//Plot reconstructed flux
+        TPZStack<std::string> scalnames, vecnames;
+        scalnames.Push("POrder");
+        scalnames.Push("Pressure");
+        vecnames.Push("Flux");
+        std::stringstream sout;
+        sout << "../" << "Reconstructed_Flux" << multiphysicsmesh->Dimension() << "HDiv" << ".vtk";
         an.DefineGraphMesh(multiphysicsmesh->Dimension(),scalnames,vecnames,sout.str());
         an.PostProcess(3,multiphysicsmesh->Dimension());
     }
     
     TPZManVector<REAL,6> errors(6,0.);
     an.PostProcessError(errors);
+    if(fuseHDiv == false) {
+        cout << "Erro H1 semi " << errors[0] << std::endl;
+        cout << "Erro H1 hybrid semi " << errors[4] << std::endl;
+        cout << "Erro Project L2 F " << errors[1] << std::endl;
+    }
     cout << "Global flux estimated error " << errors[2] << std::endl;
     cout << "Global residual estimate error " << errors[3] << std::endl;
 
@@ -1381,9 +1418,10 @@ void TPZPostProcessError::CreateAveragePressureMesh(){
 void TPZPostProcessError::CreatePartitionofUnityMesh()
 {
     //    TPZCompMeshReferred *pressuremesh = dynamic_cast<TPZCompMeshReferred *> (fMeshVector[3]);
-    TPZCompMesh *pressuremesh = fMeshVector[Epressure];
-    TPZGeoMesh *gmesh = pressuremesh->Reference();
-    int dim = pressuremesh->Dimension();
+    TPZCompMesh *original = fMeshVector[Eorigin];
+//    TPZCompMesh *pressuremesh = fMeshVector[Epressure];
+    TPZGeoMesh *gmesh = original->Reference();
+    int dim = original->Dimension();
     
     //    TPZCompMeshReferred *cmesh = new TPZCompMeshReferred(gmesh);
     TPZCompMesh *cmesh = new TPZCompMesh(gmesh);
@@ -1391,11 +1429,11 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
     //    cmesh->ApproxSpace().SetAllCreateFunctionsContinuousReferred();
     cmesh->SetDefaultOrder(1);
     
-    for (auto it:pressuremesh->MaterialVec()) {
+    for (auto it:original->MaterialVec()) {
         TPZMaterial *mat = it.second;
         int matdim = mat->Dimension();
         TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
-        if (!bnd && matdim == dim) {
+        if (matdim >= dim-1) {
             int matId = mat->Id();
             int nstate = 1;
             TPZNullMaterial<> *material = new TPZNullMaterial<>(matId,dim,nstate);
@@ -1405,13 +1443,13 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
     
     gmesh->ResetReference();
     
-    int64_t nel = pressuremesh->NElements();
+    int64_t nel = original->NElements();
     for (int64_t el=0; el<nel; el++) {
-        TPZCompEl *pressure = pressuremesh->Element(el);
+        TPZCompEl *pressure = original->Element(el);
         TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(pressure);
         TPZGeoEl *gel = 0;
         if(intel) gel = intel->Reference();
-        if (!gel || gel->Dimension() != dim) {
+        if (!gel || gel->Dimension() < dim-1) {
             continue;
         }
         cmesh->ApproxSpace().CreateCompEl(gel, *cmesh);
@@ -1420,7 +1458,11 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
     //    pressuremesh->LoadReferred(cmesh);
     cmesh->InitializeBlock();
     fMeshVector[Epatch] = cmesh;
-    
+    if(0)
+    {
+        std::ofstream out("partitionmesh.vtk");
+        TPZVTKGeoMesh::PrintCMeshVTK(cmesh, out);
+    }
 }
 
 /// create the multiphysics mesh that will compute the projection matrix
@@ -1745,7 +1787,7 @@ void TPZPostProcessError::AddWrapperElements()
         for (int side = firstside; side < lastside; side++) {
             TPZGeoElBC bcwrap(gel, side, fMatWrap);
             TPZGeoElSide wrapside(bcwrap.CreatedElement());
-            TPZGeoElBC bcintface(wrapside,fInterfaceNegative);
+//            TPZGeoElBC bcintface(wrapside,fInterfaceNegative);
         }
     }
     /// create the flux elements
@@ -1759,6 +1801,8 @@ void TPZPostProcessError::AddWrapperElements()
         bool restrained = wrapside.HasLowerLevelNeighbour(fMatWrap);
         bool haswrapneigh = wrapside.HasNeighbour({fInterfaceNegative,fInterfacePositive});
         if(restrained || haswrapneigh) {
+            matinterface = fInterfacePositive;
+        } else {
             matinterface = fInterfaceNegative;
         }
         TPZGeoElBC bcintface(wrapside,matinterface);
@@ -1789,6 +1833,12 @@ std::set<int> TPZPostProcessError::BCMaterialIds() const{
 
 
 void TPZPostProcessError::CreateBoundaryFluxMesh(){
+    if(0)
+    {
+        std::cout << "H1 mesh printed\n";
+        std::ofstream out("Original.txt");
+        fMeshVector[Eorigin]->Print(out);
+    }
     int matId = 1;
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
     int dim = cmeshroot->Dimension();
@@ -1797,13 +1847,14 @@ void TPZPostProcessError::CreateBoundaryFluxMesh(){
     /// criar materiais
     TPZGeoMesh *gmesh = cmeshroot->Reference();
     TPZCompMesh * cmesh = new TPZCompMesh(gmesh);
-    std::set<int> allfluxids = {fMatFlux};
+    std::set<int> allfluxids = {fMatFlux},volumematids;
     int nstate = 1;
     {
         auto it = cmeshroot->MaterialVec().begin();
         TPZMaterial *mat = it->second;
         nstate = mat->NStateVariables();
     }
+
     TPZNullMaterial<STATE> *fluxmat = new TPZNullMaterial<STATE>(fMatFlux,dim-1,nstate);
     cmesh->InsertMaterialObject(fluxmat);
     
@@ -1817,20 +1868,40 @@ void TPZPostProcessError::CreateBoundaryFluxMesh(){
             allfluxids.insert(matid);
             TPZNullMaterial<STATE> *nullbc = new TPZNullMaterial<STATE>(matid,dim-1,nstate);
             cmesh->InsertMaterialObject(nullbc);
+        } else {
+            volumematids.insert(it.first);
+            TPZNullMaterial<STATE> *vol = new TPZNullMaterial<STATE>(it.first,dim,nstate);
+            cmesh->InsertMaterialObject(vol);
         }
     }
     
     cmesh->SetDimModel(dim);
+    
+    cmesh->SetAllCreateFunctionsContinuous();
+    cmesh->ApproxSpace().CreateDisconnectedElements(true);
+    cmesh->AutoBuild(volumematids);
     
     cmesh->SetAllCreateFunctionsHDiv();
     
     cmesh->SetDefaultOrder(cmeshroot->GetDefaultOrder());
     
     //Ajuste da estrutura de dados computacional
-    cmesh->AutoBuild();
+    cmesh->AutoBuild(allfluxids);
     cmesh->CleanUpUnconnectedNodes();
     cmesh->ExpandSolution();
     
+    
+    std::map<int64_t,TPZInterpolationSpace* > geltocomp;
+    {
+        int64_t nel = cmesh->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmesh->Element(el);
+            TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(cel);
+            TPZGeoEl *gel = cel->Reference();
+            geltocomp[gel->Index()] = intel;
+        }
+    }
+    gmesh->ResetReference();
     /// adjust the order of the elements
     int64_t nel = cmeshroot->NElements();
     for (int64_t el = 0; el<nel; el++) {
@@ -1838,34 +1909,43 @@ void TPZPostProcessError::CreateBoundaryFluxMesh(){
         if(!cel) continue;
         TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(cel);
         int nc = intel->NConnects();
-        int order = intel->Connect(nc-1).Order();
+        int orderH1 = intel->Connect(nc-1).Order();
         TPZGeoEl *gel = cel->Reference();
-        if(gel->Dimension() != dim) continue;
+        // change the order of the L2 projection elements
+        if(gel->Dimension() == dim) {
+            auto intel = geltocomp[gel->Index()];
+            intel->PRefine(orderH1+1);
+        }
         // Set the interpolation order of the flux element at least as high as the element order
         int firstside = gel->FirstSide(dim-1);
         int lastside = gel->NSides()-1;
         for(int side = firstside; side<lastside; side++) {
             TPZGeoElSide gelside(gel,side);
-            std::cout << "gel index " << gel->Index() << " matid " << gel->MaterialId() << " side " << side << std::endl;
-            for(auto it = gelside.Neighbour(); it != gelside; it++) {
-                std::cout << "neigh index " << it.Element()->Index() << " neighmatid " << it.Element()->MaterialId() << std::endl;
-            }
+//            std::cout << "gel index " << gel->Index() << " matid " << gel->MaterialId() << " side " << side << std::endl;
+//            for(auto it = gelside.Neighbour(); it != gelside; it++) {
+//                std::cout << "neigh index " << it.Element()->Index() << " neighmatid " << it.Element()->MaterialId() << std::endl;
+//            }
             TPZGeoElSide fluxgel = gelside.HasNeighbour(allfluxids);
             if(fluxgel) {
                 // take the associated compel (only one connect)
-                TPZCompEl *fluxcel = fluxgel.Element()->Reference();
-                TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(fluxcel);
-                intel->SetPreferredOrder(order);
-                
+                TPZCompEl *fluxcel = geltocomp[fluxgel.Element()->Index()];
+                TPZInterpolationSpace *intelloc = dynamic_cast<TPZInterpolationSpace *>(fluxcel);
+                int orderloc = intelloc->GetPreferredOrder();
+                if(orderloc < orderH1) {
+                    intelloc->PRefine(orderH1);
+                }
                 // set the order to be larger or equal than order
             } else {
                 fluxgel = gelside.HasLowerLevelNeighbour(allfluxids);
                 if(!fluxgel) DebugStop();
                 // take the associated compel (only one connect
                 // set the order to be larger than order
-                TPZCompEl *fluxcel = fluxgel.Element()->Reference();
-                TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(fluxcel);
-                intel->SetPreferredOrder(order);
+                TPZCompEl *fluxcel = geltocomp[fluxgel.Element()->Index()];
+                TPZInterpolationSpace *intelloc = dynamic_cast<TPZInterpolationSpace *>(fluxcel);
+                int orderloc = intelloc->GetPreferredOrder();
+                if(orderloc < orderH1) {
+                    intelloc->PRefine(orderH1);
+                }
             }
         }
     }
@@ -2019,5 +2099,5 @@ void TPZPostProcessError::CreateDiscontinuousPressureMesh(){
     }
     
     fMeshVector[Epressure] = cmesh;
-
+    cmesh->ExpandSolution();
 }
