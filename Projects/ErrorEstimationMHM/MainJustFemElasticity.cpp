@@ -109,12 +109,12 @@ int main() {
     
 
     ProblemConfig pConfig;
-    pConfig.vtkResolution = 2;
+    pConfig.vtkResolution = 0;
    
     pConfig.exactElast = new TElasticity2DAnalytic;
-    // RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
+    RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
     // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-  RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+    // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
    // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
@@ -199,21 +199,21 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
    // pConfig.dir_name = "SmoothProb";
     pConfig.dir_name = "SymmetricTest";
     
-    const int xdiv = 4; //Number of elements in each direction
+    const int xdiv = 2; //Number of elements in each direction
     const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep = 1;//numero de steps no refinamento
+    pConfig.isAdaptivity = true;
+    pConfig.adaptivityStep = 5;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {4,4};
+    TPZVec<int> nDivs = {2,1};
    
     
-    TPZVec<int> divs = {4};
+    TPZVec<int> divs = {2};
     
     for (int64_t iorder=1; iorder< pOrder;iorder++) {
         pConfig.porder = iorder;
@@ -775,8 +775,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
 
     
     if(config.isAdaptivity){
-        
-        Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, config);
+        Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, originalMesh, config);
     }
    
     int nel=config.gmesh->NElements();
@@ -833,6 +832,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
     int DIM = tshape::Dimension;
 
         for(int refsteps = 1; refsteps <= config.adaptivityStep; refsteps ++){
+            config.refStepCounter = refsteps;
             {
                 // Prints gmesh mesh properties
                 std::string vtk_name = "geoMeshToSolveProblem.vtk";
@@ -896,7 +896,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 
                 //Gets the Multiphysics mesh from the HdivApproxCreator
                 TPZMultiphysicsCompMesh *cmesh = hdivCreator.CreateApproximationSpace();
-
+                Tools::PRefinementNew(cmesh, config);
                 
                 //Create the analysis environment
                 TPZLinearAnalysis an(cmesh,RenumType::ESloan);
@@ -923,7 +923,14 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 std::cout << "Finished\n";
                 an.LoadSolution(); // compute internal dofs
             
+                TPZStack<std::string> vecnames,scalnames;
+                vecnames.Push("Displacement");
+                scalnames.Push("POrder");
             
+                int dim = 2;
+
+                an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionFEM.vtk");
+                an.PostProcess(0, dim);
             
                 EstimateErrorElasticity(config, cmesh, refsteps);
                 

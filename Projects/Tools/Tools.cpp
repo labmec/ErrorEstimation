@@ -19,6 +19,8 @@
 #include "MMeshType.h"
 #include "pzelementgroup.h"
 #include "TPZElasticityErrorEstimator.h"
+#include "pzelchdiv.h"
+#include "pzshapequad.h"
 
 void Tools::PrintGeometry(TPZGeoMesh *gmesh, const std::string &file_name, bool printTXT, bool printVTK) {
     if (printTXT) {
@@ -416,6 +418,43 @@ void Tools::Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 
 }
 
+void Tools::PRefinementNew(TPZMultiphysicsCompMesh *cmesh, ProblemConfig config) {
+    
+    std::ofstream outTXT2("prefinedbefore.txt");
+    cmesh->Print(outTXT2);
+
+    for (auto iel:config.elsRefinementP) {
+        TPZCompEl* cel = cmesh->MeshVector()[0]->ElementVec()[iel];
+        TPZCompEl* cel2 = cmesh->MeshVector()[1]->ElementVec()[iel];
+        TPZCompEl* cel3 = cmesh->MeshVector()[2]->ElementVec()[iel];
+
+        if (!cel) DebugStop();
+        TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
+        TPZInterpolatedElement *sp2 = dynamic_cast<TPZInterpolatedElement *>(cel2);
+        TPZInterpolationSpace *sp3 = dynamic_cast<TPZInterpolationSpace *>(cel3);
+        int level = sp->Reference()->Level();
+        int ordem = config.porder + config.refStepCounter - 1;
+        std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
+        sp->PRefine(ordem);
+        sp2->PRefine(ordem);
+        // sp3->PRefine(ordem);
+    }
+    
+
+    // cmesh->AdjustBoundaryElements();
+    // cmesh->CleanUpUnconnectedNodes();
+    // cmesh->ExpandSolution();
+    // cmesh->InitializeBlock();
+    TPZManVector<int> active(cmesh->MeshVector().size(),1);
+    cmesh->BuildMultiphysicsSpace(active, cmesh->MeshVector());
+
+    std::ofstream outTXT("prefinedmesh.txt");
+    cmesh->Print(outTXT);
+
+}
+
+
+
 void Tools::SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, ProblemConfig &problem,
         bool PostProcessingFEM) {
 
@@ -694,7 +733,7 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
     return cmesh;
 }
 
-void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, ProblemConfig& config) {
+void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine, TPZCompMesh* cmeshToRefine, ProblemConfig& config) {
     
 //    std::string vtk_name2 = "geoMeshToAdapty.vtk";
 //    std::ofstream vtkfile2(vtk_name2.c_str());
@@ -741,6 +780,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     //std::map<int64_t,unsigned int> current_level;
     
     TPZVec<int64_t> elementsToRefine;
+    std::vector<double> elErrors;
     
     for (int64_t iel = 0; iel < nelem; iel++) {
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
@@ -769,9 +809,10 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                 //TODO: including a vector to store the elements to refine
                 elementsToRefine.push_back(el_id);
                 new_level[el_id] = current_level[el_id] + 1;
+                elErrors.push_back(elementError);
             }
         } else {
-            std::cout << "Element ID " << el_id << " already has subelements.\n";
+            // std::cout << "Element ID " << el_id << " already has subelements.\n";
             new_level[el_id] = current_level[el_id];
         }
     }
@@ -815,16 +856,54 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         }
     } while (checkEnabled);
     
-    
+
+    std::sort(elErrors.begin(), elErrors.end(), std::greater<double>());
+    int nrefineP = elErrors.size() * 0.5;
+
+    // for (int64_t iel=0; iel<elementsToRefine.size(); iel++) {
+    //     int geoId=elementsToRefine[iel];
+    //     TPZVec<TPZGeoEl*> sons;
+    //     TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
+    //     std::cout<<" iel "<<geoId<<"\n";
+    //     gelToRefine->Divide(sons);
+    // }
+
+    // TODO: HP-adaptivity
+    // dos elementos separados hoje para refinar, para cada elemento, 
+    // calcular e guardar o gradiente da tensão reconstruída se o valor 
+    // for maior do que um threshold, refina H (ordenar por gradiente de 
+    // tensão reconstruída e refinar os 20% maiores), se não refina P.
+    config.elsRefinementP.clear();
     for (int64_t iel=0; iel<elementsToRefine.size(); iel++) {
-        int geoId=elementsToRefine[iel];
-        TPZVec<TPZGeoEl*> sons;
-        TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
-        std::cout<<" iel "<<geoId<<"\n";
-        gelToRefine->Divide(sons);
+        if (iel < nrefineP) {
+            int geoId=elementsToRefine[iel];
+            TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
+            config.elsRefinementP.insert(gelToRefine->Reference()->Index());
+            // std::cout<<"P-refine "<<geoId<<"\n";
+            // TPZCompEl* cel=gelToRefine->Reference();
+            // TPZCompEl* aux = cmeshToRefine->ElementVec()[cel->Index()];
+
+            // if (!cel) DebugStop();
+            // TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
+            // TPZInterpolatedElement *sp2 = dynamic_cast<TPZInterpolatedElement *>(aux);
+            // TPZCompElHDiv<pzshape::TPZShapeQuad> *sp3 = dynamic_cast<TPZCompElHDiv<pzshape::TPZShapeQuad> *> (aux);
+            // int level = sp->Reference()->Level();
+            // int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
+            // std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
+            // sp->PRefine(ordem);
+        } else {
+            continue;
+            int geoId=elementsToRefine[iel];
+            TPZVec<TPZGeoEl*> sons;
+            TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
+            std::cout<<"H-refine "<<geoId<<"\n";
+            gelToRefine->Divide(sons);
+        }   
     }
     
-    
+
+
+
 //    int64_t nel= gelsToRefine.size();
 //    for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
 //

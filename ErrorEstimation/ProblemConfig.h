@@ -58,6 +58,7 @@ struct ProblemConfig
     STATE coefgPoisson=0.;
     STATE lambda =0.;
     STATE mu=0.;
+    int refStepCounter=0;
     
     /// the elements with error larger than 0.7*max_error will be divided
     REAL division_threshold = 0.7;
@@ -93,7 +94,10 @@ struct ProblemConfig
     
     void DivideBoundaryElements();
     
-    
+    //Get element numbers of the geometric mesh
+    //Maps the geometric element index to a vector with 
+    //the orders of each connect
+    std::map<int64_t,std::vector<int>> elsRefinementP;
 };
 
 

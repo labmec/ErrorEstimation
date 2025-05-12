@@ -75,6 +75,7 @@ namespace Tools {
     void RefineElements(TPZGeoMesh *gmesh, const std::set<int64_t>& elsToRefine);
 
     void Prefinamento(TPZCompMesh *cmesh, int ndiv, int porder);
+    void PRefinementNew(TPZMultiphysicsCompMesh *cmesh, ProblemConfig config);
 
 
     void SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, ProblemConfig &problem,
@@ -84,7 +85,7 @@ namespace Tools {
 
     TPZCompMesh *CMeshH1(ProblemConfig problem);
 
-    void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, ProblemConfig &config);
+    void hAdaptivity(TPZCompMesh *postProcessMesh, TPZGeoMesh *gmeshToRefine, TPZCompMesh* cmeshToRefine, ProblemConfig &config);
 
     void Print(const FADREAL& a, std::ostream& out);
 
