@@ -895,8 +895,8 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 InsertMaterials(DIM,hdivCreator,gAnalytic);
                 
                 //Gets the Multiphysics mesh from the HdivApproxCreator
-                TPZMultiphysicsCompMesh *cmesh = hdivCreator.CreateApproximationSpace();
-                Tools::PRefinementNew(cmesh, config);
+                TPZMultiphysicsCompMesh *cmesh = nullptr;// = hdivCreator.CreateApproximationSpace();
+                Tools::PRefinementNew(cmesh, config, hdivCreator);
                 
                 //Create the analysis environment
                 TPZLinearAnalysis an(cmesh,RenumType::ESloan);

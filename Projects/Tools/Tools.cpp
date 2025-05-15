@@ -418,35 +418,136 @@ void Tools::Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 
 }
 
-void Tools::PRefinementNew(TPZMultiphysicsCompMesh *cmesh, ProblemConfig config) {
+void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &config, TPZHDivApproxCreator &hdivCreator) {
     
-    std::ofstream outTXT2("prefinedbefore.txt");
-    cmesh->Print(outTXT2);
+    //In ProblemConfig there is a map with the elements to be refined in p,
+    //which stores the element index and the polynomial order for its connects.
+    //Here we take this map and refine the elements in p. 
+    
+    //The main idea is to refine elements iteratively ensuring compatibility
+    //between the elements until there is no more elements to be refined.
+    
+    //The elements to be refined are stored in the map elsRefinementP. which is filled 
+    //in the function hAdaptivity.
 
-    for (auto iel:config.elsRefinementP) {
-        TPZCompEl* cel = cmesh->MeshVector()[0]->ElementVec()[iel];
-        TPZCompEl* cel2 = cmesh->MeshVector()[1]->ElementVec()[iel];
-        TPZCompEl* cel3 = cmesh->MeshVector()[2]->ElementVec()[iel];
 
-        if (!cel) DebugStop();
-        TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
-        TPZInterpolatedElement *sp2 = dynamic_cast<TPZInterpolatedElement *>(cel2);
-        TPZInterpolationSpace *sp3 = dynamic_cast<TPZInterpolationSpace *>(cel3);
-        int level = sp->Reference()->Level();
-        int ordem = config.porder + config.refStepCounter - 1;
-        std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
-        sp->PRefine(ordem);
-        sp2->PRefine(ordem);
-        // sp3->PRefine(ordem);
+    //First we mimic the CreateApproximationSpace function from TPZHDivApproxCreator
+    //to create the atomic meshes. Then, the polynomial order of the elements is updated
+    //according to the map elsRefinementP.
+    //Finally, the multiphysics mesh is created with the updated meshes.
+    hdivCreator.CheckSetupConsistency();
+    hdivCreator.SetMeshElementType();
+
+    int lagLevelCounter = 1;
+    int fNumMeshes = 3;
+    TPZManVector<TPZCompMesh*,7> meshvec(fNumMeshes);
+    hdivCreator.CreateAtomicMeshes(meshvec,lagLevelCounter);
+    
+    meshvec[0]->LoadReferences();
+    meshvec[1]->LoadReferences();
+    meshvec[2]->LoadReferences();
+    
+    bool changed = true;
+    while (changed){
+        changed = false;
+        //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
+        for (auto iel:config.elsRefinementP) {
+            TPZCompEl* celS = meshvec[0]->ElementVec()[iel.first];
+            TPZCompEl* celU = meshvec[1]->ElementVec()[iel.first];
+            TPZCompEl* celR = meshvec[2]->ElementVec()[iel.first];
+
+            if (!celS || !celU || !celR) DebugStop();
+            TPZInterpolatedElement *spS = dynamic_cast<TPZInterpolatedElement *>(celS);
+            TPZInterpolatedElement *spU = dynamic_cast<TPZInterpolatedElement *>(celU);
+            TPZInterpolationSpace *spR = dynamic_cast<TPZInterpolationSpace *>(celR);
+            if (!spS || !spU || !spR) DebugStop();
+            
+            //Now we are looking to the computational elements for each atomic mesh.
+            //Loop into the sides, check the order of the neighbouring elements and set the 
+            //connect order        
+            int nconnects = celS->NConnects();
+            celS->Connect(nconnects-1).SetOrder(iel.second[nconnects-1],celS->ConnectIndex(nconnects-1));
+            int myorder = celS->Connect(nconnects-1).Order();
+            for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
+                TPZGeoElSide gelside(celS->Reference(),iconnect);
+                TPZGeoElSide neighbour = gelside.Neighbour();
+                if (neighbour.Element()->Dimension() != 2) continue;
+                TPZCompEl *celneigh = neighbour.Element()->Reference();
+                if (!celneigh) DebugStop();
+                int neighOrder = celneigh->Connect(nconnects-1).Order();
+                
+                //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
+                
+                if (neighOrder >= myorder+2){
+                    myorder = neighOrder-1;
+                    changed = true;
+                } else if (neighOrder <= myorder-2){
+                    neighOrder = myorder-1;
+                    changed = true;
+                }
+            }
+        }
     }
-    
+        
+    changed=true;
+    while (changed){
+        changed = false;
+        //Then compatibilize edges
+        for (auto iel:config.elsRefinementP) {
+            TPZCompEl* celS = meshvec[0]->ElementVec()[iel.first];
+            TPZCompEl* celU = meshvec[1]->ElementVec()[iel.first];
+            TPZCompEl* celR = meshvec[2]->ElementVec()[iel.first];
 
-    // cmesh->AdjustBoundaryElements();
-    // cmesh->CleanUpUnconnectedNodes();
-    // cmesh->ExpandSolution();
-    // cmesh->InitializeBlock();
-    TPZManVector<int> active(cmesh->MeshVector().size(),1);
-    cmesh->BuildMultiphysicsSpace(active, cmesh->MeshVector());
+            if (!celS || !celU || !celR) DebugStop();
+            TPZInterpolatedElement *spS = dynamic_cast<TPZInterpolatedElement *>(celS);
+            TPZInterpolatedElement *spU = dynamic_cast<TPZInterpolatedElement *>(celU);
+            TPZInterpolationSpace *spR = dynamic_cast<TPZInterpolationSpace *>(celR);
+            if (!spS || !spU || !spR) DebugStop();
+            
+            //Now we are looking to the computational elements for each atomic mesh.
+            //Loop into the sides, check the order of the neighbouring elements and set the 
+            //connect order        
+            int nconnects = celS->NConnects();
+            celS->Connect(nconnects-1).SetOrder(iel.second[nconnects-1],celS->ConnectIndex(nconnects-1));
+            int myorder = celS->Connect(nconnects-1).Order();
+            for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
+                TPZGeoElSide gelside(celS->Reference(),iconnect);
+                TPZGeoElSide neighbour = gelside.Neighbour();
+                if (neighbour.Element()->Dimension() != 2) continue;
+                TPZCompEl *celneigh = neighbour.Element()->Reference();
+                if (!celneigh) DebugStop();
+                int neighOrder = celneigh->Connect(nconnects-1).Order();
+                
+                if (neighOrder == myorder-1){
+                    celS->Connect(iconnect).SetOrder(neighOrder,celS->ConnectIndex(iconnect));
+                    int nshape = spS->NConnectShapeF(iconnect,neighOrder);
+                    celS->Connect(iconnect).SetNShape(nshape);
+                    // changed = true;
+                } else if (neighOrder == myorder){
+                    celS->Connect(iconnect).SetOrder(myorder,celS->ConnectIndex(iconnect));
+                    celneigh->Connect(gelside.Side()).SetOrder(myorder,celneigh->ConnectIndex(gelside.Side()));
+                    // changed = true;
+                } else if (neighOrder == myorder+1){
+                    celS->Connect(iconnect).SetOrder(myorder,celS->ConnectIndex(iconnect));
+                    celneigh->Connect(gelside.Side()).SetOrder(myorder,celneigh->ConnectIndex(gelside.Side()));
+                    // changed = true;
+                } else {
+                    DebugStop();
+                }
+            }
+        }
+    }
+
+    meshvec[0]->AdjustBoundaryElements();
+    meshvec[1]->AdjustBoundaryElements();
+    meshvec[2]->AdjustBoundaryElements();
+    meshvec[0]->CleanUpUnconnectedNodes();
+    meshvec[1]->CleanUpUnconnectedNodes();
+    meshvec[2]->CleanUpUnconnectedNodes();
+    meshvec[0]->ExpandSolution();
+    meshvec[1]->ExpandSolution();
+    meshvec[2]->ExpandSolution();
+    hdivCreator.CreateMultiPhysicsMesh(meshvec,lagLevelCounter,cmesh);
 
     std::ofstream outTXT("prefinedmesh.txt");
     cmesh->Print(outTXT);
@@ -873,12 +974,19 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     // calcular e guardar o gradiente da tensão reconstruída se o valor 
     // for maior do que um threshold, refina H (ordenar por gradiente de 
     // tensão reconstruída e refinar os 20% maiores), se não refina P.
-    config.elsRefinementP.clear();
     for (int64_t iel=0; iel<elementsToRefine.size(); iel++) {
         if (iel < nrefineP) {
             int geoId=elementsToRefine[iel];
             TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
-            config.elsRefinementP.insert(gelToRefine->Reference()->Index());
+            TPZManVector<int> connectOrders(5,config.porder+config.hdivmais);
+            if (config.elsRefinementP[gelToRefine->Index()].size() != 0){
+                //Just modify the order;D
+                DebugStop();
+            } else {
+                connectOrders[4]++; 
+                config.elsRefinementP[gelToRefine->Index()] = connectOrders;
+            }
+            
             // std::cout<<"P-refine "<<geoId<<"\n";
             // TPZCompEl* cel=gelToRefine->Reference();
             // TPZCompEl* aux = cmeshToRefine->ElementVec()[cel->Index()];

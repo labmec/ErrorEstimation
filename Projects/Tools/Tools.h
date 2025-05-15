@@ -35,6 +35,7 @@
 #include <tuple>
 #include <memory>
 #include "DataStructure.h"
+#include "TPZHDivApproxCreator.h"
 
 #include <cstdio>
 
@@ -75,7 +76,7 @@ namespace Tools {
     void RefineElements(TPZGeoMesh *gmesh, const std::set<int64_t>& elsToRefine);
 
     void Prefinamento(TPZCompMesh *cmesh, int ndiv, int porder);
-    void PRefinementNew(TPZMultiphysicsCompMesh *cmesh, ProblemConfig config);
+    void PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &config, TPZHDivApproxCreator &hdivCreator);
 
 
     void SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, ProblemConfig &problem,

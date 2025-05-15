@@ -97,7 +97,7 @@ struct ProblemConfig
     //Get element numbers of the geometric mesh
     //Maps the geometric element index to a vector with 
     //the orders of each connect
-    std::map<int64_t,std::vector<int>> elsRefinementP;
+    std::map<int64_t,TPZManVector<int>> elsRefinementP;
 };
 
 
