@@ -420,11 +420,12 @@ void Tools::Prefinamento(TPZCompMesh* cmesh, int ndiv, int porder) {
 
 void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &config, TPZHDivApproxCreator &hdivCreator) {
     
+
     //In ProblemConfig there is a map with the elements to be refined in p,
     //which stores the element index and the polynomial order for its connects.
     //Here we take this map and refine the elements in p. 
-    
-    //The main idea is to refine elements iteratively ensuring compatibility
+
+    //Now, the main idea is to refine elements iteratively ensuring compatibility
     //between the elements until there is no more elements to be refined.
     
     //The elements to be refined are stored in the map elsRefinementP. which is filled 
@@ -446,22 +447,37 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
     meshvec[0]->LoadReferences();
     meshvec[1]->LoadReferences();
     meshvec[2]->LoadReferences();
+
+    
+    //The first time the code passes through this function, all connect orders are stored;
+    if (config.elsRefinementP.size() == 0){
+        for (int iel = 0; iel < meshvec[0]->Reference()->NElements(); iel++) {
+            TPZCompEl* cel = meshvec[0]->ElementVec()[iel];
+            if (!cel) continue;
+            TPZInterpolatedElement* sp = dynamic_cast<TPZInterpolatedElement*>(cel);
+            if (!sp) continue;
+            int nconnects = cel->NConnects();
+            TPZManVector<int> order(nconnects,0);
+            for (int iconnect = 0; iconnect < nconnects; iconnect++){
+                order[iconnect] = sp->Connect(iconnect).Order();
+                int conorder = sp->Connect(iconnect).Order();
+                std::cout << "Connect = " << sp->ConnectIndex(iconnect) << " " << conorder << " " << std::endl;
+            }
+            config.elsRefinementP[cel->Reference()->Index()] = order;
+        }
+    }
+
+    std::ofstream outTXT1("cmeshstress.txt");
+    meshvec[0]->Print(outTXT1);
     
     bool changed = true;
+    //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
     while (changed){
         changed = false;
-        //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
         for (auto iel:config.elsRefinementP) {
             TPZCompEl* celS = meshvec[0]->ElementVec()[iel.first];
             TPZCompEl* celU = meshvec[1]->ElementVec()[iel.first];
             TPZCompEl* celR = meshvec[2]->ElementVec()[iel.first];
-
-            if (!celS || !celU || !celR) DebugStop();
-            TPZInterpolatedElement *spS = dynamic_cast<TPZInterpolatedElement *>(celS);
-            TPZInterpolatedElement *spU = dynamic_cast<TPZInterpolatedElement *>(celU);
-            TPZInterpolationSpace *spR = dynamic_cast<TPZInterpolationSpace *>(celR);
-            if (!spS || !spU || !spR) DebugStop();
-            
             //Now we are looking to the computational elements for each atomic mesh.
             //Loop into the sides, check the order of the neighbouring elements and set the 
             //connect order        
@@ -471,10 +487,11 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
                 TPZGeoElSide gelside(celS->Reference(),iconnect);
                 TPZGeoElSide neighbour = gelside.Neighbour();
-                if (neighbour.Element()->Dimension() != 2) continue;
+                if (neighbour.Element()->Dimension() != 1) continue;
                 TPZCompEl *celneigh = neighbour.Element()->Reference();
                 if (!celneigh) DebugStop();
-                int neighOrder = celneigh->Connect(nconnects-1).Order();
+                int nconnectsneigh = celneigh->NConnects();
+                int neighOrder = celneigh->Connect(nconnectsneigh-1).Order();
                 
                 //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
                 
@@ -483,6 +500,12 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
                     changed = true;
                 } else if (neighOrder <= myorder-2){
                     neighOrder = myorder-1;
+                    if (config.elsRefinementP[neighbour.Element()->Index()].size() == 0){
+                        TPZManVector<int> order(nconnectsneigh,neighOrder);
+                        config.elsRefinementP[neighbour.Element()->Index()] = order;
+                    } else {
+                        config.elsRefinementP[neighbour.Element()->Index()][nconnectsneigh-1] = neighOrder;
+                    }
                     changed = true;
                 }
             }
@@ -513,15 +536,23 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
                 TPZGeoElSide gelside(celS->Reference(),iconnect);
                 TPZGeoElSide neighbour = gelside.Neighbour();
-                if (neighbour.Element()->Dimension() != 2) continue;
+                if (neighbour.Element()->Dimension() != 1) continue;
                 TPZCompEl *celneigh = neighbour.Element()->Reference();
                 if (!celneigh) DebugStop();
-                int neighOrder = celneigh->Connect(nconnects-1).Order();
+                int nconnectsneigh = celneigh->NConnects();
+                int neighOrder = celneigh->Connect(nconnectsneigh-1).Order();
                 
                 if (neighOrder == myorder-1){
-                    celS->Connect(iconnect).SetOrder(neighOrder,celS->ConnectIndex(iconnect));
-                    int nshape = spS->NConnectShapeF(iconnect,neighOrder);
-                    celS->Connect(iconnect).SetNShape(nshape);
+                    // celS->Connect(iconnect).SetOrder(neighOrder,celS->ConnectIndex(iconnect));
+                    // int nshape = spS->NConnectShapeF(iconnect,neighOrder);
+                    // celS->Connect(iconnect).SetNShape(nshape);
+                    TPZConnect &c = spS->Connect(iconnect);
+                    c.SetOrder(neighOrder,celS->ConnectIndex(iconnect));
+                    const int nshape =spS->NConnectShapeF(iconnect,c.Order());
+                    c.SetNShape(nshape);
+                    const auto seqnum = c.SequenceNumber();
+                    int nStateVars = 2;
+                    spS-> Mesh()->Block().Set(seqnum,nshape*nStateVars);
                     // changed = true;
                 } else if (neighOrder == myorder){
                     celS->Connect(iconnect).SetOrder(myorder,celS->ConnectIndex(iconnect));
@@ -538,20 +569,32 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         }
     }
 
-    meshvec[0]->AdjustBoundaryElements();
-    meshvec[1]->AdjustBoundaryElements();
-    meshvec[2]->AdjustBoundaryElements();
-    meshvec[0]->CleanUpUnconnectedNodes();
-    meshvec[1]->CleanUpUnconnectedNodes();
-    meshvec[2]->CleanUpUnconnectedNodes();
-    meshvec[0]->ExpandSolution();
-    meshvec[1]->ExpandSolution();
-    meshvec[2]->ExpandSolution();
+    for (int i = 0; i < 3; i++){
+        meshvec[i]->AdjustBoundaryElements();
+        meshvec[i]->CleanUpUnconnectedNodes();
+        meshvec[i]->InitializeBlock();
+        meshvec[i]->ExpandSolution();
+    }
+
     hdivCreator.CreateMultiPhysicsMesh(meshvec,lagLevelCounter,cmesh);
 
     std::ofstream outTXT("prefinedmesh.txt");
     cmesh->Print(outTXT);
 
+}
+
+void Tools::SetCelPolynomialOrder(TPZCompEl *cel, TPZManVector<int> porder) {
+    int nconnects = cel->NConnects();
+    TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
+    for (int iconnect = 0; iconnect < nconnects; iconnect++) {
+        TPZConnect &c = sp->Connect(iconnect);
+        c.SetOrder(porder[iconnect],sp->ConnectIndex(iconnect));
+        const int nshape =sp->NConnectShapeF(iconnect,c.Order());
+        c.SetNShape(nshape);
+        const auto seqnum = c.SequenceNumber();
+        int nStateVars = 2;
+        sp->Mesh()->Block().Set(seqnum,nshape*nStateVars);
+    }
 }
 
 
