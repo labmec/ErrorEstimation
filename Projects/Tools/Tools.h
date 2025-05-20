@@ -77,7 +77,7 @@ namespace Tools {
 
     void Prefinamento(TPZCompMesh *cmesh, int ndiv, int porder);
     void PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &config, TPZHDivApproxCreator &hdivCreator);
-    void SetCelPolynomialOrder(TPZCompEl *cel, TPZManVector<int> porder);
+    void SetCelPolynomialOrder(TPZCompEl *cel, TPZManVector<int> porder, int nStateVars);
 
     void SolveHybridProblem(TPZCompMesh *Hybridmesh, std::pair<int, int> InterfaceMatId, ProblemConfig &problem,
                             bool PostProcessingFEM);

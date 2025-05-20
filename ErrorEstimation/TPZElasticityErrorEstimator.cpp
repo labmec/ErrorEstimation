@@ -1214,6 +1214,7 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
             TPZGeoElSide gelside(gel, is);
             int matgelSide = gelside.Element()->MaterialId();
             
+            auto conIndex=intel->ConnectIndex(is);
             TPZConnect &c = intel->Connect(is);
             int64_t c_gelSide_seqnum  = c.SequenceNumber();
             int c_blocksize = c.NShape() * c.NState();
@@ -1232,6 +1233,15 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
                 TPZConnect &con_neigh = intelneigh->Connect(cneigh.Side());
                 int64_t c_neigh_seqnum = con_neigh.SequenceNumber();
                 int con_size = con_neigh.NState() * con_neigh.NShape();
+                //The problem is here with p-refinement
+                // if (c.Order() != con_neigh.Order()){
+                //     c.SetOrder(con_neigh.Order(),conIndex);
+                //     const int nshape =intel->NConnectShapeF(is,c.Order());
+                //     c.SetNShape(nshape);
+                //     const auto seqnum = c.SequenceNumber();
+                //     sp->Mesh()->Block().Set(seqnum,nshape*c.NState());
+                //     c_blocksize = c.NShape() * c.NState();
+                // }
                 if (con_size != c_blocksize) DebugStop();
                 for (int ibl = 0; ibl < con_size; ibl++) {
                     sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) = sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0));
