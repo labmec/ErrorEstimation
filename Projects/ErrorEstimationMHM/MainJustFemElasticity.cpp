@@ -352,7 +352,7 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
     pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 15;//numero de steps no refinamento
+    pConfig.adaptivityStep = 2;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
 

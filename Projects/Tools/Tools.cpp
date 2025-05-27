@@ -977,7 +977,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         }
     }
 
-    std::cout << "max error " << maxError << "\n";
+    //std::cout << "max error " << maxError << "\n";
 
   //   The elements which error are larger than 20% of the maximum error are
    //  marked to be refined
@@ -1000,18 +1000,19 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         int64_t el_id = gel->Id();
         TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
         if (!gelToRefine){
-            std::cout << "Element ID " << el_id << " not found in gmeshToRefine.\n";
-            continue;}
+            //std::cout << "Element ID " << el_id << " not found in gmeshToRefine.\n";
+            continue;
+        }
 
         current_level[el_id] = gelToRefine->Level();
         
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
-            std::cout << "Element ID: " << el_id<< ", Error: " << elementError<< ", Threshold: " << threshold<< "\n";
+        //    std::cout << "Element ID: " << el_id<< ", Error: " << elementError<< ", Threshold: " << threshold<< "\n";
         if (elementError > threshold) {
-            std::cout << "element error " << elementError << "el " << el_id << "\n";
+         //   std::cout << "element error " << elementError << "el " << el_id << "\n";
 
             if (!gelToRefine->HasSubElement()) {
-            std::cout << "Marking to refine Element ID: " << el_id << "\n";
+           // std::cout << "Marking to refine Element ID: " << el_id << "\n";
         
 //                gelsToRefine[el_id] = true;
                 //TODO: including a vector to store the elements to refine
