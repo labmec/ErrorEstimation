@@ -580,28 +580,101 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
     }
 
     //Now set the correct polynomial order of the elements
-    for(int imesh=0; imesh < fNumMeshes; imesh++){
-        int nstate = 2;
-        if (imesh == 2) nstate = 1;
-        for (auto cel:meshvec[imesh]->ElementVec()){
-            if (!cel) continue;
-            if (cel->Dimension() != 2) continue;
-            TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
-            if (!sp) continue;
-            int nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();//-cel->Reference()->NCornerNodes();
-            auto myIndex = cel->Reference()->Index();
-            for (int iconnect = 0; iconnect < nconnects; iconnect++){
-                TPZConnect &c = sp->Connect(iconnect);
-                auto conindex = sp->ConnectIndex(iconnect);
-                int conorder = config.elsRefinementP[myIndex][iconnect]; 
-                c.SetOrder(conorder,conindex);
-                const int nshape =sp->NConnectShapeF(iconnect,c.Order());
-                c.SetNShape(nshape);
-                const auto seqnum = c.SequenceNumber();
-                sp->Mesh()->Block().Set(seqnum,nshape*nstate);
-            }
+    //Different for each mesh
+    //Stress mesh
+    for (auto cel:meshvec[0]->ElementVec()){
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
+        TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!sp) continue;
+        int nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();//-cel->Reference()->NCornerNodes();
+        auto myIndex = cel->Reference()->Index();
+        sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-1]);
+        for (int iconnect = 0; iconnect < nconnects; iconnect++){
+            TPZConnect &c = sp->Connect(iconnect);
+            auto conindex = sp->ConnectIndex(iconnect);
+            int conorder = config.elsRefinementP[myIndex][iconnect]; 
+            c.SetOrder(conorder,conindex);
+            const int nshape =sp->NConnectShapeF(iconnect,c.Order());
+            c.SetNShape(nshape);
+            const auto seqnum = c.SequenceNumber();
+            int nstate = 2;
+            sp->Mesh()->Block().Set(seqnum,nshape*nstate);
         }
     }
+    //Displacement mesh
+    for (auto cel:meshvec[1]->ElementVec()){
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
+        TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!sp) continue;
+        int ncorners = cel->Reference()->NCornerNodes();
+        int nconnects = cel->Reference()->NSides();//-cel->Reference()->NCornerNodes();
+        auto myIndex = cel->Reference()->Index();
+        sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-ncorners-1]);
+        for (int iconnect = ncorners; iconnect < nconnects; iconnect++){
+            TPZConnect &c = sp->Connect(iconnect);
+            auto conindex = sp->ConnectIndex(iconnect);
+            int conorder = config.elsRefinementP[myIndex][iconnect-ncorners]+1;
+            if (iconnect == nconnects-1){
+                conorder -= 1; 
+            }
+            c.SetOrder(conorder,conindex);
+            const int nshape =sp->NConnectShapeF(iconnect,c.Order());
+            c.SetNShape(nshape);
+            const auto seqnum = c.SequenceNumber();
+            int nstate = 2;
+            sp->Mesh()->Block().Set(seqnum,nshape*nstate);
+        }
+    }
+    //Rotation mesh
+    for (auto cel:meshvec[2]->ElementVec()){
+        if (!cel) continue;
+        if (cel->Dimension() != 2) continue;
+        TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
+        if (!sp) continue;
+        int nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();//-cel->Reference()->NCornerNodes();
+        auto myIndex = cel->Reference()->Index();
+        sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-1]);
+        int conorder = config.elsRefinementP[myIndex][nconnects-1];
+        for (int iconnect = 0; iconnect < nconnects; iconnect++){
+            TPZConnect &c = sp->Connect(iconnect);
+            auto conindex = sp->ConnectIndex(iconnect);
+            c.SetOrder(conorder,conindex);
+            const int nshape =sp->NConnectShapeF(iconnect,c.Order());
+            c.SetNShape(nshape);
+            const auto seqnum = c.SequenceNumber();
+            int nstate = 1;
+            sp->Mesh()->Block().Set(seqnum,nshape*nstate);
+        }
+    }
+
+
+
+
+    // for(int imesh=0; imesh < fNumMeshes; imesh++){
+    //     int nstate = 2;
+    //     if (imesh == 2) nstate = 1;
+    //     for (auto cel:meshvec[imesh]->ElementVec()){
+    //         if (!cel) continue;
+    //         if (cel->Dimension() != 2) continue;
+    //         TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
+    //         if (!sp) continue;
+    //         int nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();//-cel->Reference()->NCornerNodes();
+    //         auto myIndex = cel->Reference()->Index();
+    //         sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-1]);
+    //         for (int iconnect = 0; iconnect < nconnects; iconnect++){
+    //             TPZConnect &c = sp->Connect(iconnect);
+    //             auto conindex = sp->ConnectIndex(iconnect);
+    //             int conorder = config.elsRefinementP[myIndex][iconnect]; 
+    //             c.SetOrder(conorder,conindex);
+    //             const int nshape =sp->NConnectShapeF(iconnect,c.Order());
+    //             c.SetNShape(nshape);
+    //             const auto seqnum = c.SequenceNumber();
+    //             sp->Mesh()->Block().Set(seqnum,nshape*nstate);
+    //         }
+    //     }
+    // }
     // for (int i = 0; i < meshvec[0]->NConnects(); i++){
     //     std::cout << "Connect = " << i << " Order = " << meshvec[0]->ConnectVec()[i].Order() << std::endl;
     // }
