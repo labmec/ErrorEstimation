@@ -612,11 +612,16 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         int nconnects = cel->Reference()->NSides();//-cel->Reference()->NCornerNodes();
         auto myIndex = cel->Reference()->Index();
         sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-ncorners-1]);
+        bool isequal = true;
+        int conOrder0 = config.elsRefinementP[myIndex][0];
         for (int iconnect = ncorners; iconnect < nconnects; iconnect++){
             TPZConnect &c = sp->Connect(iconnect);
             auto conindex = sp->ConnectIndex(iconnect);
-            int conorder = config.elsRefinementP[myIndex][iconnect-ncorners]+1;
-            if (iconnect == nconnects-1){
+            int conorder = config.elsRefinementP[myIndex][iconnect-ncorners]+config.hdivmais;
+            // if (iconnect != nconnects-1 && conorder != conOrder0){
+            //     isequal = false;
+            // }
+            if (iconnect == nconnects-1){// && !isequal){
                 conorder -= 1; 
             }
             c.SetOrder(conorder,conindex);
@@ -635,8 +640,8 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         if (!sp) continue;
         int nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();//-cel->Reference()->NCornerNodes();
         auto myIndex = cel->Reference()->Index();
-        sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-1]);
         int conorder = config.elsRefinementP[myIndex][nconnects-1];
+        sp->SetPreferredOrder(conorder);       
         for (int iconnect = 0; iconnect < nconnects; iconnect++){
             TPZConnect &c = sp->Connect(iconnect);
             auto conindex = sp->ConnectIndex(iconnect);
@@ -686,11 +691,11 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         meshvec[i]->ExpandSolution();
     }
 
-    std::ofstream outTXT1("cmeshstress.txt");
+    std::ofstream outTXT1("cmeshstress" + std::to_string(config.refStepCounter) + ".txt");
     meshvec[0]->Print(outTXT1);
-    std::ofstream outTXT2("cmeshdisp.txt");
+    std::ofstream outTXT2("cmeshdisp" + std::to_string(config.refStepCounter) + ".txt");
     meshvec[1]->Print(outTXT2);
-    std::ofstream outTXT3("cmeshrot.txt");
+    std::ofstream outTXT3("cmeshrot" + std::to_string(config.refStepCounter) + ".txt");
     meshvec[2]->Print(outTXT3);
 
     hdivCreator.CreateMultiPhysicsMesh(meshvec,lagLevelCounter,cmesh);

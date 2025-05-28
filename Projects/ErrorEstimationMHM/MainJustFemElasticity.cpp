@@ -227,7 +227,6 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
             
             pConfig.gmesh=gmesh;
             
-            
             SolveFEMProblemNew<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
           //  H1Family h1family=H1Family::EH1Standard;
           // SolveH1Problem<pzshape::TPZShapeQuad>(xdiv, pConfig.porder, h1family,pConfig);
@@ -931,7 +930,23 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
 
                 an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionFEM.vtk");
                 an.PostProcess(0, dim);
-            
+                
+                std::ofstream anPostProcessFile("PostprocessFem.txt");
+                TPZManVector<REAL,7> error(7,0);
+                an.LoadSolution();
+                cmesh->LoadSolution(cmesh->Solution());
+                cmesh->ExpandSolution();
+                int64_t nelem = an.Mesh()->NElements();
+                
+                
+                an.Mesh()->ElementSolution().Redim(nelem, 7);
+                // an.SetExact(elas->ExactSolution(),5);
+                an.PostProcessError(error,true,anPostProcessFile);
+
+                std::cout << "Error FEM: " << error << std::endl;
+
+
+
                 EstimateErrorElasticity(config, cmesh, refsteps);
                 
             }
