@@ -613,7 +613,8 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         auto myIndex = cel->Reference()->Index();
         sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-ncorners-1]);
         bool isequal = true;
-        int conOrder0 = config.elsRefinementP[myIndex][0];
+        // int conOrder0 = config.elsRefinementP[myIndex][0];
+        int conOrder0 = config.elsRefinementP[myIndex][nconnects-ncorners-1];
         for (int iconnect = ncorners; iconnect < nconnects; iconnect++){
             TPZConnect &c = sp->Connect(iconnect);
             auto conindex = sp->ConnectIndex(iconnect);
@@ -624,7 +625,7 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             if (iconnect == nconnects-1){// && !isequal){
                 conorder -= 1; 
             }
-            c.SetOrder(conorder,conindex);
+            c.SetOrder(conOrder0,conindex);
             const int nshape =sp->NConnectShapeF(iconnect,c.Order());
             c.SetNShape(nshape);
             const auto seqnum = c.SequenceNumber();

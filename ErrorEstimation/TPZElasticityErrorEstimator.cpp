@@ -263,7 +263,7 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     }
 
     //enriquecer no MHM tbem?
-    IncreasePrimalSideOrders(meshvec[1]);//malha do deslocamento
+    // IncreasePrimalSideOrders(meshvec[1]);//malha do deslocamento
     if(fPostProcesswithHDiv) {
         IncreaseSideOrders(meshvec[0]);//malha da tensão
     }
@@ -288,6 +288,8 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
         std::ofstream fileVTK("GeoMeshBeforeRestrain.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK);
         RestrainSmallEdges(meshvec[1]);
+        std::ofstream outtxt("CreateSkeletoncels3.txt");
+        meshvec[1]->Print(outtxt);
         std::ofstream fileVTK2("GeoMeshAfterRestrain.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK2);
     }
@@ -296,7 +298,8 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
     //RemoveMaterialObjects(fPostProcMesh.MaterialVec());
     fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
     fPostProcMesh.BuildMultiphysicsSpace(active, meshvec);
-
+    std::ofstream outtxt("CreateSkeletoncels4.txt");
+    fPostProcMesh.Print(outtxt);
     if(fPostProcesswithHDiv) {
         // Create multiphysics interface computational elements
         CreateMultiphysicsInterfaces();
@@ -1171,9 +1174,57 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     std::set<int> matIdSkeleton = { fPrimalSkeletonMatId };
     gmesh->ResetReference();
 
+
     displacement_mesh->ApproxSpace().CreateDisconnectedElements(true);
     displacement_mesh->AutoBuild(matIdSkeleton);
     displacement_mesh->ExpandSolution();
+    displacement_mesh->LoadReferences();
+    //Needed for p-refinement
+    for (int iel = 0; iel < displacement_mesh->NElements(); iel++){
+        TPZCompEl *cel = displacement_mesh->Element(iel);
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) continue;
+        
+        if (!cel) continue;
+        if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
+        TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!sp) continue;
+
+        TPZGeoElSide gelside(gel);
+        TPZStack<TPZGeoElSide> allneigh;
+        gelside.AllNeighbours(allneigh);
+
+        int order = -1;
+        for (TPZGeoElSide neighbour : allneigh){
+            if (neighbour.Element()->Dimension() != 2) continue;
+            int nconnects = neighbour.Element()->Reference()->NConnects();
+            int ncorner = neighbour.Element()->NCornerNodes();
+            int neighOrder = fConfig.elsRefinementP[neighbour.Element()->Index()][nconnects-ncorner-1]; 
+            int neighIndex = neighbour.Element()->Index();
+            if (order == -1) {
+                order = neighOrder;
+            } else {
+                order = std::min(neighOrder,order);
+            }
+        }
+        
+        TPZConnect &c = sp->Connect(2);// it is a 1d element
+        auto conindex = sp->ConnectIndex(2);
+        c.SetOrder(order,conindex);
+        const int nshape =sp->NConnectShapeF(2,c.Order());
+        c.SetNShape(nshape);
+        const auto seqnum = c.SequenceNumber();
+        int nstate = 2;
+        sp->Mesh()->Block().Set(seqnum,nshape*nstate);   
+    }
+    displacement_mesh->AdjustBoundaryElements();
+    displacement_mesh->CleanUpUnconnectedNodes();
+    displacement_mesh->InitializeBlock();
+    displacement_mesh->ExpandSolution();
+    std::ofstream outtxt("CreateSkeletoncels.txt");
+    displacement_mesh->Print(outtxt);
+
+    
 }
 
 void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
@@ -1196,6 +1247,8 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
         cel->LoadElementReference();
     }
 
+    //TODO 1- check the neighbours of all skeleton elements and set zero to the higher order functions
+    // OR - 2 - set the correct order to the connects of the skeleton elements
 
     TPZBlock &block =  pressuremesh->Block();
     TPZFMatrix<STATE> &sol = pressuremesh->Solution();
@@ -1242,9 +1295,17 @@ void TPZElasticityErrorEstimator::CopySolutionFromSkeleton() {
                 //     sp->Mesh()->Block().Set(seqnum,nshape*c.NState());
                 //     c_blocksize = c.NShape() * c.NState();
                 // }
-                if (con_size != c_blocksize) DebugStop();
-                for (int ibl = 0; ibl < con_size; ibl++) {
+                // if (con_size != c_blocksize) DebugStop();
+                int minblocksize = std::min(c_blocksize, con_size);
+                
+                for (int ibl = 0; ibl < minblocksize; ibl++) {
                     sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) = sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0));
+                }
+                for (int ibl = minblocksize; ibl < con_size; ibl++) {
+                    sol.at(block.at(c_neigh_seqnum, 0, ibl, 0)) = 0.;
+                }
+                for (int ibl = minblocksize; ibl < c_blocksize; ibl++) {
+                    sol.at(block.at(c_gelSide_seqnum, 0, ibl, 0)) = 0.;
                 }
             }
         }
