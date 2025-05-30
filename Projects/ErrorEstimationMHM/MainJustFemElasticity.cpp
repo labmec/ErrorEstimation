@@ -534,7 +534,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 
 #ifdef PZ_USING_MKL
                 TPZSSpStructMatrix<> strmat(cmesh);
-                strmat.SetNumThreads(8);
+                strmat.SetNumThreads(1);
 #else
                 TPZSkylineStructMatrix<STATE> strmat(cmesh);
                 strmat.SetNumThreads(4);
@@ -904,7 +904,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 
 #ifdef PZ_USING_MKL
                 TPZSSpStructMatrix<> strmat(cmesh);
-                strmat.SetNumThreads(8);
+                strmat.SetNumThreads(1);
 #else
                 TPZSkylineStructMatrix<STATE> strmat(cmesh);
                 strmat.SetNumThreads(4);
@@ -988,7 +988,7 @@ void SolveH1Problem(const int &xdiv, const int &pOrder, H1Family &h1family,Probl
         
 #ifdef PZ_USING_MKL
         TPZSSpStructMatrix<> strmat(cmesh);
-        strmat.SetNumThreads(8);
+        strmat.SetNumThreads(1);
 #else
         TPZSkylineStructMatrix<STATE> strmat(cmesh);
         strmat.SetNumThreads(4);
@@ -1095,7 +1095,7 @@ void SolvingH1Displacement(TPZCompMesh *cH1Mesh,ProblemConfig &config){
     
     #ifdef PZ_USING_MKL
             TPZSSpStructMatrix<> strmat(cH1Mesh);
-            strmat.SetNumThreads(8);
+            strmat.SetNumThreads(1);
     #else
             TPZSkylineStructMatrix<STATE> strmat(cH1Mesh);
             strmat.SetNumThreads(4);

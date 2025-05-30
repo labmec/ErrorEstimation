@@ -1197,9 +1197,9 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
         int order = -1;
         for (TPZGeoElSide neighbour : allneigh){
             if (neighbour.Element()->Dimension() != 2) continue;
-            int nconnects = neighbour.Element()->Reference()->NConnects();
+            int nsides = neighbour.Element()->NSides();
             int ncorner = neighbour.Element()->NCornerNodes();
-            int neighOrder = fConfig.elsRefinementP[neighbour.Element()->Index()][nconnects-ncorner-1]; 
+            int neighOrder = fConfig.elsRefinementP[neighbour.Element()->Index()][nsides-ncorner-1]; 
             int neighIndex = neighbour.Element()->Index();
             if (order == -1) {
                 order = neighOrder;

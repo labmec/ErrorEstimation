@@ -450,13 +450,15 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
 
     
     //The first time the code passes through this function, all connect orders are stored;
-    if (config.elsRefinementP.size() == 0){
-        for (int iel = 0; iel < meshvec[0]->Reference()->NElements(); iel++) {
+    // if (config.elsRefinementP.size() == 0){
+    auto nelements = meshvec[0]->NElements();
+        for (int iel = 0; iel < meshvec[0]->NElements(); iel++) {
             TPZCompEl* cel = meshvec[0]->ElementVec()[iel];
             if (!cel) continue;
             if (cel->Reference()->Dimension() != 2) continue;
             TPZInterpolatedElement* sp = dynamic_cast<TPZInterpolatedElement*>(cel);
             if (!sp) continue;
+            if (config.elsRefinementP[cel->Reference()->Index()].size() > 0) continue; //Already stored
             int nconnects = cel->NConnects();
             TPZManVector<int> order(nconnects,0);
             for (int iconnect = 0; iconnect < nconnects; iconnect++){
@@ -466,24 +468,26 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             }
             config.elsRefinementP[cel->Reference()->Index()] = order;
         }
-    }
+    // }
     
     bool changed = true;
     //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
     while (changed){
         changed = false;
         for (auto iel:config.elsRefinementP) {
-            TPZCompEl* celS = meshvec[0]->ElementVec()[iel.first];
-            if (celS->Reference()->Dimension() != 2) continue;
+            TPZGeoEl* gel = meshvec[0]->Reference()->ElementVec()[iel.first];
+            TPZCompEl* celS = gel->Reference();//meshvec[0]->ElementVec()[iel.first];
+            if (!celS) continue;
+            if (gel->Dimension() != 2) continue;
 
             //Now we are looking to the computational elements for each atomic mesh.
             //Loop into the sides, check the order of the neighbouring elements and set the 
             //connect order        
             int nconnects = celS->NConnects();
-            auto myIndex = celS->Reference()->Index();
+            auto myIndex = gel->Index();
             int myorder = config.elsRefinementP[myIndex][nconnects-1];
             for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
-                TPZGeoElSide gelside(celS->Reference(),iconnect);
+                TPZGeoElSide gelside(gel,iconnect);
 
                 TPZStack<TPZGeoElSide> allneigh;
                 gelside.AllNeighbours(allneigh);
@@ -509,18 +513,20 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             }
         }
     }
-        
+    
+    meshvec[0]->LoadReferences();   
     changed=true;
     while (changed){
         changed = false;
         //Then compatibilize edges
         for (auto iel:config.elsRefinementP) {
-            TPZCompEl* celS = meshvec[0]->ElementVec()[iel.first];
-            if (celS->Dimension() != 2) continue;
+            TPZGeoEl* gel = meshvec[0]->Reference()->ElementVec()[iel.first];
+            TPZCompEl* celS = gel->Reference();
+            if (gel->Dimension() != 2) continue;
             // TPZCompEl* celU = meshvec[1]->ElementVec()[iel.first];
             // TPZCompEl* celR = meshvec[2]->ElementVec()[iel.first];
 
-            if (!celS) DebugStop();
+            if (!celS) continue;
             TPZInterpolatedElement *spS = dynamic_cast<TPZInterpolatedElement *>(celS);
             // TPZInterpolatedElement *spU = dynamic_cast<TPZInterpolatedElement *>(celU);
             // TPZInterpolationSpace *spR = dynamic_cast<TPZInterpolationSpace *>(celR);
@@ -535,14 +541,16 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             int myorder = config.elsRefinementP[myIndex][nconnects-1];
             for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
                 TPZGeoElSide gelside(celS->Reference(),iconnect+ncorner);
-                TPZCompElSide celside(celS,iconnect+ncorner);
                 TPZStack<TPZGeoElSide> allneigh;
                 gelside.AllNeighbours(allneigh);
                 //Get the order of volumetric neighbours
                 int neighOrder = -1;
+                TPZVec<TPZGeoEl*> sons;
                 for (TPZGeoElSide neighbour : allneigh){
                     if (neighbour.Element()->Dimension() != 2) continue;
                     neighOrder = config.elsRefinementP[neighbour.Element()->Index()][nconnects-1]; 
+                    neighbour.Element()->GetHigherSubElements(sons);
+                    // neighbour.Element()->GetSubElements2(nconnects-1, sons, 2);
                 }
                 if (neighOrder < 0) {//It is a boundary side. Then, refine the order
                     config.elsRefinementP[myIndex][iconnect] = myorder-1;
@@ -558,12 +566,25 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
                         if (neighOrder == myorder-1){          
                             config.elsRefinementP[myIndex][iconnect] = myorder-1;
                             config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
+                            for (int isons = 0; isons < sons.size(); isons++){
+                                if (config.elsRefinementP[sons[isons]->Index()].size() == 0) continue;
+                                config.elsRefinementP[sons[isons]->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+                            }
+                            
                         } else if (neighOrder == myorder){
                             config.elsRefinementP[myIndex][iconnect] = myorder-1;
                             config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
+                            for (int isons = 0; isons < sons.size(); isons++){
+                                if (config.elsRefinementP[sons[isons]->Index()].size() == 0) continue;
+                                config.elsRefinementP[sons[isons]->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+                            }
                         } else if (neighOrder == myorder+1){
                             config.elsRefinementP[myIndex][iconnect] = myorder;
                             config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder;
+                            for (int isons = 0; isons < sons.size(); isons++){
+                                if (config.elsRefinementP[sons[isons]->Index()].size() == 0) continue;
+                                config.elsRefinementP[sons[isons]->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+                            }
                         }//if
                     }// neighbours
                 }//if
@@ -1167,22 +1188,8 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
             
             int nconnects = config.elsRefinementP[gelToRefine->Index()].size();
             config.elsRefinementP[gelToRefine->Index()][nconnects-1]++;
-
-            
-            // std::cout<<"P-refine "<<geoId<<"\n";
-            // TPZCompEl* cel=gelToRefine->Reference();
-            // TPZCompEl* aux = cmeshToRefine->ElementVec()[cel->Index()];
-
-            // if (!cel) DebugStop();
-            // TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
-            // TPZInterpolatedElement *sp2 = dynamic_cast<TPZInterpolatedElement *>(aux);
-            // TPZCompElHDiv<pzshape::TPZShapeQuad> *sp3 = dynamic_cast<TPZCompElHDiv<pzshape::TPZShapeQuad> *> (aux);
-            // int level = sp->Reference()->Level();
-            // int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
-            // std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
-            // sp->PRefine(ordem);
         } else {
-            continue;
+            // continue;
             int geoId=elementsToRefine[iel];
             TPZVec<TPZGeoEl*> sons;
             TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
