@@ -525,6 +525,7 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             if (gel->Dimension() != 2) continue;
             // TPZCompEl* celU = meshvec[1]->ElementVec()[iel.first];
             // TPZCompEl* celR = meshvec[2]->ElementVec()[iel.first];
+            if (gel->Father()) continue; //Only for the father elements
 
             if (!celS) continue;
             TPZInterpolatedElement *spS = dynamic_cast<TPZInterpolatedElement *>(celS);
@@ -545,11 +546,11 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
                 gelside.AllNeighbours(allneigh);
                 //Get the order of volumetric neighbours
                 int neighOrder = -1;
-                TPZVec<TPZGeoEl*> sons;
+                // TPZVec<TPZGeoEl*> sons;
                 for (TPZGeoElSide neighbour : allneigh){
                     if (neighbour.Element()->Dimension() != 2) continue;
                     neighOrder = config.elsRefinementP[neighbour.Element()->Index()][nconnects-1]; 
-                    neighbour.Element()->GetHigherSubElements(sons);
+                    // neighbour.Element()->GetHigherSubElements(sons);
                     // neighbour.Element()->GetSubElements2(nconnects-1, sons, 2);
                 }
                 if (neighOrder < 0) {//It is a boundary side. Then, refine the order
@@ -566,24 +567,31 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
                         if (neighOrder == myorder-1){          
                             config.elsRefinementP[myIndex][iconnect] = myorder-1;
                             config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
+                            
+                            TPZStack<TPZGeoElSide> sons;
+                            neighbour.GetSubElements2(sons);
                             for (int isons = 0; isons < sons.size(); isons++){
-                                if (config.elsRefinementP[sons[isons]->Index()].size() == 0) continue;
-                                config.elsRefinementP[sons[isons]->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+                                if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
+                                config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder-1;  
                             }
                             
                         } else if (neighOrder == myorder){
                             config.elsRefinementP[myIndex][iconnect] = myorder-1;
                             config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
+                            TPZStack<TPZGeoElSide> sons;
+                            neighbour.GetSubElements2(sons);
                             for (int isons = 0; isons < sons.size(); isons++){
-                                if (config.elsRefinementP[sons[isons]->Index()].size() == 0) continue;
-                                config.elsRefinementP[sons[isons]->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+                                if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
+                                config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder-1;  
                             }
                         } else if (neighOrder == myorder+1){
                             config.elsRefinementP[myIndex][iconnect] = myorder;
                             config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder;
+                            TPZStack<TPZGeoElSide> sons;
+                            neighbour.GetSubElements2(sons);
                             for (int isons = 0; isons < sons.size(); isons++){
-                                if (config.elsRefinementP[sons[isons]->Index()].size() == 0) continue;
-                                config.elsRefinementP[sons[isons]->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+                                if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
+                                config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder;  
                             }
                         }//if
                     }// neighbours
