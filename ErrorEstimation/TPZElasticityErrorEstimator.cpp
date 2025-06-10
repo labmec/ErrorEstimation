@@ -1008,19 +1008,19 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             neigh_intel->Solution(pt0_vol, 1, neigh_sol);
 
             {
-                for (int icon = 0; icon < 3; icon++)
-                {
-                    int side = neigh_gelside.Side();
-                    int64_t conindex = neigh_intel->ConnectIndex(icon);
-                    TPZConnect &c = pressuremesh->ConnectVec()[conindex];
-
-                    int64_t seqnum = c.SequenceNumber();
-                    // if (c.NState() != nstate || c.NShape() != 1) DebugStop();
-                    for (int istate = 0; istate < nstate; istate++) {
-                        std::cout << "Coeficiente multiplicador " << istate << " " << sol.at(block.at(seqnum, 0, istate, 0)) << std::endl;
-                        // sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
-                    }
-                }
+//                for (int icon = 0; icon < 3; icon++)
+//                {
+//                    int side = neigh_gelside.Side();
+//                    int64_t conindex = neigh_intel->ConnectIndex(icon);
+//                    TPZConnect &c = pressuremesh->ConnectVec()[conindex];
+//
+//                    int64_t seqnum = c.SequenceNumber();
+//                    // if (c.NState() != nstate || c.NShape() != 1) DebugStop();
+//                    for (int istate = 0; istate < nstate; istate++) {
+//                        //std::cout << "Coeficiente multiplicador " << istate << " " << sol.at(block.at(seqnum, 0, istate, 0)) << std::endl;
+//                        // sol.at(block.at(seqnum, 0, istate, 0)) = neigh_sol[istate];
+//                    }
+//                }
                 
                 
 
@@ -1031,8 +1031,8 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
                 TPZManVector<STATE, 3> neigh_sol3(nstate, 0.);
                 TPZManVector<REAL, 3> pt0_vol3(1, 1.);
                 neigh_intel->Solution(pt0_vol3, 1, neigh_sol3);
-                std::cout << "neigh_sol " << neigh_sol << " neigh_sol2 " << neigh_sol2 << " neigh_sol3 " << neigh_sol3 << std::endl;
-                std::cout << "neigh_aver " << (neigh_sol2[0]+neigh_sol3[0])/2 << " " << (neigh_sol2[0]+neigh_sol3[1])/2 << std::endl;
+                //std::cout << "neigh_sol " << neigh_sol << " neigh_sol2 " << neigh_sol2 << " neigh_sol3 " << neigh_sol3 << std::endl;
+                //std::cout << "neigh_aver " << (neigh_sol2[0]+neigh_sol3[0])/2 << " " << (neigh_sol2[0]+neigh_sol3[1])/2 << std::endl;
 
             }
             
@@ -1679,8 +1679,8 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, const std::str
             scalnames.Push("DisplacementEffectivityIndex");
             scalnames.Push("EnergyEffectivityIndex");
             vecnames.Push("StressExact");
-            vecnames.Push("EpsExact");
-            scalnames.Push( "EnergyH1Error");
+           // vecnames.Push("EpsExact");
+           // scalnames.Push( "EnergyH1Error");
         }
         vecnames.Push("DisplacementFem");
         vecnames.Push("DisplacementReconstructed");
@@ -1688,10 +1688,10 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, const std::str
         scalnames.Push("EnergyErrorEstimate");
         vecnames.Push("StressFem");
         vecnames.Push("StressReconstructed");
-        scalnames.Push("POrder");
+        //scalnames.Push("POrder");
         vecnames.Push("EpsRec");
         scalnames.Push("LocalErrorIndicator");
-        vecnames.Push("DisplacementFemH1");
+        //vecnames.Push("DisplacementFemH1");
         //scalnames.Push("ErrorDispFemH1Rec");
         
         //vecnames.Push("State");
@@ -1712,10 +1712,10 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
      col[0] - error computed with exact displacement (|| u_fem-u_exact ||) --> exact error
      col[1] - error computed with reconstructed displacement  (|| u_exact-u_rec ||) --> estimated error
      col[2] - energy error computed with exact solution  (|| sigma - sigma_fem ||_{C})---> exact error
-     col[3] - energy error computed with reconstructed displacement  (|| sigma_fem - A epsilon(u_rec)||_{C})---> estimated error
+     col[3] - energy error computed with reconstructed displacement  (|| sigma_fem^S - A epsilon(u_rec)||_{C})---> estimated error
      col[4] = || u_rec - u_fem ||
      col[5] - oscilatory data error (|| f - Proj_divsigma ||)
-     col[6] - ||sigma_fem^AS||_C --> antisymmetric error
+     col[6] - ||sigma_fem^AS-AR(u_rec)||_C --> antisymmetric error
      col[7] |u_ex- u_h1|
      col[8] |sigma_fem - Aeps(u_h1)|
      error[9] = | sigma_ex - A epsilon(u_h1) ||_{C})
@@ -1752,6 +1752,9 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
 
     REAL etaEstim=0.;
     REAL etaAssym=0.;
+    REAL SymmIndicator=0.;
+    REAL ASymmIndicator=0.;
+    
     
     
     
@@ -1772,10 +1775,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         REAL hk = gel->CharacteristicSize();
         REAL oscilatoryterm = 0;
         REAL antiSym = 0.;
-        REAL CKorn= 2.;
-        
-        
-        
+        REAL oscConst= (7.)*hk/M_PI;
 
         for (int i = 0; i < 3; i += 2) {
             REAL ErrorEstimate = elsol(el, i + 1);
@@ -1798,9 +1798,10 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     else{
         
         oscilatoryterm = elsol(el, 5);
-        CKorn = 0.5 * (1 + M_SQRT2) * hk;
-        oscilatoryterm *= 0.*CKorn;
-        globalResidual += oscilatoryterm;
+        //CKorn = 0.5 * (1 + M_SQRT2) * hk;
+        oscilatoryterm *= oscConst;
+        globalResidual += oscilatoryterm*oscilatoryterm;
+        
         
         //                if(oscilatorytherm< tol){
         //
@@ -1809,15 +1810,17 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         //                }
         
         antiSym = elsol(el, 6);
-        n3 += antiSym * antiSym;
+        ASymmIndicator += antiSym * antiSym;
         globalExact += ErrorExact * ErrorExact;
         globalEstim += ErrorEstimate * ErrorEstimate;
-        n2n3 += (oscilatoryterm + ErrorEstimate) * (oscilatoryterm + ErrorEstimate);
+       // n2n3 += (oscilatoryterm + ErrorEstimate) * (oscilatoryterm + ErrorEstimate);
+        
+       // REAL Estim_local =((ErrorEstimate + oscilatoryterm) * (ErrorEstimate + oscilatoryterm) + antiSym * antiSym);
         
         REAL Estim_local =
-        ((ErrorEstimate + oscilatoryterm) * (ErrorEstimate + oscilatoryterm) + antiSym * antiSym);
+        (oscilatoryterm*oscilatoryterm)+(ErrorEstimate*ErrorEstimate) +  (antiSym * antiSym);
         
-        REAL EfIndex = sqrt(Estim_local) / ErrorExact;
+        REAL EfIndex = Estim_local/ ErrorExact;
         dataIeff(el, 0) = EfIndex;
         elsol(el, ncols+1) = EfIndex; //
         elsol(el, ncols+2) = Estim_local;
@@ -1840,9 +1843,9 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
     }
 
-    REAL globalIndex = n2n3+n3;
+    REAL globalIndex = sqrt(globalResidual)+sqrt(globalEstim)+sqrt(ASymmIndicator);
 
-    fEstimatedError = sqrt(globalIndex);
+    fEstimatedError = globalIndex;//sqrt(globalIndex);
     REAL NormExact= sqrt(globalExact);
 
     if ( fEstimatedError< tol || NormExact<tol){
@@ -1861,7 +1864,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
 
             std::ofstream outFile(filePath, std::ios::app);
             
-    outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalEstim= "<<fEstimatedError<<" AntiSymmetric= "<<n3<< " GlobalResidual= "<<globalResidual<<" GlobalRecTensor = "<< globalEstim <<" Global Exact= "<<NormExact<<"\n";
+    outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalEstim= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
     outFile.close();
             
  
