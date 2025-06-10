@@ -196,16 +196,16 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="SymmetricTest";
-   // pConfig.dir_name = "SmoothProb";
-    pConfig.dir_name = "SymmetricTest";
+    pConfig.dir_name = "SmoothProb-Quad";
+   // pConfig.dir_name = "SymmetricTest";
     
     const int xdiv = 2; //Number of elements in each direction
-    const int pOrder = 2;
+    const int pOrder = 3;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 5;//numero de steps no refinamento
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep =1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
@@ -213,7 +213,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {2,1};
    
     
-    TPZVec<int> divs = {2};
+    TPZVec<int> divs = {8};//,16,32,64};
     
     for (int64_t iorder=1; iorder< pOrder;iorder++) {
         pConfig.porder = iorder;
@@ -297,7 +297,7 @@ void RunSmoothProblemTrapMesh(ProblemConfig &pConfig){
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="EHarmonic-ETrap";
-    pConfig.dir_name = "SmoothProb";
+    pConfig.dir_name = "SmoothProb-Trap";
     
     const int xdiv = 10; //Number of elements in each direction
     const int pOrder = 2;
@@ -313,7 +313,7 @@ void RunSmoothProblemTrapMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {4,4};
    
     
-    TPZVec<int> divs = {4,8,16,32};//4,8,16,32,64,128,256,512};
+    TPZVec<int> divs = {16};//4,8,16,32};//4,8,16,32,64,128,256,512};
     
     for (int64_t iorder=1; iorder< pOrder;iorder++) {
         pConfig.porder = iorder;
@@ -894,8 +894,11 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 InsertMaterials(DIM,hdivCreator,gAnalytic);
                 
                 //Gets the Multiphysics mesh from the HdivApproxCreator
-                TPZMultiphysicsCompMesh *cmesh = nullptr;// = hdivCreator.CreateApproximationSpace();
-                Tools::PRefinementNew(cmesh, config, hdivCreator);
+            
+                //TPZMultiphysicsCompMesh *cmesh = nullptr;// = hdivCreator.CreateApproximationSpace();
+               // Tools::PRefinementNew(cmesh, config, hdivCreator);
+            
+            TPZMultiphysicsCompMesh *cmesh =hdivCreator.CreateApproximationSpace();
                 
                 //Create the analysis environment
                 TPZLinearAnalysis an(cmesh,RenumType::ESloan);

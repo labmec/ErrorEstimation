@@ -1613,20 +1613,20 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
         ss << ", AdaptivityStep = " << config.adaptivityStep;
     }
     ss << '\n';
-    ss << "|sigma_fem-Aeps(u_rec)| = " << error_vec[3] << "\n";
-    ss<< "|sigma_fem - Aeps(u_h1)|_{C}= "<< error_vec[8] << "\n";
+    ss << "|sigma_fem^S-Aeps(u_rec)|_{C} = " << error_vec[3] << "\n";
+    //ss<< "|sigma_fem - Aeps(u_h1)|_{C}= "<< error_vec[8] << "\n";
     
     ss << "|u_fem-u_rec| = " << error_vec[4] << "\n";
     ss << "Residual Error L2 = " << error_vec[5] << "\n";
-    ss << "|sigma_femAS|_{C}= " << error_vec[6]<< "\n";
+    ss << "|sigma_femAS-AR(u_rec)|_{C}= " << error_vec[6]<< "\n";
     
     if (config.exactElast) {
         //ss << "Global exact error = " << error_vec[2] << "\n";
         ss << "|u_ex-u_fem| = " << error_vec[0]<< "\n";
-        ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
-        ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
+       // ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
+       // ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
-        ss<<"|sigma_ex-Aeps(u_h1)| = " << error_vec[9] << "\n";
+       // ss<<"|sigma_ex-Aeps(u_h1)| = " << error_vec[9] << "\n";
        
         
         out << ss.str();
