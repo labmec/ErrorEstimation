@@ -476,14 +476,12 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         changed = false;
         for (auto iel:config.elsRefinementP) {
             TPZGeoEl* gel = meshvec[0]->Reference()->ElementVec()[iel.first];
-            TPZCompEl* celS = gel->Reference();//meshvec[0]->ElementVec()[iel.first];
-            if (!celS) continue;
             if (gel->Dimension() != 2) continue;
 
             //Now we are looking to the computational elements for each atomic mesh.
             //Loop into the sides, check the order of the neighbouring elements and set the 
             //connect order        
-            int nconnects = celS->NConnects();
+            int nconnects = gel->NSides()-gel->NCornerNodes();
             auto myIndex = gel->Index();
             int myorder = config.elsRefinementP[myIndex][nconnects-1];
             for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
@@ -624,6 +622,22 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         for (int iconnect = 0; iconnect < nconnects; iconnect++){
             int conorder = config.elsRefinementP[myIndex][iconnect]; 
             sp->SetSideOrder(iconnect+ncorner, conorder);
+            TPZConnect &c = sp->Connect(iconnect);
+            if (c.HasDependency()){
+                TPZGeoElSide gelside(cel->Reference(),iconnect+ncorner);
+                TPZGeoElSide father = gelside.Father2();
+                int fatherside = father.Side();
+                // Now gets the neighbour of the father element
+                TPZStack<TPZGeoElSide> allneigh;
+                father.AllNeighbours(allneigh);
+                for (auto neighbour:allneigh){
+                    if (neighbour.Element()->Dimension() != 2) continue;
+                    TPZInterpolatedElement *neighsp = dynamic_cast<TPZInterpolatedElement *>(neighbour.Element()->Reference());
+                    c.RemoveDepend();
+                    sp->RestrainSide(iconnect+ncorner,neighsp,neighbour.Side());
+                    c.CheckDependency(c.NShape(),meshvec[0],2);
+                }
+            }
             
             // TPZConnect &c = sp->Connect(iconnect);
             // auto conindex = sp->ConnectIndex(iconnect);
@@ -723,9 +737,7 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
 
     for (int i = 0; i < 3; i++){
         meshvec[i]->AdjustBoundaryElements();
-        meshvec[i]->CleanUpUnconnectedNodes();
         meshvec[i]->InitializeBlock();
-        meshvec[i]->ExpandSolution();
     }
 
     std::ofstream outTXT1("cmeshstress" + std::to_string(config.refStepCounter) + ".txt");
