@@ -895,10 +895,10 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 
                 //Gets the Multiphysics mesh from the HdivApproxCreator
             
-                //TPZMultiphysicsCompMesh *cmesh = nullptr;// = hdivCreator.CreateApproximationSpace();
-               // Tools::PRefinementNew(cmesh, config, hdivCreator);
+                TPZMultiphysicsCompMesh *cmesh = nullptr;// = hdivCreator.CreateApproximationSpace();
+               Tools::PRefinementNew(cmesh, config, hdivCreator);
             
-            TPZMultiphysicsCompMesh *cmesh =hdivCreator.CreateApproximationSpace();
+            // TPZMultiphysicsCompMesh *cmesh =hdivCreator.CreateApproximationSpace();
                 
                 //Create the analysis environment
                 TPZLinearAnalysis an(cmesh,RenumType::ESloan);
