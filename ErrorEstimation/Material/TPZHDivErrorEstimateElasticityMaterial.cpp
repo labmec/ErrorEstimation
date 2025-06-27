@@ -647,6 +647,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     TPZFNMatrix<9, STATE> Csigma_fem(dim, dim, 0.);
     FromVoigt(Csigma_femV, Csigma_fem);
 
+    TPZFNMatrix<9, STATE> rotfem(dim, dim, 0.);
+    rotfem(0, 1) = datavec[4].sol[0][0];
+    rotfem(1, 0) = -rotfem(0, 1);
     
 //    //defining test functions
 //    // Setting the phis
@@ -671,20 +674,102 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
 //        eps_phiuk(1, 1) = du(1, 1);
 //
 //        ToVoigt(eps_phiuk, eps_phiukV[in]);
-        ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(1,0));
-        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(0,0));
+        ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + (Csigma_fem[Exy] + rotfem(0, 1))*du(1,0));
+        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + (Csigma_fem[Eyx] + rotfem(1, 0))*du(0,0));
         for(int jn = 0; jn < nphiuk; jn++ ) {
             du(0,1) = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
             du(1,1) = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
             
-            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + 0.5*du(1,1)*du(1,0));
-            ek(2*in,2*jn+1) += weight * 0.5*du(0,1)*du(1,0);
-            ek(2*in+1,2*jn) += weight * 0.5*du(1,1)*du(0,0);
-            ek(2*in+1,2*jn+1) += weight * (du(1,1)*du(1,0) + 0.5*du(0,1)*du(0,0));
+            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
+            ek(2*in+1,2*jn+1) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
         }        
     }
     
 }
+
+// void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
+//     /**
+   
+//      datavec[0] H1 mesh, local uk/grad v for Mark reconstruction and Empty for H1 reconstruction
+//      datavec[1] L2 mesh, restriction of local uk
+//      datavec[2] Hdiv mesh, sigmakE
+//      datavec[3] L2 mesh, ukE
+     
+//      Implement the matrix
+//      (eps (u_rec),eps(v)) = (C sigma_fem,eps(v))
+     
+//      int eps(u_rec): eps(v) dx = int C sigma_fem : eps(v) dx
+   
+//      **/
+
+//     int dim = this->fDimension;
+//     int matdim = dim*dim;
+//     TPZManVector<REAL, 3> x = datavec[2].x;
+
+//     TElasticityAtPoint elast(fE_const, fnu_const);
+//     if (TPZMixedElasticityND::fElasticity) {
+//         TPZManVector<STATE, 3> result(2);
+//         TPZFNMatrix<4, STATE> Dres(0, 0);
+//         fElasticity(x, result, Dres);
+//         REAL E = result[0];
+//         REAL nu = result[1];
+//         TElasticityAtPoint modify(E, nu);
+//         elast = modify;
+//     }
+//     TPZFNMatrix<9, STATE> stressfem(dim, dim, 0.);
+//     for (unsigned int i = 0; i < dim; i++) {
+//         for (unsigned int j = 0; j < dim; j++) {
+//             stressfem(i, j) = datavec[2].sol[0][j + i * dim];
+//         }
+//     }
+//     //compute C(sigma)
+//     TPZManVector<STATE, 9> stress_femV(matdim, 0.);
+//     ToVoigt(stressfem, stress_femV);
+
+//     TPZManVector<STATE, 9> Csigma_femV(matdim, 0.);
+//     ComputeDeformationVector(stress_femV, Csigma_femV, elast);
+    
+//     TPZFNMatrix<9, STATE> Csigma_fem(dim, dim, 0.);
+//     FromVoigt(Csigma_femV, Csigma_fem);
+
+    
+// //    //defining test functions
+// //    // Setting the phis
+//     int H1functionposition = 0;
+//     H1functionposition = FirstNonNullApproxSpaceIndex(datavec);
+//     TPZFMatrix<REAL> &phiuk = datavec[H1functionposition].phi;
+//     TPZFMatrix<REAL> &dphiukaxes = datavec[H1functionposition].dphix;
+//     TPZFNMatrix<9, REAL> dphiuk(3, dphiukaxes.Cols());
+//     TPZAxesTools<REAL>::Axes2XYZ(dphiukaxes, dphiuk, datavec[H1functionposition].axes);
+    
+//     const auto nphiuk = phiuk.Rows();
+//     const auto &axes = datavec[2].axes;
+//     TPZVec<TPZManVector<STATE,9>> eps_phiukV(nphiuk, TPZManVector<STATE, 9>(matdim, 0.));
+//     for(int in = 0; in < nphiuk; in++ ) {
+// 	TPZFNMatrix<4,STATE> du(2,2);
+//         du(0,0) = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
+//         du(1,0) = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
+        
+// //        TPZFNMatrix<9, STATE> eps_phiuk(dim, dim, 0.);
+// //        eps_phiuk(0, 0) = du(0, 0);
+// //        eps_phiuk(1, 0) = eps_phiuk(0, 1) = 0.5 * (du(0, 1) + du(1, 0));
+// //        eps_phiuk(1, 1) = du(1, 1);
+// //
+// //        ToVoigt(eps_phiuk, eps_phiukV[in]);
+//         ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(1,0));
+//         ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(0,0));
+//         for(int jn = 0; jn < nphiuk; jn++ ) {
+//             du(0,1) = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
+//             du(1,1) = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
+            
+//             ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + 0.5*du(1,1)*du(1,0));
+//             ek(2*in,2*jn+1) += weight * 0.5*du(0,1)*du(1,0);
+//             ek(2*in+1,2*jn) += weight * 0.5*du(1,1)*du(0,0);
+//             ek(2*in+1,2*jn+1) += weight * (du(1,1)*du(1,0) + 0.5*du(0,1)*du(0,0));
+//         }        
+//     }
+    
+// }
 
 void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMaterialDataT<STATE>> &datavec, REAL weight, TPZFMatrix<STATE> &ek,
         TPZFMatrix<STATE> &ef, TPZBndCondT<STATE> &bc) {
@@ -819,4 +904,22 @@ int TPZHDivErrorEstimateElasticityMaterial::NSolutionVariables(int var) const
             break;
     }
     return 0;
+}
+
+void TPZHDivErrorEstimateElasticityMaterial::FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec) const {
+
+    
+        //fem solution for flux and potential
+        datavec[0].SetAllRequirements(false);
+        datavec[0].fNeedsSol = true;
+        datavec[0].fNeedsNormal = true;
+
+        datavec[2].SetAllRequirements(false);
+        datavec[2].fNeedsSol = true;
+        datavec[2].fNeedsNormal = true;
+
+        datavec[4].SetAllRequirements(false);
+        datavec[4].fNeedsSol = true;
+    
+
 }
