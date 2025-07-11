@@ -200,7 +200,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
    // pConfig.dir_name = "SymmetricTest";
     
     const int xdiv = 2; //Number of elements in each direction
-    const int pOrder = 3;
+    const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
