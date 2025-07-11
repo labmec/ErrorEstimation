@@ -195,7 +195,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
-    pConfig.problemname="SymmetricTest";
+    pConfig.problemname="EHomoDir-Problem";
     pConfig.dir_name = "SmoothProb-Quad";
    // pConfig.dir_name = "SymmetricTest";
     
@@ -213,9 +213,9 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {2,1};
    
     
-    TPZVec<int> divs = {8};//,16,32,64};
+    TPZVec<int> divs = {8,16,32};//,64};
     
-    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+    for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
         
         for (int idiv = 0; idiv < divs.size(); idiv++){
@@ -927,7 +927,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
             
                 TPZStack<std::string> vecnames,scalnames;
                 vecnames.Push("Displacement");
-                scalnames.Push("POrder");
+               // scalnames.Push("POrder");
             
                 int dim = 2;
 

@@ -201,6 +201,7 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
     else {
         TPZCompMesh *mult = fOriginal;
         TPZCompMesh *pressureMesh = fOriginal->MeshVector()[1]->Clone();
+    
         TPZGeoMesh *gmesh = pressureMesh->Reference();
         gmesh->ResetReference();
         int dim = gmesh->Dimension();
@@ -308,7 +309,7 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
             std::ofstream outTXT("PostProcOriginalMesh.txt");
             pressureMesh->Print(outTXT);
         }
-
+        
         return pressureMesh;
     }
 }
@@ -328,6 +329,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::CreatePostProcessingMesh() {
         fPostProcMesh.Print(out3);
     }
 #endif
+    
+    
+    std::ofstream out2("OriginalPotential.txt");
+    fOriginal->MeshVector()[1]->Print(out2);
 
     // initialize the post processing mesh
     fPostProcMesh.SetReference(fOriginal->Reference());
@@ -1844,6 +1849,9 @@ bool TPZHDivErrorEstimator<MixedMaterial>::IsDirichletCondition(TPZGeoElSide gel
 
 template <typename MixedMaterial>
 void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
+    
+    
+   
 
     if (fPostProcMesh.MeshVector().size()) {
         DebugStop();
@@ -1854,6 +1862,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     std::filesystem::create_directory("ReconstructionSteps");
     std::filesystem::create_directory("DebuggingTransfer");
     //#endif
+    
+    std::ofstream outfile1("ReconstructionSteps/MeshOnInitialPrimalREc.txt");
+    fPostProcMesh.Print(outfile1);
+    
     
     CreatePostProcessingMesh();
 
@@ -1916,11 +1928,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
     
     
+    std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
+    fPostProcMesh.Print(out);
 
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
 
-    std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
-    fPostProcMesh.Print(out);
+//    std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
+//    fPostProcMesh.Print(out);
 
 #ifdef ERRORESTIMATION_DEBUG
     {
@@ -1935,29 +1949,45 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
     std::ofstream outafter("ReconstructionSteps/MFMeshAfterManualTransfer.txt");
     fPostProcMesh.Print(outafter);
+    
     ComputeElementStiffnesses();
+    
+    std::ofstream outfile2("ReconstructionSteps/MeshAfterComputStiffness.txt");
+    fPostProcMesh.Print(outfile2);
+    
+   // fPostProcMesh.MeshVector()[1]->Solution().Zero();
+    
+    
 
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
+    
+    std::ofstream outfile3("ReconstructionSteps/MeshAfterLoadSol.txt");
+    fPostProcMesh.Print(outfile3);
+    
     //PlotState("ReconstructionSteps/VolumeMFPressureAfterLoadSolution", 2, &fPostProcMesh, false);
-    //PlotState("ReconstructionSteps/VolumePressureAfterLoadSolution", 2, fPostProcMesh.MeshVector()[1]);
+  //  PlotState("ReconstructionSteps/VolumePressureAfterLoadSolution", 2, fPostProcMesh.MeshVector()[1]);
 
 
     {
         std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
-        // TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+        TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
-        TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+
+
+    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
     
-    //    {
-    //        PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh, false);
-    //        PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
-    //     std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
-    //     TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
-    //     std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
-    //     TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
-    //    }
+    
+        {
+            PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh, false);
+            PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
+         std::ofstream out("DebuggingTransfer/PressureAfterTransferFromMult.txt");
+         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
+         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
+         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
+        }
+
 
 
     //#ifdef ERRORESTIMATION_DEBUG

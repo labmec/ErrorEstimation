@@ -64,7 +64,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         }
     }
     
-    //Symmetric part of stressfem
+//Symmetric part of stressfem
     
         TPZFNMatrix<9, STATE> stressSym(dim, dim, 0.0);
 
@@ -74,6 +74,10 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
             }
         }
 
+  //  std::cout<<"stress "<<stressfem<<std::endl;
+    
+    
+   // std::cout<<"stressSym "<<stressSym<<std::endl;
     
     
     //Antisymmetric part of stressfem (stressfemAS)
@@ -81,11 +85,19 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     for (unsigned int i = 0; i < dim; i++) {
         for (unsigned int j = 0; j < dim; j++) {
             if (i==j) continue;
-            // stressfem(i, j) = data[2].sol[i][j];
             stressfemAS(i,j) = 0.5*(stressfem(i, j)-stressfem(j, i));
         }
     }
 
+   // std::cout<<"stressAS "<<stressfemAS<<std::endl;
+
+    //
+    TPZFNMatrix<9, STATE> rotfem(dim, dim, 0.);
+    rotfem(0,1) = data[4].sol[0][0];
+    rotfem(1,0) = (-1.)*data[4].sol[0][0];
+    
+  //  std::cout<<"rot= "<<rotfem<<std::endl;
+    
     TPZManVector<STATE> divstressfem(dim, 0.);
     divstressfem.Fill(0);
     for (int i = 0; i < dim; i++) {
@@ -128,6 +140,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     
     TPZManVector<STATE, 3> displacementreconstructed(dim, 0.);
     displacementreconstructed = data[H1functionposition].sol[0];
+    
+
+    
 
     TPZManVector<STATE, 3> displacementfem(dim, 0.);
     displacementfem = data[3].sol[0];
@@ -136,7 +151,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     /// calculo do erro de sigma na norma energia || sigma_fem-sigma_ex||_C
     int nstate = dim;
     int matdim = nstate*nstate;
-    TPZManVector<STATE, 9> stress_femV(matdim, 0.), sigma_exactV(matdim, 0.), eps_exactV(matdim, 0.), EPSZV(matdim, 0.),stressfemAS_V(matdim,0.),stressSym_V(matdim,0.);
+    TPZManVector<STATE, 9> stress_femV(matdim, 0.), sigma_exactV(matdim, 0.), eps_exactV(matdim, 0.), EPSZV(matdim, 0.),stressfemAS_V(matdim,0.),stressSym_V(matdim,0.),rotfem_V(matdim,0.);
     TPZFNMatrix<9, STATE> sigma(nstate, nstate, 0.), eps(nstate, nstate, 0.), grad(nstate, nstate, 0.);
     TPZFNMatrix<9, STATE> eps_exact(nstate, nstate, 0.);
     TPZFNMatrix<9, STATE> eps_reconstructed(nstate, nstate, 0.);
@@ -145,6 +160,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     ToVoigt(stressfem, stress_femV);
     ToVoigt(stressSym, stressSym_V);
     ToVoigt(stressfemAS, stressfemAS_V);
+    ToVoigt(rotfem, rotfem_V);
     
 
     //eps(exact displacement)
@@ -156,13 +172,29 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     const auto &dudxreconstructed = data[H1functionposition].dsol[0];
     const auto &axes = data[H1functionposition].axes;
 
-    TPZFNMatrix<6, STATE> du(3, 3);
+    TPZFNMatrix<6, STATE> du(3, 3),gradS(3, 3);
     TPZAxesTools<STATE>::Axes2XYZ(dudxreconstructed, du, axes);
     eps_reconstructed(0, 0) = du(0, 0);
     eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (du(0, 1) + du(1, 0));
     eps_reconstructed(1, 1) = du(1, 1);
     
-    //R(reconstructed displacement)
+    //std::cout<<"eps_reconstructed "<<eps_reconstructed<<std::endl;
+    
+    gradS(0,0)=du(0,0);
+    gradS(0,1)=du(0,1);
+    gradS(1,0)=du(1,0);
+    gradS(1,1)=du(1,1);
+    TPZManVector<STATE, 9> gradS_V(matdim, 0.);
+    ToVoigt(gradS, gradS_V);
+    
+    TPZManVector<STATE, 9> AgradS_V(matdim, 0.);
+    
+    
+   
+   
+    
+    
+    //R(reconstructed displacement)=0.5(gradS-gradS^T)
     assym_reconstructed(0, 0) = 0.;
     assym_reconstructed(1, 0) =  0.5 * (du(1, 0) - du(0, 1));
     assym_reconstructed(0, 1) =(-1.)*assym_reconstructed(1, 0);
@@ -203,7 +235,8 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     TPZManVector<REAL, 3> x = data[2].x;
 
     TElasticityAtPoint elast(fE_const, fnu_const);
-
+   // std::cout<<"E = "<<fE_const<<std::endl;
+   // std::cout<<"nu = "<<fnu_const<<std::endl;
 
     if (TPZMixedElasticityND::fElasticity) {
         //TPZManVector<REAL,3> result(2);
@@ -214,7 +247,12 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
         REAL nu = result[1];
         TElasticityAtPoint modify(E, nu);
         elast = modify;
+        
+        //std::cout<<"E = "<<E<<std::endl;
+       // std::cout<<"nu = "<<nu<<std::endl;
     }
+    
+    
     
     
     /// || sigma - sigma_fem||_C^2 = (C(sigma - sigma_fem), sigma - sigma_fem) = (eps - Csigma_fem, sigma - sigma_fem)
@@ -233,7 +271,10 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
      errors[2] =TPZMixedElasticityND::InnerVec(part1, part2);
  
     /// || sigma_fem^S - Aeps(u_rec)||_C^2 = (Csigma_fem^S - eps(u_rec), sigma_fem^S - Aeps(u_rec))
-    ///
+  
+    ComputeStressVector(gradS_V, AgradS_V, elast);
+    
+    
     TPZManVector<STATE, 9> Sigma_reconstructed(matdim, 0.);
     TPZManVector<STATE, 9> sigma_reconstructedV(matdim, 0.), eps_reconstructedV(matdim, 0.) ;
     ToVoigt(eps_reconstructed, eps_reconstructedV);
@@ -245,8 +286,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     
 
     for (unsigned int i = 0; i < matdim; ++i) {
-        part1[i] = CsigmaSym_femV[i] - eps_reconstructedV[i];
-        part2[i] = stressSym_V[i] - sigma_reconstructedV[i];
+       // part1[i] = CsigmaSym_femV[i] - eps_reconstructedV[i];
+      //  part2[i] = stressSym_V[i] - sigma_reconstructedV[i];
+        
+//        part1[i] = Csigma_femV[i] - gradS_V[i];
+//        part2[i] = stress_femV[i] - AgradS_V[i];
+        part1[i] = Csigma_femV[i] - eps_reconstructedV[i];
+        part2[i] = stress_femV [i] - sigma_reconstructedV[i];
 
     }
     errors[3] = TPZMixedElasticityND::InnerVec(part1, part2);
@@ -257,25 +303,39 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     
 
     //||sigma_femAS-AR(urec)||_C=(Csigma_femAS-R(urec), sigma_femAS-AR(urec))
-    TPZManVector<STATE, 9> assym_reconstructedV(matdim, 0.),ARot_reconstructedV(matdim,0.),Csigma_femAS_V(matdim,0.) ;
+    TPZManVector<STATE, 9> assym_reconstructedV(matdim, 0.),ARot_reconstructedV(matdim,0.),Csigma_femAS_V(matdim,0.),CRot_femV(matdim,0.) ;
     ToVoigt(assym_reconstructed, assym_reconstructedV);
-  //  std::cout<<"assym_reconstructedV - "<<assym_reconstructedV<<std::endl;
-    ComputeStressVector(assym_reconstructedV, ARot_reconstructedV, elast);
     
-//    std::cout<<"ARot_reconstructedV - "<<ARot_reconstructedV<<std::endl;
+   
+    
+    ComputeStressVector(assym_reconstructedV, ARot_reconstructedV, elast);
+    ComputeDeformationVector(rotfem_V, CRot_femV, elast);
+    
+    
     
     
     ComputeDeformationVector(stressfemAS_V, Csigma_femAS_V, elast);
     
-    std::cout<<"Csigma_femV - "<<Csigma_femV<<std::endl;
-    std::cout<<"Csigma_femAS_V - "<<Csigma_femAS_V<<std::endl;
-    std::cout<<"assym_reconstructedV - "<<assym_reconstructedV<<std::endl;
-    std::cout<<"ARot_reconstructedV - "<<ARot_reconstructedV<<std::endl;
+//    std::cout<<"------- "<<std::endl;
+//    std::cout<<"Csigma_femV - "<<Csigma_femV<<std::endl;
+//    std::cout<<"Csigma_femAS_V - "<<Csigma_femAS_V<<std::endl;
+//    std::cout<<"CsigmaSym_femV - "<<CsigmaSym_femV<<std::endl;
+//    std::cout<<"assym_reconstructedV - "<<assym_reconstructedV<<std::endl;
+//    std::cout<<"ARot_reconstructedV - "<<ARot_reconstructedV<<std::endl;
+//    std::cout<<"eps_reconstructedV - "<<eps_reconstructedV<<std::endl;
+//    std::cout<<"sigma_reconstructedV - "<<sigma_reconstructedV<<std::endl;
+//    std::cout<<"rotfem_V - "<<rotfem_V<<std::endl;
+//    std::cout<<"CRot_femV - "<<CRot_femV<<std::endl;
+    
     
     for (unsigned int i = 0; i < matdim; ++i) {
-        part1[i] = Csigma_femAS_V[i] - assym_reconstructedV[i];
         
-        part2[i] = stressfemAS_V[i] - ARot_reconstructedV[i];
+       // std::cout<<"Csigma_femAS_V[i]= "<<Csigma_femAS_V[i]<< " assym_reconstructedV[i]= "<<assym_reconstructedV[i]<<std::endl;
+        part1[i] = (Csigma_femAS_V[i] - assym_reconstructedV[i]);
+        //std::cout<<"------"<<std::endl;
+      //  std::cout<<"stressfemAS_V[i]= "<<stressfemAS_V[i]<< " ARot_reconstructedV[i]= "<<ARot_reconstructedV[i]<<std::endl;
+        part2[i] = (stressfemAS_V[i] -ARot_reconstructedV[i]);
+        
 
     }
 
@@ -637,6 +697,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
             stressfem(i, j) = datavec[2].sol[0][j + i * dim];
         }
     }
+ 
+    //std::cout<<"stressfem= "<<stressfem<<std::endl;
+    
     //compute C(sigma)
     TPZManVector<STATE, 9> stress_femV(matdim, 0.);
     ToVoigt(stressfem, stress_femV);
@@ -646,10 +709,25 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     
     TPZFNMatrix<9, STATE> Csigma_fem(dim, dim, 0.);
     FromVoigt(Csigma_femV, Csigma_fem);
-
+    
+    
+    
+    //
     TPZFNMatrix<9, STATE> rotfem(dim, dim, 0.);
-    rotfem(0, 1) = datavec[4].sol[0][0];
-    rotfem(1, 0) = -rotfem(0, 1);
+    rotfem(0,1) = datavec[4].sol[0][0];
+    rotfem(1,0) = (-1.)*datavec[4].sol[0][0];
+    
+  //  std::cout<<"rot= "<<rotfem<<std::endl;
+    
+    
+    TPZFNMatrix<9, STATE> rhs_term(dim,dim,0.);
+    for (unsigned int i = 0; i < dim; i++) {
+        for (unsigned int j = 0; j < dim; j++) {
+            rhs_term(i, j) = stressfem(i, j)+rotfem(i,j);
+        }
+    }
+   // std::cout<<"rhs_term= "<<rhs_term<<std::endl;
+ 
     
 //    //defining test functions
 //    // Setting the phis
@@ -668,21 +746,35 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
         du(0,0) = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
         du(1,0) = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
         
+
 //        TPZFNMatrix<9, STATE> eps_phiuk(dim, dim, 0.);
 //        eps_phiuk(0, 0) = du(0, 0);
 //        eps_phiuk(1, 0) = eps_phiuk(0, 1) = 0.5 * (du(0, 1) + du(1, 0));
 //        eps_phiuk(1, 1) = du(1, 1);
 //
 //        ToVoigt(eps_phiuk, eps_phiukV[in]);
-        ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + (Csigma_fem[Exy] + rotfem(0, 1))*du(1,0));
-        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + (Csigma_fem[Eyx] + rotfem(1, 0))*du(0,0));
+
+        ef(2*in, 0) +=weight * (Csigma_fem[Exx]*du(0,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(1,0));
+        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(0,0));
+
+        //        ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + (Csigma_fem[Exy] + rotfem(0, 1))*du(1,0));
+//        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + (Csigma_fem[Eyx] + rotfem(1, 0))*du(0,0));
+
         for(int jn = 0; jn < nphiuk; jn++ ) {
             du(0,1) = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
             du(1,1) = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
-            
-            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
-            ek(2*in+1,2*jn+1) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
-        }        
+        
+            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + 0.5*du(1,1)*du(1,0));
+            ek(2*in,2*jn+1) += weight * 0.5*du(0,1)*du(1,0);
+            ek(2*in+1,2*jn) += weight * 0.5*du(1,1)*du(0,0);
+            ek(2*in+1,2*jn+1) += weight * (du(1,1)*du(1,0) + 0.5*du(0,1)*du(0,0));
+
+//            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
+//            ek(2*in+1,2*jn+1) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
+
+
+        }
+
     }
     
 }
@@ -785,7 +877,7 @@ void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMateri
     TPZFMatrix<REAL> &phi_i = datavec[H1functionposition].phi;
     int nphi_i = phi_i.Rows();
 
-
+   // std::cout<<" aplicando BC "<<std::endl;
     
     const TPZVec<REAL> u_D = bc.Val2();
     TPZFNMatrix<9, STATE> g = bc.Val1();
@@ -815,8 +907,8 @@ void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMateri
         {
             for(int in = 0 ; in < nphi_i; in++) {
    
-                    ef(2*in,0)   += fBigNumber * u_D[0] * phi_i(in,0) * weight;        // forced v2 displacement
-                    ef(2*in+1,0) += fBigNumber * u_D[1] * phi_i(in,0) * weight;        // forced v2 displacement
+                ef(2*in,0)   += fBigNumber * u_D[0] * phi_i(in,0) * weight;        // forced v2 displacement
+                ef(2*in+1,0) += fBigNumber * u_D[1] * phi_i(in,0) * weight;        // forced v2 displacement
                 for (int jn = 0 ; jn < nphi_i; jn++)
                 {
                     ek(2*in,2*jn)     += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
@@ -921,5 +1013,5 @@ void TPZHDivErrorEstimateElasticityMaterial::FillDataRequirements(TPZVec<TPZMate
         datavec[4].SetAllRequirements(false);
         datavec[4].fNeedsSol = true;
     
-
 }
+

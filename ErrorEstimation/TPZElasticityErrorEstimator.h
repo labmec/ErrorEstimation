@@ -105,7 +105,7 @@ private:
     void ComputeConnectsNextToSkeleton(std::set<int64_t>& connectList);
     void ComputeEffectivityIndices() override;
     
-    void ComputePrimalWeights();
+    virtual void ComputePrimalWeights() override;
     
     //------- New methods for elasticity ----
     TPZCompMesh *CreateDisplacementMesh();

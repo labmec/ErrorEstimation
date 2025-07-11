@@ -117,8 +117,13 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
     std::ofstream outafter("ReconstructionSteps/MFMeshAfterManualTransfer.txt");
     fPostProcMesh.Print(outafter);
     ComputeElementStiffnesses();
+    
+    fPostProcMesh.MeshVector()[1]->Solution().Zero();
 
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
+    
+    
+
     //PlotState("ReconstructionSteps/VolumeMFPressureAfterLoadSolution", 2, &fPostProcMesh, false);
     //PlotState("ReconstructionSteps/VolumePressureAfterLoadSolution", 2, fPostProcMesh.MeshVector()[1]);
 
@@ -1180,6 +1185,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     displacement_mesh->ExpandSolution();
     displacement_mesh->LoadReferences();
     //Needed for p-refinement
+  /*
     for (int iel = 0; iel < displacement_mesh->NElements(); iel++){
         TPZCompEl *cel = displacement_mesh->Element(iel);
         TPZGeoEl *gel = cel->Reference();
@@ -1217,6 +1223,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
         int nstate = 2;
         sp->Mesh()->Block().Set(seqnum,nshape*nstate);   
     }
+   */
     displacement_mesh->AdjustBoundaryElements();
     displacement_mesh->CleanUpUnconnectedNodes();
     displacement_mesh->InitializeBlock();
