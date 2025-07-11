@@ -1975,7 +1975,6 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 
-
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
     
     

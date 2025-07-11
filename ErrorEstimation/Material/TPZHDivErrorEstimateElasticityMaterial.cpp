@@ -727,7 +727,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
         }
     }
    // std::cout<<"rhs_term= "<<rhs_term<<std::endl;
- 
+
     
 //    //defining test functions
 //    // Setting the phis
@@ -747,6 +747,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
         du(1,0) = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
         
 
+
 //        TPZFNMatrix<9, STATE> eps_phiuk(dim, dim, 0.);
 //        eps_phiuk(0, 0) = du(0, 0);
 //        eps_phiuk(1, 0) = eps_phiuk(0, 1) = 0.5 * (du(0, 1) + du(1, 0));
@@ -757,8 +758,8 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
         ef(2*in, 0) +=weight * (Csigma_fem[Exx]*du(0,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(1,0));
         ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(0,0));
 
-        //        ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + (Csigma_fem[Exy] + rotfem(0, 1))*du(1,0));
-//        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + (Csigma_fem[Eyx] + rotfem(1, 0))*du(0,0));
+        //ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + (Csigma_fem[Exy] + rotfem(0, 1))*du(1,0));
+        //ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + (Csigma_fem[Eyx] + rotfem(1, 0))*du(0,0));
 
         for(int jn = 0; jn < nphiuk; jn++ ) {
             du(0,1) = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
@@ -1013,5 +1014,5 @@ void TPZHDivErrorEstimateElasticityMaterial::FillDataRequirements(TPZVec<TPZMate
         datavec[4].SetAllRequirements(false);
         datavec[4].fNeedsSol = true;
     
-}
 
+}
