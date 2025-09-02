@@ -1,12 +1,12 @@
 //
-//  TPZCreateMultiphysicsSpace.hpp
+//  TPZCreateHybridH1Space.hpp
 //  ErrorEstimation
 //
 //  Created by Philippe Devloo on 13/07/19.
 //
 
-#ifndef TPZCreateMultiphysicsSpace_hpp
-#define TPZCreateMultiphysicsSpace_hpp
+#ifndef TPZCreateHybridH1Space_hpp
+#define TPZCreateHybridH1Space_hpp
 
 #include <stdio.h>
 #include <set>
@@ -18,7 +18,7 @@ class TPZCompEl;
 class TPZGeoElSide;
 
 
-class TPZCreateMultiphysicsSpace
+class TPZCreateHybridH1Space
 {
 public:
     /// types of spaces this class can create
@@ -97,13 +97,13 @@ public:
     TConfigH1Hybrid fH1Hybrid;
     
     /// default constructor
-    TPZCreateMultiphysicsSpace(TPZGeoMesh *gmesh, MSpaceType spacetype = EH1Hybrid);
+    TPZCreateHybridH1Space(TPZGeoMesh *gmesh, MSpaceType spacetype = EH1Hybrid);
     
     /// copy constructor
-    TPZCreateMultiphysicsSpace(const TPZCreateMultiphysicsSpace &copy);
+    TPZCreateHybridH1Space(const TPZCreateHybridH1Space &copy);
     
     /// = operator
-    TPZCreateMultiphysicsSpace &operator=(const TPZCreateMultiphysicsSpace &copy);
+    TPZCreateHybridH1Space &operator=(const TPZCreateHybridH1Space &copy);
     
     /// Configure the Hybridized H1 meshes
     void SetH1Hybridized(const TConfigH1Hybrid &config);
@@ -176,4 +176,4 @@ private:
 };
 
 
-#endif /* TPZCreateMultiphysicsSpace_hpp */
+#endif /* TPZCreateHybridH1Space_hpp */

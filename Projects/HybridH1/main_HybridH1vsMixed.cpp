@@ -32,8 +32,10 @@ int main(int argc, char *argv[]) {
     pConfig.debugger = false;                   //// Print geometric and computational mesh for the simulation (Error estimate not involved).
     pConfig.vtkResolution = 0;                 //// Vtk resolution. Set 0 to see a paraview mesh equals the  simulation mesh.
 
-    // this is where the type in pConfig is set
+    // this is where the type (based on problem) and topologyMode (based on topology) in pConfig is set
+    // the string approx is translated to the mode variable
     EvaluateEntry(argc,argv,pConfig);
+    
     InitializeOutstream(pConfig,argv);
 
     ProblemConfig config;

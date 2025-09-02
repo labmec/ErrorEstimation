@@ -6,8 +6,8 @@
 //
 //
 
-#ifndef TPZPostProcessError_hpp
-#define TPZPostProcessError_hpp
+#ifndef TPZPostProcessError2_hpp
+#define TPZPostProcessError2_hpp
 
 #include <stdio.h>
 #include <iterator>
@@ -22,7 +22,7 @@
 
 /// The patch defines a set of elements/connects associated with a partition of unity
 /// The structure was originally conceived for HDiv reconstruction but can easily be extended for Hybrid H1
-struct TPZPatch
+struct TPZPatch2
 {
     // connect index of the partition of unity mesh
     int64_t fPartitionConnectIndex;
@@ -42,18 +42,18 @@ struct TPZPatch
         std::copy(&(fConnectIndices[0]),(&(fConnectIndices[0])+fConnectIndices.size()),std::inserter(closed,closed.begin()));
     }
     
-    TPZPatch() : fPartitionConnectIndex(-1), fCo(3,-1.)
+    TPZPatch2() : fPartitionConnectIndex(-1), fCo(3,-1.)
     {
         
     }
     
-    TPZPatch(const TPZPatch &copy) : fPartitionConnectIndex(copy.fPartitionConnectIndex), fCo(copy.fCo), fElIndices(copy.fElIndices),
+    TPZPatch2(const TPZPatch2 &copy) : fPartitionConnectIndex(copy.fPartitionConnectIndex), fCo(copy.fCo), fElIndices(copy.fElIndices),
     fConnectIndices(copy.fConnectIndices), fBoundaryConnectIndices(copy.fBoundaryConnectIndices)
     {
         
     }
     
-    TPZPatch &operator=(const TPZPatch &copy)
+    TPZPatch2 &operator=(const TPZPatch2 &copy)
     {
         fPartitionConnectIndex = copy.fPartitionConnectIndex;
         fCo = copy.fCo;
@@ -78,18 +78,18 @@ struct TPZPatch
 };
 
 /// this structure applies to HDiv reconstruction and H1 Hybrid reconstruction
-enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
+enum MMeshPositions2 {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
 
 // this class administers the construction and contribution of the reconstruction mesh
 // maybe branch into postprocessing using HDiv and using H1 Hybrid?
-class TPZPostProcessError
+class TPZPostProcessError2
 {
 public:
     
-    TPZPostProcessError(TPZCompMesh * origin);
-    
-    TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec);
-    
+    TPZPostProcessError2(TPZCompMesh * origin);
+
+    TPZPostProcessError2(TPZVec<TPZCompMesh *> &meshvec);
+
 private:
     
     // mesh vector
@@ -97,7 +97,10 @@ private:
     
     // vector of vector of patches
     // each vector of patches corresponds to one color
-    TPZManVector<TPZStack<TPZPatch>, 10> fVecVecPatches;
+    TPZManVector<TPZStack<TPZPatch2>, 10> fVecVecPatches;
+
+    /// @brief material ids that will be used in error computation
+    std::set<int> fMaterialIds;
     
     // build vector of patches of a same color
     void BuildPatchStructures();
@@ -125,7 +128,7 @@ private:
     void ComputePatchFluxes();// not implemented
     
     // determine if a given patch is boundary or not
-    bool PatchHasBoundary(TPZPatch &patch) const;
+    bool PatchHasBoundary(TPZPatch2 &patch) const;
     
     // Sum the solution stored in fSolution of the second mesh to the fSolution vector
     void TransferAndSumSolution(TPZCompMesh *cmesh); // what is second mesh?
@@ -163,7 +166,7 @@ public:
     // Collect the connect indices and elements which will contribute to the patch caracterized by the set of nodes
     // generally each node will form a patch
     // CompElSide corresponds to an element of the patch mesh??
-    TPZPatch BuildPatch(TPZCompElSide &seed);
+    TPZPatch2 BuildPatch(TPZCompElSide &seed);
 
     // compute the estimated H1 seminorm errors
     // this will be different for HDiv and H1 Hybrid reconstruction
@@ -188,7 +191,7 @@ public:
 };
 
 /// methods specific for flux reconstruction using an Hdiv space
-class TPZPostProcessErrorHDiv : public TPZPostProcessError {
+class TPZPostProcessErrorHDiv2 : public TPZPostProcessError2 {
     
 };
-#endif /* TPZPostProcessError_hpp */
+#endif /* TPZPostProcessError2_hpp */

@@ -38,7 +38,7 @@
 
 #include "TPZBFileStream.h"
 
-#include "TPZCreateMultiphysicsSpace.h"
+#include "TPZCreateHybridH1Space.h"
 #include <tuple>
 #include <memory>
 
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 
     if(hybridh1){
         config.exact.operator*().fSignConvention = 1;
-        TPZCreateMultiphysicsSpace createspace(gmesh,TPZCreateMultiphysicsSpace::EH1Hybrid);
+        TPZCreateHybridH1Space createspace(gmesh,TPZCreateHybridH1Space::EH1Hybrid);
 
         createspace.SetMaterialIds({1}, {-2,-1});
         createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno

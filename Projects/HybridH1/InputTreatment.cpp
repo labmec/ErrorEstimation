@@ -275,6 +275,7 @@ void InitializeOutstream(PreConfig &pConfig, char *argv[]){
     pConfig.Log = new TPZVec<REAL>(pConfig.numErrors, -1);
     pConfig.rate = new TPZVec<REAL>(pConfig.numErrors, -1);
 
+    /// @brief what is the point of calling this method?
     ProblemConfig config;
     Configure(config,1,pConfig,argv);
 

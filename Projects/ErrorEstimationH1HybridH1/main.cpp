@@ -33,7 +33,7 @@
 #include <cmath>
 
 #include "ProblemConfig.h"
-#include "TPZPostProcessError.h"
+#include "TPZPostProcessError2.h"
 #include "InputTreatment.h"
 #include "Tools.h"
 #include "Solver.h"
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
     gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
     gRefDBase.InitializeUniformRefPattern(ETriangle);
     
-    for(int ndiv = 0; ndiv < 1; ndiv++){
+    for(int ndiv = 0; ndiv < 6; ndiv++){
         
         std::string meshfilename = "Quad.msh";
         
@@ -140,11 +140,11 @@ int main(int argc, char *argv[]) {
         
         //Case1.nthreads = 0;
         
-        pConfig.refLevel = 0;
+        pConfig.refLevel = ndiv;
         config.ndivisions = pConfig.refLevel;
         //Case1.numinitialrefine = 1;//ndiv;
         
-        pConfig.k = 2;
+        pConfig.k = 1;
         //Case1.porder = 2;
         
         config.gmesh = gmesh;
@@ -167,11 +167,11 @@ int main(int argc, char *argv[]) {
         
         TLaplaceExample1 example;
         config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
-        pConfig.problem = "ESinSin";
-        config.problemname = "SinSin";
-        config.dir_name = "ESinSin";
-        config.porder = 0;
+        config.exact.operator*().fExact = TLaplaceExample1::EBubble2D;
+        pConfig.problem = "EBubble2D";
+        config.problemname = "Bubble2D";
+        config.dir_name = "EBubble2D";
+        config.porder = 1;
         config.hdivmais = 2;
         //Case1.exact.fExact = example.ESinSin;//ESinMark//ESinSin//ESinSinDirNonHom
         
@@ -225,12 +225,24 @@ int main(int argc, char *argv[]) {
             //Case1.exact.fSignConvention = 1;
             
             gmesh->ResetReference();
+
             TPZCompMesh *cmeshH1 = CompMeshH1(config);//CMeshPressure(Case1);
             
+            {
+                std::ofstream out("cmeshH1.txt");
+                cmeshH1->Print(out);
+            }
+            std::cout << "Number of H1 equations " << cmeshH1->NEquations() << std::endl;
             SolveH1Problem(cmeshH1,config);
             
             TPZMultiphysicsCompMesh *mphysics = CompMeshH1Hybrid(config);
+
+            std::cout << "Number of Hybrid H1 equations " << mphysics->NEquations() << std::endl;
             
+            {
+                std::ofstream out("cmeshHybrid.txt");
+                mphysics->Print(out);
+            }
             //            TPZLinearAnalysis an(cmeshH1);
             //            an.SetExact(Case1.exact.ExactSolution());
             if(1)
@@ -578,7 +590,7 @@ bool PostProcessProblem(TPZAnalysis &an, TPZGeoMesh * gmesh, TPZCompMesh * press
     
     
     std::cout<<"Initializing reconstructed process"<<std::endl;
-    TPZPostProcessError error(pressuremesh);
+    TPZPostProcessError2 error(pressuremesh);
     
     TPZVec<STATE> estimatedelementerror, exactelementerror;
     
@@ -833,7 +845,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1, ProblemConfig &config){
     int64_t nelem = cmeshH1->NElements();
     cmeshH1->LoadSolution(cmeshH1->Solution());
     cmeshH1->ExpandSolution();
-    cmeshH1->ElementSolution().Redim(nelem, 3);
+    cmeshH1->ElementSolution().Redim(nelem, 6);
 
     an.PostProcessError(errorvec);//Error calculation with exact and approximate solution
     errorseminorm = errorvec[2];

@@ -12,31 +12,38 @@
 #include "TPZAnalyticSolution.h"
 #include "TPZMultiphysicsCompMesh.h"
 
-/// class to guide the error estimator
+/// class to guide the error estimator and configure the approximation spaces
 struct ProblemConfig
 {
     
     /// geometric mesh on which the computational meshes are based
     TPZGeoMesh *gmesh = 0;
     /// polynomial order of the original mesh
+    // not used or initialized in main_HybridH1vsMixed.cpp
     int porder = 2;
     /// increment in internal order of flux and pressure
+    // this is set in the main program, not used main_HybridH1vsMixed.cpp
+    // the variable hdivmais is accessed in the Tools class when creating approximation spaces
     int hdivmais = 1;
 
     /// Instead of specifying "porder" and "hdivmais", one may specify "k" and "n"
-    /// Enrichment order
+    /// Enrichment above the order specified by k
+    // n determines the name of the output file in inputTreatment.cpp
+    // n and k inherit the values of n and k in PreConfig
     int n = 1;
     /// Flux order for HDiv configuration or Lagrange coefficient order for Primal Hybrid.
     int k = 1;
 
     /// option to compute the error based on continuous pressures or not
+    /// in all references this variable is true
     bool makepressurecontinuous = true;
     
     /// number of uniform refinements applied to the mesh
     int ndivisions = -1;
+    /// @brief variable for exclusive use in MHM adaptivity process (see Gustavo's thesis)
     int ninternalref = -1;
     int adaptivityStep = -1; // Keep this variable for compatibility to maintain support for Gustavo's code. Useless for HybridH1 simulations.
-    int maxPrefine = 4;
+    // int maxPrefine = 4;
     
     int dimension = 0;
     bool prefine = false;

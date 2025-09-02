@@ -11,7 +11,7 @@
 #include "ProblemConfig.h"
 #include "TPZAnalysis.h"
 #include "TPZAnalyticSolution.h"
-#include "TPZCreateMultiphysicsSpace.h"
+#include "TPZCreateHybridH1Space.h"
 #include "TPZHybridizeHDiv.h"
 #include "TPZMultiphysicsCompMesh.h"
 #include "pzmanvector.h"

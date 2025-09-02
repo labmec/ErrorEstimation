@@ -21,8 +21,8 @@ add_library(ErrorEstimationLib
     TPZMixedErrorEstimate.h
     TPZMixedErrorEstimate.cpp
     # Related tools
-    TPZCreateMultiphysicsSpace.cpp
-    TPZCreateMultiphysicsSpace.h
+    TPZCreateHybridH1Space.cpp
+    TPZCreateHybridH1Space.h
     TPZMFSolutionTransfer.cpp
     TPZMFSolutionTransfer.h
     )

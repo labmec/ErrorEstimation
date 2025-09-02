@@ -7,7 +7,7 @@
 //
 
 
-#include "TPZPostProcessError.h"
+#include "TPZPostProcessError2.h"
 #include "pzcompel.h"
 #include "pzintel.h"
 //#include "tpzcompmeshreferred.h"
@@ -32,7 +32,27 @@
 
 #define ERRORESTIMATION_DEBUG
 
-TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin) : fMeshVector(5,0)
+
+// return the first equation associated with a lagrange multiplier
+int64_t TPZPatch2::FirstLagrangeEquation(TPZCompMesh *cmesh) const
+{
+    int64_t nconnect = fConnectIndices.size();
+    for (int64_t ic=0; ic<nconnect; ic++) {
+        int64_t cindex = fConnectIndices[ic];
+        TPZConnect &c = cmesh->ConnectVec()[cindex];
+        if (c.SequenceNumber() == -1 || c.NDof() == 0 || c.LagrangeMultiplier() == 0) {
+            continue;
+        }
+        int64_t seqnum = c.SequenceNumber();
+        int64_t eq = cmesh->Block().Position(seqnum);
+        return eq;
+    }
+    DebugStop();
+    return -1;
+}
+
+
+TPZPostProcessError2::TPZPostProcessError2(TPZCompMesh * origin) : fMeshVector(5,0)
 {
     fMeshVector[Eorigin] = origin;
     // this method would depend on the type of reconstruction
@@ -40,7 +60,7 @@ TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin) : fMeshVector(5,0
 }
 
 
-TPZPostProcessError::TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec)
+TPZPostProcessError2::TPZPostProcessError2(TPZVec<TPZCompMesh *> &meshvec)
 {
     fMeshVector = meshvec;
     TPZCompMesh *multiphysics = meshvec[Eflux];
@@ -75,7 +95,7 @@ TPZPostProcessError::TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec)
     
 }
 
-TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
+TPZPatch2 TPZPostProcessError2::BuildPatch(TPZCompElSide &seed)
 {
     // seed an element/side of multiphysics mesh
     
@@ -149,7 +169,7 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
             boundaryconnectset.insert(cindex);
         }
     }
-    TPZPatch result;
+    TPZPatch2 result;
     result.fConnectIndices.Resize(internalconnectset.size(), -1);
     result.fElIndices.Resize(patchelelements.size(), -1);
     result.fBoundaryConnectIndices.Resize(boundaryconnectset.size(), -1);
@@ -170,7 +190,7 @@ TPZPatch TPZPostProcessError::BuildPatch(TPZCompElSide &seed)
 }
 
 // build vector of patches of a same color
-void TPZPostProcessError::BuildPatchStructures()
+void TPZPostProcessError2::BuildPatchStructures()
 {
     // vector indicating which connect indices of the H1 mesh have been processed
     TPZVec<int64_t> connectprocessed(fMeshVector[Epatch]->NConnects(),0);
@@ -212,7 +232,7 @@ void TPZPostProcessError::BuildPatchStructures()
                 TPZGeoElSide gelside(gel,i);
                 TPZCompElSide celside(gelside.Reference());
                 // celside belongs to the multiphysics mesh
-                TPZPatch locpatch = BuildPatch(celside);
+                TPZPatch2 locpatch = BuildPatch(celside);
                 
                 for (int64_t ic = 0; ic < locpatch.fConnectIndices.size(); ic++) {
                     if (fillin[locpatch.fConnectIndices[ic]] != 0) {
@@ -253,7 +273,7 @@ void TPZPostProcessError::BuildPatchStructures()
 }
 
 // print the relevant information of the patches
-void TPZPostProcessError::PrintPatchInformation(std::ostream &out)
+void TPZPostProcessError2::PrintPatchInformation(std::ostream &out)
 {
     out << "Number of colors = " << fVecVecPatches.size() << std::endl;
     for (int64_t color = 0; color < fVecVecPatches.size(); color++)
@@ -270,7 +290,7 @@ void TPZPostProcessError::PrintPatchInformation(std::ostream &out)
 using namespace std;
 // compute the estimated H1 seminorm element errors
 /// we should try to salvage this method for Hybrid H1 reconstruction
-void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
+void TPZPostProcessError2::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 {
     
     
@@ -499,7 +519,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         
         
         for (int64_t p = 0; p < npatch; p++) {
-            TPZPatch &patch = fVecVecPatches[color][p];
+            TPZPatch2 &patch = fVecVecPatches[color][p];
             if (!PatchHasBoundary(patch))
             {
                 int64_t firstlagrangeequation = patch.FirstLagrangeEquation(meshmixed);
@@ -620,13 +640,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
 }
 
 // print partition diagnostics
-void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream &out) const
+void TPZPostProcessError2::PrintPartitionDiagnostics(int64_t color, std::ostream &out) const
 {
     TPZCompMesh *meshmixed = fMeshVector[Emulti];
     if (color < 0 || color >= fVecVecPatches.size()) {
         DebugStop();
     }
-    TPZVec<TPZPatch> &vecpatch = fVecVecPatches[color];
+    TPZVec<TPZPatch2> &vecpatch = fVecVecPatches[color];
     int64_t numpatch = vecpatch.size();
     // determine if the patch is a boundary patch or not
     TPZVec<int> IsInternalPatch(numpatch,0);
@@ -635,7 +655,7 @@ void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream 
     }
     out << "Number of patches " << numpatch << std::endl;
     for (int64_t p = 0; p<numpatch; p++) {
-        TPZPatch &patch = vecpatch[p];
+        TPZPatch2 &patch = vecpatch[p];
         out << "Diagnostics for patch number " << p << " of color " << color << std::endl;
         out << "Location of patch " << patch.fCo << std::endl;
         out << "Element indices " << patch.fElIndices << std::endl;
@@ -673,7 +693,7 @@ void TPZPostProcessError::PrintPartitionDiagnostics(int64_t color, std::ostream 
 }
 
 // determine if a given patch is boundary or not
-bool TPZPostProcessError::PatchHasBoundary(TPZPatch &patch) const
+bool TPZPostProcessError2::PatchHasBoundary(TPZPatch2 &patch) const
 {
     TPZCompMesh *meshmixed = fMeshVector[Eflux];
     int meshdim = meshmixed->Dimension();
@@ -698,26 +718,8 @@ bool TPZPostProcessError::PatchHasBoundary(TPZPatch &patch) const
     
 }
 
-// return the first equation associated with a lagrange multiplier
-int64_t TPZPatch::FirstLagrangeEquation(TPZCompMesh *cmesh) const
-{
-    int64_t nconnect = fConnectIndices.size();
-    for (int64_t ic=0; ic<nconnect; ic++) {
-        int64_t cindex = fConnectIndices[ic];
-        TPZConnect &c = cmesh->ConnectVec()[cindex];
-        if (c.SequenceNumber() == -1 || c.NDof() == 0 || c.LagrangeMultiplier() == 0) {
-            continue;
-        }
-        int64_t seqnum = c.SequenceNumber();
-        int64_t eq = cmesh->Block().Position(seqnum);
-        return eq;
-    }
-    DebugStop();
-    return -1;
-}
-
 // Sum the solution stored in fSolution of the second mesh to the fSolution vector
-void TPZPostProcessError::TransferAndSumSolution(TPZCompMesh *cmesh)
+void TPZPostProcessError2::TransferAndSumSolution(TPZCompMesh *cmesh)
 {
     int64_t nconnect = cmesh->NConnects();
     for (int64_t ic=0; ic<nconnect; ic++) {
@@ -747,7 +749,7 @@ void TPZPostProcessError::TransferAndSumSolution(TPZCompMesh *cmesh)
 }
 
 // Reset the state of the HDiv mesh to its original structure
-void TPZPostProcessError::ResetState()
+void TPZPostProcessError2::ResetState()
 {
     TPZCompMesh *multiphysics = fMeshVector[Emulti];
     multiphysics->Block() = this->fBlock;
@@ -770,7 +772,7 @@ void TPZPostProcessError::ResetState()
 }
 
 // check whether the connectsizes have changed
-void TPZPostProcessError::CheckConnectSizes()
+void TPZPostProcessError2::CheckConnectSizes()
 {
     TPZCompMesh *multiphysics = fMeshVector[Eflux];
     int64_t ncon = multiphysics->NConnects();
@@ -787,7 +789,7 @@ void TPZPostProcessError::CheckConnectSizes()
 
 /// create a fluxmesh based on the original H1 mesh
 // the flux mesh will be put in the second position of the mesh vector
-void TPZPostProcessError::CreateFluxMesh()
+void TPZPostProcessError2::CreateFluxMesh()
 {
     int matId = 1;
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
@@ -867,7 +869,7 @@ void TPZPostProcessError::CreateFluxMesh()
 }
 
 /// create the lagrange mesh corresponding to the flux mesh
-void TPZPostProcessError::CreatePressureMesh()
+void TPZPostProcessError2::CreatePressureMesh()
 {
     TPZCompMesh *fluxmesh = fMeshVector[Eflux];
     TPZGeoMesh *gmesh = fluxmesh->Reference();
@@ -920,7 +922,7 @@ void TPZPostProcessError::CreatePressureMesh()
 }
 
 /// create the partition of unity mesh
-void TPZPostProcessError::CreatePartitionofUnityMesh()
+void TPZPostProcessError2::CreatePartitionofUnityMesh()
 {
     //    TPZCompMeshReferred *pressuremesh = dynamic_cast<TPZCompMeshReferred *> (fMeshVector[3]);
     TPZCompMesh *pressuremesh = fMeshVector[Epressure];
@@ -966,7 +968,7 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
 }
 
 /// create the multiphysics mesh that will compute the projection matrix
-void TPZPostProcessError::CreateMixedMesh()
+void TPZPostProcessError2::CreateMixedMesh()
 {
     // the H1 mesh is the rootmesh
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
@@ -987,6 +989,7 @@ void TPZPostProcessError::CreateMixedMesh()
             int nstate = mat->NStateVariables();
             TPZMaterialT<STATE> *material = 0;
             if (nstate == 1) {
+                fMaterialIds.insert(matId);
                 TPZMixedErrorEstimate<TPZMixedPoisson> *locmat = new TPZMixedErrorEstimate<TPZMixedPoisson>(matId,dim);
                 locmat->SetSignConvention(1);
                 material = locmat;
@@ -994,6 +997,9 @@ void TPZPostProcessError::CreateMixedMesh()
                 
                 //incluindo os dados do problema
                 locmat->SetConstantPermeability(1.);
+            }
+            else {
+                DebugStop();
             }
             
             mphysics->InsertMaterialObject(material);
@@ -1031,7 +1037,7 @@ void TPZPostProcessError::CreateMixedMesh()
 }
 
 // Create the meshes that allow us to compute the error estimate
-void TPZPostProcessError::CreateAuxiliaryMeshes()
+void TPZPostProcessError2::CreateAuxiliaryMeshes()
 {
     /// this will need to be adjusted
     /// Will be copy the geometric mesh?

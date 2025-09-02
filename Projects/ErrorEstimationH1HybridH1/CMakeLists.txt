@@ -1,10 +1,10 @@
 # This project works with error estimation on H1 and H(div) spaces.
 set(ErrorEstimateSRC
     main.cpp
-    TPZMixedErrorEstimate.h
-    TPZMixedErrorEstimate.cpp
-    TPZPostProcessError.h
-    TPZPostProcessError.cpp
+    TPZMixedErrorEstimate2.h
+    TPZMixedErrorEstimate2.cpp
+    TPZPostProcessError2.h
+    TPZPostProcessError2.cpp
     ProblemConfig.h
 #    ProblemConfig.cpp
 )

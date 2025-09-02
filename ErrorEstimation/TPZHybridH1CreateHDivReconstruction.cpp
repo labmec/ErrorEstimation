@@ -4,7 +4,7 @@
 
 #include "TPZAnalysis.h"
 #include "TPZCompMeshTools.h"
-#include "TPZCreateMultiphysicsSpace.h"
+#include "TPZCreateHybridH1Space.h"
 #include "TPZElementMatrixT.h"
 #include "TPZHybridH1CreateHDivReconstruction.h"
 #include "TPZHybridH1ErrorEstimator.h"

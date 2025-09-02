@@ -104,6 +104,8 @@ private:
     /// use HDiv or hybrid H1 to construct a conservative approximation
     bool fuseHDiv = true;
     
+    /// @brief material ids associated with error computation
+    std::set<int> fMaterialIds;
     /// material ids for building the hybrid H1 mesh
     int fMatWrap = 10;
     int fInterfacePositive = 11;
@@ -174,11 +176,11 @@ private:
     void CreateAveragePressureMesh();
     
     /// create the multiphysics mesh combining hdiv elements that will compute the projection matrix
-    void CreateHdivMesh();
-    
+    void CreateMultiphysicsHdivMesh();
+
     /// create the multiphysics mesh using hybrid H1 mesh for reconstruction
-    void CreateHybridH1Mesh();
-    
+    void CreateMultiphysicsHybridH1Mesh();
+
     /// Add the Interface elements to the multiphysics mesh
     void AddInterfaceElements(TPZMultiphysicsCompMesh *mfmesh);
 

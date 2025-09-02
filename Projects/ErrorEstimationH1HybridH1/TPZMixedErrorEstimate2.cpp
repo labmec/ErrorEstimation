@@ -1,11 +1,11 @@
 //
-//  TPZMixedErrorEstimate.cpp
+//  TPZMixedErrorEstimate2.cpp
 //  ErrorEstimate
 //
 //  Created by Philippe Devloo on 20/04/18.
 //
 
-#include "TPZMixedErrorEstimate.h"
+#include "TPZMixedErrorEstimate2.h"
 #include "Material/DarcyFlow/TPZMixedDarcyFlow.h"
 #include "TPZMaterialDataT.h"
 
@@ -13,31 +13,31 @@
 
 
 template<class MixedMat>
-TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate() : MixedMat()
+TPZMixedErrorEstimate2<MixedMat>::TPZMixedErrorEstimate2() : MixedMat()
 {
     
 }
 
 template<class MixedMat>
-TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate(int matid, int dim) : MixedMat(matid,dim)
+TPZMixedErrorEstimate2<MixedMat>::TPZMixedErrorEstimate2(int matid, int dim) : MixedMat(matid,dim)
 {
   
 }
 
 template<class MixedMat>
-TPZMixedErrorEstimate<MixedMat>::~TPZMixedErrorEstimate()
+TPZMixedErrorEstimate2<MixedMat>::~TPZMixedErrorEstimate2()
 {
     
 }
 
 template<class MixedMat>
-TPZMixedErrorEstimate<MixedMat>::TPZMixedErrorEstimate(const TPZMixedErrorEstimate &cp) : MixedMat(cp), fSignConvention(cp.fSignConvention)
+TPZMixedErrorEstimate2<MixedMat>::TPZMixedErrorEstimate2(const TPZMixedErrorEstimate2 &cp) : MixedMat(cp), fSignConvention(cp.fSignConvention)
 {
     
 }
 
 template<class MixedMat>
-TPZMixedErrorEstimate<MixedMat> &TPZMixedErrorEstimate<MixedMat>::operator=(const TPZMixedErrorEstimate &copy)
+TPZMixedErrorEstimate2<MixedMat> &TPZMixedErrorEstimate2<MixedMat>::operator=(const TPZMixedErrorEstimate2 &copy)
 {
     MixedMat::operator=(copy);
     fSignConvention = copy.fSignConvention;
@@ -45,7 +45,7 @@ TPZMixedErrorEstimate<MixedMat> &TPZMixedErrorEstimate<MixedMat>::operator=(cons
 }
 
 template<class MixedMat>
-void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDataT<STATE> > &datavec) const
+void TPZMixedErrorEstimate2<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDataT<STATE> > &datavec) const
 {
     MixedMat::FillDataRequirements(datavec);
     
@@ -66,7 +66,7 @@ void TPZMixedErrorEstimate<MixedMat>::FillDataRequirements( TPZVec<TPZMaterialDa
  * @param ef [out] is the load vector
  */
 template<class MixedMat>
-void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+void TPZMixedErrorEstimate2<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<STATE> > &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     if (datavec.size() != 4  )
     {
@@ -142,7 +142,7 @@ void TPZMixedErrorEstimate<MixedMat>::Contribute(const TPZVec<TPZMaterialDataT<S
 
 /// make a contribution to the error computation
 template<class MixedMat>
-void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<REAL> &errors)
+void TPZMixedErrorEstimate2<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE> > &data, TPZVec<REAL> &errors)
 {
     /*
      data[0] Flux
@@ -185,4 +185,4 @@ void TPZMixedErrorEstimate<MixedMat>::Errors(const TPZVec<TPZMaterialDataT<STATE
     errors[2] += inner;
 }
 
-template class TPZMixedErrorEstimate<TPZMixedDarcyFlow>;
+template class TPZMixedErrorEstimate2<TPZMixedDarcyFlow>;

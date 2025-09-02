@@ -492,7 +492,13 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
     for (int64_t ic = 0; ic < ncon; ic++) {
         origseqnum[ic] = multiphysicsmesh->ConnectVec()[ic].SequenceNumber();
     }
-    
+
+    ResetState();
+    if(0)
+    {
+        std::ofstream out("PostProcessErrorBefore.txt");
+        multiphysicsmesh->Print(out);
+    }
     //For each color compute the contribution to equilibrate flux reconstruction
     int64_t ncolors = fVecVecPatches.size();
     for (int color = 0; color < ncolors; color++){
@@ -501,7 +507,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         for (int64_t el = 0; el < nelem; el++) {
             multiphysicsmesh->ElementVec()[el] = elpointers[el];
         }
-        
+        std::map<TPZCompEl*, int64_t> averagepressuremap;
+
         TPZVec<TPZCompEl *> activel(nelem,0); //to activate/deactivate elements
         TPZManVector<int64_t> permute(nblocks,-1);
         
@@ -520,7 +527,8 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
                 TPZCompEl* cel = multiphysicsmesh->Element(elindex);
                 if(cel->Material()->Id() == 1 || cel->Material()->Id() == 2 || cel->Material()->Id() == 3){
                     int64_t ncon = cel->NConnects();
-                    //int64_t conindex = cel->ConnectIndex(ncon-1);
+                    int64_t conindex = cel->ConnectIndex(ncon-1);
+                    averagepressuremap[cel] = conindex;
                     cel->SetConnectIndex(ncon-1, averagepressureconnindex+patch);
                     
                     //std::cout << "pressure average connect index: " << cel->ConnectIndex(ncon-1) << std::endl;
@@ -886,6 +894,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             //multiphysicsmesh->Print(out);
         }
         
+        for(auto avcon : averagepressuremap) {
+            TPZCompEl* cel = avcon.first;
+            int64_t conindex = avcon.second;
+            int ncon = cel->NConnects();
+            cel->SetConnectIndex(ncon-1, conindex);
+        }
         //Recovery the initial comp. elements
         for (int64_t el = 0; el < nelem; el++) {
             multiphysicsmesh->ElementVec()[el] = elpointers[el];
@@ -1020,7 +1034,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         an.PostProcess(3,multiphysicsmesh->Dimension());
     }
     
-    TPZManVector<REAL,6> errors(6,0.);
+    TPZManVector<REAL,6> errors(5,0.);
     an.PostProcessError(errors);
     if(fuseHDiv == false) {
         cout << "Erro H1 semi " << errors[0] << std::endl;
@@ -1466,7 +1480,7 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
 }
 
 /// create the multiphysics mesh that will compute the projection matrix
-void TPZPostProcessError::CreateHdivMesh()
+void TPZPostProcessError::CreateMultiphysicsHdivMesh()
 {
     // the H1 mesh is the rootmesh
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
@@ -1561,7 +1575,7 @@ void TPZPostProcessError::CreateHdivMesh()
 #include "TPZH1ErrorHybridH1EstimateMaterial.h"
 #include "TPZNullMaterialCS.h"
 /// create the multiphysics mesh that will compute the projection matrix
-void TPZPostProcessError::CreateHybridH1Mesh()
+void TPZPostProcessError::CreateMultiphysicsHybridH1Mesh()
 {
     // the H1 mesh is the rootmesh
     TPZCompMesh *cmeshroot = fMeshVector[Eorigin];
@@ -1581,6 +1595,7 @@ void TPZPostProcessError::CreateHybridH1Mesh()
             if (nstate == 1) {
                 TPZDarcyFlow *darcy = dynamic_cast<TPZDarcyFlow *>(mat);
                 if(!darcy) DebugStop();
+                fMaterialIds.insert(matId);
                 TPZH1ErrorHybridH1EstimateMaterial *locmat = new TPZH1ErrorHybridH1EstimateMaterial(*darcy);
                 locmat->SetExactSol(darcy->ExactSol(), darcy->PolynomialOrderExact());
                 locmat->SetForcingFunction(darcy->ForcingFunction(), darcy->ForcingFunctionPOrder());
@@ -1707,6 +1722,8 @@ void TPZPostProcessError::AddInterfaceElements(TPZMultiphysicsCompMesh *mfmesh) 
 void TPZPostProcessError::CreateMultiphysicsMesh()
 {
     // this is where the Hdiv approximation mesh is created. Here we will need to create the hybrid h1 mesh
+    /// @brief First we create the atomic meshes
+    /// @todo Implement this method in a class hierarchy structure with virtual methods
     if(fuseHDiv) {
         CreateFluxMesh();
         CreatePressureMesh();
@@ -1724,25 +1741,29 @@ void TPZPostProcessError::CreateMultiphysicsMesh()
     CreatePartitionofUnityMesh();
     CreateAveragePressureMesh();
     if(fuseHDiv) {
-        CreateHdivMesh();
+        CreateMultiphysicsHdivMesh();
     } else {
-        CreateHybridH1Mesh();
+        CreateMultiphysicsHybridH1Mesh();
     }
     
     TPZCompMesh* cmeshmulti = fMeshVector[Emulti];
     this->fSolution = cmeshmulti->Solution();
     this->fBlock = cmeshmulti->Block();
     int64_t ncon = cmeshmulti->NConnects();
+    // when computing the reconstructed solution for patches, we will modify the sequence numbers and connect sizes. After each patch computation, we need to ensure the original connect information is preserved
     fConnectSeqNumbers.resize(ncon); //Resize the vector of the original connect sequence numbers
     fConnectSizes.resize(ncon); //Resize the vector of connects sizes in the multiphysics mesh
     
     for (int64_t i = 0; i < ncon; i++) {
+        // initialize the data structure
         fConnectSeqNumbers[i] = cmeshmulti->ConnectVec()[i].SequenceNumber();
         int64_t seqnum = fConnectSeqNumbers[i];
+        // this will do nothing. 
         TPZConnect &con = cmeshmulti->ConnectVec()[i];
         con.SetSequenceNumber(seqnum);
         int blsize = this->fBlock.Size(seqnum);
         int neq = con.NShape()*con.NState();
+        // initialize the data structure
         fConnectSizes[i] = neq;
         if (neq != blsize) {
             DebugStop();

@@ -5,8 +5,8 @@
 //  Created by Philippe Devloo on 20/04/18.
 //
 
-#ifndef TPZMixedErrorEstimate_hpp
-#define TPZMixedErrorEstimate_hpp
+#ifndef TPZMixedErrorEstimate2_hpp
+#define TPZMixedErrorEstimate2_hpp
 
 #include <stdio.h>
 #include "pzreal.h"
@@ -23,7 +23,7 @@ class TPZVec;
 
 /// class to compute the contribution of an HDiv reconstruction
 template<class MixedMat>
-class TPZMixedErrorEstimate : public MixedMat
+class TPZMixedErrorEstimate2 : public MixedMat
 {
  
     enum MMeshPositions {Eflux = 0, Epressure = 1, Epatch = 2, Eorigin = 3};
@@ -32,18 +32,18 @@ class TPZMixedErrorEstimate : public MixedMat
     
 public:
     
-    TPZMixedErrorEstimate();
+    TPZMixedErrorEstimate2 ();
     
-    TPZMixedErrorEstimate(int matid, int dim);
+    TPZMixedErrorEstimate2 (int matid, int dim);
     
-    virtual ~TPZMixedErrorEstimate();
+    virtual ~TPZMixedErrorEstimate2 ();
     
-    TPZMixedErrorEstimate(const TPZMixedErrorEstimate &cp);
+    TPZMixedErrorEstimate2 (const TPZMixedErrorEstimate2  &cp);
     
-    TPZMixedErrorEstimate &operator=(const TPZMixedErrorEstimate &copy);
+    TPZMixedErrorEstimate2  &operator=(const TPZMixedErrorEstimate2  &copy);
     
     virtual TPZMaterial * NewMaterial(){
-        return new TPZMixedErrorEstimate(*this);
+        return new TPZMixedErrorEstimate2 (*this);
     }
     
     int SignConvention() const
@@ -73,4 +73,4 @@ public:
 };
 
 
-#endif /* TPZMixedErrorEstimate_hpp */
+#endif /* TPZMixedErrorEstimate2 _hpp */

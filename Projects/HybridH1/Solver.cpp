@@ -7,7 +7,7 @@
 #include "DataStructure.h"
 #include "MeshInit.h"
 #include "TPZCompMeshTools.h"
-#include "TPZCreateMultiphysicsSpace.h"
+#include "TPZCreateHybridH1Space.h"
 #include "TPZSSpStructMatrix.h"
 #include "TPZSpStructMatrix.h"
 #include "pzfstrmatrix.h"
@@ -49,6 +49,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
                 cmesh->Print(outcmesh);
             }
             //TPZCompMeshTools::CreatedCondensedElements(cmesh, false, false);
+            preConfig.numErrors = 3;
             SolveH1Problem(cmesh, config, preConfig);
             if (preConfig.estimateError){
                 EstimateError(config, preConfig, fluxMatID, multiCmesh);
@@ -74,6 +75,7 @@ void Solve(ProblemConfig &config, PreConfig &preConfig){
     FlushTime(preConfig,start);
 
     if(preConfig.debugger) Tools::DrawCompMesh(config,preConfig,cmesh,multiCmesh);
+    /// @brief THIS WILL NOT DELETE THE ATOMIC MESHES
     delete multiCmesh;
 }
 
@@ -448,17 +450,17 @@ void CreateCondensedMixedElements(TPZMultiphysicsCompMesh *cmesh_Mixed){
 }
 
 void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID,int &fluxMatID , PreConfig &pConfig, ProblemConfig &config,int hybridLevel){
-    auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
+    auto spaceType = TPZCreateHybridH1Space::EH1Hybrid;
     cmesh_H1Hybrid->SetAllCreateFunctionsMultiphysicElem();
     if (hybridLevel == 2) {
-        spaceType = TPZCreateMultiphysicsSpace::EH1HybridSquared;
+        spaceType = TPZCreateHybridH1Space::EH1HybridSquared;
     }
     else if(hybridLevel != 1) {
         DebugStop();
     }
 
-    TPZCreateMultiphysicsSpace createspace(config.gmesh, spaceType);
-    //TPZCreateMultiphysicsSpace createspace(config.gmesh);
+    TPZCreateHybridH1Space createspace(config.gmesh, spaceType);
+    //TPZCreateHybridH1Space createspace(config.gmesh);
     std::cout << cmesh_H1Hybrid->NEquations();
     (pConfig.type == 2) ?
         createspace.SetMaterialIds({2,3}, {-6,-5}) :
@@ -806,9 +808,9 @@ void StockErrors(TPZAnalysis &an,TPZMultiphysicsCompMesh *cmesh, ofstream &Erro,
 }
 
 void FluxErrorCreateCompMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int &interFaceMatID,int &fluxMatID , PreConfig &pConfig, ProblemConfig &config){
-    auto spaceType = TPZCreateMultiphysicsSpace::EH1Hybrid;
+    auto spaceType = TPZCreateHybridH1Space::EH1Hybrid;
 
-    TPZCreateMultiphysicsSpace createspace(config.gmesh, spaceType);
+    TPZCreateHybridH1Space createspace(config.gmesh, spaceType);
 
     std::cout << cmesh_H1Hybrid->NEquations();
 
@@ -876,7 +878,7 @@ bool PostProcessing(TPZCompMesh * cmeshH1, TPZFMatrix<STATE> &true_elerror, TPZF
         
         cmeshH1->ElementSolution() = true_elerror;
                 
-        TPZManVector<REAL> errorsum(5, 0.);
+        TPZManVector<REAL> errorsum(3, 0.);
         cmeshH1->EvaluateError(false, errorsum);
         STATE globeffind = sqrt(sum)/errorsum[2];
         

@@ -558,7 +558,9 @@ void InsertMaterialMixHyb(TPZMultiphysicsCompMesh *multMesh, PreConfig &pConfig,
     int dirichlet = 0;
     int neumann = 1;
 
+    // pConfig.type == 2 refers to the heterogeneous problem
     if(pConfig.type != 2) {
+        // Setting the default order of a multiphysics mesh has no effect whatsoever
         multMesh->SetDefaultOrder(pConfig.k + pConfig.n);
         multMesh->SetDimModel(dim);
         multMesh->SetAllCreateFunctionsMultiphysicElem();
