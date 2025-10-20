@@ -1,0 +1,77 @@
+{
+    "geometry" : "QuadSqrt.msh",
+	"exactsolution" : "SquareRoot",
+    "UniformRefinement" : 0,
+    "nref_skeleton": 0,
+    "porder_bubblefunctions" : 0,
+	"porder_hybrid_bubblefunctions" : 3,
+    "skeleton porder_h1": 1,
+    "skeleton porder_hybrid": 4,
+    "lagrange porder": 1,
+
+	
+    "skeletonMatid" : 5,
+    "matid_translation" : [
+      { "from" : 1, "to" : 3 },
+      { "from" : 2, "to" : 4 }
+    ],
+    "boundary_conditions": [
+      {
+        "matid": -1,
+        "name": "neumannlower",
+//		"exactsolution" : "SquareRootLower",
+		"type": 1,
+        "value": 0.0
+      },
+            {
+        "matid": -2,
+        "name": "neumannupper",
+//		"exactsolution" : "SquareRootUpper",
+		"type": 1,
+        "value": 0.0
+      },
+      	{
+        "matid": -3,
+        "name": "contourupper",
+		"exactsolution" : "SquareRootUpper",
+		"type": 0,
+        "value": 0.0
+      },
+    	{
+      "matid": -4,
+      "name": "contourlower",
+	   "exactsolution" : "SquareRootLower",
+	   "type": 0,
+      "value": 0.0
+    }
+     ],
+	
+    "materials": [
+      {
+		 "name": "upper",
+		 "exactsolution" : "SquareRootUpper",
+        "matid": 3,
+        "permeability": 1
+      },
+      {
+		 "name": "lower",
+		 "exactsolution" : "SquareRootLower",
+        "matid": 4,
+        "permeability": 1
+      }
+    ],
+	"point_singularity": -5,  // material id of the point singularity
+	
+    "skeleton matid": 5,
+    "interface matids": [10, 15],
+    "flux matid": 20,
+
+    "PostProcess" : [
+        "Pressure",
+        "Flux",
+		"H1_Error",
+		"Hybrid_Error",
+		"Estimated_Error",
+		"EffectivityIndex"
+    ]
+  }

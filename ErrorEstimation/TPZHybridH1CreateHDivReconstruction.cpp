@@ -306,7 +306,7 @@ TPZVec<REAL>  TPZHybridH1CreateHDivReconstruction::PostProcess(){
     //Erro global
     std::ofstream myfile;
     myfile.open("HDivReconstructionErrors.txt", std::ios::app);
-    myfile << "\n\n Estimator errors for HDiv reconstruction " << *fproblemname;
+    myfile << "\n\n Estimator errors for HDiv reconstruction " << fproblemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fnDivisions <<" Order k= " << forderFEM_k << " Order n= "<< forderFEM_n<<"\n";
     myfile << "e_{ex}: ||K^{0.5}.grad(u_h-u)|| = " << (errorVec)[0] << "\n";

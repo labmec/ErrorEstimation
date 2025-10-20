@@ -112,7 +112,7 @@ struct EstimatorConfig{
    TPZMultiphysicsCompMesh *fOriginal =NULL;
 
    /// name identifying the problem
-   std::string *fproblemname;
+   std::string fproblemname;
    /// set of materialids in the mesh
    std::set<int> fmaterialids;
    /// set of boundary condition material ids
@@ -137,7 +137,7 @@ struct EstimatorConfig{
 
    EstimatorConfig(TPZMultiphysicsCompMesh *multimesh,ProblemConfig pConfig,int lagrangeMatId){
        fOriginal = multimesh;
-        fproblemname = &(pConfig.problemname);
+        fproblemname = (pConfig.problemname);
         fmaterialids = pConfig.materialids;
         fbcmaterialids=pConfig.bcmaterialids;
         fnDivisions = pConfig.ndivisions;

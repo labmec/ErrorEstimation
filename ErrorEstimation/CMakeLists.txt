@@ -25,6 +25,8 @@ add_library(ErrorEstimationLib
     TPZCreateHybridH1Space.h
     TPZMFSolutionTransfer.cpp
     TPZMFSolutionTransfer.h
+    TPZMultiPhysicsMeshWindow.h
+    TPZMultiPhysicsMeshWindow.cpp
     )
 
 target_link_libraries(ErrorEstimationLib PRIVATE NeoPZ::pz)

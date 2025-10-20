@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <set>
 #include "pzmanvector.h"
+#include "TPZAnalyticSolution.h"
 class TPZCompMesh;
 class TPZGeoMesh;
 class TPZMultiphysicsCompMesh;
@@ -34,6 +35,9 @@ private:
     
     /// the boundary condition material ids
     std::set<int> fBCMaterialIds;
+
+    TLaplaceExample1 *fExact = 0;
+
     
     /// default internal order for the H1 elements
     int fDefaultPOrder = 3;
@@ -77,10 +81,13 @@ public:
         TConfigH1Hybrid(){}
         
         /// copy constructor
-        TConfigH1Hybrid(const TConfigH1Hybrid &copy);
-        
+        TConfigH1Hybrid(const TConfigH1Hybrid &copy) = default;
+
         /// copy operator
-        TConfigH1Hybrid &operator=(const TConfigH1Hybrid &copy);
+        TConfigH1Hybrid &operator=(const TConfigH1Hybrid &copy) = default;
+
+        /// @brief Print the configuration
+        void Print(std::ostream &out = std::cout) const;
     };
     
     void SetPOrder(int order){
@@ -100,11 +107,11 @@ public:
     TPZCreateHybridH1Space(TPZGeoMesh *gmesh, MSpaceType spacetype = EH1Hybrid);
     
     /// copy constructor
-    TPZCreateHybridH1Space(const TPZCreateHybridH1Space &copy);
+    TPZCreateHybridH1Space(const TPZCreateHybridH1Space &copy) = default;
     
     /// = operator
-    TPZCreateHybridH1Space &operator=(const TPZCreateHybridH1Space &copy);
-    
+    TPZCreateHybridH1Space &operator=(const TPZCreateHybridH1Space &copy) = default;
+
     /// Configure the Hybridized H1 meshes
     void SetH1Hybridized(const TConfigH1Hybrid &config);
     
@@ -124,6 +131,15 @@ public:
         fMaterialIds = matids;
         fBCMaterialIds = bc_matids;
     }
+
+    std::set<int> MaterialIds() const {return fMaterialIds;}
+
+    std::set<int> BCMaterialIds() const {return fBCMaterialIds;}
+
+    void SetExact(TLaplaceExample1 *exact) { fExact = exact; }
+
+    TLaplaceExample1 *Exact() {return fExact;}
+    
     /// create meshes and elements for all geometric elements
     void CreateAtomicMeshes(TPZVec<TPZCompMesh *> &meshvec,int pressureOrder, int lagrangeorder);
     

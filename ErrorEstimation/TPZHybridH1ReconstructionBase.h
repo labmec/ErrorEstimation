@@ -52,7 +52,7 @@ protected:
    TPZAutoPointer<TLaplaceExample1> fExact;
 
    /// name identifying the problem
-   std::string *fproblemname;
+   std::string fproblemname;
 
 public:
 

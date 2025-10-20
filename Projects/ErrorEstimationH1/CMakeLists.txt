@@ -3,8 +3,8 @@ set(ErrorEstimateSRCGmesh
     main.cpp
     TPZMixedErrorEstimate.h
     TPZMixedErrorEstimate.cpp
-    TPZPostProcessError.h
-    TPZPostProcessError.cpp
+    TPZPostProcessError3.h
+    TPZPostProcessError3.cpp
     ProblemConfig.h
 #    ProblemConfig.cpp
 )

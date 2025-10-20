@@ -464,7 +464,7 @@ void CreateHybridH1ComputationalMesh(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int
     std::cout << cmesh_H1Hybrid->NEquations();
     (pConfig.type == 2) ?
         createspace.SetMaterialIds({2,3}, {-6,-5}) :
-        createspace.SetMaterialIds({1,}, {-2,-1});
+        createspace.SetMaterialIds({1}, {-2,-1});
 
     createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
     createspace.ComputePeriferalMaterialIds();

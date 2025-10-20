@@ -32,31 +32,6 @@ TPZCreateHybridH1Space::TPZCreateHybridH1Space(TPZGeoMesh *gmesh, MSpaceType spa
     fDimension = gmesh->Dimension();
 }
 
-/// copy constructor
-TPZCreateHybridH1Space::TConfigH1Hybrid::TConfigH1Hybrid(const TConfigH1Hybrid &copy)
-{
-    
-}
-
-/// copy operator
-TPZCreateHybridH1Space::TConfigH1Hybrid &TPZCreateHybridH1Space::TConfigH1Hybrid::operator=(const TConfigH1Hybrid &copy)
-{
-    return *this;
-}
-
-
-/// copy constructor
-TPZCreateHybridH1Space::TPZCreateHybridH1Space(const TPZCreateHybridH1Space &copy)
-{
-    
-}
-
-/// = operator
-TPZCreateHybridH1Space & TPZCreateHybridH1Space::operator=(const TPZCreateHybridH1Space &copy)
-{
-    return *this;
-}
-
 /// Indicate to create Hybridized H1 meshes
 void TPZCreateHybridH1Space::SetH1Hybridized(const TConfigH1Hybrid &config)
 {
@@ -995,3 +970,14 @@ void TPZCreateHybridH1Space::AssociateElements(TPZCompMesh *cmesh, TPZVec<int64_
     }
 }
 
+void TPZCreateHybridH1Space::TConfigH1Hybrid::Print(std::ostream &out) const
+{
+    out << "H1 Hybrid Configuration:" << std::endl;
+    out << "  Material Wrap ID: " << fMatWrapId << std::endl;
+    out << "  Flux Material ID: " << fFluxMatId << std::endl;
+    out << "  Lagrange Material IDs: " << fLagrangeMatid.first << ", " << fLagrangeMatid.second << std::endl;
+    out << "  Second Lagrange Material ID: " << fSecondLagrangeMatid << std::endl;
+    out << "  Interface Pressure Material ID: " << fInterfacePressure << std::endl;
+    out << "  Hybridize BC Level: " << fHybridizeBCLevel << std::endl;
+    out << "  Is Hybrid Squared: " << fHybridSquared << std::endl;
+}

@@ -15,6 +15,8 @@ class TPZH1ErrorHybridH1EstimateMaterial : public TPZHybridDarcyFlow {
     
 public:
     enum MMeshPositions {Eflux = 0, Epressure = 1, Epatch = 2, Eorigin = 3, Eaveragepressure = 4};
+    
+    enum MErrorPositions {EH1, EHybrid, EEstimate, EResidual, EResidualWeighted };
     /**
      * @brief Default constructor
      */
@@ -54,7 +56,15 @@ public:
 
     virtual int NEvalErrors()  const override {return 5;}
 
-    /** @name Contribute */
+    virtual void ErrorNames(TPZVec<std::string> &names) const override {
+        names[0] = "H1_error";
+        names[1] = "Hybrid_error";
+        names[2] = "Estimated_error";
+        names[3] = "Residual";
+        names[4] = "Residual_weighted";
+    }
+    /** @name Contribute
+        @ingroup Contribute*/
     /** @{ */
     /**
      * @brief It computes a contribution to the stiffness matrix
@@ -67,6 +77,22 @@ public:
     virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec,
                             REAL weight,TPZFMatrix<STATE> &ek,
                             TPZFMatrix<STATE> &ef) override;
+    /**@}*/
+    /** @name ContributeSBFemRhs
+        @ingroup Contribute*/
+    /** @{ */
+    /**
+     * @brief It computes a contribution to the stiffness matrix
+     * and load vector at one integration point.
+     * @param[in] datavec stores all input data
+     * @param[in] weight is the weight of the integration rule
+     * @param[out] ek is the element matrix
+     * @param[out] ef is the rhs vector
+     */
+    virtual void Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec,
+                            const TPZFMatrix<CSTATE> &phi, const TPZFMatrix<CSTATE> &dphix,
+                            REAL weight,
+                            TPZFMatrix<CSTATE> &ef);
     /**@}*/
 
     /** @name ContributeBC
@@ -94,9 +120,7 @@ public:
         @param[out] sol FEM Solution at the integration point
     */
     virtual void Solution(const TPZVec<TPZMaterialDataT<STATE>> &datavec,
-                          int var, TPZVec<STATE> &sol) override {
-        TPZDarcyFlow::Solution(datavec[1],var,sol);
-    }
+                          int var, TPZVec<STATE> &sol) override;
     /**
      * @brief Returns an integer associated with a post-processing variable name
      * @param [in] name string containing the name of the post-processing variable. Ex: "Pressure".

@@ -22,6 +22,8 @@ target_link_libraries(HybridH1 Tools ErrorEstimationLib)
 add_executable(HybMixDiff main_HybMixDiff.cpp)
 target_link_libraries(HybMixDiff Tools Methods ErrorEstimationLib)
 
+# Project computing the error either with hybrid H1 or mixed methods
+# RICARDO ANCORI
 add_executable(HybridH1vsMixed main_HybridH1vsMixed.cpp)
 target_link_libraries(HybridH1vsMixed Tools Methods ErrorEstimationLib)
 

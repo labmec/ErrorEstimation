@@ -47,7 +47,7 @@ static LoggerPtr loggerF(Logger::getLogger("DebuggingF"));
 #endif
 
 TPZHybridH1ErrorEstimator::~TPZHybridH1ErrorEstimator() {
-    TPZVec<TPZCompMesh *> &meshvec = fMultiphysicsReconstructionMesh->MeshVector();
+    const TPZVec<TPZCompMesh *> &meshvec = fMultiphysicsReconstructionMesh->MeshVector();
     fMultiphysicsReconstructionMesh->Reference()->ResetReference();
     for (int i = 0; i < 4; i++) {
         if (!meshvec[i]) continue;
@@ -101,7 +101,7 @@ TPZVec<REAL> TPZHybridH1ErrorEstimator::PostProcess() {
     if(fAdaptivityStep ==0){
         std::ofstream myfile;
         myfile.open(fFolderOutput + filename, std::ios::app);
-        myfile << "\n\n Estimator errors for Problem " << *fproblemname; 
+        myfile << "\n\n Estimator errors for Problem " << fproblemname; 
         myfile << "\n-------------------------------------------------- \n";
         myfile << "Uniform refinement steps = " << fnDivisions  << "\n";
         myfile << "Order k= " << forderFEM_k << " Order n=    " << forderFEM_n            << "\n";

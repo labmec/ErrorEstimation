@@ -3,14 +3,14 @@ set(ErrorEstimateSRC
     main.cpp
     TPZMixedErrorEstimate.h
     TPZMixedErrorEstimate.cpp
-    TPZPostProcessError.h
-    TPZPostProcessError.cpp
+    TPZPostProcessError4.h
+    TPZPostProcessError4.cpp
     ProblemConfig.h
 #    ProblemConfig.cpp
 )
 
-add_executable(ErrorEstimateH1 ${ErrorEstimateSRC})
-target_link_libraries(ErrorEstimateH1 Tools Methods ErrorEstimationLib)
+add_executable(ErrorEstimateH1NEW ${ErrorEstimateSRC})
+target_link_libraries(ErrorEstimateH1NEW Tools Methods ErrorEstimationLib)
 
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)

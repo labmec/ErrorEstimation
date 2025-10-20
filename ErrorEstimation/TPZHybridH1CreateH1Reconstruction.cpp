@@ -2745,7 +2745,7 @@ TPZVec<REAL> TPZHybridH1CreateH1Reconstruction::PostProcess(){
     //Erro global
     std::ofstream myfile;
     myfile.open(fFolderOutput + "PressureReconstructionErrors.txt", std::ios::app); 
-    myfile << "\n\n Estimator errors for H1 reconstruction " << *fproblemname;
+    myfile << "\n\n Estimator errors for H1 reconstruction " << fproblemname;
     myfile << "\n-------------------------------------------------- \n";
     myfile << "Ndiv = " << fnDivisions <<" Order k= " << forderFEM_k << " Order n= "<< forderFEM_n<<"\n";
     myfile << "||K^{0.5}.grad(u_h-u)|| = " << (errorVec)[0] << "\n";

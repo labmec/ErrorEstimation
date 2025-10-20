@@ -35,6 +35,11 @@
 
 //#define ERRORESTIMATION_DEBUG
 
+TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin) : fMeshVector(5,0)
+{
+    fMeshVector[Eorigin] = origin;
+}
+
 TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config, bool useHDiv) : fMeshVector(5,0)
 {
     fuseHDiv = useHDiv;
@@ -295,7 +300,7 @@ void TPZPostProcessError::BuildPatchStructures()
                 }
                 if (vertexfailed == false) {
                     // all systems are go !!
-                    locpatch.fPartitionConnectIndex = intel->ConnectIndex(i);
+                    locpatch.fPartitionConnectIndices[0] = std::make_pair(intel->ConnectIndex(i),1.);
                     TPZManVector<REAL,3> co(3);
                     gel->Node(i).GetCoordinates(co);
                     locpatch.fCo = co;
@@ -364,7 +369,8 @@ void TPZPostProcessError::BuildPatchStructures2()
 
                 if (connectprocessed[locconnectindex] == 0) {
                     // all systems are go !!
-                    locpatch.fPartitionConnectIndex = intel->ConnectIndex(i);
+                    locpatch.fPartitionConnectIndices[0].first = intel->ConnectIndex(i);
+                    locpatch.fPartitionConnectIndices[0].second = 1.;
                     TPZManVector<REAL,3> co(3);
                     gel->Node(i).GetCoordinates(co);
                     locpatch.fCo = co;
@@ -594,10 +600,10 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         std::set<int64_t> boundaryconnects;
         for (int64_t patch = 0; patch < npatch; patch++) {
             {//Modifies the solution coeficients corresponding to hat functions of a color. They satisfy the unity partition property
-                int64_t partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndex;
-                TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
+                auto partitionindex = fVecVecPatches[color][patch].fPartitionConnectIndices[0];
+                TPZConnect& c =  meshpatch->ConnectVec()[partitionindex.first];
                 int64_t seqnum = c.SequenceNumber();
-                weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
+                weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = partitionindex.second;
                                 
             }
             
@@ -634,7 +640,7 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
             
             meshpatch->LoadSolution(meshpatch->Solution());// Necessary to expand solution to hanging nodes
             
-            {//Loop over boundary connects of a patch
+            {//Loop over boundary connects of a patch - eliminate them from the active equations
                 int64_t ncon = fVecVecPatches[color][patch].fBoundaryConnectIndices.size();
                 for (int64_t ic = 0; ic < ncon; ic++) {
                     
@@ -964,12 +970,12 @@ void TPZPostProcessError::ComputeElementErrors(TPZVec<STATE> &elementerrors)
         for (int color_ = 0; color_ < ncolors; color_++){
             int npatch = fVecVecPatches[color_].size();
             for (int patch_ = 0; patch_ < npatch; patch_++){
-                int64_t partitionindex = fVecVecPatches[color_][patch_].fPartitionConnectIndex;
-                TPZConnect& c =  meshpatch->ConnectVec()[partitionindex];
+                auto partitionindex = fVecVecPatches[color_][patch_].fPartitionConnectIndices[0];
+                TPZConnect& c =  meshpatch->ConnectVec()[partitionindex.first];
                 int64_t seqnum = c.SequenceNumber();
                 if(color_ == 6){
-                    weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 1.;
-                    
+                    weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = partitionindex.second;
+
                 }else{
                     weightsol.at(meshpatch->Block().at(seqnum,0,0,0)) = 0.;
                 }
@@ -1414,7 +1420,8 @@ void TPZPostProcessError::CreateAveragePressureMesh(){
     averagepressuremesh->AutoBuild();
     
     int64_t nconnects = averagepressuremesh->NConnects();
-    for (int ic = 0; ic<nconnects; ic++) {            averagepressuremesh->ConnectVec()[ic].SetLagrangeMultiplier(3);
+    for (int ic = 0; ic<nconnects; ic++) {
+        averagepressuremesh->ConnectVec()[ic].SetLagrangeMultiplier(3);
     }
     
     int64_t nel = averagepressuremesh->NElements();
@@ -1447,7 +1454,8 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
         TPZMaterial *mat = it.second;
         int matdim = mat->Dimension();
         TPZBndCond *bnd = dynamic_cast<TPZBndCond *>(mat);
-        if (matdim >= dim-1) {
+        TPZNullMaterial<> *nullmat = dynamic_cast<TPZNullMaterial<> *>(mat);
+        if (matdim == dim && !bnd && !nullmat) {
             int matId = mat->Id();
             int nstate = 1;
             TPZNullMaterial<> *material = new TPZNullMaterial<>(matId,dim,nstate);
@@ -1457,22 +1465,23 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
     
     gmesh->ResetReference();
     
-    int64_t nel = original->NElements();
+    int64_t nel = gmesh->NElements();
     for (int64_t el=0; el<nel; el++) {
-        TPZCompEl *pressure = original->Element(el);
-        TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *>(pressure);
-        TPZGeoEl *gel = 0;
-        if(intel) gel = intel->Reference();
-        if (!gel || gel->Dimension() < dim-1) {
-            continue;
+        TPZGeoEl *gel = gmesh->Element(el);
+        if (!gel) {
+            DebugStop();
         }
+        if(gel->HasSubElement()) continue;
+        int matid = gel->MaterialId();
+        if(cmesh->FindMaterial(matid) == nullptr) continue;
         cmesh->ApproxSpace().CreateCompEl(gel, *cmesh);
     }
     //    cmesh->LoadReferred(fMeshVector[0]);
     //    pressuremesh->LoadReferred(cmesh);
     cmesh->InitializeBlock();
+    cmesh->CleanUpUnconnectedNodes();
     fMeshVector[Epatch] = cmesh;
-    if(0)
+    if(1)
     {
         std::ofstream out("partitionmesh.vtk");
         TPZVTKGeoMesh::PrintCMeshVTK(cmesh, out);

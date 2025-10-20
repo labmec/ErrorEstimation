@@ -32,6 +32,7 @@
 #include <cstdio>
 #include <cmath>
 
+#include "TPZCreateHybridH1Space.h"
 #include "ProblemConfig.h"
 #include "TPZPostProcessError2.h"
 #include "InputTreatment.h"
@@ -64,6 +65,8 @@ void SolveH1Problem(TPZCompMesh *cmeshH1, ProblemConfig &config);
 
 // create an H1 conforming mesh
 TPZCompMesh *CompMeshH1(ProblemConfig &problem);
+
+void InsertMaterialObjects(TPZCreateHybridH1Space &create, TPZMultiphysicsCompMesh *cmesh);
 
 // create an Hybrid H1 approximation space
 // this method will create a copy of the geometric mesh
@@ -167,10 +170,10 @@ int main(int argc, char *argv[]) {
         
         TLaplaceExample1 example;
         config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::EBubble2D;
-        pConfig.problem = "EBubble2D";
-        config.problemname = "Bubble2D";
-        config.dir_name = "EBubble2D";
+        config.exact.operator*().fExact = TLaplaceExample1::ESinSin;
+        pConfig.problem = "ESinSin";
+        config.problemname = "ESinSin";
+        config.dir_name = "ESinSin";
         config.porder = 1;
         config.hdivmais = 2;
         //Case1.exact.fExact = example.ESinSin;//ESinMark//ESinSin//ESinSinDirNonHom
@@ -841,7 +844,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1, ProblemConfig &config){
     vtk.SetNThreads(0);
     vtk.Do();
     
-    TPZManVector<REAL> errorvec(10, 0.);
+    TPZManVector<REAL> errorvec(3, 0.);
     int64_t nelem = cmeshH1->NElements();
     cmeshH1->LoadSolution(cmeshH1->Solution());
     cmeshH1->ExpandSolution();
@@ -1026,6 +1029,24 @@ TPZCompMesh *CreateHDivFluxes(ProblemConfig &problem, TPZGeoMesh *gmeshlocal) {
     return cmesh;
 }
 
+void InsertMaterialObjects(TPZCreateHybridH1Space &create, TPZMultiphysicsCompMesh *cmesh) {
+    for(auto it : create.MaterialIds()) {
+        TPZHybridDarcyFlow *darcy = new TPZHybridDarcyFlow(it,cmesh->Dimension());
+        darcy->SetExactSol(create.Exact()->ExactSolution(),3);
+        darcy->SetForcingFunction(create.Exact()->ForceFunc(),3);
+        cmesh->InsertMaterialObject(darcy);
+        if(it == *create.MaterialIds().begin()) {
+            for(auto itbc : create.BCMaterialIds()) {
+                TPZFNMatrix<1,STATE> val1(1, 1,0.);
+                TPZManVector<STATE,1> val2(1,0.);
+                TPZBndCondT<STATE> *bcmat = darcy->CreateBC(darcy, itbc, 0, val1, val2);
+                bcmat->SetForcingFunctionBC(create.Exact()->ExactSolution(), 3);
+                cmesh->InsertMaterialObject(bcmat);
+            }
+        }
+    }
+}
+
 void InsertMaterialObjects(ProblemConfig &problem, TPZMultiphysicsCompMesh *cmesh) {
     for(auto it : problem.materialids) {
         TPZHybridDarcyFlow *darcy = new TPZHybridDarcyFlow(it,cmesh->Dimension());
@@ -1074,9 +1095,78 @@ void InsertLagrangeElements(ProblemConfig &problem, TPZMultiphysicsCompMesh *cme
         }
     }
 }
+
+#include "TPZCreateHybridH1Space.h"
 // create an Hybrid H1 approximation space
 // this method will create a copy of the geometric mesh
 TPZMultiphysicsCompMesh *CompMeshH1Hybrid(ProblemConfig &problem) {
+    TPZGeoMesh *gmeshlocal = new TPZGeoMesh(*problem.gmesh);
+    TPZCreateHybridH1Space create(gmeshlocal);
+    create.SetMaterialIds(problem.materialids,problem.bcmaterialids);
+    create.SetExact(problem.exact.operator->());
+    create.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
+    create.ComputePeriferalMaterialIds();
+    TPZCreateHybridH1Space::TConfigH1Hybrid config(create.fH1Hybrid);
+    // config.Print();
+
+    TPZManVector<TPZCompMesh *> meshvec;
+
+    int pOrder = problem.porder+problem.hdivmais-1;
+    create.CreateAtomicMeshes(meshvec,pOrder,problem.porder-1);
+    TPZMultiphysicsCompMesh *mphys = new TPZMultiphysicsCompMesh(gmeshlocal);
+    create.InsertPeriferalMaterialObjects(mphys);
+    InsertMaterialObjects(create, mphys);
+    mphys->ApproxSpace().SetAllCreateFunctionsMultiphysicElem();
+    mphys->BuildMultiphysicsSpace(meshvec);
+
+    create.InsertLagranceMaterialObjects(mphys);
+
+    {
+        int64_t nel = mphys->NElements();
+        for(int64_t el = 0; el<nel; el++) {
+            auto cel = dynamic_cast<TPZMultiphysicsElement *>(mphys->Element(el));
+            cel->InitializeIntegrationRule();
+            auto gel = cel->Reference();
+            int dim = gel->Dimension();
+            TPZManVector<int,3> order(dim);
+            cel->GetIntegrationRule().GetOrder(order);
+            for(int i=0; i<dim; i++) order[i]+=1;
+            cel->GetIntegrationRule().SetOrder(order);
+        }
+    }
+
+    create.AddInterfaceElements(mphys);
+
+#ifdef PZDEBUG
+    {
+        std::ofstream out("mphysics.txt");
+        mphys->Print(out);
+    }
+#endif
+    create.GroupandCondenseElements(mphys);
+
+    mphys->InitializeBlock();
+    mphys->ComputeNodElCon();
+
+    int interFaceMatID = create.fH1Hybrid.fLagrangeMatid.first;
+    int fluxMatID = create.fH1Hybrid.fFluxMatId;
+
+    // {
+    //     std::ofstream out1("h1hybrid.txt");
+    //     h1disc->Print(out1);
+    //     std::ofstream out2("fluxmesh.txt");
+    //     h1flux->Print(out2);
+    // }
+    {
+        std::ofstream out("mphys.txt");
+        mphys->Print(out);
+    }
+    return mphys;
+}
+
+// create an Hybrid H1 approximation space
+// this method will create a copy of the geometric mesh
+TPZMultiphysicsCompMesh *CompMeshH1Hybrid_backup(ProblemConfig &problem) {
     TPZGeoMesh *gmeshlocal = new TPZGeoMesh(*problem.gmesh);
     int dim = gmeshlocal->Dimension();
     AddAuxiliaryGeometricElements(problem, gmeshlocal);

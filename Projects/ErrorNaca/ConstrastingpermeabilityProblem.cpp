@@ -2104,14 +2104,17 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
         TPZGeoEl *gel = it;
         int matid = gel->MaterialId();
         if (matid != sbfem_domain && matid != sbfem_highperm_h1) DebugStop();
+        // create a sbfem volume element
         TPZSBFemVolume *sbvol = new TPZSBFemVolume(*cmesh, gel);
+        // keep track of the sbfem volume elements that will form an sbfem group
         sbvols.Push(sbvol);
         if(gel->Dimension() == 2) {
+            // the skeleton element has to exist along side 4!
             TPZGeoElSide gelside(gel, 4);
             TPZGeoElSide neigh = gelside.HasNeighbour(sbfem_skeleton);
             TPZGeoEl *skel = neigh.Element();
             if (skel->MaterialId() != sbfem_skeleton) DebugStop();
-            // create an H1 element
+            // The H1 elements of the sbfem skeletons were already created
             TPZCompEl *cskel = skel->Reference();
             if (!cskel) DebugStop();
             TPZInterpolatedElement *icskel = dynamic_cast<TPZInterpolatedElement *>(cskel);
@@ -2120,6 +2123,7 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
             if (sideorder < SBFemOrder) icskel->SetSideOrder(2, SBFemOrder);
             // std::cout << "gel " << gel->Index() << " is linear " << gel->IsLinearMapping() << std::endl;
             // std::cout << "skel is linear " << skel->IsLinearMapping() << std::endl;
+            // why does the skeleton map need to be linear?
             if (!gel->IsLinearMapping()) {
                 // gel->Print(std::cout);
                 // std::ofstream out("gmesh.txt");
@@ -2128,6 +2132,7 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
             }
             sbvol->SetSkeleton(cskel->Index());
         } else if(gel->Dimension() == 1) {
+            // this to generate an sbfem element with a Dirichlet boundary condition along an edge
             TPZGeoElSide gelside(gel, 0);
             TPZGeoElSide neigh = gelside.Neighbour();
             while (neigh != gelside) {
@@ -2138,19 +2143,23 @@ void CreateH1SBFEMelements(TPZCompMesh *cmesh) {
                 neigh = neigh.Neighbour();
             }
             if (neigh.Element()->MaterialId() != sbfem_skeleton) DebugStop();
-            // create an H1 element
+            // find the H1 element 
             TPZCompEl *cskel = neigh.Element()->Reference();
             if (!cskel) DebugStop();
+            // associate the skeleton element with the volume element
             sbvol->SetSkeleton(cskel->Index());
         }
+        // add the sb
         elgr->AddElement(sbvol);
     }
+    // put the sbfem volume elements in the sbfem group
     for (auto sbvol : sbvols) {
         sbvol->SetElementGroupIndex(elgr->Index());
     }
     cmesh->ComputeNodElCon();
     cmesh->CleanUpUnconnectedNodes();
     cmesh->ExpandSolution();
+    // if the stiffness was not computed, the computational mesh cannot be displayed
     TPZElementMatrixT<STATE> ek, ef;
     elgr->CalcStiff(ek, ef);
     if (0) {

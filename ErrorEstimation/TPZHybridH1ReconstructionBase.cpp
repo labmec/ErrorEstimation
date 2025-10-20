@@ -20,7 +20,7 @@ TPZHybridH1ReconstructionBase::TPZHybridH1ReconstructionBase(EstimatorConfig *pE
        fnDivisions = pEstimator->fnDivisions;
        fAdaptivityStep = pEstimator->fAdaptivityStep;
        fvtkResolution = pEstimator->fvtkResolution;
-       fProblemFolderOutput = *pEstimator->fproblemname;
+       fProblemFolderOutput = pEstimator->fproblemname;
 
        fMultiphysicsReconstructionMesh = new TPZMultiphysicsCompMesh(fOriginal->Reference());
 }
@@ -93,7 +93,7 @@ void TPZHybridH1ReconstructionBase::PrintSolutionVTK(TPZAnalysis &an){
         int dim = fMultiphysicsReconstructionMesh->Reference()->Dimension();
 
         std::stringstream out;
-        out << fProblemFolderOutput << *fproblemname
+        out << fProblemFolderOutput << fproblemname
             << "_k_" << forderFEM_k << "_n_"
             << forderFEM_n;
         if (fnDivisions != -1) {

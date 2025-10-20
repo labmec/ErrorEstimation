@@ -1,0 +1,60 @@
+{
+    "geometry" : "Quad.msh",
+    "skeletonMatid" : 5,
+//    "exactsolution" : "Constant",
+    "exactsolution" : "SinSin",
+    "UniformRefinement" : 3,
+    "porder_bubblefunctions" : 1,
+	"porder_hybrid_bubblefunctions" : 3,
+    "skeleton porder_h1": 1,
+    "skeleton porder_hybrid": 3,
+    "lagrange porder": 1,
+	
+    "matid_translation" : [
+      { "from" : 1, "to" : 3 }
+    ],
+    "boundary_conditions": [
+      {
+        "matid": -1,
+        "name": "dirichlet",
+		"type":0,
+	    "exactsolution" : "SinSin",
+        "value": 0.0
+      },
+            {
+        "matid": -2,
+        "name": "neumann",
+		"type":0,
+	    "exactsolution" : "SinSin",
+        "value": 0.0
+      }
+
+    ],
+    "materials": [
+      {
+        "matid": 3,
+	    "exactsolution" : "SinSin",
+        "permeability": 1
+      },
+      {
+        "matid": 2,
+	    "exactsolution" : "SinSin",
+        "permeability": 5
+      }
+    ],
+    "skeleton matid": 5,
+    "interface matids": [10, 15],
+    "flux matid": 20,
+
+
+    "PostProcess" : [
+        "Pressure",
+        "Flux",
+		"H1_Error",
+		"Hybrid_Error",
+		"Estimated_Error",
+		"EffectivityIndex"
+    ],
+    "nref_skeleton": 0
+
+  }

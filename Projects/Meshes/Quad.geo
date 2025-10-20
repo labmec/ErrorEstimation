@@ -1,4 +1,4 @@
-elem = 2;
+elem = 1;
 //+
 SetFactory("OpenCASCADE");
 //+
@@ -6,7 +6,9 @@ Rectangle(1) = {0, 0, 0, 1, 1, 0};
 //+
 Physical Surface("domain") = {1};
 //+
-Physical Line("dirichlet") = {1, 2, 3, 4};
+Physical Line("dirichlet") = {1,2,3,4};
+//Physical Line("neumann") = {1,2,3};
+
 //+
 Transfinite Surface {1} = {1, 2, 3, 4} Alternated;
 

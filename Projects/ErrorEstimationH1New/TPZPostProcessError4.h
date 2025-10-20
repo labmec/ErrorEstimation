@@ -19,15 +19,14 @@
 #include "pzblock.h"
 #include "pzfunction.h"
 #include "TPZAnalyticSolution.h"
-#include "ProblemConfig.h"
 
 struct TPZPatch
 {
     // connect index of the partition of unity mesh
-    TPZManVector<std::pair<int64_t,REAL> > fPartitionConnectIndices;
+    int64_t fPartitionConnectIndex;
     // location of the partition connect
     TPZManVector<REAL,3> fCo;
-    // vector of element indices of multiphysics elements
+    // vector of element indices of HDiv elements
     TPZManVector<int64_t,20> fElIndices;
     // vector of open set of connect indices that will be used for flux and pressure computations
     TPZManVector<int64_t,25> fConnectIndices;
@@ -35,41 +34,37 @@ struct TPZPatch
     // vector of closed set of connect indexes included in the elements
     TPZManVector<int64_t,30> fBoundaryConnectIndices;
     
-    bool fPatchIsBoundary;
-    
     void ClosedSet(std::set<int64_t> &closed)
     {
 //        std::copy (bar.begin(),bar.end(),std::inserter(foo,it));
         std::copy(&(fConnectIndices[0]),(&(fConnectIndices[0])+fConnectIndices.size()),std::inserter(closed,closed.begin()));
     }
-
-    TPZPatch() : fPartitionConnectIndices(1, std::make_pair(-1, 1.)), fCo(3,-1.)
+    
+    TPZPatch() : fPartitionConnectIndex(-1), fCo(3,-1.)
     {
         
     }
     
-    TPZPatch(const TPZPatch &copy) : fPartitionConnectIndices(copy.fPartitionConnectIndices), fCo(copy.fCo), fElIndices(copy.fElIndices),
-    fConnectIndices(copy.fConnectIndices), fBoundaryConnectIndices(copy.fBoundaryConnectIndices), fPatchIsBoundary(copy.fPatchIsBoundary)
+    TPZPatch(const TPZPatch &copy) : fPartitionConnectIndex(copy.fPartitionConnectIndex), fCo(copy.fCo), fElIndices(copy.fElIndices),
+    fConnectIndices(copy.fConnectIndices), fBoundaryConnectIndices(copy.fBoundaryConnectIndices)
     {
         
     }
     
     TPZPatch &operator=(const TPZPatch &copy)
     {
-        fPartitionConnectIndices = copy.fPartitionConnectIndices;
+        fPartitionConnectIndex = copy.fPartitionConnectIndex;
         fCo = copy.fCo;
         fElIndices = copy.fElIndices;
         fConnectIndices = copy.fConnectIndices;
         fBoundaryConnectIndices = copy.fBoundaryConnectIndices;
-        fPatchIsBoundary = copy.fPatchIsBoundary;
         return *this;
     }
     
     void Print(std::ostream &out)
     {
-        out << "The generating partitionindex = " << fPartitionConnectIndices<< std::endl;
+        out << "The generating partitionindex = " << fPartitionConnectIndex << std::endl;
         out << "Coordinate of the partition node " << fCo << std::endl;
-        out << "Patch is boundary " << fPatchIsBoundary << std::endl;
         out << "Element indices " << fElIndices << std::endl;
         out << "Open set connect indices " << fConnectIndices << std::endl;
         out << "Boundary set connect indices " << fBoundaryConnectIndices << std::endl;
@@ -79,22 +74,19 @@ struct TPZPatch
     int64_t FirstLagrangeEquation(TPZCompMesh *cmesh) const;
     
 };
-
-enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4, Epressureaverage = 5};
+ 
+enum MMeshPositions {Emulti = 0, Eflux = 1, Epressure = 2, Epatch = 3, Eorigin = 4};
 
 class TPZPostProcessError
 {
 public:
-
+    
     TPZPostProcessError(TPZCompMesh * origin);
-
-    TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config, bool useHDiv);
     
     TPZPostProcessError(TPZVec<TPZCompMesh *> &meshvec);
     
+private:
     
-
-protected:
     // mesh vector
     TPZManVector<TPZCompMesh *,6> fMeshVector;
     
@@ -102,24 +94,11 @@ protected:
     // each vector of patches corresponds to one color
     TPZManVector<TPZStack<TPZPatch>, 10> fVecVecPatches;
     
-    /// use HDiv or hybrid H1 to construct a conservative approximation
-    bool fuseHDiv = true;
-    
-    /// @brief material ids associated with error computation
-    std::set<int> fMaterialIds;
-    /// material ids for building the hybrid H1 mesh
-    int fMatWrap = 10;
-    int fInterfacePositive = 11;
-    int fInterfaceNegative = 12;
-    int fMatFlux = 15;
-    
     // build vector of patches of a same color
     void BuildPatchStructures();
-    virtual void BuildPatchStructures2();//one patch by color
-
     
     // print the relevant information of the patches
-    virtual void PrintPatchInformation(std::ostream &out);
+    void PrintPatchInformation(std::ostream &out);
     
     // original connect sequence numbers
     TPZVec<int64_t> fConnectSeqNumbers;
@@ -140,9 +119,9 @@ protected:
     void ComputePatchFluxes();// not implemented
     
     // determine if a given patch is boundary or not
-    bool PatchHasBoundary(TPZPatch &patch, const std::set<int64_t> &internalconnects) const;
+    bool PatchHasBoundary(TPZPatch &patch) const;
     
-    // Sum the solution stored in fSolution of the multiphysics mesh to the fSolution vector
+    // Sum the solution stored in fSolution of the second mesh to the fSolution vector
     void TransferAndSumSolution(TPZCompMesh *cmesh); // what is second mesh?
 
     // Reset the state of the HDiv mesh to its original structure
@@ -150,54 +129,30 @@ protected:
 
     // check whether the connectsizes have changed
     void CheckConnectSizes();
-    
-    /// identify the material ids of the boundary conditions in the root mesh
-    std::set<int> BCMaterialIds() const;
 
     // create the meshes that allow us to compute the error estimate
-    void CreateMultiphysicsMesh();
-    
-    /// add geometric wrappers, interface and interface flux elements
-    void AddWrapperElements();
+    void CreateAuxiliaryMeshes();
 
     /// create a fluxmesh based on the original H1 mesh
-    // the flux mesh will be put in position EFlux of the mesh vector
+    // the flux mesh will be put in the second position of the mesh vector
     void CreateFluxMesh();
-    
-    /// create a boundary flux mesh based on the original H1 mesh
-    /// the boundary flux mesh will be put in position EFlux
-    void CreateBoundaryFluxMesh();
     
     /// create the lagrange mesh corresponding to the flux mesh
     void CreatePressureMesh();
-    
-    /// create the hybrid H1 mesh corresponding to the H1 mesh
-    void CreateDiscontinuousPressureMesh();
 
-    virtual void CreateAveragePressureMesh();
-    
-    /// create the multiphysics mesh combining hdiv elements that will compute the projection matrix
-    void CreateMultiphysicsHdivMesh();
-
-    /// create the multiphysics mesh using hybrid H1 mesh for reconstruction
-    void CreateMultiphysicsHybridH1Mesh();
-
-    /// Add the Interface elements to the multiphysics mesh
-    virtual void AddInterfaceElements(TPZMultiphysicsCompMesh *mfmesh);
+    /// create the multiphysics mesh that will compute the projection matrix
+    void CreateMixedMesh();
 
     /// create the partition of unity mesh
     void CreatePartitionofUnityMesh();
     
-    TPZAnalyticSolution *fExact;
-    //TPZAutoPointer<TLaplaceExample1> fExact;
-
+     TPZAnalyticSolution *fExact;
+    
 public:
     
     // print partition diagnostics
     void PrintPartitionDiagnostics(int64_t color, std::ostream &out) const ;
     
-    // include the wrap, interface and flux element in the connected element list
-    void IncludeDim1Neighbours(int64_t seednodeindex, TPZGeoEl *gel, std::set<TPZCompEl *> &patchwrappers);
     // Collect the connect indices and elements which will contribute to the patch caracterized by the set of nodes
     // generally each node will form a patch
     TPZPatch BuildPatch(TPZCompElSide &seed);
@@ -206,7 +161,7 @@ public:
     void ComputeHDivSolution();//Not used
     
     // compute the estimated H1 seminorm errors
-    virtual void ComputeElementErrors(TPZVec<STATE> &elementerrors);
+    void ComputeElementErrors(TPZVec<STATE> &elementerrors);
     
     // compute the exact element errors
     void ComputeExactH1SemiNormErrors(TPZFunction<STATE> &exact, TPZVec<STATE> &exacterror)
