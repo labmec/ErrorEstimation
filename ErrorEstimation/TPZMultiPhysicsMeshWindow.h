@@ -16,6 +16,8 @@ class TPZMultiPhysicsMeshWindow : public TPZMultiphysicsCompMesh {
     // This structure helps in mapping solutions and boundary conditions across different physics
     TPZManVector<TPZVec<int64_t>, 7> m_connect_correspondence;
 
+    /// @brief Store the geometry to computational mesh correspondence to speed up the creation of mesh windows
+    TPZManVector<TPZVec<TPZCompEl *>, 7> m_Referred;
 public:
     TPZMultiPhysicsMeshWindow();
     
@@ -60,6 +62,12 @@ public:
     /// @brief Build the multiphysics space for the corresponding geometric elements
     virtual void BuildMultiphysicsSpace(const TPZVec<int64_t> &gelindexes) override;
 
+    void BuildMultiphysicsSpace(const std::set<int64_t> &gelindexes) {
+        TPZManVector<int64_t,20> gelvec(gelindexes.size());
+        auto it = gelindexes.begin();
+        for(int i=0; i<gelvec.size(); i++) gelvec[i] = *it++;
+        BuildMultiphysicsSpace(gelvec);
+    }
     /// @brief build the map between connect indices of the atomic mesh and the multiphysics mesh
     void BuildConnectMap(int imesh, std::map<int64_t, int64_t> &connectmap);
 
@@ -77,6 +85,10 @@ public:
         return m_connect_correspondence[imesh][connectindex];
     }
 
+    /// @brief access method to geometric to computational reference
+    TPZVec<TPZCompEl *> &GetReferred(int meshindex) {
+        return m_Referred[meshindex];
+    }
 protected:
     /// @brief Add the connects from the atomic meshes
     virtual void AddConnects() override;

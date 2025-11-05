@@ -6,9 +6,12 @@
 #include "TPZSBFemElementGroup.h"
 #include "TPZGeoPatch.h"
 #include "TPZMaterialT.h"
+class TPZMultiPhysicsMeshWindow;
 
+/// @brief class organizing computing the post processing error for SBFem simulations
 class TPZPostProcessErrorSBFem : public TPZPostProcessError {
 public:
+    enum MeshPosition {EFlux = 0, EPressure = 1, EAverage = 2, EOrigin = 3};
     // Constructor
     TPZPostProcessErrorSBFem(TPZCompMesh *origin, TPZCompMesh *postprocess, TPZBuildSBFemHybrid &buildSBFemHybrid);
 
@@ -123,6 +126,9 @@ private:
     
     /// compute Connect to element graph
     void ComputeConnectToElementGraph(TPZVec<int64_t> &connectgraph, TPZVec<int64_t> &connectgraphindex);
+    
+    /// set the center nodes of the discontinuous elements to the center of the patch
+    void LoadElementCenters(TPZMultiPhysicsMeshWindow *cmesh, TPZGeoPatch &patch);
     
 };
 

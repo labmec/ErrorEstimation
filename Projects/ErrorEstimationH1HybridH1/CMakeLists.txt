@@ -31,8 +31,11 @@ target_link_libraries(HybridSBem PRIVATE Tools Methods ErrorEstimationLib nlohma
 
 configure_file(hybrid.json hybrid.json COPYONLY)
 configure_file(SqrtSingular.json SqrtSingular.json COPYONLY)
+configure_file(SqrtSingularElastic.json SqrtSingularElastic.json COPYONLY)
+configure_file(elasticsmooth.json elasticsmooth.json COPYONLY)
 configure_file(../Meshes/Quad.msh Quad.msh COPYONLY)
 configure_file(../Meshes/QuadSqrt.msh QuadSqrt.msh COPYONLY)
+configure_file(../Meshes/QuadSqrtElastic.msh QuadSqrtElastic.msh COPYONLY)
 configure_file(../Meshes/Cube.msh Cube.msh COPYONLY)
 configure_file(../Meshes/BasicMesh.msh BasicMesh.msh COPYONLY)
 configure_file(../Meshes/LMesh.msh LMesh.msh COPYONLY)

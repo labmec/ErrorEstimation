@@ -71,7 +71,8 @@ struct ProblemConfig
     int vtkResolution = -1;
     /// exact solution
     TPZAutoPointer<TLaplaceExample1> exact;
-    
+    TPZAutoPointer<TElasticity2DAnalytic> exactelast;
+
     /// set of elements to be divided after each adaptivity step
     std::list<std::set<int64_t> > fElIndexDivide;
 

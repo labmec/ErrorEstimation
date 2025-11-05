@@ -16,6 +16,7 @@
 #include "DataStructure.h"
 #include "TPZNullMaterial.h"
 #include "DarcyFlow/TPZMixedDarcyFlow.h"
+#include "Elasticity/TPZElasticity2D.h"
 
 #include "pzelementgroup.h"
 
@@ -706,25 +707,49 @@ TPZCompMesh* Tools::CMeshH1(ProblemConfig problem) {
 
     TPZCompMesh* cmesh = new TPZCompMesh(problem.gmesh);
     
-    typedef TPZDarcyFlow TPZMatPoisson3d;
-    TPZMatPoisson3d* mat = 0;
+    TPZMaterialT<STATE>* mat = 0;
+    bool darcy = true;
+    int ndof = 1;
+    if(!problem.exact) {
+        darcy = false;
+        ndof = 2;
+    }
 
     for (auto matid : problem.materialids) {
-        TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
-        int porder = 5;
-        mix->SetExactSol(problem.exact.operator*().ExactSolution(),porder);
-        mix->SetForcingFunction(problem.exact.operator*().ForceFunc(),porder);
-
-        if (!mat) mat = mix;
-        cmesh->InsertMaterialObject(mix);
+        if(darcy) {
+            typedef TPZDarcyFlow TPZMatPoisson3d;
+            TPZMatPoisson3d *mix = new TPZMatPoisson3d(matid, cmesh->Dimension());
+            int porder = 5;
+            mix->SetExactSol(problem.exact.operator*().ExactSolution(),porder);
+            mix->SetForcingFunction(problem.exact.operator*().ForceFunc(),porder);
+            if (!mat) mat = mix;
+            cmesh->InsertMaterialObject(mix);
+        } else {
+            REAL young = 1.;
+            REAL poisson = 0.3;
+            REAL fx(0.),fy(0.);
+            TPZElasticity2D *matelast = new TPZElasticity2D(matid,young,poisson,fx,fy);
+            mat = matelast;
+            int porder = 5;
+            matelast->SetExactSol(problem.exactelast.operator*().ExactSolution(),porder);
+            matelast->SetForcingFunction(problem.exactelast.operator*().ForceFunc(),porder);
+            TPZManVector<REAL,3> x(3,0.), u_exact(2,0);
+            TPZFNMatrix<4> du_exact(2,2,0.);
+            matelast->ExactSol()(x,u_exact,du_exact);
+            cmesh->InsertMaterialObject(mat);
+        }
     }
 
     for (auto matid : problem.bcmaterialids) {
-        TPZFNMatrix<1, REAL> val1(1, 1, 0.);
-        TPZManVector<REAL,1> val2(1, 0.);
+        TPZFNMatrix<4, REAL> val1(ndof, ndof, 0.);
+        TPZManVector<REAL,1> val2(ndof, 0.);
         int bctype = 0;
         TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
-        bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution(),4);
+        if(darcy) {
+            bc->SetForcingFunctionBC(problem.exact.operator*().ExactSolution(),4);
+        } else {
+            bc->SetForcingFunctionBC(problem.exactelast.operator*().ExactSolution(),4);
+        }
 
         cmesh->InsertMaterialObject(bc);
     }

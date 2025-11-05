@@ -1,5 +1,6 @@
 #include "TPZPostProcessErrorSBFem.h"
 #include "TPZH1ErrorHybridH1EstimateMaterial.h"
+#include "TPZElast2DErrorEstimateMaterial.h"
 #include "TPZNullMaterialCS.h"
 #include "TPZSBFemElementGroupPostProcess.h"
 #include "TPZRenumbering.h"
@@ -115,7 +116,7 @@ void TPZPostProcessErrorSBFem::BuildPatchStructures2() {
     if(nodegraphindexsize != partitionunity->NConnects()+1) {
         DebugStop();
     }
-    int64_t patchcount = 0;
+
     for(int64_t nod = 0; nod < nodegraphindexsize-1; nod++) {
         int64_t firstind = nodtoelgraphindex[nod];
         int64_t lastind = nodtoelgraphindex[nod+1];
@@ -158,13 +159,14 @@ void TPZPostProcessErrorSBFem::BuildPatchStructures2() {
         // for connects without dependency, initialize the datastructure of geometric elements
         // contained in the domain of the patch
         if(!c.HasDependency()) {
-            fElementPatches[patchindex].ElementIndexes().Resize(lastind-firstind);
+            std::set<int64_t> elindices;
             for(int64_t elind = firstind; elind < lastind; elind++) {
                 int64_t element = nodtoelgraph[elind];
                 TPZCompEl *cel = partitionunity->Element(element);
                 TPZGeoEl *gel = cel->Reference();
-                fElementPatches[patchindex].ElementIndexes()[elind-firstind] = gel->Index();
+                elindices.insert(gel->Index());
             }
+            fElementPatches[patchindex].SetElementIndexes(gmesh,elindices);
         }
     }
 //    PrintPatchInformation();
@@ -283,10 +285,7 @@ void TPZPostProcessErrorSBFem::ExpandGeoPatchMeshes() {
     // loop over the patches
     for(auto &patch : fElementPatches) {
         auto & elind = patch.ElementIndexes();
-        std::set<int64_t> elindices;
-        elindices.insert(&elind[0],(&elind[0])+elind.size());
-        // there should not be duplicate element indexes
-        if(elindices.size() != elind.size()) DebugStop();
+        std::set<int64_t> addindices;
         // loop over the elements contained in the patches
         for(auto el : elind) {
             TPZGeoEl *gel = gmesh->Element(el);
@@ -310,21 +309,22 @@ void TPZPostProcessErrorSBFem::ExpandGeoPatchMeshes() {
                 
                 TPZGeoElSide neighskel = gelside.Neighbour();
                 if(neighskel.Element()->MaterialId() != skelmatid) DebugStop();
-                elindices.insert(neighskel.Element()->Index());
+                int64_t skelind = neighskel.Element()->Index();
+                if(elind.find(skelind) != elind.end()) DebugStop();
+                addindices.insert(skelind);
                 TPZGeoElSide neighintface = neighskel.Neighbour();
+                int64_t intfacind = neighintface.Element()->Index();
                 int neighmatid = neighintface.Element()->MaterialId();
                 if(intfacematid.find(neighmatid) == intfacematid.end()) DebugStop();
-                elindices.insert(neighintface.Element()->Index());
+                if(elind.find(intfacind) != elind.end()) DebugStop();
+                addindices.insert(intfacind);
                 TPZGeoElSide neighflux = neighintface.HasNeighbour(bcmatids);
+                int64_t neighfluxind = neighflux.Element()->Index();
                 if(!neighflux) DebugStop();
-                elindices.insert(neighflux.Element()->Index());
+                addindices.insert(neighfluxind);
             }
         }
-        elind.Resize(elindices.size());
-        auto it = elindices.begin();
-        for(int i = 0; i<elindices.size(); i++, it++) {
-            elind[i] = *it;
-        }
+        patch.AddElementIndexes(gmesh,addindices);
     }
 }
 
@@ -388,8 +388,12 @@ void TPZPostProcessErrorSBFem::InsertPostProcessingMaterials(TPZMultiphysicsComp
     for(auto matit : matvec) {
         TPZMaterial *mat = matit.second;
         TPZDarcyFlow *darcy = dynamic_cast<TPZDarcyFlow *>(mat);
+        TPZElasticity2D *elast = dynamic_cast<TPZElasticity2D *>(mat);
         if(darcy) {
             auto newmat = new TPZH1ErrorHybridH1EstimateMaterial(*darcy);
+            mphys->InsertMaterialObject(newmat);
+        } else if(elast) {
+            auto newmat = new TPZElast2DErrorEstimateMaterial(*elast);
             mphys->InsertMaterialObject(newmat);
         }
     }
@@ -409,7 +413,7 @@ void TPZPostProcessErrorSBFem::InsertPostProcessingMaterials(TPZMultiphysicsComp
         }
     }
     int skelmatid = fBuildSBFemHybrid.GetSkeletonMatid();
-    int nstate = 1;
+    int nstate = fNState;
 //    TPZNullMaterialCS(int matid, int dimension, int nstate)
     auto skelmat = new TPZNullMaterialCS<STATE>(skelmatid,meshdim-1,nstate);
     int fluxmatid = fBuildSBFemHybrid.GetFluxMaterialId();
@@ -418,12 +422,19 @@ void TPZPostProcessErrorSBFem::InsertPostProcessingMaterials(TPZMultiphysicsComp
     mphys->InsertMaterialObject(fluxmat);
 }
 
+#include "TPZCompElDisc.h"
 
 void TPZPostProcessErrorSBFem::CreateAveragePressureMesh() {
     TPZPostProcessError::CreateAveragePressureMesh();
     TPZCompMesh *meshpress = fMeshVector[Epressureaverage];
     int meshdim = meshpress->Reference()->Dimension();
     int64_t nel = meshpress->NElements();
+    int nstate = fNState;
+    if(nstate == 2) {
+        meshpress->ConnectVec()[0].SetNShape(3);
+        meshpress->ConnectVec()[0].SetOrder(1);
+        meshpress->Block().Set(0, 3);
+    }
     for(int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = meshpress->Element(el);
         TPZGeoEl *gel = cel->Reference();
@@ -432,9 +443,16 @@ void TPZPostProcessErrorSBFem::CreateAveragePressureMesh() {
             delete cel;
         } else if (cel->NConnects() == 1) {
             cel->SetConnectIndex(0, 0);
+            TPZCompElDisc *disc = dynamic_cast<TPZCompElDisc *>(cel);
+            if(fNState == 2) {
+                disc->SetTotalOrderShape();
+                int nshape = disc->NShapeF();
+                if(nshape != 3) DebugStop();
+            }
         }
     }
     meshpress->ComputeNodElCon();
+    meshpress->ExpandSolution();
     meshpress->CleanUpUnconnectedNodes();
 }
 
@@ -653,19 +671,36 @@ void TPZPostProcessErrorSBFem::ComputeElementErrors(TPZVec<STATE> &errors) {
 
 
     int matid = *matpostprocess.begin();
-    TPZH1ErrorHybridH1EstimateMaterial *posmat = dynamic_cast<TPZH1ErrorHybridH1EstimateMaterial *>(cmeshmulti.FindMaterial(matid));
-    if(!posmat) DebugStop();
-    if(errors.size() != posmat->NEvalErrors()) {
-        errors.Resize(posmat->NEvalErrors());
+    int H1Pos = -1;
+    int EstPos = -1;
+    int HybridPos = -1;
+    TPZH1ErrorHybridH1EstimateMaterial *posmat1 = dynamic_cast<TPZH1ErrorHybridH1EstimateMaterial *>(cmeshmulti.FindMaterial(matid));
+    if(posmat1) {
+        H1Pos = TPZH1ErrorHybridH1EstimateMaterial::EH1;
+        EstPos = TPZH1ErrorHybridH1EstimateMaterial::EEstimate;
+        HybridPos = TPZH1ErrorHybridH1EstimateMaterial::EHybrid;
+        
+        if(errors.size() != posmat1->NEvalErrors()) {
+            errors.Resize(posmat1->NEvalErrors());
+        }
     }
+    TPZElast2DErrorEstimateMaterial *posmat2 = dynamic_cast<TPZElast2DErrorEstimateMaterial *>(cmeshmulti.FindMaterial(matid));
+    if(posmat2)
+    {
+        H1Pos = TPZElast2DErrorEstimateMaterial::EH1;
+        EstPos = TPZElast2DErrorEstimateMaterial::EEstimate;
+        HybridPos = TPZElast2DErrorEstimateMaterial::EHybrid;
+        
+        if(errors.size() != posmat2->NEvalErrors()) {
+            errors.Resize(posmat2->NEvalErrors());
+        }
+    }
+    if(!posmat1 && !posmat2) DebugStop();
     int64_t NErrors = errors.size();
     errors.Fill(0.);
     int64_t nel = cmeshmulti.NElements();
     cmeshmulti.ElementSolution().Redim(nel, NErrors);
     TPZFMatrix<REAL> &elementsolution = cmeshmulti.ElementSolution();
-    int H1Pos = TPZH1ErrorHybridH1EstimateMaterial::EH1;
-    int EstPos = TPZH1ErrorHybridH1EstimateMaterial::EEstimate;
-    int HybridPos = TPZH1ErrorHybridH1EstimateMaterial::EHybrid;
 
     for(int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = cmeshmulti.Element(el);
@@ -742,9 +777,21 @@ void TPZPostProcessErrorSBFem::ReconstructHybridH1() {
     integrateF = 0.;
 //    std::cout << __PRETTY_FUNCTION__ << "********************************** Remove this\n";
 //    npatches = 1;
+//    for(int64_t ip = 1; ip <npatches; ip++) {
+//        fElementPatches[0] += fElementPatches[ip];
+//    }
+//    fElementPatches[0].Print();
+//    fElementPatches[3].Print();
+//    fElementPatches[0] += fElementPatches[3];
+//    fElementPatches[1] += fElementPatches[2];
+//    fElementPatches[3].Empty();
+//    fElementPatches[2].Empty();
+//    fElementPatches[0].Print();
+//    fElementPatches[1].Print();
+//    npatches = 2;
     for(int64_t ip = 0; ip < npatches; ip++) {
         if(ip%20 == 0) std::cout << "*";
-//        std::cout << "Processing patch " << ip << std::endl;
+        std::cout << "Processing patch " << ip << std::endl;
         meshw->BuildMultiphysicsSpace(fElementPatches[ip].ElementIndexes());
         fElementPatches[ip].LoadPatchVelues(patchmesh);
         bool hasboundary = fElementPatches[ip].HasBoundary(*gmesh, boundarymatids);
@@ -758,6 +805,8 @@ void TPZPostProcessErrorSBFem::ReconstructHybridH1() {
             int64_t seqnum = c.SequenceNumber();
             meshw->Block().Set(seqnum, 0);
             meshw->ExpandSolution();
+        } else {
+            LoadElementCenters(meshw, fElementPatches[ip]);
         }
         InsertInterfaceMaterial(meshw);
         AddInterfaceElements(meshw);
@@ -766,11 +815,17 @@ void TPZPostProcessErrorSBFem::ReconstructHybridH1() {
             std::ofstream out("MultiphysicsWindow.txt");
             meshw->Print(out);
         }
+        // create the SBFem post processing groups
         GroupSBFemMultiphysics(meshw,hasboundary);
-        if(0)
+        fBuildSBFemHybrid.InitializeLagrangeLevels(*meshw);
+        fBuildSBFemHybrid.GroupAndCondenseElements(*meshw);
+        if(1)
         {
             std::ofstream out("MultiphysicsWindow.txt");
             meshw->Print(out);
+            TPZCompMesh *cmeshhat = fMeshVector[Epatch];
+            std::ofstream out2("PatchMesh.txt");
+            cmeshhat->Print(out2);
         }
         std::set<int64_t> exclude_eq;
         {
@@ -803,19 +858,29 @@ void TPZPostProcessErrorSBFem::ReconstructHybridH1() {
         int64_t neq = meshw->NEquations() - nexclude;
 //        std::cout << "Patch created now assembling\n";
         TPZFStructMatrix<STATE> strmat(meshw);
-        strmat.EquationFilter().ExcludeEquations(exclude_eq);
+        if(nexclude) {
+            strmat.EquationFilter().ExcludeEquations(exclude_eq);
+        }
         TPZFMatrix<STATE> stiff(neq,neq,0), rhslarge(neq+nexclude,1,0.), rhs(neq,1,0.);
         
         extern std::complex<STATE> integrateF;
         integrateF = 0.;
         
         strmat.Assemble(stiff, rhslarge);
-        
+        std::cout << "NEquations " << neq << std::endl;
 //        std::cout << "Integrated residual for hat function " << integrateF << std::endl;
         integrateF = 0.;
         strmat.EquationFilter().Gather(rhslarge, rhs);
 //        std::cout << "Assemble finished, now inverting the system of " << stiff.Rows() << " equations\n";
+//        if(!hasboundary) {
+//            stiff.Print("Glob = ",std::cout,EMathematicaInput);
+//        }
+        
         stiff.SolveDirect(rhs, ELDLt);
+        
+//        if(!hasboundary) {
+//            std::cout << "Rhs norm " << Norm(rhs) << std::endl;
+//        }
 //        std::cout <<  "Inversion finished - computing the error\n";
         strmat.EquationFilter().Scatter(rhs, rhslarge);
         meshw->LoadSolution(rhslarge);
@@ -827,8 +892,22 @@ void TPZPostProcessErrorSBFem::ReconstructHybridH1() {
             TPZConnect &c = meshw->ConnectVec()[mphysconnectindex];
             c.SetNShape(1);
             int64_t seqnum = c.SequenceNumber();
-            meshw->Block().Set(seqnum, 1);
+            if(fNState == 1) {
+                meshw->Block().Set(seqnum, 1);
+            } else if(fNState == 2) {
+                meshw->Block().Set(seqnum,3);
+                c.SetNShape(3);
+            } else {
+                DebugStop();
+            }
             meshw->ExpandSolution();
+        } else {
+            std::map<int64_t,int64_t> connectmap;
+            meshw->BuildConnectMap(4, connectmap);
+            int64_t mphysconnectindex = connectmap[0];
+            TPZConnect &c = meshw->ConnectVec()[mphysconnectindex];
+            std::cout << "Unequilibrated body force \n";
+            c.Print(*meshw);
         }
         hybridsol.Zero();
         meshw->TransferMultiphysicsSolution();
@@ -841,7 +920,11 @@ void TPZPostProcessErrorSBFem::ReconstructHybridH1() {
             TPZStack<std::string> fields;
             fields.Push("Partition");
             fields.Push("DistFlux");
-            fields.Push("Pressure");
+            if(fNState == 1) {
+                fields.Push("Pressure");
+            } else {
+                fields.Push("displacement");
+            }
             fields.Push("SolH1Hat");
             TPZVTKGenerator vtk(meshw, fields, plotname, 3);
             int step = (int)ip;
@@ -850,6 +933,19 @@ void TPZPostProcessErrorSBFem::ReconstructHybridH1() {
 
         }
         fElementPatches[ip].ZeroPatchValues(patchmesh);
+        for (int64_t el = 0; el < meshw->NElements(); el++) {
+            TPZCompEl *cel = meshw->Element(el);
+            if (!cel) continue;
+            TPZCondensedCompEl *condensed = dynamic_cast<TPZCondensedCompEl *>(cel);
+            if (condensed) {
+                cel = condensed->ReferenceCompEl();
+                condensed->Unwrap();
+            }
+            TPZElementGroup *elgr = dynamic_cast<TPZElementGroup *>(cel);
+            if(elgr) {
+                elgr->Unwrap(false);
+            }
+        }
         meshw->CleanElementsConnects();
         HideInterfaceMaterial(meshw);
 //        std::cout << "Patch finished processing\n";
@@ -901,11 +997,13 @@ void TPZPostProcessErrorSBFem::AddInterfaceElements(TPZMultiphysicsCompMesh *mfm
 void TPZPostProcessErrorSBFem::InitializeInterfaceMaterialObjects() {
     fInterfaceMaterials.Resize(2, 0);
     int meshdim = fMeshVector[Eorigin]->Dimension();
+    TPZCompMesh *meshH1 = fMeshVector[Eorigin];
+    int nstate = fNState;
     auto interfacematids = fBuildSBFemHybrid.GetInterfaceMaterialIds();
-    TPZLagrangeMultiplierCS<STATE> *lagrange = new TPZLagrangeMultiplierCS<STATE>(interfacematids.first, meshdim-1, 1);
+    TPZLagrangeMultiplierCS<STATE> *lagrange = new TPZLagrangeMultiplierCS<STATE>(interfacematids.first, meshdim-1, nstate);
     lagrange->SetLinear(true);
     fInterfaceMaterials[0] = lagrange;
-    lagrange = new TPZLagrangeMultiplierCS<STATE>(interfacematids.second, meshdim-1, 1);
+    lagrange = new TPZLagrangeMultiplierCS<STATE>(interfacematids.second, meshdim-1, nstate);
     lagrange->SetMultiplier(-1.);
     lagrange->SetLinear(true);
     fInterfaceMaterials[1] = lagrange;
@@ -931,6 +1029,21 @@ void TPZPostProcessErrorSBFem::InsertInterfaceMaterial(TPZCompMesh *cmesh) {
 //    std::cout << "insert Interface matids " << fInterfaceMaterials[0]->Id() << " " << fInterfaceMaterials[1]->Id() << std::endl;
     for(auto it : fInterfaceMaterials) {
         cmesh->InsertMaterialObject(it);
+    }
+}
+
+#include "TPZCompElDisc.h"
+/// set the center nodes of the discontinuous elements to the center of the patch
+void TPZPostProcessErrorSBFem::LoadElementCenters(TPZMultiPhysicsMeshWindow *cmesh, TPZGeoPatch &patch) {
+    const TPZVec<TPZCompEl *> &referred = cmesh->GetReferred(4);
+    const std::set<int64_t> &elindices =patch.ElementIndexes();
+    const TPZVec<REAL> &center = patch.Center();
+    for(auto it : elindices) {
+        TPZCompEl *cel = referred[it];
+        if(!cel) continue;
+        TPZCompElDisc *disc = dynamic_cast<TPZCompElDisc *>(cel);
+        if(!disc) DebugStop();
+        disc->SetCenterPoint(center);
     }
 }
 

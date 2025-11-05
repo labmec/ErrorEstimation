@@ -18,6 +18,10 @@ target_sources(ErrorEstimationLib PUBLIC
     TPZSteklovMaterial.cpp
 	TPZH1ErrorHybridH1EstimateMaterial.h
 	TPZH1ErrorHybridH1EstimateMaterial.cpp
+	TPZHybridElasticity2D.h
+	TPZHybridElasticity2D.cpp
+	TPZElast2DErrorEstimateMaterial.h
+	TPZElast2DErrorEstimateMaterial.cpp
 )
 
 target_include_directories(ErrorEstimationLib PUBLIC ${CMAKE_CURRENT_LIST_DIR})

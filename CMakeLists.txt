@@ -26,12 +26,10 @@ file(GLOB_RECURSE PZ_SRC
 add_custom_target( GlobalFiles SOURCES ${PZ_SRC})
 
 #TODO: Define this using modern CMake standards. @Gustavo, do you know how to do this?
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     option(ERRORESTIMATION_DEBUG "Debug verifications" OFF)
     if(ERRORESTIMATION_DEBUG)
         add_definitions(-DERRORESTIMATION_DEBUG)
     endif()
-endif()
 
 # This option enables a lot of warnings and treat them as errors, to ensure
 # good programming practices are used. Since its behaviour is extreme, it

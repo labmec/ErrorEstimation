@@ -4,7 +4,9 @@ TPZMultiPhysicsMeshWindow::TPZMultiPhysicsMeshWindow() : TPZMultiphysicsCompMesh
     // Default constructor implementation
 }
 
-TPZMultiPhysicsMeshWindow::TPZMultiPhysicsMeshWindow(const TPZMultiPhysicsMeshWindow &other) : TPZMultiphysicsCompMesh(other) {
+TPZMultiPhysicsMeshWindow::TPZMultiPhysicsMeshWindow(const TPZMultiPhysicsMeshWindow &other) : TPZMultiphysicsCompMesh(other), m_connect_correspondence(other.m_connect_correspondence),
+    m_Referred(other.m_Referred)
+{
     // Copy constructor implementation
 }
 
@@ -13,6 +15,8 @@ TPZMultiPhysicsMeshWindow& TPZMultiPhysicsMeshWindow::operator=(const TPZMultiPh
         TPZCompMesh::operator=(other);
         // Copy any additional members here if needed
     }
+    m_connect_correspondence = other.m_connect_correspondence;
+    m_Referred = other.m_Referred;
     return *this;
 }
 
@@ -155,17 +159,25 @@ void TPZMultiPhysicsMeshWindow::AddElements() {
     int64_t n_cels = NElements();
     // for each geometric element, the computational multiphysics element
     int64_t n_gels = geometry->NElements();
-    TPZVec<TPZCompEl *> Referred(n_gels);
+//    TPZVec<TPZCompEl *> Referred(n_gels);
     auto meshvec = this->MeshVector();
     auto m_active_approx_spaces = this->GetActiveApproximationSpaces();
     int n_approx_spaces = meshvec.size();
+    if(m_Referred.size() != n_approx_spaces) {
+        if(m_Referred.size()) DebugStop();
+        m_Referred.Resize(n_approx_spaces);
+        for(int iappr = 0; iappr < n_approx_spaces; iappr++) {
+            m_Referred[iappr].Resize(n_gels, 0);
+            if(meshvec[iappr]) LoadReferred(meshvec[iappr], m_Referred[iappr]);
+        }
+    }
     for(int i_as = 0; i_as < n_approx_spaces; i_as++)
     {
         /// for a given atomic space, load the references
         TPZCompMesh *atom = meshvec[i_as];
         if(!atom) continue;
-        Referred.Fill(0);
-        LoadReferred(atom, Referred);
+//        Referred.Fill(0);
+//        LoadReferred(atom, Referred);
         // atom->LoadReferences(Referred);
         int64_t icel;
         // loop over the multiphysics elements
@@ -177,7 +189,7 @@ void TPZMultiPhysicsMeshWindow::AddElements() {
             {
                 int64_t found = 0;
                 int64_t gelindex = mfcel->ReferenceIndex();
-                TPZCompEl *celatom = Referred[gelindex];
+                TPZCompEl *celatom = m_Referred[i_as][gelindex];
                 
                 if (celatom) {
                     mfcel->AddElement(celatom, i_as);
@@ -192,13 +204,13 @@ void TPZMultiPhysicsMeshWindow::AddElements() {
                     {
                         gelF = gelF->Father();
                         int gelFindex = gelF->Index();
-                        if (Referred[gelFindex]) {
+                        if (m_Referred[i_as][gelFindex]) {
 #ifdef PZDEBUG
                             if (gelF->MaterialId() != gel->MaterialId()) {
                                 DebugStop();
                             }
 #endif
-                            mfcel->AddElement(Referred[gelFindex], i_as);
+                            mfcel->AddElement(m_Referred[i_as][gelFindex], i_as);
                             found = true;
                             break;
                         }
@@ -212,7 +224,6 @@ void TPZMultiPhysicsMeshWindow::AddElements() {
                 DebugStop();
             }
         }
-        Referred.Fill(0);
     }
     
     for (int64_t icel = 0; icel < n_cels; icel++) {

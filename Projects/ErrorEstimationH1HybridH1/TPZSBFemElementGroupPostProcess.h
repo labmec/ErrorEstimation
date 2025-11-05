@@ -19,6 +19,9 @@ class TPZSBFemElementGroupPostProcess : public TPZElementGroup {
     
     bool fHasBoundary = false;
     
+    ///@brief Number of state variables (used when computing the Rigid Body Modes and casting to proper post processing materials
+    int fNState = 1;
+    
     /// right hand side of the bubble function with respect to patch reconstruction
     TPZFMatrix<CSTATE> fRhsBubble;
     
@@ -49,6 +52,10 @@ public:
     void SetHasBoundary(bool hasbdry){
         fHasBoundary = hasbdry;
     }
+    
+    TPZSBFemElementGroup *SBFemReferred() {
+        return fReferred;
+    }
     /**
      * @brief Computes the element stifness matrix and right hand side
      * @param ek element stiffness matrix
@@ -76,7 +83,7 @@ private:
     void ReorganizeConnectOrder();
     
     /// cpmpute the right hand side contribution of the hybrid h1 reconstruction for sbfem volume elements
-    void ComputeRhs(TPZFMatrix<CSTATE> &rhssbfem, TPZFMatrix<CSTATE> &rhsbubble);
+    void ComputeRhsRBM(TPZFMatrix<CSTATE> &rhssbfem, TPZFMatrix<CSTATE> &rhsbubble, TPZFMatrix<CSTATE> &RBM);
 };
 
 #endif /* TPZSBFemElementGroupPostProcess_hpp */

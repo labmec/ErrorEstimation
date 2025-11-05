@@ -1,14 +1,15 @@
 {
     "geometry" : "Quad.msh",
-    "skeletonMatid" : 5,
-//    "exactsolution" : "Constant",
-	"problem_type" : "Scalar",
-    "directory" : "Quadratic X2",
-    "UniformRefinement" : [1,1],
-    "porder_bubblefunctions" : 2,
+
+	"problem_type" : "Elastic",
+    "directory" : "Displacement",
+    "UniformRefinement" : [2,2],
+    "porder_bubblefunctions" : 1,
 	"porder_hybrid_bubblefunctions" : 3,
-    "skeleton porder_h1": 2,
+    "skeleton porder_h1": 1,
     "skeleton porder_hybrid": 3,
+    "nref_skeleton": 0,
+	
     "lagrange porder": 1,
 	
     "matid_translation" : [
@@ -19,23 +20,25 @@
         "matid": -1,
         "name": "dirichlet",
 		"type":0,
-	    "exactsolution" : "X2",
-        "value": [0.0]
+	    "exactsolution" : "LoadedBeam",
+        "value": [0.0,0.0]
       },
             {
         "matid": -2,
         "name": "neumann",
 		"type":0,
-	    "exactsolution" : "X2",
-        "value": [0.0]
+	    "exactsolution" : "LoadedBeam",
+        "value": [0.0,0.0]
       }
 
     ],
     "materials": [
       {
+		"name" : "domain",
         "matid": 3,
-	    "exactsolution" : "X2",
-        "permeability": 1
+	    "exactsolution" : "LoadedBeam",
+        "young": 1,
+		"poisson": 0.3
       }
     ],
     "skeleton matid": 5,
@@ -44,13 +47,16 @@
 
 
     "PostProcess" : [
-        "Pressure",
-        "Flux",
+        "displacement",
+        "SigmaX",
+		"SigmaY",
+		"TauXY",
 		"H1_Error",
 		"Hybrid_Error",
 		"Estimated_Error",
 		"EffectivityIndex"
     ],
-    "nref_skeleton": 0
+	"skeletonMatid" : 5
+	
 
   }

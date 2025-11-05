@@ -76,6 +76,9 @@ public:
         
         bool fHybridSquared = false;
         /// indicates whether a second hybridizations will be applied
+        ///
+        /// @brief number of state variables
+        int fNState = 1;
         
         /// default constructor
         TConfigH1Hybrid(){}

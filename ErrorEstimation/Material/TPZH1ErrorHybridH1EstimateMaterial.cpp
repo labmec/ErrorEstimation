@@ -204,7 +204,7 @@ void TPZH1ErrorHybridH1EstimateMaterial::Contribute(const TPZVec<TPZMaterialData
 void TPZH1ErrorHybridH1EstimateMaterial::Contribute(const TPZVec<TPZMaterialDataT<STATE>> &datavec,
                         const TPZFMatrix<CSTATE> &phi, const TPZFMatrix<CSTATE> &dphix,
                         REAL weight,
-                                                    TPZFMatrix<CSTATE> &ef) {
+                                                    TPZFMatrix<CSTATE> &ef, TPZFMatrix<CSTATE> &RBM) {
     int64_t nphiH1 = phi.Rows();
     if(nphiH1 == 0) return;
     TPZVec<REAL>  &x = datavec[Epatch].x;
@@ -265,6 +265,12 @@ void TPZH1ErrorHybridH1EstimateMaterial::Contribute(const TPZVec<TPZMaterialData
     for(int d=0; d<3; d++) uhAgradPsi(d,0) = KPerm*pressorigin*dhatvalxy(d,0);
     ef.AddContribution(0, 0, dphixyz, 1, uhAgradPsi, 0, weight);
 //    std::cout << "Norm dphixyz " << Norm(dphixyz) << " Norm uhAgradPsi " << Norm(uhAgradPsi) << std::endl;
+    // the rigid body mode contribution is the integral of the shape function times a constant
+    int numRBM = RBM.Cols();
+    if(numRBM) {
+        TPZFNMatrix<1,CSTATE> one(1, 1, 1.);
+        RBM.AddContribution(0, 0, phi, 0, one, 0, weight);
+    }
 }
 /**@}*/
 

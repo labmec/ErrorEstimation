@@ -105,6 +105,8 @@ protected:
     /// use HDiv or hybrid H1 to construct a conservative approximation
     bool fuseHDiv = true;
     
+    int fNState = 1;
+    
     /// @brief material ids associated with error computation
     std::set<int> fMaterialIds;
     /// material ids for building the hybrid H1 mesh

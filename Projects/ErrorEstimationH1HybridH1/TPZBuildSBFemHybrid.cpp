@@ -13,6 +13,7 @@
 #include "TPZInterfaceEl.h"
 #include "TPZSBFemVolume.h"
 #include "TPZSBFemElementGroup.h"
+#include "TPZSBFemElementGroupPostProcess.h"
 #include "pzcondensedcompel.h"
 #include "pzlog.h"
 
@@ -334,15 +335,26 @@ void TPZBuildSBFemHybrid::InitializeLagrangeLevels(TPZCompMesh &cmesh) {
         TPZGeoEl *gel = cel->Reference();
         if(!gel) {
             TPZSBFemElementGroup *sbfem = dynamic_cast<TPZSBFemElementGroup *>(cel);
-            if(!sbfem) {
+            TPZSBFemElementGroupPostProcess *sbfempp = dynamic_cast<TPZSBFemElementGroupPostProcess *>(cel);
+            int nstate = 0;
+            if(!sbfem && !sbfempp) {
                 DebugStop();
             }
-            int nconnect = sbfem->NConnects();
+            if(sbfem) {
+                nstate = sbfem->NState();
+            } else
+            {
+                nstate = sbfempp->SBFemReferred()->NState();
+            }
+            int nconnect = cel->NConnects();
             for (int ic = 0; ic < nconnect; ic++) {
-                TPZConnect &c = sbfem->Connect(ic);
+                TPZConnect &c = cel->Connect(ic);
                 c.SetLagrangeMultiplier(0);
             }
-            sbfem->Connect(0).SetLagrangeMultiplier(2);
+            cel->Connect(0).SetLagrangeMultiplier(2);
+            if(nstate == 2) {
+                cel->Connect(1).SetLagrangeMultiplier(2);
+            }
         } else {
             int gelmatid = gel->MaterialId();
             if(matids.find(gelmatid) == matids.end()) {
@@ -361,11 +373,22 @@ void TPZBuildSBFemHybrid::InitializeLagrangeLevels(TPZCompMesh &cmesh) {
 void TPZBuildSBFemHybrid::GroupAndCondenseElements(TPZCompMesh &cmesh) {
     // Implementation of the grouping and condensation of elements
     int64_t nelgroup = this->fPartitionCenterNode.size();
-    TPZVec<TPZElementGroup *> groupvec(nelgroup);
-    for(int64_t ig = 0; ig < nelgroup; ig++) {
-        TPZElementGroup *elgr = new TPZElementGroup(cmesh);
-        groupvec[ig] = elgr;
-    }
+    std::map<int64_t,TPZElementGroup *> groupvec;
+//    for(int64_t ig = 0; ig < nelgroup; ig++) {
+//        TPZElementGroup *elgr = new TPZElementGroup(cmesh);
+//        groupvec[ig] = elgr;
+//    }
+    auto GetGroup = [&groupvec,&cmesh](int64_t partition) -> TPZElementGroup* {
+        auto it = groupvec.find(partition);
+        TPZElementGroup *elgr = 0;
+        if(it == groupvec.end()) {
+            elgr = new TPZElementGroup(cmesh);
+            groupvec[partition] = elgr;
+        } else {
+            elgr = it->second;
+        }
+        return elgr;
+    };
     int64_t nel = cmesh.NElements();
     for (int64_t el = 0; el < nel; el++) {
         int partition = -1;
@@ -373,12 +396,19 @@ void TPZBuildSBFemHybrid::GroupAndCondenseElements(TPZCompMesh &cmesh) {
         if (!cel) continue;
         // Group elements based on some criteria
         TPZSBFemElementGroup *sbfem = dynamic_cast<TPZSBFemElementGroup *>(cel);
+        TPZSBFemElementGroupPostProcess *sbfempp = dynamic_cast<TPZSBFemElementGroupPostProcess *>(cel);
         TPZElementGroup *elgr = dynamic_cast<TPZElementGroup *>(cel);
+        if(sbfempp) {
+            auto sbfemlocal = sbfempp->SBFemReferred();
+            int64_t partition = GetPartition(sbfemlocal);
+            GetGroup(partition)->AddElement(sbfempp);
+            continue;
+        }
         if (sbfem) {
             int64_t partition = GetPartition(sbfem);
-            groupvec[partition]->AddElement(sbfem);
+            GetGroup(partition)->AddElement(sbfem);
             continue;
-        } 
+        }
         if (elgr) {
             continue;
         }
@@ -388,11 +418,11 @@ void TPZBuildSBFemHybrid::GroupAndCondenseElements(TPZCompMesh &cmesh) {
         }
         int64_t groupindex = fElementPartition[gel->Index()];
         if(groupindex != -1) {
-            if(groupindex < 0 || groupindex >= groupvec.size()) {
+            if(groupindex < 0 || groupindex >= nelgroup) {
                 std::cout << "gel index " << gel->Index() << " has group index " << groupindex << std::endl;
                 std::cout << fElementPartition << std::endl;
             }
-            groupvec[groupindex]->AddElement(cel);
+            GetGroup(groupindex)->AddElement(cel);
         }
     }
     // increment nelconnected of connect with lagrange level 2
@@ -405,8 +435,8 @@ void TPZBuildSBFemHybrid::GroupAndCondenseElements(TPZCompMesh &cmesh) {
         }
     }
     // Condense each group
-    for (int64_t ig = 0; ig < nelgroup; ig++) {
-        TPZElementGroup *elgr = groupvec[ig];
+    for (auto it : groupvec) {
+        TPZElementGroup *elgr = it.second;
         if (!elgr) DebugStop();
         TPZCondensedCompElT<STATE> *condensed = new TPZCondensedCompElT<STATE>(elgr);
     }

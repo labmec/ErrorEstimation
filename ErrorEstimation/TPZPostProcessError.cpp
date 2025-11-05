@@ -38,6 +38,11 @@
 TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin) : fMeshVector(5,0)
 {
     fMeshVector[Eorigin] = origin;
+    {
+        auto it = origin->MaterialVec().begin();
+        TPZMaterial *mat = it->second;
+        fNState = mat->NStateVariables();
+    }
 }
 
 TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &config, bool useHDiv) : fMeshVector(5,0)
@@ -46,6 +51,11 @@ TPZPostProcessError::TPZPostProcessError(TPZCompMesh * origin,ProblemConfig &con
     fMeshVector[Eorigin] = origin;
     fExact = &(*(config.exact));
     CreateMultiphysicsMesh();
+    {
+        auto it = origin->MaterialVec().begin();
+        TPZMaterial *mat = it->second;
+        fNState = mat->NStateVariables();
+    }
 }
 
 
@@ -1481,10 +1491,12 @@ void TPZPostProcessError::CreatePartitionofUnityMesh()
     cmesh->InitializeBlock();
     cmesh->CleanUpUnconnectedNodes();
     fMeshVector[Epatch] = cmesh;
-    if(1)
+    if(0)
     {
         std::ofstream out("partitionmesh.vtk");
         TPZVTKGeoMesh::PrintCMeshVTK(cmesh, out);
+        std::ofstream out2("partitionmesh.txt");
+        cmesh->Print(out2);
     }
 }
 

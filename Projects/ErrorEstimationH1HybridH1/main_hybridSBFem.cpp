@@ -16,6 +16,8 @@
 #include "TPZH1ErrorHybridH1EstimateMaterial.h"
 
 #include "DarcyFlow/TPZHybridDarcyFlow.h"
+#include "Elasticity/TPZElasticity2D.h"
+#include "TPZHybridElasticity2D.h"
 #include "TPZNullMaterial.h"
 #include "TPZNullMaterialCS.h"
 #include "TPZLagrangeMultiplierCS.h"
@@ -52,6 +54,12 @@ using json = nlohmann::json;
 /// @param input json object with the input data
 /// @return pointer to the geometric mesh
 TPZGeoMesh *ReadGmshFile(json &input);
+
+/// @brief Refine the geometric mesh
+/// @param geometric mesh object
+/// @param input json data structure
+/// @param number of refinements
+void UniformRefine(TPZGeoMesh *gmesh, json &input, int iref);
 
 /// @brief Create collapsed elements towards the singular element
 std::set<int64_t> CreateCollapsedElements(TPZGeoMesh *gmesh, int64_t singular_el, TPZBuildSBFem &builder);
@@ -113,7 +121,7 @@ void SolveSystem(json &input, TPZCompMesh &cmesh);
 /// @brief Post-process the solution of the computational mesh (compute the approximation error)
 /// @param cmesh reference to the computational mesh
 /// @param output json object with the output data
-void PostProcessSolution(TPZCompMesh &cmesh, json &output, TPZVec<REAL> &errors);
+void PostProcessSolution(TPZCompMesh &cmesh, int iref, json &output, TPZVec<REAL> &errors);
 
 /// @brief Plot the solution of the computational mesh
 /// @param cmesh reference to the computational mesh
@@ -133,17 +141,29 @@ void CompareMeshes(TPZCompMesh &cmesh1, TPZCompMesh &cmesh2, TPZVec<REAL> &error
 static LoggerPtr logger(Logger::getLogger("pz.refine"));
 #endif
 
-std::map<std::string,TLaplaceExample1> gExact;
+std::string gProblem;
+std::map<std::string,TLaplaceExample1> gExact1;
+std::map<std::string,TElasticity2DAnalytic> gExact2;
 
 
 /// @brief Add an exact solution to the map
-void AddExact(const std::string &exactname) {
-    if(gExact.find(exactname) != gExact.end()) return;
-    TLaplaceExample1::EExactSol func = TLaplaceExample1::StringToExactSol(exactname);
-    if(func != TLaplaceExample1::ENone) {
-        gExact[exactname].fExact = func;
-    } else {
-        DebugStop();
+void AddExact(const std::string &problemtype, const std::string &exactname) {
+    if(problemtype == "Scalar") {
+        if(gExact1.find(exactname) != gExact1.end()) return;
+        TLaplaceExample1::EExactSol enumfunc = TLaplaceExample1::StringToExactSol(exactname);
+        if(enumfunc != TLaplaceExample1::ENone) {
+            gExact1[exactname].fExact = enumfunc;
+        } else {
+            DebugStop();
+        }
+    } else if (problemtype == "Elastic") {
+        if(gExact2.find(exactname) != gExact2.end()) return;
+        TElasticity2DAnalytic::EDefState enumfunc = TElasticity2DAnalytic::StringToExactSol(exactname);
+        if(enumfunc != TElasticity2DAnalytic::ENone) {
+            gExact2[exactname].fProblemType = enumfunc;
+        } else {
+            DebugStop();
+        }
     }
 
 }
@@ -152,7 +172,6 @@ std::complex<STATE> integrateF = 0;
 //bool Print = false;
 
 int main(int argc, char *argv[]) {
-    
 #ifdef PZ_LOG
     TPZLogger::InitializePZLOG();
 #endif
@@ -164,8 +183,10 @@ int main(int argc, char *argv[]) {
     
   	using json = nlohmann::json;
     std::cout << "Reading input file\n";
-//    std::string filename = "hybrid.json";
-    std::string filename = "SqrtSingular.json";
+    std::string filename = "hybrid.json";
+//    std::string filename = "SqrtSingular.json";
+//    std::string filename = "elasticsmooth.json";
+//    std::string filename = "SqrtSingularElastic.json";
 #ifdef MACOSX
     filename = "../" + filename;
 #endif
@@ -180,158 +201,172 @@ int main(int argc, char *argv[]) {
 	json input;
 	// file >> input;
 	input = json::parse(file,nullptr,true,true); // to ignore comments in json file
-    TPZAutoPointer<TPZGeoMesh> gmesh = ReadGmshFile(input);
-    //RefineRandomElement(gmesh.operator->(), 1);
-    {
-        std::ofstream out("GeoMesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        std::ofstream out2("GeoMesh.txt");
-        gmesh->Print(out2);
+    std::string problemtype = input["problem_type"];
+    std::vector<int> refsteps = input["UniformRefinement"].get<std::vector<int>>();
+;
+    if(refsteps.size() != 2) DebugStop();
+    TPZAutoPointer<TPZGeoMesh> gmeshorig = ReadGmshFile(input);
+    for(int iref = refsteps[0]; iref <= refsteps[1]; iref++) {
+        TPZAutoPointer<TPZGeoMesh> gmesh = new TPZGeoMesh(gmeshorig);
+        UniformRefine(gmesh.operator->(), input, iref);
+        //RefineRandomElement(gmesh.operator->(), 1);
+        {
+            std::ofstream out("GeoMesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+            std::ofstream out2("GeoMesh.txt");
+            gmesh->Print(out2);
+        }
+        
+        TPZBuildSBFem builder(gmesh);
+        
+        TPZCompMesh *cmeshH1ptr = nullptr;
+        TPZCompMesh *cmeshHybridptr = nullptr;
+        cmeshH1ptr = CreateSBFemSpace(builder, input);
+        {
+            TPZFMatrix<STATE> &sol = cmeshH1ptr->Solution();
+            cmeshH1ptr->LoadSolution(sol);
+        }
+        {
+            std::ofstream out("GeoMesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+            std::ofstream out2("GeoMesh.txt");
+            gmesh->Print(out2);
+            std::ofstream out3("CompMesh.txt");
+            cmeshH1ptr->Print(out3);
+        }
+        TPZBuildSBFemHybrid builderHybrid(builder);
+        gmesh->ResetReference();
+        // cmeshHybridptr = CreateHybridSBFemSpace(builderHybrid, input);
+        cmeshHybridptr = CreateHybridSBFemSpaceFromSBFem(builderHybrid, input);
+        gmesh->ResetReference();
+        {
+            TPZFMatrix<STATE> &sol = cmeshH1ptr->Solution();
+            cmeshH1ptr->LoadSolution(sol);
+        }
+        
+        TPZCompMesh &cmeshH1 = *cmeshH1ptr;
+        TPZCompMesh &cmeshHybrid = *cmeshHybridptr;
+        {
+            std::ofstream out("CompMeshHybrid.txt");
+            cmeshHybrid.Print(out);
+        }
+        SolveSystem(input, cmeshH1);
+        if(1)
+        {
+            // Plot the solution
+            std::cout << "Plotting the solution\n";
+            PlotSolution("H1",cmeshH1, iref, input);
+            std::cout << "Plotting the solution done\n";
+            int nerrors = 3;
+            if(problemtype == "Scalar") {
+                nerrors = 3;
+            } else if(problemtype == "Elastic") {
+                nerrors = 6;
+            }
+            TPZManVector<REAL> errors(nerrors,0.);
+            cmeshH1.ExpandElementSolution(nerrors);
+            bool store_errors = true;
+            cmeshH1.EvaluateError(store_errors, errors, builder.GetMaterialIds());
+            std::cout << "H1 Errors = " << errors << std::endl;
+            PostProcessSolution(cmeshH1, iref, input, errors);
+        }
+        bool computehybrid = true;
+        if(computehybrid) {
+            SolveSystem(input, cmeshHybrid);
+            int nerrors = 3;
+            if(problemtype == "Scalar") {
+                nerrors = 3;
+            } else if(problemtype == "Elastic") {
+                nerrors = 6;
+            }
+            TPZManVector<REAL> errors(nerrors,0.);
+            cmeshHybrid.ExpandElementSolution(nerrors);
+            bool store_errors = true;
+            cmeshHybrid.EvaluateError(store_errors, errors, builder.GetMaterialIds());
+            std::cout << "Hybrid H1 Errors = " << errors << std::endl;
+            std::cout << "Plotting the solution\n";
+            PlotSolution("Hybrid",cmeshHybrid, iref, input);
+            std::cout << "Plotting the solution done\n";
+            // Post-process the solution
+            PostProcessSolution(cmeshHybrid, iref, input, errors);
+            //        TPZVec<REAL> errors(5,0.);
+            //        errors.Resize(5, 0.);
+            //        errors.Fill(0.);
+            //        CompareMeshes(cmeshH1, cmeshHybrid, errors);
+            //        std::cout << "Errors between H1 and Hybrid H1\n";
+            //        std::cout << "H1 = " << errors[0] << " Hybrid H1 = " << errors[1] << " Estimate = " << errors[2] <<
+            //        std::endl;
+            //        std::cout << "H1 sq = " << errors[0]*errors[0] << " Hybrid H1 sq = " << errors[1]*errors[1] << " Estimate sq = " << errors[2]*errors[2] <<
+            //        std::endl;
+        }
+        
+        
+        int refstep = 0;
+        // builder.Print();
+        if(1)
+        {
+            std::ofstream out("SBFemGeoMesh.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
+            std::ofstream out2("SBFemGeoMesh.txt");
+            gmesh->Print(out2);
+            std::ofstream out3("SBFemCompMeshH1.txt");
+            cmeshH1.Print(out3);
+            std::ofstream out4("SBFemCompMeshHybridH1.txt");
+            cmeshHybrid.Print(out4);
+        }
+        // this is necessary to be able to include the hybrid sbfem mesh as an atomic mesh
+        UnwrapMesh(*cmeshHybridptr);
+        TPZPostProcessErrorSBFem postproc(&cmeshH1, &cmeshHybrid, builderHybrid);
+        postproc.BuildPatchStructures2();
+        bool plotpatches = true;
+        if(plotpatches) {
+            postproc.CreateMultiphysicsMesh();
+            postproc.PlotPatches("Patches");
+            std::ofstream out("Patches.txt");
+            postproc.PrintPatchInformation(out);
+        }
+        if(computehybrid) {
+            postproc.CreateMultiphysicsMesh();
+            TPZVec<REAL> errors(5,0.);
+            postproc.ComputeElementErrors(errors);
+            PostProcessSolution(*postproc.MultiPhysicsMesh(), iref, input, errors);
+            std::cout << "Errors between H1 and compute Hybrid H1\n";
+            std::cout << "H1 = " << errors[0] << " Hybrid H1 = " << errors[1] << " Estimate = " << errors[2] <<
+            std::endl;
+            std::cout << "H1 sq = " << errors[0]*errors[0] << " Hybrid H1 sq = " << errors[1]*errors[1] << " Estimate sq = " << errors[2]*errors[2] <<
+            std::endl;
+            PlotSolution("ErrorFulHybrid", *postproc.MultiPhysicsMesh(), iref, input);
+        }
+        
+        bool estimateerror = true;
+        if(estimateerror) {
+            // compute a locally conservative hybrid H1 approximation
+            postproc.ReconstructHybridH1();
+            //        TPZVec<REAL> elementerrors;
+            postproc.CreateMultiphysicsMesh();
+            TPZVec<REAL> errors(5,0.);
+            postproc.ComputeElementErrors(errors);
+            PostProcessSolution(*postproc.MultiPhysicsMesh(), iref, input, errors);
+            //        CompareMeshes(cmeshH1, cmeshHybrid, errors);
+            std::cout << "Errors between H1 and Hybrid H1 reconstructed locally\n";
+            std::cout << "H1 = " << errors[0] << " Hybrid H1 = " << errors[1] << " Estimate = " << errors[2] <<
+            std::endl;
+            std::cout << "H1 sq = " << errors[0]*errors[0] << " Hybrid H1 sq = " << errors[1]*errors[1] << " Estimate sq = " << errors[2]*errors[2] <<
+            std::endl;
+            PlotSolution("ReconstructHybrid", *postproc.MultiPhysicsMesh(), iref, input);
+        }
+        
+        /// Set the Lagrange multipliers
+        /// The connects of SBFemGroups level 0, one connect level 2
+        /// The connects of fluxes and boundary elements connect level 1
+        /// Group sbfem elements with skeleton and interface
+        /// Condense the elements keeping one connect external
+        /// Compute a global stiffness matrix
+        UnwrapMesh(*cmeshH1ptr);
+        delete cmeshH1ptr;
+        UnwrapMesh(*cmeshHybridptr);
+        delete cmeshHybridptr;
     }
-    if(0 && input.find("UniformRefinement") != input.end()) {
-        input["nref_skeleton"] = 1;
-        ConvergenceStudy(gmesh, input);
-        return 0;
-    }
-
-    TPZBuildSBFem builder(gmesh);
-    
-    TPZCompMesh *cmeshH1ptr = nullptr;
-    TPZCompMesh *cmeshHybridptr = nullptr;
-    cmeshH1ptr = CreateSBFemSpace(builder, input);
-    {
-        TPZFMatrix<STATE> &sol = cmeshH1ptr->Solution();
-        cmeshH1ptr->LoadSolution(sol);
-    }
-    {
-        std::ofstream out("GeoMesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        std::ofstream out2("GeoMesh.txt");
-        gmesh->Print(out2);
-        std::ofstream out3("CompMesh.txt");
-        cmeshH1ptr->Print(out3);
-    }
-    TPZBuildSBFemHybrid builderHybrid(builder);
-    gmesh->ResetReference();
-    // cmeshHybridptr = CreateHybridSBFemSpace(builderHybrid, input);
-    cmeshHybridptr = CreateHybridSBFemSpaceFromSBFem(builderHybrid, input);
-    gmesh->ResetReference();
-    {
-        TPZFMatrix<STATE> &sol = cmeshH1ptr->Solution();
-        cmeshH1ptr->LoadSolution(sol);
-    }
-
-    TPZCompMesh &cmeshH1 = *cmeshH1ptr;
-    TPZCompMesh &cmeshHybrid = *cmeshHybridptr;
-         {
-             std::ofstream out("CompMeshHybrid.txt");
-             cmeshHybrid.Print(out);
-         }
-    SolveSystem(input, cmeshH1);
-    if(1)
-    {
-        // Plot the solution
-        std::cout << "Plotting the solution\n";
-        PlotSolution("H1",cmeshH1, -1, input);
-        std::cout << "Plotting the solution done\n";
-        int nerrors = 3;
-        TPZManVector<REAL> errors(nerrors,0.);
-        cmeshH1.ExpandElementSolution(nerrors);
-        bool store_errors = true;
-        cmeshH1.EvaluateError(store_errors, errors, builder.GetMaterialIds());
-        std::cout << "H1 Errors = " << errors << std::endl;
-        PostProcessSolution(cmeshH1, input, errors);
-    }
-    bool computehybrid = true;
-    if(computehybrid) {
-        SolveSystem(input, cmeshHybrid);
-        int nerrors = 3;
-        TPZManVector<REAL> errors(nerrors,0.);
-        cmeshHybrid.ExpandElementSolution(nerrors);
-        bool store_errors = true;
-        cmeshHybrid.EvaluateError(store_errors, errors, builder.GetMaterialIds());
-        std::cout << "Hybrid H1 Errors = " << errors << std::endl;
-        std::cout << "Plotting the solution\n";
-        PlotSolution("Hybrid",cmeshHybrid, -1, input);
-        std::cout << "Plotting the solution done\n";
-        // Post-process the solution
-        PostProcessSolution(cmeshHybrid, input, errors);
-//        TPZVec<REAL> errors(5,0.);
-//        errors.Resize(5, 0.);
-//        errors.Fill(0.);
-//        CompareMeshes(cmeshH1, cmeshHybrid, errors);
-//        std::cout << "Errors between H1 and Hybrid H1\n";
-//        std::cout << "H1 = " << errors[0] << " Hybrid H1 = " << errors[1] << " Estimate = " << errors[2] <<
-//        std::endl;
-//        std::cout << "H1 sq = " << errors[0]*errors[0] << " Hybrid H1 sq = " << errors[1]*errors[1] << " Estimate sq = " << errors[2]*errors[2] <<
-//        std::endl;
-    }
-
-
-    int refstep = 0;
-    // builder.Print();
-    if(0)
-    {
-        std::ofstream out("SBFemGeoMesh.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out);
-        std::ofstream out2("SBFemGeoMesh.txt");
-        gmesh->Print(out2);
-        std::ofstream out3("SBFemCompMeshH1.txt");
-        cmeshH1.Print(out3);
-        std::ofstream out4("SBFemCompMeshHybridH1.txt");
-        cmeshHybrid.Print(out4);
-    }
-    UnwrapMesh(*cmeshHybridptr);
-    TPZPostProcessErrorSBFem postproc(&cmeshH1, &cmeshHybrid, builderHybrid);
-    postproc.BuildPatchStructures2();
-    bool plotpatches = true;
-    if(plotpatches) {
-        postproc.CreateMultiphysicsMesh();
-        postproc.PlotPatches("Patches");
-        std::ofstream out("Patches.txt");
-        postproc.PrintPatchInformation(out);
-    }
-    if(computehybrid) {
-        postproc.CreateMultiphysicsMesh();
-        TPZVec<REAL> errors(5,0.);
-        postproc.ComputeElementErrors(errors);
-        PostProcessSolution(*postproc.MultiPhysicsMesh(), input, errors);
-        std::cout << "Errors between H1 and compute Hybrid H1\n";
-        std::cout << "H1 = " << errors[0] << " Hybrid H1 = " << errors[1] << " Estimate = " << errors[2] <<
-        std::endl;
-        std::cout << "H1 sq = " << errors[0]*errors[0] << " Hybrid H1 sq = " << errors[1]*errors[1] << " Estimate sq = " << errors[2]*errors[2] <<
-        std::endl;
-        PlotSolution("ErrorFulHybrid", *postproc.MultiPhysicsMesh(), -1, input);
-    }
-
-    bool estimateerror = true;
-    if(estimateerror) {
-        // compute a locally conservative hybrid H1 approximation
-        postproc.ReconstructHybridH1();
-//        TPZVec<REAL> elementerrors;
-        postproc.CreateMultiphysicsMesh();
-        TPZVec<REAL> errors(5,0.);
-        postproc.ComputeElementErrors(errors);
-        PostProcessSolution(*postproc.MultiPhysicsMesh(), input, errors);
-//        CompareMeshes(cmeshH1, cmeshHybrid, errors);
-        std::cout << "Errors between H1 and Hybrid H1 reconstructed locally\n";
-        std::cout << "H1 = " << errors[0] << " Hybrid H1 = " << errors[1] << " Estimate = " << errors[2] <<
-        std::endl;
-        std::cout << "H1 sq = " << errors[0]*errors[0] << " Hybrid H1 sq = " << errors[1]*errors[1] << " Estimate sq = " << errors[2]*errors[2] <<
-        std::endl;
-        PlotSolution("ReconstructHybrid", *postproc.MultiPhysicsMesh(), -1, input);
-    }
-
-    /// Set the Lagrange multipliers
-    /// The connects of SBFemGroups level 0, one connect level 2
-    /// The connects of fluxes and boundary elements connect level 1
-    /// Group sbfem elements with skeleton and interface
-    /// Condense the elements keeping one connect external
-    /// Compute a global stiffness matrix
-    UnwrapMesh(*cmeshH1ptr);
-    delete cmeshH1ptr;
-    UnwrapMesh(*cmeshHybridptr);
-    delete cmeshHybridptr;
     return 0;
 }
 
@@ -366,6 +401,19 @@ TPZGeoMesh *ReadGmshFile(json &input) {
     auto gmesh = gmsh.GeometricGmshMesh(filename);
     gmesh->BuildConnectivity();
     
+
+    return gmesh;
+}
+
+/// @brief Refine the geometric mesh
+/// @param geometric mesh object
+/// @param input json data structure
+/// @param number of refinements
+void UniformRefine(TPZGeoMesh *gmesh, json &input, int iref) {
+    int pointmatid = 0;
+    if(input.find("point_singularity") != input.end()) {
+        pointmatid = input["point_singularity"];
+    }
     std::set<int64_t> norefine;
     if(pointmatid != 0) {
         int64_t nel = gmesh->NElements();
@@ -380,29 +428,26 @@ TPZGeoMesh *ReadGmshFile(json &input) {
             }
         }
     }
-    if(input.find("UniformRefinement") != input.end()){
-        int uniform = input["UniformRefinement"];
-        int64_t nel = gmesh->NElements();
-        for(int el = 0; el<nel; el++) {
-            if(norefine.find(el) != norefine.end()) continue;
-            TPZGeoEl *gel = gmesh->Element(el);
-            if(gel->Dimension() == 0) continue;
-            std::list<TPZGeoEl *> refset = {gel};
-            for(int iref = 0; iref<uniform; iref++) {
-                std::list<TPZGeoEl *> subrefset;
-                for(auto sub : refset) {
-                    TPZManVector<TPZGeoEl *> subels;
-                    sub->Divide(subels);
-                    if(subels.size()) {
-                        subrefset.insert(subrefset.end(),&subels[0],&subels[0]+subels.size());
-                    }
+    int uniform = iref;
+    int64_t nel = gmesh->NElements();
+    for(int el = 0; el<nel; el++) {
+        if(norefine.find(el) != norefine.end()) continue;
+        TPZGeoEl *gel = gmesh->Element(el);
+        if(gel->Dimension() == 0) continue;
+        std::list<TPZGeoEl *> refset = {gel};
+        for(int iref = 0; iref<uniform; iref++) {
+            std::list<TPZGeoEl *> subrefset;
+            for(auto sub : refset) {
+                TPZManVector<TPZGeoEl *> subels;
+                sub->Divide(subels);
+                if(subels.size()) {
+                    subrefset.insert(subrefset.end(),&subels[0],&subels[0]+subels.size());
                 }
-                refset = subrefset;
             }
+            refset = subrefset;
         }
     }
 
-    return gmesh;
 }
 
 void ConfigureSBFemBuilder (TPZBuildSBFemHybrid &builder, json &input) {
@@ -504,106 +549,171 @@ void RefineRandomElement(TPZGeoMesh *gmesh, int nref) {
 void InsertMaterialObjectsHybridH1(TPZCompMesh &cmesh, json &input)
 {
     int dim = cmesh.Dimension();
-    TPZHybridDarcyFlow *mat = nullptr;
+    TPZMaterialT<STATE> *mat = nullptr;
+    TPZDarcyFlow *darcy = nullptr;
+    TPZElasticity2D *matelast = nullptr;
+    int nstate = 0;
+    std::string problemtype = input["problem_type"];
 
     for (const auto &item : input["materials"]) {
         int matid = item["matid"];
-        REAL perm = item["permeability"];
-        auto darcy = new TPZHybridDarcyFlow(matid, dim);
-        darcy->SetConstantPermeability(perm);
-        if(item.find("exactsolution") != item.end()) {
-            std::string name = item["exactsolution"];
-            AddExact(name);
-            darcy->SetForcingFunction(gExact[name].ForceFunc(),5);
-            darcy->SetExactSol(gExact[name].ExactSolution(),5);
+        if(problemtype == "Scalar") {
+            nstate = 1;
+            REAL perm = item["permeability"];
+            darcy = new TPZHybridDarcyFlow(matid, dim);
+            //        auto darcy = new TPZDarcyFlow(matid, dim);
+            darcy->SetConstantPermeability(perm);
+            if(item.find("exactsolution") != item.end()) {
+                std::string name = item["exactsolution"];
+                AddExact(problemtype,name);
+                darcy->SetForcingFunction(gExact1[name].ForceFunc(),5);
+                darcy->SetExactSol(gExact1[name].ExactSolution(),5);
+            }
+            cmesh.InsertMaterialObject(darcy);
+            mat = darcy;
+        } else if (problemtype == "Elastic") {
+            nstate = 2;
+            REAL young = item["young"];
+            REAL poisson = item["poisson"];
+            REAL fx(0.), fy(0.);
+            int planestress = 1;
+            matelast = new TPZHybridElasticity2D(matid,young,poisson,fx,fy,planestress);
+            if(item.find("exactsolution") != item.end()) {
+                std::string name = item["exactsolution"];
+                AddExact(problemtype,name);
+                matelast->SetForcingFunction(gExact2[name].ForceFunc(),5);
+                matelast->SetExactSol(gExact2[name].ExactSolution(),5);
+                planestress = gExact2[name].fPlaneStress;
+                if(planestress) matelast->SetPlaneStress();
+                else matelast->SetPlaneStrain();
+                gExact2[name].gE = young;
+                gExact2[name].gPoisson = poisson;
+                
+            }
+            cmesh.InsertMaterialObject(matelast);
+            mat = matelast;
+            
         }
-        cmesh.InsertMaterialObject(darcy);
-        if(!mat) mat = darcy;
     }
     for (const auto &item : input["boundary_conditions"]) {
         int matid = item["matid"];
         std::string typeName = item["name"];
-        
-        REAL value = item["value"];
+        std::vector<double> valvec = item["value"];
+        if(valvec.size() != nstate) DebugStop();
+
         int type = item["type"];
-        TPZFMatrix<STATE> val1(1,1,0.);
-        TPZManVector<STATE,1> val2(1,0.);
+        TPZFNMatrix<4,STATE> val1(nstate,nstate,0.);
+        TPZManVector<STATE,3> val2(nstate,0.);
+        for(int i = 0; i<nstate; i++) val2[i] = valvec[i];
         if (type == 0) {
-            val2[0] = value;
         } else if (type == 1) {
-            val2[0] = value;
         } else if (type == 2) {
             DebugStop();
-            val2[0] = value;
-            val2[0] = value;
         }
-        TPZBndCondT<STATE> *bc = mat->TPZDarcyFlow::CreateBC(mat, matid, type, val1, val2);
+        TPZBndCondT<STATE> *bc;
+        if(darcy) {
+            bc = darcy->TPZDarcyFlow::CreateBC(mat, matid, type, val1, val2);
+        } else if(matelast) {
+            bc = matelast->TPZElasticity2D::CreateBC(mat, matid, type, val1, val2);
+        }
         if(item.find("exactsolution") != item.end()) {
             std::string name = item["exactsolution"];
-            AddExact(name);
-            bc->SetForcingFunctionBC(gExact[name].ExactSolution(),5);
+            AddExact(problemtype,name);
+            if(nstate == 1) {
+                bc->SetForcingFunctionBC(gExact1[name].ExactSolution(),5);
+            } else if(nstate == 2) {
+                bc->SetForcingFunctionBC(gExact2[name].ExactSolution(),5);
+            }
         }
         cmesh.InsertMaterialObject(bc);
     }
 
     int skeletonMatId = input["skeleton matid"];
-    TPZNullMaterial<STATE> *skelmat = new TPZNullMaterial<STATE>(skeletonMatId, dim);
+    TPZNullMaterial<STATE> *skelmat = new TPZNullMaterial<STATE>(skeletonMatId, dim, nstate);
     cmesh.InsertMaterialObject(skelmat);
     int fluxmaterialid = input["flux matid"];
-    TPZNullMaterial<STATE> *fluxmat = new TPZNullMaterial<STATE>(fluxmaterialid, dim);
+    TPZNullMaterial<STATE> *fluxmat = new TPZNullMaterial<STATE>(fluxmaterialid, dim, nstate);
     cmesh.InsertMaterialObject(fluxmat);
 }
 
 void InsertMaterialObjectsH1(TPZCompMesh &cmesh, json &input)
 {
     int dim = cmesh.Dimension();
-    TPZDarcyFlow *mat = nullptr;
-    if(input.find("exactsolution") != input.end()) {
-        std::string exactname = input["exactsolution"];
-        AddExact(exactname);
-    }
+    TPZMaterialT<STATE> *mat = nullptr;
+    int nstate = 0;
+    std::string problemtype = input["problem_type"];
+
     for (const auto &item : input["materials"]) {
         int matid = item["matid"];
-        REAL perm = item["permeability"];
-        auto darcy = new TPZDarcyFlow(matid, dim);
-        darcy->SetConstantPermeability(perm);
-        if(item.find("exactsolution") != item.end()) {
-            std::string name = item["exactsolution"];
-            AddExact(name);
-            darcy->SetForcingFunction(gExact[name].ForceFunc(),5);
-            darcy->SetExactSol(gExact[name].ExactSolution(),5);
+        if(problemtype == "Scalar") {
+            nstate = 1;
+            REAL perm = item["permeability"];
+            auto darcy = new TPZDarcyFlow(matid, dim);
+            //        auto darcy = new TPZDarcyFlow(matid, dim);
+            darcy->SetConstantPermeability(perm);
+            if(item.find("exactsolution") != item.end()) {
+                std::string name = item["exactsolution"];
+                AddExact(problemtype,name);
+                darcy->SetForcingFunction(gExact1[name].ForceFunc(),5);
+                darcy->SetExactSol(gExact1[name].ExactSolution(),5);
+            }
+            cmesh.InsertMaterialObject(darcy);
+            if(!mat) mat = darcy;
+        } else if (problemtype == "Elastic") {
+            nstate = 2;
+            REAL young = item["young"];
+            REAL poisson = item["poisson"];
+            REAL fx(0.), fy(0.);
+            int planestress = 1;
+            TPZElasticity2D *matelast = new TPZElasticity2D(matid,young,poisson,fx,fy,planestress);
+            if(item.find("exactsolution") != item.end()) {
+                std::string name = item["exactsolution"];
+                AddExact(problemtype,name);
+                matelast->SetForcingFunction(gExact2[name].ForceFunc(),5);
+                matelast->SetExactSol(gExact2[name].ExactSolution(),5);
+                planestress = gExact2[name].fPlaneStress;
+                if(planestress) matelast->SetPlaneStress();
+                else matelast->SetPlaneStrain();
+                gExact2[name].gE = young;
+                gExact2[name].gPoisson = poisson;
+            }
+            if(!mat) mat = matelast;
+            cmesh.InsertMaterialObject(matelast);
+            nstate = 2;
+            
         }
-
-        cmesh.InsertMaterialObject(darcy);
-        if(!mat) mat = darcy;
     }
     for (const auto &item : input["boundary_conditions"]) {
         int matid = item["matid"];
         std::string typeName = item["name"];
-        int bctype = item["type"];
-        REAL value = item["value"];
-        TPZFMatrix<STATE> val1(1,1,0.);
-        TPZManVector<STATE,1> val2(1,0.);
-        if (bctype == 0) {
-            val2[0] = value;
-        } else if (bctype == 1) {
-            val2[0] = value;
-        } else if (bctype == 2) {
+        std::vector<double> valvec = item["value"];
+        
+        if(valvec.size() != nstate) DebugStop();
+
+        int type = item["type"];
+        TPZFNMatrix<4,STATE> val1(nstate,nstate,0.);
+        TPZManVector<STATE,3> val2(nstate,0.);
+        for(int i = 0; i<nstate; i++) val2[i] = valvec[i];
+        if (type == 0) {
+        } else if (type == 1) {
+        } else if (type == 2) {
             DebugStop();
-            val2[0] = value;
-            val2[0] = value;
         }
-        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, bctype, val1, val2);
+        TPZBndCondT<STATE> *bc = mat->CreateBC(mat, matid, type, val1, val2);
         if(item.find("exactsolution") != item.end()) {
             std::string name = item["exactsolution"];
-            AddExact(name);
-            bc->SetForcingFunctionBC(gExact[name].ExactSolution(),5);
+            AddExact(problemtype,name);
+            if(nstate == 1) {
+                bc->SetForcingFunctionBC(gExact1[name].ExactSolution(),5);
+            } else if(nstate == 2) {
+                bc->SetForcingFunctionBC(gExact2[name].ExactSolution(),5);
+            }
         }
         cmesh.InsertMaterialObject(bc);
     }
 
     int skeletonMatId = input["skeleton matid"];
-    TPZNullMaterial<STATE> *skelmat = new TPZNullMaterial<STATE>(skeletonMatId, dim);
+    TPZNullMaterial<STATE> *skelmat = new TPZNullMaterial<STATE>(skeletonMatId, dim,nstate);
     cmesh.InsertMaterialObject(skelmat);
 }
 
@@ -616,9 +726,18 @@ void InsertInterfaceMaterialObjects(TPZCompMesh &cmesh, json &input) {
     } else {
         DebugStop();
     }
-    TPZLagrangeMultiplier<STATE> *lagrange = new TPZLagrangeMultiplier<STATE>(interfacematids.first, dim-1, 1);
+    std::string problemtype = input["problem_type"];
+    int nstate = 0;
+    if(problemtype == "Scalar") {
+        nstate = 1;
+    } else if (problemtype == "Elastic") {
+        nstate = 2;
+    } else {
+        DebugStop();
+    }
+    TPZLagrangeMultiplier<STATE> *lagrange = new TPZLagrangeMultiplier<STATE>(interfacematids.first, dim-1, nstate);
     cmesh.InsertMaterialObject(lagrange);
-    lagrange = new TPZLagrangeMultiplier<STATE>(interfacematids.second, dim-1, 1);
+    lagrange = new TPZLagrangeMultiplier<STATE>(interfacematids.second, dim-1, nstate);
     lagrange->SetMultiplier(-1.);
     cmesh.InsertMaterialObject(lagrange);
 }
@@ -640,7 +759,7 @@ void UnwrapMesh(TPZCompMesh &cmesh) {
             TPZElementGroup *elgr = dynamic_cast<TPZElementGroup *>(cel);
             TPZSBFemElementGroup *sbfemgr = dynamic_cast<TPZSBFemElementGroup *>(cel);
             if (elgr && !sbfemgr) {
-                elgr->Unwrap();
+                elgr->Unwrap(false);
             }
         }
     }
@@ -673,13 +792,6 @@ TPZCompMesh *CreateHybridSBFemSpaceFromSBFem(TPZBuildSBFemHybrid &builder, json 
 
     TPZAutoPointer<TPZGeoMesh> gmesh = builder.GetGMesh();
     ConfigureSBFemBuilder(builder, input);
-    builder.DuplicateSkeletonElements();
-
-    TPZCompMesh *cmeshptr = new TPZCompMesh(gmesh);
-    TPZCompMesh &cmesh = *cmeshptr;
-    InsertMaterialObjectsHybridH1(cmesh, input);
-    builder.CreateSkeletonApproximationSpace(cmesh);
-    builder.CreateVolumetricElements(cmesh);
     if(0)
     {
         std::ofstream out("gmesh.txt");
@@ -687,9 +799,18 @@ TPZCompMesh *CreateHybridSBFemSpaceFromSBFem(TPZBuildSBFemHybrid &builder, json 
         std::ofstream out2("gmesh.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, out2);
     }
+    builder.DuplicateSkeletonElements();
+
+    TPZCompMesh *cmeshptr = new TPZCompMesh(gmesh);
+    TPZCompMesh &cmesh = *cmeshptr;
+    InsertMaterialObjectsHybridH1(cmesh, input);
+    builder.CreateSkeletonApproximationSpace(cmesh);
+    // this will create the SBFem group elements
+    builder.CreateVolumetricElements(cmesh);
     InsertInterfaceMaterialObjects(cmesh, input);
     builder.CreateInterfaceElements(cmesh);
     builder.InitializeLagrangeLevels(cmesh);
+    // this method groups the sbfem element group with the skeleton and interfaces
     builder.GroupAndCondenseElements(cmesh);
     {
         std::ofstream out("SBFemConfig.txt");
@@ -832,8 +953,8 @@ void PlotSolution(const std::string &rootname, TPZCompMesh &cmesh, int refstep, 
     }    // make a directory based on the exact solution
     
     std::string dirname = "PostProcess";
-    if(output.find("exactsolution") != output.end()) {
-        std::string exactname = output["exactsolution"];
+    if(output.find("directory") != output.end()) {
+        std::string exactname = output["directory"];
         dirname = exactname;
     }
     int matid = *matiderror.rbegin();
@@ -843,8 +964,9 @@ void PlotSolution(const std::string &rootname, TPZCompMesh &cmesh, int refstep, 
         DebugStop();
     }
     TPZDarcyFlow *darcy = dynamic_cast<TPZDarcyFlow *>(mat);
-    if (!darcy) {
-        std::cout << "Material id " << matid << " is not a Darcy flow material\n";
+    TPZElasticity2D *elast = dynamic_cast<TPZElasticity2D *>(mat);
+    if (!darcy && !elast) {
+        std::cout << "Material id " << matid << " is neither a Darcy flow or elasticity material\n";
         DebugStop();
     }
     std::system((std::string("mkdir -p ") + dirname).c_str());
@@ -855,8 +977,6 @@ void PlotSolution(const std::string &rootname, TPZCompMesh &cmesh, int refstep, 
     int skeletonporder = output["skeleton porder_h1"];
     int lagrangeporder = output["lagrange porder"];
     int nref_skeleton = output["nref_skeleton"];
-    int nref_uniform = output["UniformRefinement"];
-    if(refstep == -1) refstep = nref_uniform;
 
     plotfile += "_r" + std::to_string(refstep) + "_rS" + std::to_string(nref_skeleton) + "_pB" + std::to_string(porder) + "_pS" + std::to_string(skeletonporder) + "_pL" + std::to_string(lagrangeporder);
 
@@ -864,7 +984,11 @@ void PlotSolution(const std::string &rootname, TPZCompMesh &cmesh, int refstep, 
     if (output.find("PostProcess") != output.end()) {
         for (const auto &item : output["PostProcess"]) {
             std::string field = item;
-            if(darcy->VariableIndex(field) != -1) {
+            
+            if(darcy && darcy->VariableIndex(field) != -1) {
+                postprocess.Push(field);
+            }
+            if(elast && elast->VariableIndex(field) != -1) {
                 postprocess.Push(field);
             }
         }
@@ -880,7 +1004,7 @@ void PlotSolution(const std::string &rootname, TPZCompMesh &cmesh, int refstep, 
 /// @brief Post-process the solution of the computational mesh (compute the approximation error)
 /// @param cmesh reference to the computational mesh
 /// @param input json object with the output data
-void PostProcessSolution(TPZCompMesh &cmesh, json &input, TPZVec<REAL> &errors) {
+void PostProcessSolution(TPZCompMesh &cmesh, int iref, json &input, TPZVec<REAL> &errors) {
     bool store_errors = true;
     std::set<int> matiderror;
     if (input.find("matid_translation") != input.end()) {
@@ -897,22 +1021,34 @@ void PostProcessSolution(TPZCompMesh &cmesh, json &input, TPZVec<REAL> &errors) 
         std::cout << "Material id " << matid << " not found in the computational mesh\n";
         DebugStop();
     }
-    TPZDarcyFlow *darcy = dynamic_cast<TPZDarcyFlow *>(mat);
-    if (!darcy) {
-        std::cout << "Material id " << matid << " is not a Darcy flow material\n";
-        DebugStop();
+    TPZManVector<std::string> errornames;
+    std::string problemtype = input["problem_type"];
+    if(problemtype == "Scalar") {
+        TPZDarcyFlow *darcy = dynamic_cast<TPZDarcyFlow *>(mat);
+        if (!darcy) {
+            std::cout << "Material id " << matid << " is not a Darcy flow material\n";
+            DebugStop();
+        }
+        int nerrors = darcy->NEvalErrors();
+        errornames.resize(nerrors);
+        darcy->ErrorNames(errornames);
+    } else if(problemtype == "Elastic") {
+        TPZElasticity2D *elast = dynamic_cast<TPZElasticity2D *>(mat);
+        if (!elast) {
+            std::cout << "Material id " << matid << " is not an elasticity material\n";
+            DebugStop();
+        }
+        int nerrors = elast->NEvalErrors();
+        errornames.resize(nerrors);
+        elast->ErrorNames(errornames);
+
     }
-    int nerrors = darcy->NEvalErrors();
-
-    TPZManVector<std::string> errornames(nerrors);
-    darcy->ErrorNames(errornames);
-
 
     // make a directory based on the exact solution
     std::string dirname = "PostProcess";
     
-    if(input.find("exactsolution") != input.end()) {
-        std::string exactname = input["exactsolution"];
+    if(input.find("directory") != input.end()) {
+        std::string exactname = input["directory"];
         dirname = exactname;
     }
     std::system((std::string("mkdir -p ") + dirname).c_str());
@@ -927,7 +1063,7 @@ void PostProcessSolution(TPZCompMesh &cmesh, json &input, TPZVec<REAL> &errors) 
     int skeletonporderHybrid = input["skeleton porder_hybrid"];
     int lagrangeporder = input["lagrange porder"];
     int nref_skeleton = input["nref_skeleton"];
-    int nref_uniform = input["UniformRefinement"];
+    int nref_uniform = iref;
     errorfile << "Material_name " << mat->Name() << " ";
     for (int i = 0; i < 3; i++) {
         errorfile << errornames[i] << " " << errors[i] << " ";
@@ -946,8 +1082,8 @@ void ConvergenceStudy(TPZAutoPointer<TPZGeoMesh> gmeshin, json &input, bool appe
 
     // make a directory based on the exact solution
     std::string dirname = "PostProcess";
-    if(input.find("exactsolution") != input.end()) {
-        std::string exactname = input["exactsolution"];
+    if(input.find("directory") != input.end()) {
+        std::string exactname = input["directory"];
         dirname = exactname;
     }
     std::system((std::string("mkdir -p ") + dirname).c_str());
@@ -961,8 +1097,9 @@ void ConvergenceStudy(TPZAutoPointer<TPZGeoMesh> gmeshin, json &input, bool appe
     int matid = input["matid_translation"][0]["to"];
     std::cout << "Material id for error computation " << matid << std::endl;
 
-    int nref = input["UniformRefinement"];
-    for (int iref = 0; iref < nref; iref++) {
+    std::vector<int> refsteps = input["UniformRefinement"];
+    if(refsteps.size() != 2) DebugStop();
+    for (int iref = refsteps[0]; iref <= refsteps[1]; iref++) {
         TPZGeoMesh *gmeshcopy = new TPZGeoMesh(*gmeshin);
         TPZCheckGeom check(gmeshcopy);
         check.UniformRefine(iref);
@@ -978,7 +1115,7 @@ void ConvergenceStudy(TPZAutoPointer<TPZGeoMesh> gmeshin, json &input, bool appe
         // Post-process the solution
         std::cout << "Post-processing the solution\n";
         TPZManVector<REAL> errors;
-        PostProcessSolution(cmesh, input,errors);
+        PostProcessSolution(cmesh, iref, input,errors);
         std::cout << "Post-processing the solution done\n";
         UnwrapMesh(cmesh);
         delete cmeshptr;

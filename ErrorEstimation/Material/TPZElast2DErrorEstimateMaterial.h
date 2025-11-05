@@ -1,17 +1,18 @@
 //
-//  TPZH1ErrorHybridH1EstimateMaterial.hpp
+//  TPZElast2DErrorEstimateMaterial.hpp
 //  HybridH1vsMixed
 //
 //  Created by Philippe Devloo on 01/05/25.
 //
 
-#ifndef TPZH1ErrorHybridH1EstimateMaterial_hpp
-#define TPZH1ErrorHybridH1EstimateMaterial_hpp
+#ifndef TPZElast2DErrorEstimateMaterial_hpp
+#define TPZElast2DErrorEstimateMaterial_hpp
 
 #include <stdio.h>
-#include "DarcyFlow/TPZHybridDarcyFlow.h"
+#include "Elasticity/TPZElasticity2D.h"
+#include "TPZHybridElasticity2D.h"
 
-class TPZH1ErrorHybridH1EstimateMaterial : public TPZHybridDarcyFlow {
+class TPZElast2DErrorEstimateMaterial : public TPZHybridElasticity2D {
     
 public:
     enum MMeshPositions {Eflux = 0, Epressure = 1, Epatch = 2, Eorigin = 3, Eaveragepressure = 4};
@@ -20,7 +21,7 @@ public:
     /**
      * @brief Default constructor
      */
-    TPZH1ErrorHybridH1EstimateMaterial() : TPZHybridDarcyFlow() {
+    TPZElast2DErrorEstimateMaterial() : TPZHybridElasticity2D() {
         
     }
 
@@ -29,18 +30,18 @@ public:
      * @param [in] id material id
      * @param [in] dim problem dimension
      */
-    TPZH1ErrorHybridH1EstimateMaterial(int id, int dim) : TPZHybridDarcyFlow(id,dim) {
+    TPZElast2DErrorEstimateMaterial(int id, REAL E, REAL nu) : TPZHybridElasticity2D(id,E,nu,0.,0.) {
         
     }
 
-    TPZH1ErrorHybridH1EstimateMaterial(const TPZH1ErrorHybridH1EstimateMaterial &copy) : TPZHybridDarcyFlow(copy) {
+    TPZElast2DErrorEstimateMaterial(const TPZElast2DErrorEstimateMaterial &copy) : TPZHybridElasticity2D(copy) {
 
     }
-    TPZH1ErrorHybridH1EstimateMaterial(const TPZDarcyFlow &copy) : TPZHybridDarcyFlow(copy) {
-
+    TPZElast2DErrorEstimateMaterial(const TPZElasticity2D &copy) : TPZHybridElasticity2D(copy) {
+//        std::cout << __PRETTY_FUNCTION__ << std::endl;
     }
-    TPZH1ErrorHybridH1EstimateMaterial &operator=(const TPZH1ErrorHybridH1EstimateMaterial &copy){
-        TPZHybridDarcyFlow::operator=(copy);
+    TPZElast2DErrorEstimateMaterial &operator=(const TPZElast2DErrorEstimateMaterial &copy){
+        TPZElasticity2D::operator=(copy);
         return *this;
     }
     void FillDataRequirements(TPZVec<TPZMaterialDataT<STATE> > &datavec)const override;
@@ -52,7 +53,7 @@ public:
     /**
      * @brief Returns a 'std::string' with the name of the material
      */
-    [[nodiscard]] std::string Name() const override { return "TPZH1ErrorHybridH1EstimateMaterial"; }
+    [[nodiscard]] std::string Name() const override { return "TPZElast2DErrorEstimateMaterial"; }
 
     virtual int NEvalErrors()  const override {return 5;}
 
@@ -165,15 +166,15 @@ public:
      * @brief Creates another material of the same type
      */
     [[nodiscard]] TPZMaterial *NewMaterial() const override {
-        return new TPZH1ErrorHybridH1EstimateMaterial(*this);
+        return new TPZElast2DErrorEstimateMaterial(*this);
     }
 
     /**
      * @brief Prints data associated with the material.
      */
     void Print(std::ostream & out) const override {
-        TPZHybridDarcyFlow::Print(out);
+        TPZHybridElasticity2D::Print(out);
     }
 };
 
-#endif /* TPZH1ErrorHybridH1EstimateMaterial_hpp */
+#endif /* TPZElast2DErrorEstimateMaterial_hpp */

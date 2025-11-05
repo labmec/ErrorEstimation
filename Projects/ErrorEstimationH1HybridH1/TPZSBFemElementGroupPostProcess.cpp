@@ -8,6 +8,7 @@
 #include "TPZSBFemElementGroupPostProcess.h"
 #include "pzmultiphysicselement.h"
 #include "TPZH1ErrorHybridH1EstimateMaterial.h"
+#include "TPZElast2DErrorEstimateMaterial.h"
 
 TPZSBFemElementGroupPostProcess::~TPZSBFemElementGroupPostProcess() {
     
@@ -15,21 +16,28 @@ TPZSBFemElementGroupPostProcess::~TPZSBFemElementGroupPostProcess() {
 
 void TPZSBFemElementGroupPostProcess::CalcStiff(TPZElementMatrixT<STATE> &ek,TPZElementMatrixT<STATE> &ef) {
     // reorganize the connectindices to correspond to the sequence of the refered group
+    // put the rigid body mode at the end
     ReorganizeConnectOrder();
     TPZCompEl::InitializeElementMatrix(ek,ef);
     // copy the stiffness from the referred element group
     fReferred->ContributeStiffness(ek.fMat);
     // if there is no boundary, add a line representing the integral of the shape functions
     int64_t nr = ek.fMat.Rows();
+    
+    int nstate = fReferred->NState();
+    int dim = Mesh()->Dimension();
+    int nc = NConnects();
+    int lastconnectsize = Connect(nc-1).NDof();
+    int numRBM = 1;
     if(fHasBoundary) {
+        if(lastconnectsize != 0) DebugStop();
 //        ek.fMat(nr-1,nr-1) = 1.;
+        numRBM = 0;
     } else {
-        TPZVec<STATE> integral(nr,0.);
-        fReferred->ComputeShapeFunctionIntegral(integral);
-        for(int64_t i=0; i<nr-1; i++) {
-            ek.fMat(nr-1,i) = integral[i];
-            ek.fMat(i,nr-1) = integral[i];
-        }
+        if(nstate == 1 && lastconnectsize != 1) DebugStop();
+        else if(nstate == 2 && dim == 2 && lastconnectsize != 3) DebugStop();
+        if(nstate == 1) numRBM = 1;
+        if(nstate == 2) numRBM = 3;
     }
     // compute the rhs by taking the contributions of the SBFemVolume elements
     // loop over the SBFemVolume elements
@@ -38,8 +46,9 @@ void TPZSBFemElementGroupPostProcess::CalcStiff(TPZElementMatrixT<STATE> &ek,TPZ
     // compute the eigenvalue rhs by multiplying by phiinv
     // compute the bubble rhs by multiplying by AMat
     int64_t numeig = fReferred->NumEigenValues();
-    TPZFMatrix<CSTATE> rhssbfem(numeig,1,0.), rhsbubble(fReferred->NumEigenValuesBubble(),1,0.);
-    ComputeRhs(rhssbfem,rhsbubble);
+    TPZFMatrix<CSTATE> rhssbfem(numeig,1,0.), rhsbubble(fReferred->NumEigenValuesBubble(),1,0.),
+        RBM(numeig,numRBM,0.);
+    ComputeRhsRBM(rhssbfem,rhsbubble, RBM);
     {
         auto eigval = fReferred->EigenValues();
         TPZFMatrix<CSTATE> temp;
@@ -47,6 +56,17 @@ void TPZSBFemElementGroupPostProcess::CalcStiff(TPZElementMatrixT<STATE> &ek,TPZ
         fReferred->PhiInverse().Multiply(rhssbfem, temp,transpose);
         for(int i=0; i<numeig; i++) ef.fMat(i,0) = temp(i,0).real();
 
+//        if(numRBM) {
+//            RBM.Print("RBM = ", std::cout , EMathematicaInput);
+//        }
+        fReferred->PhiInverse().Multiply(RBM, temp,transpose);
+//        if(numRBM) {
+//            temp.Print("PhiRBM = ", std::cout , EMathematicaInput);
+//        }
+        for(int i=0; i<numeig; i++) for(int c=0; c<numRBM; c++) {
+            ek.fMat(i,numeig+c) = temp(i,c).real();
+            ek.fMat(numeig+c,i) = temp(i,c).real();
+        }
         fReferred->MatBubble().Multiply(rhsbubble, fRhsBubble,transpose);
         if(0) {
             std::ofstream out("HatDiag.txt");
@@ -112,9 +132,10 @@ void TPZSBFemElementGroupPostProcess::ReorganizeConnectOrder() {
 #include "pztrnsform.h"
 
 /// cpmpute the right hand side contribution of the hybrid h1 reconstruction for sbfem volume elements
-void TPZSBFemElementGroupPostProcess::ComputeRhs(TPZFMatrix<CSTATE> &rhssbfem, TPZFMatrix<CSTATE> &rhsbubble) {
+void TPZSBFemElementGroupPostProcess::ComputeRhsRBM(TPZFMatrix<CSTATE> &rhssbfem, TPZFMatrix<CSTATE> &rhsbubble, TPZFMatrix<CSTATE> &RBM) {
     TPZElementMatrixT<CSTATE> ef(Mesh(),TPZElementMatrix::EF);
     int dim = Mesh()->Dimension();
+    int nstate = fReferred->NState();
     InitializeElementMatrix(ef);
     int grouporder = 0;
     int nc = NConnects();
@@ -130,8 +151,10 @@ void TPZSBFemElementGroupPostProcess::ComputeRhs(TPZFMatrix<CSTATE> &rhssbfem, T
         if(!mcel) DebugStop();
         int nelmp = mcel->ElementVec().size();
         TPZMaterial *mat = mcel->Material();
-        TPZH1ErrorHybridH1EstimateMaterial *errmat = dynamic_cast<TPZH1ErrorHybridH1EstimateMaterial *>(mat);
-        if(!errmat) DebugStop();
+        TPZH1ErrorHybridH1EstimateMaterial *errmat1 = dynamic_cast<TPZH1ErrorHybridH1EstimateMaterial *>(mat);
+        TPZElast2DErrorEstimateMaterial *errmat2 = dynamic_cast<TPZElast2DErrorEstimateMaterial *>(mat);
+        if(!errmat1 && !errmat2) DebugStop();
+        int nstate = mat->NStateVariables();
         TPZManVector<TPZMaterialDataT<STATE>> datavec(nelmp);
         mcel->InitMaterialData(datavec);
         extern std::complex<STATE> integrateF;
@@ -144,13 +167,14 @@ void TPZSBFemElementGroupPostProcess::ComputeRhs(TPZFMatrix<CSTATE> &rhssbfem, T
         
         TPZAutoPointer<TPZIntPoints> intrule = gel->CreateSideIntegrationRule(gel->NSides() - 1, 1);
         int maxIntOrder = intrule->GetMaxOrder();
-        TPZManVector<int, 3> maxorder(Dimension(), 2*grouporder);
+//        TPZManVector<int, 3> maxorder(Dimension(), 2*grouporder+8);
+        TPZManVector<int, 3> maxorder(Dimension(), maxIntOrder);
         intrule->SetOrder(maxorder);
 
         int64_t nfunc = sbfem->Phi().Cols();
         int64_t nfuncbubble = sbfem->PhiBubble().Cols();
-        TPZFMatrix<CSTATE> phieig(nfunc,1),dphixeig(dim,nfunc);
-        TPZFMatrix<CSTATE> phibubble(nfuncbubble,1),dphixbubble(dim,nfuncbubble);
+        TPZFMatrix<CSTATE> phieig(nfunc,nstate),dphixeig(dim*nstate,nfunc);
+        TPZFMatrix<CSTATE> phibubble(nfuncbubble,nstate),dphixbubble(dim*nstate,nfuncbubble);
         TPZManVector<TPZTransform<> > trvec(nelmp);
         for(auto &it : trvec) it = TPZTransform<>(dim);
 
@@ -158,7 +182,7 @@ void TPZSBFemElementGroupPostProcess::ComputeRhs(TPZFMatrix<CSTATE> &rhssbfem, T
         REAL weight = 1;
         int64_t npts = intrule->NPoints();
         for(int ip = 0; ip<npts; ip++) {
-            extern bool Print;
+//            extern bool Print;
 //            if(ip == 0) Print = true;
 //            else Print = false;
             intrule->Point(ip, qsi, weight);
@@ -167,10 +191,19 @@ void TPZSBFemElementGroupPostProcess::ComputeRhs(TPZFMatrix<CSTATE> &rhssbfem, T
             REAL detjac = datavec[2].detjac;
             weight *= detjac;
 //            std::cout << " Norm dphixeig " << Norm(dphixeig) << std::endl;
-            errmat->Contribute(datavec, phieig, dphixeig, weight, rhssbfem);
-            Print = false;
+            if(errmat1) {
+                errmat1->Contribute(datavec, phieig, dphixeig, weight, rhssbfem, RBM);
+            } else if(errmat2) {
+                errmat2->Contribute(datavec, phieig, dphixeig, weight, rhssbfem, RBM);
+            }
+//            Print = false;
+            TPZFMatrix<CSTATE> RBMFake;
             sbfem->ComputeBubbleShape(qsi, phibubble, dphixbubble);
-            errmat->Contribute(datavec, phibubble, dphixbubble, weight, rhsbubble);
+            if(errmat1) {
+                errmat1->Contribute(datavec, phibubble, dphixbubble, weight, rhsbubble, RBMFake);
+            } else {
+                errmat2->Contribute(datavec, phibubble, dphixbubble, weight, rhsbubble, RBMFake);
+            }
 //            std::cout << "norm rhsbubble " << Norm(rhsbubble) << std::endl;
         }
         integrateF /= 2.;

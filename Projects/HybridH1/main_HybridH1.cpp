@@ -19,6 +19,7 @@
 #include "ProblemConfig.h"
 
 #include "TPZMatLaplacianHybrid.h"
+#include "TPZHybridElasticity2D.h"
 
 #include "pzintel.h"
 
@@ -43,11 +44,11 @@
 #include <memory>
 
 
-
-
 bool neumann = true;
-bool h1solution = false;
+bool h1solution = true;
 bool hybridh1 = true;
+
+std::complex<STATE> integrateF = 0;
 
 void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh, ProblemConfig &config);
 void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
@@ -55,10 +56,11 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config);
 void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceMatId,struct ProblemConfig config);
 using namespace std;
 int main(int argc, char *argv[]) {
-#ifdef LOG4CXX
-    InitializePZLOG();
+#ifdef PZ_LOG
+    TPZLogger::InitializePZLOG();
 #endif
 
+    int nstate = 1;
     for (int ndiv = 0; ndiv < 1; ndiv++) {
 
         ProblemConfig config;
@@ -70,12 +72,15 @@ int main(int argc, char *argv[]) {
 
         int orderlagrange = 1;
 
-        config.exact = new TLaplaceExample1;
-        config.exact.operator*().fExact = TLaplaceExample1::EConst;
+//        config.exact = new TLaplaceExample1;
+//        config.exact.operator*().fExact = TLaplaceExample1::EConst;
+        config.exactelast = new TElasticity2DAnalytic;
+        config.exactelast.operator*().fProblemType = TElasticity2DAnalytic::EBend;
+        nstate = 2;
 
-        config.problemname = "ESinSin k=1 e lagrange order 2";
+        config.problemname = "Bend k=1 e lagrange order 2";
 
-        config.dir_name = "HybridH1_ESinSin";
+        config.dir_name = "HybridH1_Bend";
         std::string command = "mkdir -p " + config.dir_name;
         system(command.c_str());
 
@@ -111,7 +116,10 @@ int main(int argc, char *argv[]) {
         //problema H1
     if(h1solution) {
 
-        config.exact.operator*().fSignConvention = -1;
+        if(config.exact)
+        {
+            config.exact.operator*().fSignConvention = -1;
+        }
         TPZCompMesh *cmeshH1 = Tools::CMeshH1(config);
         {
             ofstream arg1("CompMeshH1.txt");
@@ -121,9 +129,11 @@ int main(int argc, char *argv[]) {
     }
 
     if(hybridh1){
-        config.exact.operator*().fSignConvention = 1;
+        if(config.exact) {
+            config.exact.operator*().fSignConvention = 1;
+        }
         TPZCreateHybridH1Space createspace(gmesh,TPZCreateHybridH1Space::EH1Hybrid);
-
+        createspace.fH1Hybrid.fNState = nstate;
         createspace.SetMaterialIds({1}, {-2,-1});
         createspace.fH1Hybrid.fHybridizeBCLevel = 1;//opcao de hibridizar o contorno
         createspace.ComputePeriferalMaterialIds();
@@ -262,27 +272,49 @@ void InsertMaterialObjectsH1Hybrid(TPZMultiphysicsCompMesh *cmesh_H1Hybrid, Prob
     int matID = 1;
     int dirichlet = 0;
     int neumann = 1;
+    TPZMaterialT<STATE> *matref = 0;
+    int nstate = -1;
 
-    // Creates Poisson material
-    TPZMatLaplacianHybrid *material = new TPZMatLaplacianHybrid(matID, dim);
+    if(config.exact) {
+        // Creates Poisson material
+        TPZMatLaplacianHybrid *material = new TPZMatLaplacianHybrid(matID, dim);
+        if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+            material->SetForcingFunction(config.exact->ForceFunc(), 5);
+            material->SetExactSol(config.exact->ExactSolution(), 5);
+        }
+        nstate = 1;
+        cmesh_H1Hybrid->InsertMaterialObject(material);
+        matref = material;
+    } else if(config.exactelast) {
+        REAL elast = 1.;
+        REAL poisson = 0.3;
+        REAL fx(0.), fy(0.);
+        auto *matelast = new TPZHybridElasticity2D(matID,elast,poisson,fx,fy);
+        matelast->SetForcingFunction(config.exactelast->ForceFunc(), 5);
+        matelast->SetExactSol(config.exactelast->ExactSolution(), 5);
+        cmesh_H1Hybrid->InsertMaterialObject(matelast);
+        matref = matelast;
+        nstate = 2;
 
-    cmesh_H1Hybrid->InsertMaterialObject(material);
-    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
-        material->SetForcingFunction(config.exact->ForceFunc(), material->ForcingFunctionPOrder());
-        material->SetExactSol(config.exact->ExactSolution(), material->PolynomialOrderExact());
+
     }
     //    TPZMaterial * mat(material);
     //    cmesh->InsertMaterialObject(mat);
 
     // Inserts boundary conditions
-    TPZFMatrix<STATE> val1(1, 1, 0.);
-    TPZManVector<STATE, 2> val2(11, 1.);
-    auto *BCond0 = material->CreateBC(material, -1, dirichlet, val1, val2);
-    if (config.exact.operator*().fExact != TLaplaceExample1::ENone) {
+    TPZFNMatrix<4,STATE> val1(nstate, nstate, 0.);
+    TPZManVector<STATE, 2> val2(nstate, 1.);
+    auto *BCond0 = matref->CreateBC(matref, -1, dirichlet, val1, val2);
+    if (config.exact && config.exact.operator*().fExact != TLaplaceExample1::ENone) {
         BCond0->SetForcingFunctionBC(config.exact->ExactSolution(),5);
     }
-    auto *BCond1 = material->CreateBC(material, -2, neumann, val1, val2);
-
+    if (config.exactelast && config.exactelast.operator*().fProblemType != TElasticity2DAnalytic::ENone) {
+        BCond0->SetForcingFunctionBC(config.exactelast->ExactSolution(),5);
+    }
+    auto *BCond1 = matref->CreateBC(matref, -2, neumann, val1, val2);
+    if (config.exactelast && config.exactelast.operator*().fProblemType != TElasticity2DAnalytic::ENone) {
+        BCond1->SetForcingFunctionBC(config.exactelast->ExactSolution(),5);
+    }
     cmesh_H1Hybrid->InsertMaterialObject(BCond0);
     cmesh_H1Hybrid->InsertMaterialObject(BCond1);
 }
@@ -334,6 +366,7 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
 #else
     TPZParFrontStructMatrix<TPZFrontSym<STATE> > strmat(cmeshH1);
     strmat.SetNumThreads(0);
+    strmat.SetDecomposeType(ELDLt);
     //        TPZSkylineStructMatrix strmat3(cmesh_HDiv);
     //        strmat3.SetNumThreads(8);
 #endif
@@ -358,10 +391,17 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
     an.Assemble();
     an.Solve();//resolve o problema misto ate aqui
     TPZStack<std::string> scalnames, vecnames;
-    scalnames.Push("Solution");
-    vecnames.Push("Derivative");
-    scalnames.Push("ExactSolution");
-
+    int nstate = cmeshH1->FindMaterial(1)->NStateVariables();
+    if(nstate == 1) {
+        scalnames.Push("Solution");
+        vecnames.Push("Derivative");
+        scalnames.Push("ExactSolution");
+    } else {
+        vecnames.Push("displacement");
+        scalnames.Push("sig_x");
+        scalnames.Push("sig_y");
+        scalnames.Push("tau_xy");
+    }
 
 
 
@@ -379,14 +419,22 @@ void SolveH1Problem(TPZCompMesh *cmeshH1,struct ProblemConfig &config){
     an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
     an.PostProcess(resolution,dim);
 
-    an.SetExact(config.exact.operator*().ExactSolution());
+    if(nstate == 1) {
+        an.SetExact(config.exact.operator*().ExactSolution());
+    } else {
+        an.SetExact(config.exactelast.operator*().ExactSolution());
+    }
 
     TPZManVector<REAL> errorvec(10, 0.);
     int64_t nelem = cmeshH1->NElements();
     cmeshH1->LoadSolution(cmeshH1->Solution());
     cmeshH1->ExpandSolution();
-    cmeshH1->ElementSolution().Redim(nelem, 10);
-
+    if(nstate == 1) {
+        cmeshH1->ElementSolution().Redim(nelem, 10);
+    } else {
+        cmeshH1->ElementSolution().Redim(nelem, 6);
+        errorvec.resize(6);
+    }
     an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
 
     std::cout << "Computed errors " << errorvec << std::endl;
@@ -424,65 +472,78 @@ void SolveHybridH1Problem(TPZMultiphysicsCompMesh *cmesh_H1Hybrid,int InterfaceM
     strmat.SetNumThreads(0);
 #endif
         
+    
+    std::set<int> matIds;
+    
+    
+    for (auto matid : config.materialids) {
         
-        std::set<int> matIds;
+        matIds.insert(matid);
+    }
+    TPZMaterial *matref = cmesh_H1Hybrid->FindMaterial(*matIds.begin());
+    int nstate = matref->NStateVariables();
         
+    for (auto matidbc : config.bcmaterialids) {
         
-        for (auto matid : config.materialids) {
-            
-            matIds.insert(matid);
-        }
-        
-        
-        for (auto matidbc : config.bcmaterialids) {
-            
-            matIds.insert(matidbc);
-        }
-        
-        matIds.insert(InterfaceMatId);
-        
-        strmat.SetMaterialIds(matIds);
-        
-        an.SetStructuralMatrix(strmat);
-        
-        
-        TPZStepSolver<STATE>* direct = new TPZStepSolver<STATE>;
-        direct->SetDirect(ELDLt);
-        an.SetSolver(*direct);
-        delete direct;
-        direct = 0;
-        an.Assemble();
-        an.Solve();
+        matIds.insert(matidbc);
+    }
+    
+    matIds.insert(InterfaceMatId);
+    
+    strmat.SetMaterialIds(matIds);
+    
+    an.SetStructuralMatrix(strmat);
+    
+    
+    TPZStepSolver<STATE>* direct = new TPZStepSolver<STATE>;
+    direct->SetDirect(ELDLt);
+    an.SetSolver(*direct);
+    delete direct;
+    direct = 0;
+    an.Assemble();
+    an.Solve();
 
     //Pos processamento
 
-        TPZStack<std::string> scalnames, vecnames;
+    TPZStack<std::string> scalnames, vecnames;
+    int nerrors = 5;
+    if(nstate == 1) {
         scalnames.Push("Pressure");
         scalnames.Push("PressureExact");
-
-        int dim = 2;
-        std::string plotname;
-        {
-            std::stringstream out;
-            out << config.dir_name << "/" << "HybridH1" << config.porder << "_" << dim
-            << "D_" << config.problemname << "Ndiv_ " << config.ndivisions << "HdivMais"
-            << config.hdivmais << ".vtk";
-            plotname = out.str();
-        }
-        int resolution=0;
-        an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
-        an.PostProcess(resolution, dim);
+        nerrors = 5;
+    } else if (nstate == 2) {
+        vecnames.Push("displacement");
+        scalnames.Push("SigmaX");
+        scalnames.Push("SigmaY");
+        scalnames.Push("TauXY");
+        nerrors = 6;
+    }
+    int dim = 2;
+    std::string plotname;
+    {
+        std::stringstream out;
+        out << config.dir_name << "/" << "HybridH1" << config.porder << "_" << dim
+        << "D_" << config.problemname << "Ndiv_ " << config.ndivisions << "HdivMais"
+        << config.hdivmais << ".vtk";
+        plotname = out.str();
+    }
+    int resolution=0;
+    an.DefineGraphMesh(dim, scalnames, vecnames, plotname);
+    an.PostProcess(resolution, dim);
 
 
     //Calculo do Erro
-
+    if(config.exact) {
         an.SetExact(config.exact.operator*().ExactSolution());
+    } else if(config.exactelast) {
+        an.SetExact(config.exactelast.operator*().ExactSolution());
+    }
 
-        TPZManVector<REAL> errorvec(5, 0.);
+        TPZManVector<REAL> errorvec(nerrors, 0.);
         int64_t nelem = cmesh_H1Hybrid->NElements();
         cmesh_H1Hybrid->LoadSolution(cmesh_H1Hybrid->Solution());
         cmesh_H1Hybrid->ExpandSolution();
-        cmesh_H1Hybrid->ElementSolution().Redim(nelem, 5);
+        cmesh_H1Hybrid->ElementSolution().Redim(nelem, nerrors);
 
         an.PostProcessError(errorvec);//calculo do erro com sol exata e aprox
 
