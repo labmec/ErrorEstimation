@@ -89,6 +89,9 @@ public:
     // Plots State solution of elements of target dimension
     virtual void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, bool atomic = true);
 
+    virtual void PlotState(const std::string& filename, int targetDim, TPZCompMesh* cmesh, const bool scalarField, const std::string& fieldName, const std::set<int> &matids = {});
+
+    virtual void PlotStateSeparateMaterials(const std::string& filenamebase, TPZCompMesh* cmesh, const bool scalarField, const std::string& fieldName, const std::set<int> &matids = {});
 
     int PrimalSkeletonMatId() const { return fPrimalSkeletonMatId; }
 
@@ -153,6 +156,8 @@ protected:
 
     /// sets the cornernode values equal to the averages
     virtual void ComputeNodalAverages();
+
+    virtual void CopySkeletonSolutionToSmallSkeletons() = 0;
 
     /// computes the nodal average of all elements that share a point
     void ComputeNodalAverage(TPZCompElSide &node_celside);

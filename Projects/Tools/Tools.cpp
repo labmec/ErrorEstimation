@@ -463,149 +463,149 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             TPZManVector<int> order(nconnects,0);
             for (int iconnect = 0; iconnect < nconnects; iconnect++){
                 order[iconnect] = sp->Connect(iconnect).Order();
-                int conorder = sp->Connect(iconnect).Order();
-                std::cout << "Element = "<<  cel->Reference()->Index() << ", Connect = " << sp->ConnectIndex(iconnect) << " " << conorder << " " << std::endl;
+                // int conorder = sp->Connect(iconnect).Order();
+                // std::cout << "Element = "<<  cel->Reference()->Index() << ", Connect = " << sp->ConnectIndex(iconnect) << " " << conorder << " " << std::endl;
             }
             config.elsRefinementP[cel->Reference()->Index()] = order;
         }
     // }
     
     bool changed = true;
-    //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
-    while (changed){
-        changed = false;
-        for (auto iel:config.elsRefinementP) {
-            TPZGeoEl* gel = meshvec[0]->Reference()->ElementVec()[iel.first];
-            if (gel->Dimension() != 2) continue;
+    // //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
+    // while (changed){
+    //     changed = false;
+    //     for (auto iel:config.elsRefinementP) {
+    //         TPZGeoEl* gel = meshvec[0]->Reference()->ElementVec()[iel.first];
+    //         if (gel->Dimension() != 2) continue;
 
-            //Now we are looking to the computational elements for each atomic mesh.
-            //Loop into the sides, check the order of the neighbouring elements and set the 
-            //connect order        
-            int nconnects = gel->NSides()-gel->NCornerNodes();
-            auto myIndex = gel->Index();
-            int myorder = config.elsRefinementP[myIndex][nconnects-1];
-            for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
-                TPZGeoElSide gelside(gel,iconnect);
+    //         //Now we are looking to the computational elements for each atomic mesh.
+    //         //Loop into the sides, check the order of the neighbouring elements and set the 
+    //         //connect order        
+    //         int nconnects = gel->NSides()-gel->NCornerNodes();
+    //         auto myIndex = gel->Index();
+    //         int myorder = config.elsRefinementP[myIndex][nconnects-1];
+    //         for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
+    //             TPZGeoElSide gelside(gel,iconnect);
 
-                TPZStack<TPZGeoElSide> allneigh;
-                gelside.AllNeighbours(allneigh);
-                //Get the order of volumetric neighbours
-                int neighOrder = -1;
-                for (TPZGeoElSide neighbour : allneigh){
-                    if (neighbour.Element()->Dimension() != 2) continue;
+    //             TPZStack<TPZGeoElSide> allneigh;
+    //             gelside.AllNeighbours(allneigh);
+    //             //Get the order of volumetric neighbours
+    //             int neighOrder = -1;
+    //             for (TPZGeoElSide neighbour : allneigh){
+    //                 if (neighbour.Element()->Dimension() != 2) continue;
 
-                    int neighOrder = config.elsRefinementP[neighbour.Element()->Index()][nconnects-1]; 
-                    int neighIndex = neighbour.Element()->Index();
-                    //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
+    //                 int neighOrder = config.elsRefinementP[neighbour.Element()->Index()][nconnects-1]; 
+    //                 int neighIndex = neighbour.Element()->Index();
+    //                 //Check if the neighbour order is >=2 or <=2 and compatibilize the internal order
                     
-                    if (neighOrder >= myorder+2){
-                        myorder = neighOrder-1;
-                        config.elsRefinementP[myIndex][nconnects-1] = myorder;
-                        changed = true;
-                    } else if (neighOrder <= myorder-2){
-                        neighOrder = myorder-1;
-                        config.elsRefinementP[neighIndex][nconnects-1] = neighOrder;
-                        changed = true;
-                    }
-                }
-            }
-        }
-    }
+    //                 if (neighOrder >= myorder+2){
+    //                     myorder = neighOrder-1;
+    //                     config.elsRefinementP[myIndex][nconnects-1] = myorder;
+    //                     changed = true;
+    //                 } else if (neighOrder <= myorder-2){
+    //                     neighOrder = myorder-1;
+    //                     config.elsRefinementP[neighIndex][nconnects-1] = neighOrder;
+    //                     changed = true;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
     
     meshvec[0]->LoadReferences();   
-    changed=true;
-    while (changed){
-        changed = false;
-        //Then compatibilize edges
-        for (auto iel:config.elsRefinementP) {
-            TPZGeoEl* gel = meshvec[0]->Reference()->ElementVec()[iel.first];
-            TPZCompEl* celS = gel->Reference();
-            if (gel->Dimension() != 2) continue;
-            // TPZCompEl* celU = meshvec[1]->ElementVec()[iel.first];
-            // TPZCompEl* celR = meshvec[2]->ElementVec()[iel.first];
+    // changed=true;
+    // while (changed){
+    //     changed = false;
+    //     //Then compatibilize edges
+    //     for (auto iel:config.elsRefinementP) {
+    //         TPZGeoEl* gel = meshvec[0]->Reference()->ElementVec()[iel.first];
+    //         TPZCompEl* celS = gel->Reference();
+    //         if (gel->Dimension() != 2) continue;
+    //         // TPZCompEl* celU = meshvec[1]->ElementVec()[iel.first];
+    //         // TPZCompEl* celR = meshvec[2]->ElementVec()[iel.first];
             
-            if (gel->Father()) continue; //Only for the father elements
+    //         if (gel->Father()) continue; //Only for the father elements
 
-            if (!celS) continue;
-            TPZInterpolatedElement *spS = dynamic_cast<TPZInterpolatedElement *>(celS);
-            // TPZInterpolatedElement *spU = dynamic_cast<TPZInterpolatedElement *>(celU);
-            // TPZInterpolationSpace *spR = dynamic_cast<TPZInterpolationSpace *>(celR);
-            // if (!spS || !spU || !spR) DebugStop();
+    //         if (!celS) continue;
+    //         TPZInterpolatedElement *spS = dynamic_cast<TPZInterpolatedElement *>(celS);
+    //         // TPZInterpolatedElement *spU = dynamic_cast<TPZInterpolatedElement *>(celU);
+    //         // TPZInterpolationSpace *spR = dynamic_cast<TPZInterpolationSpace *>(celR);
+    //         // if (!spS || !spU || !spR) DebugStop();
             
-            //Now we are looking to the computational elements for each atomic mesh.
-            //Loop into the sides, check the order of the neighbouring elements and set the 
-            //connect order        
-            int nconnects = celS->NConnects();
-            int ncorner = celS->Reference()->NCornerNodes();
-            auto myIndex = celS->Reference()->Index();
-            int myorder = config.elsRefinementP[myIndex][nconnects-1];
-            for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
-                TPZGeoElSide gelside(celS->Reference(),iconnect+ncorner);
-                TPZStack<TPZGeoElSide> allneigh;
-                gelside.AllNeighbours(allneigh);
-                //Get the order of volumetric neighbours
-                int neighOrder = -1;
-                // TPZVec<TPZGeoEl*> sons;
-                for (TPZGeoElSide neighbour : allneigh){
-                    if (neighbour.Element()->Dimension() != 2) continue;
-                    neighOrder = config.elsRefinementP[neighbour.Element()->Index()][nconnects-1]; 
-                    // neighbour.Element()->GetHigherSubElements(sons);
-                    // neighbour.Element()->GetSubElements2(nconnects-1, sons, 2);
-                }
-                if (neighOrder < 0) {//It is a boundary side. Then, refine the order
-                    config.elsRefinementP[myIndex][iconnect] = myorder-1;
-                    // changed = true;
-                } else {
-                    for (TPZGeoElSide neighbour : allneigh){
-                        if (neighbour.Dimension() != 1) continue;
-                        auto neighIndex = neighbour.Element()->Index();                  
-                        // if (config.elsRefinementP[myIndex][iconnect] != 
-                        //     config.elsRefinementP[neighIndex][neighbour.Side()-ncorner]){
-                        //     changed = true;
-                        // }                  
-                        if (neighOrder == myorder-1){          
-                            config.elsRefinementP[myIndex][iconnect] = myorder-1;
-                            config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
+    //         //Now we are looking to the computational elements for each atomic mesh.
+    //         //Loop into the sides, check the order of the neighbouring elements and set the 
+    //         //connect order        
+    //         int nconnects = celS->NConnects();
+    //         int ncorner = celS->Reference()->NCornerNodes();
+    //         auto myIndex = celS->Reference()->Index();
+    //         int myorder = config.elsRefinementP[myIndex][nconnects-1];
+    //         for (int iconnect = 0; iconnect < nconnects-1; iconnect++){//Loops over the edges
+    //             TPZGeoElSide gelside(celS->Reference(),iconnect+ncorner);
+    //             TPZStack<TPZGeoElSide> allneigh;
+    //             gelside.AllNeighbours(allneigh);
+    //             //Get the order of volumetric neighbours
+    //             int neighOrder = -1;
+    //             // TPZVec<TPZGeoEl*> sons;
+    //             for (TPZGeoElSide neighbour : allneigh){
+    //                 if (neighbour.Element()->Dimension() != 2) continue;
+    //                 neighOrder = config.elsRefinementP[neighbour.Element()->Index()][nconnects-1]; 
+    //                 // neighbour.Element()->GetHigherSubElements(sons);
+    //                 // neighbour.Element()->GetSubElements2(nconnects-1, sons, 2);
+    //             }
+    //             if (neighOrder < 0) {//It is a boundary side. Then, refine the order
+    //                 config.elsRefinementP[myIndex][iconnect] = myorder-1;
+    //                 // changed = true;
+    //             } else {
+    //                 for (TPZGeoElSide neighbour : allneigh){
+    //                     if (neighbour.Dimension() != 1) continue;
+    //                     auto neighIndex = neighbour.Element()->Index();                  
+    //                     // if (config.elsRefinementP[myIndex][iconnect] != 
+    //                     //     config.elsRefinementP[neighIndex][neighbour.Side()-ncorner]){
+    //                     //     changed = true;
+    //                     // }                  
+    //                     if (neighOrder == myorder-1){          
+    //                         config.elsRefinementP[myIndex][iconnect] = myorder-1;
+    //                         config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
                             
-                            TPZStack<TPZGeoElSide> sons;
-                            neighbour.GetSubElements2(sons);
-                            for (int isons = 0; isons < sons.size(); isons++){
-                                if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
-                                config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder-1;  
-                            }
+    //                         TPZStack<TPZGeoElSide> sons;
+    //                         neighbour.GetSubElements2(sons);
+    //                         for (int isons = 0; isons < sons.size(); isons++){
+    //                             if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
+    //                             config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+    //                         }
                             
-                        } else if (neighOrder == myorder){
-                            config.elsRefinementP[myIndex][iconnect] = myorder-1;
-                            config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
-                            TPZStack<TPZGeoElSide> sons;
-                            neighbour.GetSubElements2(sons);
-                            for (int isons = 0; isons < sons.size(); isons++){
-                                if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
-                                config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder-1;  
-                            }
-                        } else if (neighOrder == myorder+1){
-                            config.elsRefinementP[myIndex][iconnect] = myorder;
-                            config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder;
-                            TPZStack<TPZGeoElSide> sons;
-                            neighbour.GetSubElements2(sons);
-                            for (int isons = 0; isons < sons.size(); isons++){
-                                if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
-                                config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder;  
-                            }
-                        }//if
-                    }// neighbours
-                }//if
-            }//iconnect
-        }//iel
-    }//while
+    //                     } else if (neighOrder == myorder){
+    //                         config.elsRefinementP[myIndex][iconnect] = myorder-1;
+    //                         config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder-1;
+    //                         TPZStack<TPZGeoElSide> sons;
+    //                         neighbour.GetSubElements2(sons);
+    //                         for (int isons = 0; isons < sons.size(); isons++){
+    //                             if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
+    //                             config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder-1;  
+    //                         }
+    //                     } else if (neighOrder == myorder+1){
+    //                         config.elsRefinementP[myIndex][iconnect] = myorder;
+    //                         config.elsRefinementP[neighIndex][neighbour.Side()-ncorner] = myorder;
+    //                         TPZStack<TPZGeoElSide> sons;
+    //                         neighbour.GetSubElements2(sons);
+    //                         for (int isons = 0; isons < sons.size(); isons++){
+    //                             if (sons[isons].Side()-ncorner < 0) continue; //Only for edges
+    //                             config.elsRefinementP[sons[isons].Element()->Index()][sons[isons].Side()-ncorner] = myorder;  
+    //                         }
+    //                     }//if
+    //                 }// neighbours
+    //             }//if
+    //         }//iconnect
+    //     }//iel
+    // }//while
 
-    for (auto el:config.elsRefinementP){
-        std::cout << "Element = "<<  el.first << ", Orders = ";
-        for (int iconnect = 0; iconnect < el.second.size(); iconnect++){
-            std::cout << el.second[iconnect] << " ";
-        }
-        std::cout << std::endl;
-    }
+    // for (auto el:config.elsRefinementP){
+    //     std::cout << "Element = "<<  el.first << ", Orders = ";
+    //     for (int iconnect = 0; iconnect < el.second.size(); iconnect++){
+    //         std::cout << el.second[iconnect] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     //Now set the correct polynomial order of the elements
     //Different for each mesh
@@ -1081,7 +1081,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     
     
     // Column of the flux error estimate on the element solution matrix
-    const int fluxErrorEstimateCol = 9;//3;
+    const int fluxErrorEstimateCol = 3; //9;
     
     
 
@@ -1194,7 +1194,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     
 
     std::sort(elErrors.begin(), elErrors.end(), std::greater<double>());
-    int nrefineP = elErrors.size() * 0.5;
+    int nrefineP = elErrors.size() * 0.0;
 
     // for (int64_t iel=0; iel<elementsToRefine.size(); iel++) {
     //     int geoId=elementsToRefine[iel];

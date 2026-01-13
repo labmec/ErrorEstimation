@@ -96,6 +96,8 @@ private:
     /// set the cornernode values equal to the averages
     void ComputeNodalAverages() override;
 
+    void CopySkeletonSolutionToSmallSkeletons() override;
+
     void CopySolutionFromSkeleton() override;
 
     void VerifySolutionConsistency(TPZCompMesh* cmesh) override;

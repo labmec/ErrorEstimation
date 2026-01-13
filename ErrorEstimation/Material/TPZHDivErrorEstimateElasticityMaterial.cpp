@@ -1007,6 +1007,10 @@ void TPZHDivErrorEstimateElasticityMaterial::FillDataRequirements(TPZVec<TPZMate
         datavec[0].fNeedsSol = true;
         datavec[0].fNeedsNormal = true;
 
+        datavec[1].SetAllRequirements(false);
+        datavec[1].fNeedsSol = true;
+        datavec[1].fNeedsNormal = true;
+
         datavec[2].SetAllRequirements(false);
         datavec[2].fNeedsSol = true;
         datavec[2].fNeedsNormal = true;

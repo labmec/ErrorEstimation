@@ -205,8 +205,8 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep =1;//numero de steps no refinamento
+    pConfig.isAdaptivity = true;
+    pConfig.adaptivityStep = 2;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
@@ -214,7 +214,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {2,1};
    
     
-    TPZVec<int> divs = {8,16,32};//,64};
+    TPZVec<int> divs = {8};//,16,32};//,64};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -668,7 +668,7 @@ void InsertMaterials(int &dim, TPZHDivApproxCreator& hdivCreator,TPZAnalyticSolu
             elas2D = dynamic_cast<TElasticity2DAnalytic*> (fAn) ;
             matelas = new TPZMixedElasticityND(EDomain, elas2D->gE, elas2D->gPoisson, 0, 0, elas2D->fPlaneStress, dim);
             matelas->SetExactSol(elas2D->ExactSolution(),4);
-           matelas->SetForcingFunction(elas2D->ForceFunc(),4);
+            matelas->SetForcingFunction(elas2D->ForceFunc(),4);
             hdivCreator.InsertMaterialObject(matelas);
 
             TPZFMatrix<STATE> val1(dim,dim,0.);
@@ -862,7 +862,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 //The current options are HybridizationType::ENone, HybridizationType::EStandard
                 //and HybridizationType::ESemi (the last only works with H(div)-constant spaces)
                 hdivCreator.HybridType() = HybridizationType::ENone;
-                // hdivCreator.HybridType() = HybridizationType::EStandard;
+                //hdivCreator.HybridType() = HybridizationType::EStandard;
                 
                 //Creates an analytical solution to test
                 TPZAnalyticSolution *gAnalytic = 0;
@@ -897,7 +897,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 //Gets the Multiphysics mesh from the HdivApproxCreator
             
                 TPZMultiphysicsCompMesh *cmesh = nullptr;// = hdivCreator.CreateApproximationSpace();
-               Tools::PRefinementNew(cmesh, config, hdivCreator);
+                Tools::PRefinementNew(cmesh, config, hdivCreator);
             
             // TPZMultiphysicsCompMesh *cmesh =hdivCreator.CreateApproximationSpace();
                 
@@ -933,7 +933,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 int dim = 2;
 
                 an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionFEM.vtk");
-                an.PostProcess(0, dim);
+                an.PostProcess(4, dim);
                 
                 std::ofstream anPostProcessFile("PostprocessFem.txt");
                 TPZManVector<REAL,7> error(7,0);
