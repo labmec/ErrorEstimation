@@ -285,21 +285,23 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
             neighCel->Reference()->ResetReference();
         }
 
-        // #ifdef ERRORESTIMATION_DEBUG
+        #ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream outTXT("PostProcPressureMesh.txt");
             std::ofstream outVTK("PostProcPressureMesh.vtk");
             pressureMesh->Print(outTXT);
             TPZVTKGeoMesh::PrintCMeshVTK(pressureMesh, outVTK);
         }
-        // #endif
+        #endif
 
         CreateSkeletonElements(pressureMesh);
-        
+
+        #ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream outTXT("PostProcOriginalMesh.txt");
             pressureMesh->Print(outTXT);
         }
+        #endif
     }
     return pressureMesh;
 }
@@ -921,10 +923,12 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
     
     std::cout << "Computing boundary L2 projection\n";
     TPZCompMesh* pressuremesh = PrimalMesh();
+        #ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream out("PressureBeforeL2Projection.txt");
             pressuremesh->Print(out);
         }
+        #endif
         if (target_dim == 2) {
             std::cout << "Not implemented for 2D interface" << std::endl;
             DebugStop();
@@ -977,10 +981,12 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
             }
         }
         
+        #ifdef ERRORESTIMATION_DEBUG
         {
             std::ofstream out("PressureAfterL2Projection.txt");
             pressuremesh->Print(out);
         }
+        #endif
         std::cout << "Finished computing boundary L2 projection\n";
 
 }
@@ -1846,15 +1852,18 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         DebugStop();
     }
 
-    //#ifdef ERRORESTIMATION_DEBUG
+    #ifdef ERRORESTIMATION_DEBUG
     // Create directories to store debugging files
     std::filesystem::create_directory("ReconstructionSteps");
     std::filesystem::create_directory("DebuggingTransfer");
-    //#endif
+    #endif
     
+    #ifdef ERRORESTIMATION_DEBUG
+    {
     std::ofstream outfile1("ReconstructionSteps/MeshOnInitialPrimalREc.txt");
     fPostProcMesh.Print(outfile1);
-    
+    }
+    #endif
     
     CreatePostProcessingMesh();
 
@@ -1873,11 +1882,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         //BoundaryPressurePrRojection(pressuremesh, target_dim);
     }
 
-    //#ifdef ERRORESTIMATION_DEBUG
+    #ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelBoundaryProjection");
     }
-    //#endif
+    #endif
 
     // Calculates average pressure on interface edges and vertices
     int dim = fPostProcMesh.Dimension();
@@ -1885,37 +1894,49 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         ComputeAveragePrimal(d);
     }
     
-    //#ifdef ERRORESTIMATION_DEBUG
+    #ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelInterfaceAveragePrimalSkeleton");
     }
-    //#endif
+    #endif
 
     ComputeNodalAverages();
 
+    #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream outFile("ReconstructionSteps/PressureMeshBeforeCopySkeletonSolutionToSmallSkeletons.txt");
         fPostProcMesh.MeshVector()[1]->Print(outFile);
     }
+    #endif
 
     this->CopySkeletonSolutionToSmallSkeletons();
     
+    #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream outFile("ReconstructionSteps/PressureMeshAfterCopySkeletonSolutionToSmallSkeletons.txt");
         fPostProcMesh.MeshVector()[1]->Print(outFile);
     }
+    #endif
 
-    //#ifdef ERRORESTIMATION_DEBUG
+    #ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelNodalAverage");
     }
-    //#endif
+    #endif
 
+    #ifdef ERRORESTIMATION_DEBUG
+    {
     PlotStateSeparateMaterials("ReconstructionSteps/VolumePressureBeforeCopyFromSkel", fPostProcMesh.MeshVector()[1], false, "Solution");
     //PlotState("ReconstructionSteps/VolumeMFPressureBeforeCopyFromSkel", 2, &fPostProcMesh, false);
+    }
+    #endif
     CopySolutionFromSkeleton();
+    #ifdef ERRORESTIMATION_DEBUG
+    {
     PlotStateSeparateMaterials("ReconstructionSteps/VolumePressureAfterCopyFromSkel", fPostProcMesh.MeshVector()[1], false, "Solution");
    // PlotState("ReconstructionSteps/VolumeMFPressureAfterCopyFromSkel", 2, &fPostProcMesh, false);
+    }
+    #endif
       
     // transfer the continuous pressures to the multiphysics space
     TPZManVector<TPZCompMesh *, 2> meshvec(2);
@@ -1924,12 +1945,16 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     meshvec[0] = fPostProcMesh.MeshVector()[0];
     meshvec[1] = fPostProcMesh.MeshVector()[1];
 
+    #ifdef ERRORESTIMATION_DEBUG
+    {
     std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
     fPostProcMesh.Print(out);
     {
         std::ofstream out("ReconstructionSteps/VolumePressureMeshBeforeManualTransfer.txt");
         fPostProcMesh.MeshVector()[1]->Print(out);
     }
+    }
+    #endif
 
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
 
@@ -1946,37 +1971,46 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         // TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 #endif
-
+    #ifdef ERRORESTIMATION_DEBUG
+    {
     std::ofstream outafter("ReconstructionSteps/MFMeshAfterManualTransfer.txt");
     fPostProcMesh.Print(outafter);
-    
+    }
+    #endif
     ComputeElementStiffnesses();
-    
+    #ifdef ERRORESTIMATION_DEBUG
+    {
     std::ofstream outfile2("ReconstructionSteps/MeshAfterComputStiffness.txt");
     fPostProcMesh.Print(outfile2);
-    
+    }
+    #endif
    // fPostProcMesh.MeshVector()[1]->Solution().Zero();
     
     
 
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
-    
+    #ifdef ERRORESTIMATION_DEBUG
+    {
     std::ofstream outfile3("ReconstructionSteps/MeshAfterLoadSol.txt");
     fPostProcMesh.Print(outfile3);
     
     //PlotState("ReconstructionSteps/VolumeMFPressureAfterLoadSolution", 2, &fPostProcMesh, false);
   //  PlotState("ReconstructionSteps/VolumePressureAfterLoadSolution", 2, fPostProcMesh.MeshVector()[1]);
+    }
+    #endif
 
-
+    #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
+    #endif
 
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 
+    #ifdef ERRORESTIMATION_DEBUG
         {
             PlotStateSeparateMaterials("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", &fPostProcMesh, false, "DisplacementReconstructed");
             PlotStateSeparateMaterials("ReconstructionSteps/VolumePressureAfterTransferFromMult", fPostProcMesh.MeshVector()[1], false, "Solution");
@@ -1985,18 +2019,19 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
          std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
          TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
         }
-
-
+    #endif
 
     //#ifdef ERRORESTIMATION_DEBUG
     VerifySolutionConsistency(PrimalMesh());
     //#endif
 
+    #ifdef ERRORESTIMATION_DEBUG
     PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure");
 
     if (fPostProcesswithHDiv) {
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
     }
+    #endif
 }
 
 template <typename MixedMaterial>

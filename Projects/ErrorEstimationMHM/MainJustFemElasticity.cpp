@@ -201,7 +201,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     const int xdiv = 2; //Number of elements in each direction
 
-    const int pOrder = 2;
+    const int pOrder = 1;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
@@ -214,7 +214,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {2,1};
    
     
-    TPZVec<int> divs = {8};//,16,32};//,64};
+    TPZVec<int> divs = {16};//,16,32};//,64};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -455,12 +455,14 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                         config.gmesh = gmesh;
                     
         for(int refsteps = 1; refsteps< config.adaptivityStep; refsteps ++){
+            #ifdef ERRORESTIMATION_DEBUG
             {
                 // Prints gmesh mesh properties
                 std::string vtk_name = "geoMeshToSolveProbem.vtk";
                 std::ofstream vtkfile(vtk_name.c_str());
                 TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
             }
+            #endif
             
 
                 
@@ -732,15 +734,16 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     TPZMultiphysicsCompMesh *PostProcMesh =ErrorEstimator.TPZHDivErrorEstimator<TPZMixedElasticityND>::PostProcMesh();
     
     TPZCompMesh *H1Mesh= PostProcMesh->MeshVector()[5];
-    
+    #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream outTXT("H1MeshVector5.txt");
         H1Mesh->Print(outTXT);
     }
+    #endif
     SolvingH1Displacement<pzshape::TPZShapeQuad>(H1Mesh,config);
     
     //PostProcMesh->MeshVector()[5]->ExpandSolution();
-    
+    #ifdef ERRORESTIMATION_DEBUG
     {
 //        std::ofstream outTXT("SolutionH1.txt");
 //        PostProcMesh->MeshVector()[5]->Solution().Print(outTXT);
@@ -750,17 +753,20 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
 //        PostProcMesh->MeshVector()[5]->ElementSolution().Print("SolutionH1",std::cout);
         
     }
-    
+    #endif
+    #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream outTXT("H1MeshVector5AfterSol.txt");
         H1Mesh->Print(outTXT);
     }
+    #endif
     
-    
+    #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream outTXT("MultiMesh.txt");
         PostProcMesh->Print(outTXT);
     }
+    #endif
     
 
     std::string command = "mkdir -p " + config.dir_name;
@@ -833,12 +839,14 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
 
         for(int refsteps = 1; refsteps <= config.adaptivityStep; refsteps ++){
             config.refStepCounter = refsteps;
+            #ifdef ERRORESTIMATION_DEBUG
             {
                 // Prints gmesh mesh properties
                 std::string vtk_name = "geoMeshToSolveProblem.vtk";
                 std::ofstream vtkfile(vtk_name.c_str());
                 TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
             }
+            #endif
             
                 // Creates an hdivApproxCreator object. It is an environment developped to
                 // help creating H(div)-family possible approximation spaces.
@@ -926,14 +934,27 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 std::cout << "Finished\n";
                 an.LoadSolution(); // compute internal dofs
             
-                TPZStack<std::string> vecnames,scalnames;
-                vecnames.Push("Displacement");
-               // scalnames.Push("POrder");
-            
-                int dim = 2;
+                #ifdef ERRORESTIMATION_DEBUG
+                {
+                    TPZStack<std::string> vecnames,scalnames;
+                    vecnames.Push("Displacement");
+                    scalnames.Push("Rotation");
+                    scalnames.Push("SigmaX");
+                    scalnames.Push("SigmaY");
+                    scalnames.Push("SigmaXY");
+                    scalnames.Push("SigmaYX");
+                    scalnames.Push("TauXY");
+                    vecnames.Push("ExactDisplacement");
+                    vecnames.Push("ExactStrain");
+                    vecnames.Push("ExactStress");
+                // scalnames.Push("POrder");
+                
+                    int dim = 2;
 
-                an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionFEM.vtk");
-                an.PostProcess(4, dim);
+                    an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionFEM.vtk");
+                    an.PostProcess(4, dim);
+                }
+                #endif
                 
                 std::ofstream anPostProcessFile("PostprocessFem.txt");
                 TPZManVector<REAL,7> error(7,0);

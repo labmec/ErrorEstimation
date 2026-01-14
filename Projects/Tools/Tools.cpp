@@ -770,9 +770,10 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
     // cmesh->InitializeBlock();
     // cmesh->ExpandSolution();
 
-    
+    #ifdef ERRORESTIMATION_DEBUG
     std::ofstream outTXT("prefinedmesh.txt");
     cmesh->Print(outTXT);
+    #endif
 }
 
 void Tools::SetCelPolynomialOrder(TPZCompEl *cel, TPZManVector<int> porder, int nStateVars) {

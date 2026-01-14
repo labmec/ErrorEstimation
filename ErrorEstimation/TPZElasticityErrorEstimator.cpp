@@ -102,9 +102,12 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
     meshvec[1] = fPostProcMesh.MeshVector()[1];
 
     TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
-
+#ifdef ERRORESTIMATION_DEBUG
+{
     std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
     fPostProcMesh.Print(out);
+}
+#endif
 
 #ifdef ERRORESTIMATION_DEBUG
     {
@@ -116,13 +119,14 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 #endif
-
+#ifdef ERRORESTIMATION_DEBUG
+{
     std::ofstream outafter("ReconstructionSteps/MFMeshAfterManualTransfer.txt");
     fPostProcMesh.Print(outafter);
+}
+#endif
     ComputeElementStiffnesses();
     
-    fPostProcMesh.MeshVector()[1]->Solution().Zero();
-
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
     
     
@@ -131,13 +135,17 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
     //PlotState("ReconstructionSteps/VolumePressureAfterLoadSolution", 2, fPostProcMesh.MeshVector()[1]);
 
 
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream out("DebuggingTransfer/PressureBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(fPostProcMesh.MeshVector()[1], out);
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsBeforeTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
+#endif
     TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+
+#ifdef ERRORESTIMATION_DEBUG
     {
         //PlotState("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", 2, &fPostProcMesh, false);
         //PlotState("ReconstructionSteps/VolumePressureAfterTransferFromMult", 2, fPostProcMesh.MeshVector()[1]);
@@ -146,13 +154,18 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
         std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
+#endif
 
 
 #ifdef ERRORESTIMATION_DEBUG
     VerifySolutionConsistency(PrimalMesh());
 #endif
 
+#ifdef ERRORESTIMATION_DEBUG
+    {
     PlotPrimalSkeleton("ReconstructionSteps/FinalSkeletonPressure");
+    }
+#endif
 
     if (fPostProcesswithHDiv) {
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
@@ -208,11 +221,12 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateH1Mesh() {
 
     // Constructs mesh
     cmesh->AutoBuild();
-    
+    #ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream outTXT("PostProcH1Mesh.txt");
         cmesh->Print(outTXT);
     }
+    #endif
      
     
     return cmesh;
@@ -293,8 +307,12 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
         // active[1] = 1;
         // fPostProcMesh.ApproxSpace().Style() = TPZCreateApproximationSpace::EMultiphysics;
         // fPostProcMesh.BuildMultiphysicsSpace(active, fPostProcMesh.MeshVector());
-        std::ofstream fileVTK("GeoMeshBeforeRestrain.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK);
+        #ifdef ERRORESTIMATION_DEBUG
+        {
+            std::ofstream fileVTK("GeoMeshBeforeRestrain.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK);
+        }
+        #endif
         {
             RestrainSmallEdges(meshvec[1]);
 
@@ -334,10 +352,14 @@ void TPZElasticityErrorEstimator::CreatePostProcessingMesh()
             // meshvec[1]->CopyMaterials(fPostProcMesh);
             // SwitchMaterialObjects();
         }
-        std::ofstream outtxt("CreateSkeletoncels3.txt");
-        meshvec[1]->Print(outtxt);
-        std::ofstream fileVTK2("GeoMeshAfterRestrain.vtk");
-        TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK2);
+        #ifdef ERRORESTIMATION_DEBUG
+        {
+            std::ofstream outtxt("CreateSkeletoncels3.txt");
+            meshvec[1]->Print(outtxt);
+            std::ofstream fileVTK2("GeoMeshAfterRestrain.vtk");
+            TPZVTKGeoMesh::PrintGMeshVTK(meshvec[1]->Reference(), fileVTK2);
+        }
+        #endif
     }
 
 
@@ -1298,12 +1320,12 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
     gmesh->ResetReference();
     cmesh->LoadReferences();
 
-//#ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshBeforePressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
     }
-//#endif
+#endif
 
     if (fPrimalSkeletonMatId == 0) {
         fPrimalSkeletonMatId = FindFreeMatId(this->GMesh());
@@ -1380,12 +1402,12 @@ void TPZElasticityErrorEstimator::CreateSkeletonElements(TPZCompMesh * pressure_
         }
     }
      
-//ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG
     {
         std::ofstream fileVTK("GeoMeshAfterPressureSkeleton.vtk");
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, fileVTK);
     }
-//#endif
+#endif
 }
 
 void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *displacement_mesh) {
@@ -1451,8 +1473,11 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     displacement_mesh->CleanUpUnconnectedNodes();
     displacement_mesh->InitializeBlock();
     displacement_mesh->ExpandSolution();
+
+    #ifdef ERRORESTIMATION_DEBUG
     std::ofstream outtxt("CreateSkeletoncels.txt");
     displacement_mesh->Print(outtxt);
+    #endif
 
     
 }
