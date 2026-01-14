@@ -2080,7 +2080,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
        // REAL Estim_local =((ErrorEstimate + oscilatoryterm) * (ErrorEstimate + oscilatoryterm) + antiSym * antiSym);
         
         REAL Estim_local =
-        (oscilatoryterm*oscilatoryterm)+(ErrorEstimate*ErrorEstimate) +  (antiSym * antiSym);
+        (oscilatoryterm*oscilatoryterm)+(ErrorEstimate*ErrorEstimate);// +  (antiSym * antiSym);
         
         REAL EfIndex = Estim_local/ ErrorExact;
         dataIeff(el, 0) = EfIndex;
@@ -2105,7 +2105,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
     }
 
-    REAL globalIndex = sqrt(globalResidual)+sqrt(globalEstim)+sqrt(ASymmIndicator);
+    REAL globalIndex = sqrt(globalResidual)+sqrt(globalEstim);//+sqrt(ASymmIndicator);
 
     fEstimatedError = globalIndex;//sqrt(globalIndex);
     REAL NormExact= sqrt(globalExact);
@@ -2126,7 +2126,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
 
             std::ofstream outFile(filePath, std::ios::app);
             
-    outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalEstim= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
+    outFile  << fConfig.problemname<<" k="<<fConfig.porder <<" step "<<fConfig.refStepCounter<< "/"<< fConfig.adaptivityStep <<" lambda= "<<fConfig.lambda <<" Neq="<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalEstim= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
     outFile.close();
             
  

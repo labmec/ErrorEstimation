@@ -934,7 +934,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 std::cout << "Finished\n";
                 an.LoadSolution(); // compute internal dofs
             
-                #ifdef ERRORESTIMATION_DEBUG
+                //#ifdef ERRORESTIMATION_DEBUG
                 {
                     TPZStack<std::string> vecnames,scalnames;
                     vecnames.Push("Displacement");
@@ -951,10 +951,13 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 
                     int dim = 2;
 
-                    an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionFEM.vtk");
+                    std::string refsteps_str = std::to_string(refsteps);
+                    std::string filename = "SolutionFEM_step" + refsteps_str + ".vtk";
+
+                    an.DefineGraphMesh(dim, scalnames, vecnames, filename);
                     an.PostProcess(4, dim);
                 }
-                #endif
+                //#endif
                 
                 std::ofstream anPostProcessFile("PostprocessFem.txt");
                 TPZManVector<REAL,7> error(7,0);

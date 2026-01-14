@@ -2008,7 +2008,11 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     }
     #endif
 
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+    /* AQUI TEM UM BUG! COMO O ESTIMADOR DE ERRO AINDA NÃO ESTÁ BOM, USAMOS APENAS
+    A SOLUÇÃO EM H1 (COLA DA SOLUÇÃO DO DESLOCAMENTO EM L2) POR ENQUANTO. 
+    AO DESCOMENTAR A LINHA ABAIXO, A RECONSTRUÇÃO É CALCULADA PELO ESTIMADOR DE ERRO 
+    (Contribute do material TPZHDivErrorEstimateElasticityMaterial).*/
+    //TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 
     #ifdef ERRORESTIMATION_DEBUG
         {
