@@ -289,7 +289,7 @@ int SteklovTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> 
 
         // criam-se apenas elementos geometricos
         mhm->DefinePartitionbyCoarseIndices(coarseindices);
-        mhm->SetHDivFamily(HDivFamily::EHDivConstant);
+        mhm->SetHDivFamily(HDivFamily::EHDivStandard);
         MHMixed = mhm;
 
         AddDomainWrapElements(*mhm, matextend);

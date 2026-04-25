@@ -90,7 +90,7 @@ int main(){
     
     ConfigCasesMaze ConfCasesMeze;
 //    ConfCasesMeze.SetImageName("../Mazes/maze128x128.png");
-    ConfCasesMeze.SetImageName("Mazes/maze8x8.png");
+    ConfCasesMeze.SetImageName("Mazes/maze8x8_new.png");
     ConfCasesMeze.SetImperviousMatPermeability(1);//pouco permeavel
     ConfCasesMeze.SetPermeableMatPermeability(100000);//dentro do labirinto
     ConfCasesMeze.SetFluxOrder(1);
@@ -192,6 +192,7 @@ int MHMTest(ConfigCasesMaze &Conf){
     ProblemConfig config;
     config.dimension = 2;
     config.exact = nullptr;
+    config.exact = nullptr;
     config.problemname = "MazeHdiv128x128";
     config.dir_name = "Results128x128";
     config.porder = 3;
@@ -250,7 +251,7 @@ int SteklovTest(ConfigCasesMaze &Conf){
 
         // criam-se apenas elementos geometricos
         mhm->DefinePartitionbyCoarseIndices(coarseindices);
-        mhm->SetHDivFamily(HDivFamily::EHDivConstant);
+        mhm->SetHDivFamily(HDivFamily::EHDivStandard);
         MHMixed = mhm;
 
         AddDomainWrapElements(*mhm, matextend);
@@ -288,7 +289,7 @@ int SteklovTest(ConfigCasesMaze &Conf){
         meshcontrol.SetInternalPOrder(1);
         meshcontrol.SetSkeletonPOrder(1);
 
-        meshcontrol.DivideSkeletonElements(2);
+        meshcontrol.DivideSkeletonElements(3);
         OpenChannel = false;
         meshcontrol.DivideBoundarySkeletonElements();
 
