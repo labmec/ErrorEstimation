@@ -205,8 +205,8 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
@@ -214,7 +214,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {2,1};
    
     
-    TPZVec<int> divs = {16};//,16,32};//,64};
+    TPZVec<int> divs = {4,8,16,32,64};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -934,7 +934,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 std::cout << "Finished\n";
                 an.LoadSolution(); // compute internal dofs
             
-                //#ifdef ERRORESTIMATION_DEBUG
+                #ifdef ERRORESTIMATION_DEBUG
                 {
                     TPZStack<std::string> vecnames,scalnames;
                     vecnames.Push("Displacement");
@@ -957,7 +957,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                     an.DefineGraphMesh(dim, scalnames, vecnames, filename);
                     an.PostProcess(4, dim);
                 }
-                //#endif
+                #endif
                 
                 std::ofstream anPostProcessFile("PostprocessFem.txt");
                 TPZManVector<REAL,7> error(7,0);

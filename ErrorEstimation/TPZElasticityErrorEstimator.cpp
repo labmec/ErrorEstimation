@@ -1044,16 +1044,14 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
         if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if(!intel) DebugStop();
-        if (gel->Dimension() == dim-1) {
-            int ncorner = gel->NCornerNodes();
-            for (int side = 0; side<ncorner; side++) {
-                TPZCompElSide celside(cel,side);
-                int nsides = gel->NSides();
-                if (IsAdjacentToHangingNode(celside)) {
-                    nodesToImposeSolution.Push(celside);
-                } else {
-                    ComputeNodalAverage(celside);
-                }
+        int ncorner = gel->NCornerNodes();
+        for (int side = 0; side<ncorner; side++) {
+            TPZCompElSide celside(cel,side);
+            int nsides = gel->NSides();
+            if (IsAdjacentToHangingNode(celside)) {
+                nodesToImposeSolution.Push(celside);
+            } else {
+                ComputeNodalAverage(celside);
             }
         }
     } 
@@ -1416,9 +1414,9 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZL2Projection<> *skeletonMat = new TPZL2Projection<>(fPrimalSkeletonMatId,1,2);
-    skeletonMat->SetDimension(dim - 1);
-    skeletonMat->SetNStateVariables(2);
+    TPZL2Projection<> *skeletonMat = new TPZL2Projection<>(fPrimalSkeletonMatId, dim-1, /*nstate=*/2);
+    // skeletonMat->SetDimension(dim - 1);
+    // skeletonMat->SetNStateVariables(2);
     displacement_mesh->InsertMaterialObject(skeletonMat);
 
     std::set<int> matIdSkeleton = { fPrimalSkeletonMatId };
