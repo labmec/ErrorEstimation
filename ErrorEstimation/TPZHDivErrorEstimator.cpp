@@ -1956,7 +1956,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     }
     #endif
 
-    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
+   // TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
 
 //    std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
 //    fPostProcMesh.Print(out);
@@ -2008,7 +2008,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     }
     #endif
 
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+    //TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 
     #ifdef ERRORESTIMATION_DEBUG
         {
