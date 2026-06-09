@@ -190,9 +190,6 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     TPZManVector<STATE, 9> AgradS_V(matdim, 0.);
     
     
-   
-   
-    
     
     //R(reconstructed displacement)=0.5(gradS-gradS^T)
     assym_reconstructed(0, 0) = 0.;
@@ -331,11 +328,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     for (unsigned int i = 0; i < matdim; ++i) {
         
        // std::cout<<"Csigma_femAS_V[i]= "<<Csigma_femAS_V[i]<< " assym_reconstructedV[i]= "<<assym_reconstructedV[i]<<std::endl;
-        part1[i] = (Csigma_femAS_V[i] - assym_reconstructedV[i]);
+        //part1[i] = (Csigma_femAS_V[i] - assym_reconstructedV[i]);
+        part1[i] = Csigma_femAS_V[i] ;
         //std::cout<<"------"<<std::endl;
       //  std::cout<<"stressfemAS_V[i]= "<<stressfemAS_V[i]<< " ARot_reconstructedV[i]= "<<ARot_reconstructedV[i]<<std::endl;
-        part2[i] = (stressfemAS_V[i] -ARot_reconstructedV[i]);
-        
+        //part2[i] = (stressfemAS_V[i] -ARot_reconstructedV[i]);
+        part2[i] = stressfemAS_V[i];
+    
 
     }
 
@@ -946,8 +945,7 @@ int TPZHDivErrorEstimateElasticityMaterial::VariableIndex(const std::string &nam
     if (name == "DisplacementEffectivityIndex") return 110;
     if (name == "EnergyEffectivityIndex") return 111;
     if (name == "LocalErrorIndicator") return 112;
-    
-    
+
     
     if (name == "StressReconstructed") return 46;
     if (name == "EpsExact") return 47;
