@@ -47,6 +47,38 @@ public:
     REAL fEffIndex = -1.;
 
     REAL fEstimatedError = -1.;
+    
+    
+    enum EElementSolutionCols {
+        EDispExact=0,           // ||u_h - u_exact||
+        EDispEstimated=1,           // ||u_rec - u_exact||
+
+        EEnergyExact=2,             // ||sigma - sigma_h||_C
+        EEnergyEstimated=3,         // ||sigma_h^S - A eps(u_rec)||_C
+
+        EDispRecFem=4,              // ||u_rec - u_h||
+
+        EOscillatory=5,             // ||f - Proj_divsigma||
+
+        EAntiSymmetric=6,           // ||sigma_h^AS||_C
+
+        EDispH1Exact=7,             // ||u_exact - u_h1||
+
+        EEnergyH1Rec=8,             // ||sigma_h - A eps(u_h1)||_C
+
+        EEnergyH1Exact=9,           // ||sigma_exact - A eps(u_h1)||_C
+
+        // colunas adicionadas posteriormente
+
+        EDispIeff = 10,
+
+        EEnergyIeff = 11,
+
+        ELocalIndicator = 12,
+
+        NElementSolutionCols
+    };
+    
 
 private:
 
