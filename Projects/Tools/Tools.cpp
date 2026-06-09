@@ -1082,7 +1082,8 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     
     
     // Column of the flux error estimate on the element solution matrix
-    const int fluxErrorEstimateCol = 3; //9;
+    //deve ser a coluna que contem o indicador local de erro que é a ultima coluna
+    const int fluxErrorEstimateCol = 12;//3; //9;
     
     
 
@@ -1109,7 +1110,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
   //   The elements which error are larger than 20% of the maximum error are
    //  marked to be refined
-    REAL threshold = 0.8 * maxError;
+    REAL threshold = 0.2 * maxError;
     std::cout << "Threshold: " << threshold << "\n";
     std::map<int64_t,unsigned int> current_level;
     std::map<int64_t,unsigned int> new_level;
@@ -1631,7 +1632,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
     
     ss << "|u_fem-u_rec| = " << error_vec[4] << "\n";
     ss << "Residual Error L2 = " << error_vec[5] << "\n";
-    ss << "|sigma_femAS-AR(u_rec)|_{C}= " << error_vec[6]<< "\n";
+    ss << "|sigma_femAS|_{C}= " << error_vec[6]<< "\n";
     
     if (config.exactElast) {
         //ss << "Global exact error = " << error_vec[2] << "\n";
@@ -1639,7 +1640,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
        // ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
        // ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
-       // ss<<"|sigma_ex-Aeps(u_h1)| = " << error_vec[9] << "\n";
+        
        
         
         out << ss.str();
@@ -1706,5 +1707,6 @@ void Tools::EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMe
         std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
         std::ofstream file(fileName, std::ios::app);
         Tools::PrintElasticityErrors(file, config, errors);
+        file << "DOF Total = " << originalMesh->NEquations() << "\n";
     }
 }
