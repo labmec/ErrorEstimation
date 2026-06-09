@@ -114,7 +114,7 @@ int main() {
     pConfig.exactElast = new TElasticity2DAnalytic;
     RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
     // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-    // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+     //RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
    // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
@@ -192,7 +192,7 @@ template<class tshape>
 void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     pConfig.geometry = ProblemConfig::EGeometry::EQuad;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;//EThiago;//EDispx;//EHomoDir;
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="EHomoDir-Problem";
@@ -201,20 +201,20 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     const int xdiv = 2; //Number of elements in each direction
 
-    const int pOrder = 1;
+    const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {2,1};
+    TPZVec<int> nDivs = {1,1};
    
     
-    TPZVec<int> divs = {16};//,16,32};//,64};
+    TPZVec<int> divs = {4,8,16,32};//,16,32};//,64};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -351,8 +351,8 @@ void RunLShapeProblem(ProblemConfig &pConfig){
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
 
@@ -360,11 +360,11 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     TPZVec<int> divs;
     TPZVec<int> nDivs = {4,4};
     if (pConfig.isAdaptivity) {
-         divs = {2};
+         divs = {1};
         pConfig.dir_name = "LShapeProblem-Adapt";
     }
     else{
-        divs = {1,2,3,4,5};
+        divs = {1,2,3,4,5,6};
         pConfig.dir_name = "LShapeProblem-Uni";
     }
 
