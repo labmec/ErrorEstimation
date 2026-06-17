@@ -33,6 +33,7 @@
 #include "Elasticity/TPZMixedElasticityND.h"
 #include "TPZHDivErrorEstimateDarcyMaterial.h"
 #include "TPZHDivErrorEstimateElasticityMaterial.h"
+#include "TPZMatErrorSingleSpace.h"
 
 #include "TPZLinearAnalysis.h"
 
@@ -1894,6 +1895,48 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         ComputeAveragePrimal(d);
     }
     
+    {
+        auto *meshWithAverages = PrimalMesh();
+        
+
+        // compute face errors
+        std::set<int> matset;
+        matset.insert(fPrimalSkeletonMatId);
+        
+        if (!fExact) {
+            DebugStop();
+        }
+        auto *mat = meshWithAverages->FindMaterial(fPrimalSkeletonMatId);
+        auto errormat = dynamic_cast<TPZMatErrorSingleSpace<STATE> *>(mat);
+        if (!errormat) {
+            DebugStop();
+        }
+        int64_t nErrorCols = errormat->NEvalErrors();
+        errormat->SetExactSol(fExact->ExactSolution(), 10);
+
+        TPZManVector<REAL, 6> errorVec;
+
+        errorVec.resize(nErrorCols);
+        for (int64_t i = 0; i < nErrorCols; i++) {
+            errorVec[i] = 0;
+        }
+
+        int64_t nelem = meshWithAverages->NElements();
+        meshWithAverages->ElementSolution().Redim(nelem, nErrorCols);
+        for (int64_t el = 0; el < nelem; el++) {
+            TPZCompEl *cel = meshWithAverages->Element(el);
+            TPZSubCompMesh *subc = dynamic_cast<TPZSubCompMesh *> (cel);
+            if (subc) {
+                int64_t nelsub = subc->NElements();
+                subc->ElementSolution().Redim(nelsub, nErrorCols);
+            }
+        }
+        
+        meshWithAverages->EvaluateError(/*store_error = */ true, errorVec, matset);
+        std::cout << "L2 error of average displacement on skeleton = " << errorVec[1] << "\n";
+    }
+
+
     #ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelInterfaceAveragePrimalSkeleton");
@@ -1918,6 +1961,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     }
     #endif
 
+    PlotPrimalSkeleton("ReconstructionSteps/SkelNodalAverage");
     #ifdef ERRORESTIMATION_DEBUG
     {
         PlotPrimalSkeleton("ReconstructionSteps/SkelNodalAverage");
@@ -2338,7 +2382,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrepareElementsForH1Reconstruction() 
         if (compNeighSides.size() == 1) {
             TPZCompElSide large = skelSide.LowerLevelCompElementList2(true);
             if (large) {
-                std::cout << "Gel: " << gel->Index() << " Side: " << skelSide.Side() << '\n';
+                //std::cout << "Gel: " << gel->Index() << " Side: " << skelSide.Side() << '\n';
                 //compNeighSides.Push(large);
             }
         }

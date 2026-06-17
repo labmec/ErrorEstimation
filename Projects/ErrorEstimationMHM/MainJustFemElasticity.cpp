@@ -779,6 +779,13 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
            << "-step "<<step << "-Errors.vtk";
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK.str());
 
+    #ifdef ERRORESTIMATION_DEBUG
+    {
+        std::string vtk_name = "geoMeshBeforeAdapt.vtk";
+        std::ofstream vtkfile(vtk_name.c_str());
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+    }
+    #endif
     
     if(config.isAdaptivity){
         Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, originalMesh, config);
@@ -951,7 +958,10 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 
                     int dim = 2;
 
-                    an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionFEM.vtk");
+                    std::string refsteps_str = std::to_string(refsteps);
+                    std::string filename = "SolutionFEM_step" + refsteps_str + ".vtk";
+
+                    an.DefineGraphMesh(dim, scalnames, vecnames, filename);
                     an.PostProcess(4, dim);
                 }
                 #endif

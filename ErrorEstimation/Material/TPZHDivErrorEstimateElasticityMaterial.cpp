@@ -32,10 +32,12 @@ int TPZHDivErrorEstimateElasticityMaterial::NEvalErrors() const {
 
 void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialDataT<STATE>> &data, TPZVec<REAL> &errors) {
     /**
-     data[0] H1 mesh, uh_reconstructed
-     data[1] L2 mesh,
+     data[0] H1 mesh empty
+     data[1] L2 mesh, uh_reconstructed
      data[2] Hdiv fem mesh, sigma_h
      data[3] L2 mesh fem, u_h
+     data[4] L2 mesh fem, rotation (fem)
+     data[5] H1 mesh fem, continuous
      
      error[0] - error computed with exact displacement (|| u_fem-u_exact ||)
      error[1] - error computed with reconstructed displacement  (|| u_exact-u_rec ||)
@@ -289,7 +291,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
 //        part1[i] = Csigma_femV[i] - gradS_V[i];
 //        part2[i] = stress_femV[i] - AgradS_V[i];
         part1[i] = Csigma_femV[i] - eps_reconstructedV[i];
-        part2[i] = stress_femV [i] - sigma_reconstructedV[i];
+        part2[i] = stress_femV[i] - sigma_reconstructedV[i];
 
     }
     errors[3] = TPZMixedElasticityND::InnerVec(part1, part2);
@@ -441,7 +443,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
 
     /**
      datavec[0] H1 mesh, uh_reconstructed for Mark reconstruction and Empty for H1 reconstruction
-     datavec[1] L2 mesh,
+     datavec[1] L2 mesh, uh_reconstructed for H1 reconstruction
      datavec[2] Hdiv fem mesh, sigma_h
      datavec[3] L2 mesh fem, u_h
      **/
@@ -693,7 +695,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     TPZFNMatrix<9, STATE> stressfem(dim, dim, 0.);
     for (unsigned int i = 0; i < dim; i++) {
         for (unsigned int j = 0; j < dim; j++) {
-            stressfem(i, j) = datavec[2].sol[0][j + i * dim];
+            stressfem(i, j) = datavec[2].sol[0][j + i * 3];  // HDiv é sempre armazenado com dim=3.
         }
     }
  
@@ -741,9 +743,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     const auto &axes = datavec[2].axes;
     TPZVec<TPZManVector<STATE,9>> eps_phiukV(nphiuk, TPZManVector<STATE, 9>(matdim, 0.));
     for(int in = 0; in < nphiuk; in++ ) {
-	TPZFNMatrix<4,STATE> du(2,2);
-        du(0,0) = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
-        du(1,0) = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
+	//TPZFNMatrix<4,STATE> du(2,2);
+        STATE dvdx = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
+        STATE dvdy = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
         
 
 
@@ -754,23 +756,23 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
 //
 //        ToVoigt(eps_phiuk, eps_phiukV[in]);
 
-        ef(2*in, 0) +=weight * (Csigma_fem[Exx]*du(0,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(1,0));
-        ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*du(0,0));
+         ef(2*in, 0) +=weight * (Csigma_fem[Exx]*dvdx + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*dvdy);
+         ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*dvdy + 0.5*(Csigma_fem[Exy]+Csigma_fem[Eyx])*dvdx);
 
-        //ef(2*in, 0) += weight * (Csigma_fem[Exx]*du(0,0) + (Csigma_fem[Exy] + rotfem(0, 1))*du(1,0));
-        //ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*du(1,0) + (Csigma_fem[Eyx] + rotfem(1, 0))*du(0,0));
+        // ef(2*in, 0) += weight * (Csigma_fem[Exx]*dvdx + (Csigma_fem[Exy] + rotfem(0, 1))*dvdy);
+        // ef(2*in+1, 0) += weight * (Csigma_fem[Eyy]*dvdy + (Csigma_fem[Eyx] + rotfem(1, 0))*dvdx);
 
         for(int jn = 0; jn < nphiuk; jn++ ) {
-            du(0,1) = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
-            du(1,1) = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
+            STATE dudx = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
+            STATE dudy = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
         
-            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + 0.5*du(1,1)*du(1,0));
-            ek(2*in,2*jn+1) += weight * 0.5*du(0,1)*du(1,0);
-            ek(2*in+1,2*jn) += weight * 0.5*du(1,1)*du(0,0);
-            ek(2*in+1,2*jn+1) += weight * (du(1,1)*du(1,0) + 0.5*du(0,1)*du(0,0));
+             ek(2*in,2*jn) += weight * (dudx*dvdx + 0.5*dudy*dvdy);
+             ek(2*in,2*jn+1) += weight * 0.5*dudx*dvdy;
+             ek(2*in+1,2*jn) += weight * 0.5*dudy*dvdx;
+             ek(2*in+1,2*jn+1) += weight * (dudy*dvdy + 0.5*dudx*dvdx);
 
-//            ek(2*in,2*jn) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
-//            ek(2*in+1,2*jn+1) += weight * (du(0,1)*du(0,0) + du(1,1)*du(1,0));
+           //ek(2*in,2*jn) += weight * (dvdx*dudx + dudy*dvdy);
+           //ek(2*in+1,2*jn+1) += weight * (dudx*dvdx + dvdy*dudy);
 
 
         }
@@ -811,7 +813,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
 //     TPZFNMatrix<9, STATE> stressfem(dim, dim, 0.);
 //     for (unsigned int i = 0; i < dim; i++) {
 //         for (unsigned int j = 0; j < dim; j++) {
-//             stressfem(i, j) = datavec[2].sol[0][j + i * dim];
+//             stressfem(i, j) = datavec[2].sol[0][j + i * 3];
 //         }
 //     }
 //     //compute C(sigma)

@@ -1044,16 +1044,14 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
         if (gel->MaterialId() != fPrimalSkeletonMatId) continue;
         TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
         if(!intel) DebugStop();
-        if (gel->Dimension() == dim-1) {
-            int ncorner = gel->NCornerNodes();
-            for (int side = 0; side<ncorner; side++) {
-                TPZCompElSide celside(cel,side);
-                int nsides = gel->NSides();
-                if (IsAdjacentToHangingNode(celside)) {
-                    nodesToImposeSolution.Push(celside);
-                } else {
-                    ComputeNodalAverage(celside);
-                }
+        int ncorner = gel->NCornerNodes();
+        for (int side = 0; side<ncorner; side++) {
+            TPZCompElSide celside(cel,side);
+            int nsides = gel->NSides();
+            if (IsAdjacentToHangingNode(celside)) {
+                nodesToImposeSolution.Push(celside);
+            } else {
+                ComputeNodalAverage(celside);
             }
         }
     } 
@@ -1416,9 +1414,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZL2Projection<> *skeletonMat = new TPZL2Projection<>(fPrimalSkeletonMatId,1,2);
-    skeletonMat->SetDimension(dim - 1);
-    skeletonMat->SetNStateVariables(2);
+    TPZL2Projection<> *skeletonMat = new TPZL2Projection<>(fPrimalSkeletonMatId, dim-1, /*nstate=*/2);
     displacement_mesh->InsertMaterialObject(skeletonMat);
 
     std::set<int> matIdSkeleton = { fPrimalSkeletonMatId };
@@ -2186,8 +2182,8 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
 //        NElementSolutionCols
 //    };
     
-
-    REAL nuconst= fConfig.mu;
+    
+    
     
     
     
@@ -2329,7 +2325,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         
         std::ofstream outFile(filePath, std::ios::app);
         
-        outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalIndex= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
+        outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" step "<< fConfig.refStepCounter<< "/"<< fConfig.adaptivityStep <<" lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalIndex= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
         outFile.close();
         
         

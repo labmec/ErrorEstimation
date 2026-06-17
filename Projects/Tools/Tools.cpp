@@ -1179,9 +1179,10 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                     //std::cout << "   Levels: "<< new_level[neighbour_id] << "  " << new_level[el_id] << std::endl;
                     if (new_level[neighbour_id] > new_level[el_id]+1) {
                         //std::cout << "   !!! Will refine this element !!!" << std::endl;
-                        if (new_level.find(el_id) != new_level.end()) {
+                        if (new_level[el_id] != current_level[el_id]) {
                             // This element has a neighbor that is more than one refinement level apart from it,
-                            // but is already marked for refinement.
+                            // but the current element is already marked for refinement.
+                            // This should not happen, because we should not have two neighboring elements that are more than one refinement level apart, but we check it just in case.
                             DebugStop();
                         }
                         //gelsToRefine[el_id] = true;
