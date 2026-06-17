@@ -2000,7 +2000,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     }
     #endif
 
-    TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
+    //TPZBuildMultiphysicsMesh::TransferFromMeshes(meshvec, &fPostProcMesh);
 
 //    std::ofstream out("ReconstructionSteps/MFMeshBeforeManualTransfer.txt");
 //    fPostProcMesh.Print(out);
@@ -2056,7 +2056,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     A SOLUÇÃO EM H1 (COLA DA SOLUÇÃO DO DESLOCAMENTO EM L2) POR ENQUANTO. 
     AO DESCOMENTAR A LINHA ABAIXO, A RECONSTRUÇÃO É CALCULADA PELO ESTIMADOR DE ERRO 
     (Contribute do material TPZHDivErrorEstimateElasticityMaterial).*/
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+    //TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 
     //#ifdef ERRORESTIMATION_DEBUG
         {
@@ -2386,7 +2386,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrepareElementsForH1Reconstruction() 
         if (compNeighSides.size() == 1) {
             TPZCompElSide large = skelSide.LowerLevelCompElementList2(true);
             if (large) {
-                std::cout << "Gel: " << gel->Index() << " Side: " << skelSide.Side() << '\n';
+                //std::cout << "Gel: " << gel->Index() << " Side: " << skelSide.Side() << '\n';
                 //compNeighSides.Push(large);
             }
         }

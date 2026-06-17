@@ -112,9 +112,9 @@ int main() {
     pConfig.vtkResolution = 0;
    
     pConfig.exactElast = new TElasticity2DAnalytic;
-    RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
+    //RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
     // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-    // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+     RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
    // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
@@ -352,7 +352,7 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
     pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    pConfig.adaptivityStep = 15;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
 
@@ -779,6 +779,11 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
            << "-step "<<step << "-Errors.vtk";
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK.str());
 
+    {
+        std::string vtk_name = "geoMeshBeforeAdapt.vtk";
+        std::ofstream vtkfile(vtk_name.c_str());
+        TPZVTKGeoMesh::PrintGMeshVTK(config.gmesh, vtkfile, true);
+    }
     
     if(config.isAdaptivity){
         Tools::hAdaptivity(ErrorEstimator.PostProcMesh(), config.gmesh, originalMesh, config);
