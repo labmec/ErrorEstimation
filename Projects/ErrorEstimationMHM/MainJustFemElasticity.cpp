@@ -192,7 +192,7 @@ template<class tshape>
 void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     pConfig.geometry = ProblemConfig::EGeometry::EQuad;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;//EThiago;//EDispx;//EHomoDir;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;//EThiago;//EDispx;//
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="EHomoDir-Problem";
@@ -214,7 +214,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {1,1};
    
     
-    TPZVec<int> divs = {4,8,16,32};//,16,32};//,64};
+    TPZVec<int> divs = {4,8,16,32};//,64};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;

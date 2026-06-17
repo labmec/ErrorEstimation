@@ -2186,8 +2186,8 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
 //        NElementSolutionCols
 //    };
     
-    
-    
+
+    REAL nuconst= fConfig.mu;
     
     
     
@@ -2225,6 +2225,9 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     REAL globalResidual=0.;
     REAL ASymmIndicator=0.;
     
+    REAL kornconst = 2.;//pode ser 7 se nao for homogeneo
+    REAL poincareconst = 0.;
+    
 
     
     for (int64_t el = 0; el < nrows; el++) {
@@ -2243,10 +2246,8 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         if (!gel) continue;
         
         REAL hk = gel->CharacteristicSize();
-        REAL oscilatoryterm = 0;
-        REAL antiSym = 0.;
-        REAL oscConst= (7.)*hk/M_PI;
-        
+        poincareconst = hk/M_PI;
+        REAL oscConst= (kornconst)*sqrt(poincareconst/nuconst);
         
         REAL dispExact = elsol(el, EDispExact);
         
@@ -2255,6 +2256,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         REAL energyExact = elsol(el, EEnergyExact);
         
         REAL energyEstimated = elsol(el, EEnergyEstimated);
+        REAL antiSym = elsol(el,EAntiSymmetric);
         
         
         
@@ -2327,7 +2329,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         
         std::ofstream outFile(filePath, std::ios::app);
         
-        outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalEstim= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
+        outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" nstep "<<fConfig.adaptivityStep<< " lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalIndex= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
         outFile.close();
         
         
