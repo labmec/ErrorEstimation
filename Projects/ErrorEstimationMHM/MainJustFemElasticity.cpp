@@ -114,7 +114,7 @@ int main() {
     pConfig.exactElast = new TElasticity2DAnalytic;
     RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
     // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-     //RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+    // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
    // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
@@ -192,11 +192,11 @@ template<class tshape>
 void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     pConfig.geometry = ProblemConfig::EGeometry::EQuad;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;//EThiago;//EDispx;//
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;//EHomoDir;//EDispx;//
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
-    pConfig.problemname="EHomoDir-Problem";
-    pConfig.dir_name = "SmoothProb-Quad";
+    pConfig.problemname="Thiago-Problem";
+    pConfig.dir_name = "SmoothProb-Quad2";
    // pConfig.dir_name = "SymmetricTest";
     
     const int xdiv = 2; //Number of elements in each direction
@@ -205,8 +205,8 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep = 1;//numero de steps no refinamento
+    pConfig.isAdaptivity = true;
+    pConfig.adaptivityStep = 10;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
@@ -214,7 +214,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {1,1};
    
     
-    TPZVec<int> divs = {4,8,16,32};//,64};
+    TPZVec<int> divs = {4};//{8,16,32,64};//,64};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -347,12 +347,12 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 1;
+    const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep = 1;//numero de steps no refinamento
+    pConfig.isAdaptivity = true;
+    pConfig.adaptivityStep = 10;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
 
@@ -368,7 +368,7 @@ void RunLShapeProblem(ProblemConfig &pConfig){
         pConfig.dir_name = "LShapeProblem-Uni";
     }
 
-    for (int64_t iorder = 1; iorder <= pOrder; iorder++) {
+    for (int64_t iorder = 2; iorder <= pOrder; iorder++) {
         pConfig.porder = iorder;
 
         for (int idiv = 0; idiv < divs.size(); idiv++) {
@@ -926,7 +926,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 strmat.SetNumThreads(1);
 #else
                 TPZSkylineStructMatrix<STATE> strmat(cmesh);
-                strmat.SetNumThreads(4);
+                strmat.SetNumThreads(24);
 #endif
                 
                 an.SetStructuralMatrix(strmat);

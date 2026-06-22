@@ -285,13 +285,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     
 
     for (unsigned int i = 0; i < matdim; ++i) {
-       // part1[i] = CsigmaSym_femV[i] - eps_reconstructedV[i];
-      //  part2[i] = stressSym_V[i] - sigma_reconstructedV[i];
+        part1[i] = CsigmaSym_femV[i] - eps_reconstructedV[i];
+       part2[i] = stressSym_V[i] - sigma_reconstructedV[i];
         
 //        part1[i] = Csigma_femV[i] - gradS_V[i];
 //        part2[i] = stress_femV[i] - AgradS_V[i];
-        part1[i] = Csigma_femV[i] - eps_reconstructedV[i];
-        part2[i] = stress_femV[i] - sigma_reconstructedV[i];
+        // part1[i] = Csigma_femV[i] - eps_reconstructedV[i];
+        // part2[i] = stress_femV[i] - sigma_reconstructedV[i];
 
     }
     errors[3] = TPZMixedElasticityND::InnerVec(part1, part2);

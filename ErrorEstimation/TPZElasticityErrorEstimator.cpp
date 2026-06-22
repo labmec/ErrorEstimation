@@ -2223,7 +2223,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     
     REAL kornconst = 2.;//pode ser 7 se nao for homogeneo
     REAL poincareconst = 0.;
-    
+    REAL muconst = fConfig.mu;
 
     
     for (int64_t el = 0; el < nrows; el++) {
@@ -2243,7 +2243,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         
         REAL hk = gel->CharacteristicSize();
         poincareconst = hk/M_PI;
-        REAL oscConst= (kornconst)*sqrt(poincareconst/nuconst);
+        REAL oscConst= (poincareconst)*sqrt(kornconst/(2.*muconst));
         
         REAL dispExact = elsol(el, EDispExact);
         
@@ -2288,7 +2288,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
         else
         {
-            elsol(el, EEnergyIeff) = localIndicator/energyExact;
+            elsol(el, EEnergyIeff) = localIndicator/(energyExact*energyExact);
         }
         
         elsol(el, ELocalIndicator) = localIndicator;

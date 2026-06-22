@@ -1110,7 +1110,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
   //   The elements which error are larger than 20% of the maximum error are
    //  marked to be refined
-    REAL threshold = 0.2 * maxError;
+    REAL threshold = 0.8 * maxError;
     std::cout << "Threshold: " << threshold << "\n";
     std::map<int64_t,unsigned int> current_level;
     std::map<int64_t,unsigned int> new_level;
@@ -1224,7 +1224,7 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
             int geoId=elementsToRefine[iel];
             TPZVec<TPZGeoEl*> sons;
             TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(geoId);
-            std::cout<<"H-refine "<<geoId<<"\n";
+            //std::cout<<"H-refine "<<geoId<<"\n";
             gelToRefine->Divide(sons);
         }   
     }
