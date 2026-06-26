@@ -192,7 +192,7 @@ template<class tshape>
 void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     pConfig.geometry = ProblemConfig::EGeometry::EQuad;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EThiago;//EHomoDir;//EDispx;//
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;//EDispx;//EThiago;//EDispx;//
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="Thiago-Problem";
@@ -201,12 +201,12 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
     const int xdiv = 2; //Number of elements in each direction
 
-    const int pOrder = 2;
+    const int pOrder = 1;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 10;//numero de steps no refinamento
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 1;//10;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
@@ -214,7 +214,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {1,1};
    
     
-    TPZVec<int> divs = {4};//{8,16,32,64};//,64};
+    TPZVec<int> divs = {16};//{8,16,32,64};//,64};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -926,7 +926,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 strmat.SetNumThreads(1);
 #else
                 TPZSkylineStructMatrix<STATE> strmat(cmesh);
-                strmat.SetNumThreads(24);
+                strmat.SetNumThreads(4);
 #endif
                 
                 an.SetStructuralMatrix(strmat);

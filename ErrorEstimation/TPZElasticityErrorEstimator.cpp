@@ -143,7 +143,7 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
         TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
     }
 #endif
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+  //  TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 
 #ifdef ERRORESTIMATION_DEBUG
     {
@@ -2288,7 +2288,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
         else
         {
-            elsol(el, EEnergyIeff) = localIndicator/(energyExact*energyExact);
+            elsol(el, EEnergyIeff) = localIndicator/(energyExact);
         }
         
         elsol(el, ELocalIndicator) = localIndicator;
@@ -2328,8 +2328,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" step "<< fConfig.refStepCounter<< "/"<< fConfig.adaptivityStep <<" lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalIndex= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
         outFile.close();
         
-        
-
+    
     
 }
 

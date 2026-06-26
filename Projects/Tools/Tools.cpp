@@ -1614,7 +1614,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
      error[4] = || u_rec - u_fem ||
      error[5] = oscilatory data error (|| f - Proj_divsigma ||)
      error[6] = antisymmetric error
-     erro[7] = |u_femH1-u_rec|
+     erro[7] = |u_femH1-u_ex|
      erro[8] = (|| sigma_fem - A epsilon(u_h1)||_{C})
      */
 
@@ -1638,8 +1638,8 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
     if (config.exactElast) {
         //ss << "Global exact error = " << error_vec[2] << "\n";
         ss << "|u_ex-u_fem| = " << error_vec[0]<< "\n";
-       // ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
-       // ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
+        ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
+        ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
         
        
