@@ -427,7 +427,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::CreatePostProcessingMesh() {
 
 template <typename MixedMaterial>
 void TPZHDivErrorEstimator<MixedMaterial>::ComputeElementStiffnesses() {
-    std::cout << "Solving local Dirichlet problem " << std::endl;
+    //std::cout << "Solving local Dirichlet problem " << std::endl;
     fPostProcMesh.LoadReferences();
     for (auto cel : fPostProcMesh.ElementVec()) {
         if (!cel) continue;
@@ -2021,19 +2021,21 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     fPostProcMesh.Print(outafter);
     }
     #endif
+    
     ComputeElementStiffnesses();
+    
     #ifdef ERRORESTIMATION_DEBUG
     {
     std::ofstream outfile2("ReconstructionSteps/MeshAfterComputStiffness.txt");
     fPostProcMesh.Print(outfile2);
     }
     #endif
-   // fPostProcMesh.MeshVector()[1]->Solution().Zero();
-    
     
 
     fPostProcMesh.LoadSolution(fPostProcMesh.Solution());
-    #ifdef ERRORESTIMATION_DEBUG
+    
+    
+   // #ifdef ERRORESTIMATION_DEBUG
     {
     std::ofstream outfile3("ReconstructionSteps/MeshAfterLoadSol.txt");
     fPostProcMesh.Print(outfile3);
@@ -2041,7 +2043,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     //PlotState("ReconstructionSteps/VolumeMFPressureAfterLoadSolution", 2, &fPostProcMesh, false);
   //  PlotState("ReconstructionSteps/VolumePressureAfterLoadSolution", 2, fPostProcMesh.MeshVector()[1]);
     }
-    #endif
+   // #endif
 
     #ifdef ERRORESTIMATION_DEBUG
     {
@@ -2052,9 +2054,9 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
     }
     #endif
 
-    TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
+   TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(meshvec, &fPostProcMesh);
 
-    #ifdef ERRORESTIMATION_DEBUG
+#ifdef ERRORESTIMATION_DEBUG
         {
             PlotStateSeparateMaterials("ReconstructionSteps/VolumeMFPressureAfterTransferFromMult", &fPostProcMesh, false, "DisplacementReconstructed");
             PlotStateSeparateMaterials("ReconstructionSteps/VolumePressureAfterTransferFromMult", fPostProcMesh.MeshVector()[1], false, "Solution");
@@ -2063,7 +2065,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
          std::ofstream outMultiphysics("DebuggingTransfer/MultiphysicsAfterTransferFromMult.txt");
          TPZCompMeshTools::PrintConnectInfoByGeoElement(&fPostProcMesh, outMultiphysics);
         }
-    #endif
+#endif
 
     //#ifdef ERRORESTIMATION_DEBUG
     VerifySolutionConsistency(PrimalMesh());
@@ -2076,6 +2078,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
     }
     #endif
+    
+  
 }
 
 template <typename MixedMaterial>

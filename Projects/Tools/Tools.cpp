@@ -740,12 +740,12 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         meshvec[i]->InitializeBlock();
     }
 
-    std::ofstream outTXT1("cmeshstress" + std::to_string(config.refStepCounter) + ".txt");
-    meshvec[0]->Print(outTXT1);
-    std::ofstream outTXT2("cmeshdisp" + std::to_string(config.refStepCounter) + ".txt");
-    meshvec[1]->Print(outTXT2);
-    std::ofstream outTXT3("cmeshrot" + std::to_string(config.refStepCounter) + ".txt");
-    meshvec[2]->Print(outTXT3);
+//    std::ofstream outTXT1("cmeshstress" + std::to_string(config.refStepCounter) + ".txt");
+//    meshvec[0]->Print(outTXT1);
+//    std::ofstream outTXT2("cmeshdisp" + std::to_string(config.refStepCounter) + ".txt");
+//    meshvec[1]->Print(outTXT2);
+//    std::ofstream outTXT3("cmeshrot" + std::to_string(config.refStepCounter) + ".txt");
+//    meshvec[2]->Print(outTXT3);
 
     hdivCreator.CreateMultiPhysicsMesh(meshvec,lagLevelCounter,cmesh);
 
@@ -1082,8 +1082,9 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     
     
     // Column of the flux error estimate on the element solution matrix
-    //deve ser a coluna que contem o indicador local de erro que é a ultima coluna
-    const int fluxErrorEstimateCol = 12;//3; //9;
+    //deve ser a coluna que contem o indicador local de erro
+    const int fluxErrorEstimateCol = 12;
+    const int exact_error =2;
     
     
 
@@ -1110,7 +1111,9 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
 
   //   The elements which error are larger than 20% of the maximum error are
    //  marked to be refined
-    REAL threshold = 0.8 * maxError;
+    REAL threshold = std::max(0.8 * maxError,REAL(1.e-10));
+    
+
     std::cout << "Threshold: " << threshold << "\n";
     std::map<int64_t,unsigned int> current_level;
     std::map<int64_t,unsigned int> new_level;
@@ -1138,7 +1141,8 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         REAL elementError = elsol(iel, fluxErrorEstimateCol);
         //    std::cout << "Element ID: " << el_id<< ", Error: " << elementError<< ", Threshold: " << threshold<< "\n";
         if (elementError > threshold) {
-         //   std::cout << "element error " << elementError << "el " << el_id << "\n";
+//            std::cout << "element error " << elementError << "el " << el_id << "\n";
+//            std::cout << "error_indicator " << elementError << "true_error " << elsol(iel,exact_error) << "\n";
 
             if (!gelToRefine->HasSubElement()) {
            // std::cout << "Marking to refine Element ID: " << el_id << "\n";
@@ -1629,7 +1633,8 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
     }
     ss << '\n';
     ss << "|sigma_fem^S-Aeps(u_rec)|_{C} = " << error_vec[3] << "\n";
-    //ss<< "|sigma_fem - Aeps(u_h1)|_{C}= "<< error_vec[8] << "\n";
+    ss<< "|sigma_fem - Aeps(u_h1)|_{C}= "<< error_vec[8] << "\n";
+    
     
     ss << "|u_fem-u_rec| = " << error_vec[4] << "\n";
     ss << "Residual Error L2 = " << error_vec[5] << "\n";
@@ -1641,6 +1646,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
         ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
         ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
+        ss<< "|sigma_ex - Aeps(u_h1)|_{C}= "<< error_vec[9] << "\n";
         
        
         
