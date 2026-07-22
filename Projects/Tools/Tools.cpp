@@ -455,7 +455,7 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
         for (int iel = 0; iel < meshvec[0]->NElements(); iel++) {
             TPZCompEl* cel = meshvec[0]->ElementVec()[iel];
             if (!cel) continue;
-            if (cel->Reference()->Dimension() != 2) continue;
+            if (cel->Reference()->Dimension() != meshvec[0]->Dimension()) continue;
             TPZInterpolatedElement* sp = dynamic_cast<TPZInterpolatedElement*>(cel);
             if (!sp) continue;
             if (config.elsRefinementP[cel->Reference()->Index()].size() > 0) continue; //Already stored
@@ -612,13 +612,25 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
     //Stress mesh
     for (auto cel:meshvec[0]->ElementVec()){
         if (!cel) continue;
-        if (cel->Dimension() != 2) continue;
+        int meshdim = meshvec[0]->Dimension();
+        int celdim = cel->Dimension();
+        if (celdim != meshdim) continue;
         TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!sp) continue;
-        int nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();//-cel->Reference()->NCornerNodes();
+        int nconnects;
+        if (celdim == 2){
+            nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();
+        } else if (celdim == 3){
+            nconnects = cel->Reference()->NSides(3)+cel->Reference()->NSides(2);
+        }
         auto myIndex = cel->Reference()->Index();
         sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-1]);
-        int ncorner = cel->Reference()->NCornerNodes();
+        int ncorner;
+        if (celdim == 2){
+            ncorner = cel->Reference()->NCornerNodes();
+        } else if (celdim == 3){
+            ncorner = cel->Reference()->NCornerNodes()+cel->Reference()->NSides(1);
+        }
         for (int iconnect = 0; iconnect < nconnects; iconnect++){
             int conorder = config.elsRefinementP[myIndex][iconnect]; 
             sp->SetSideOrder(iconnect+ncorner, conorder);
@@ -653,11 +665,22 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
     //Displacement mesh
     for (auto cel:meshvec[1]->ElementVec()){
         if (!cel) continue;
-        if (cel->Dimension() != 2) continue;
+        int meshdim = meshvec[1]->Dimension();
+        if (cel->Dimension() != meshdim) continue;
         TPZInterpolatedElement *sp = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!sp) continue;
-        int ncorners = cel->Reference()->NCornerNodes();
-        int nconnects = cel->Reference()->NSides();//-cel->Reference()->NCornerNodes();
+        int ncorners;
+        if (meshdim == 2){
+            ncorners = cel->Reference()->NCornerNodes();
+        } else if (meshdim == 3){
+            ncorners = cel->Reference()->NCornerNodes()+cel->Reference()->NSides(1);
+        }
+        int nconnects = cel->NConnects();
+        // if (meshdim == 2){
+        //     nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();
+        // } else if (meshdim == 3){
+        //     nconnects = cel->Reference()->NSides(3)+cel->Reference()->NSides(2);
+        // }
         auto myIndex = cel->Reference()->Index();
         sp->SetPreferredOrder(config.elsRefinementP[myIndex][nconnects-ncorners-1]);
         bool isequal = true;
@@ -685,11 +708,17 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
     //Rotation mesh
     for (auto cel:meshvec[2]->ElementVec()){
         if (!cel) continue;
-        if (cel->Dimension() != 2) continue;
+        int meshdim = meshvec[2]->Dimension();
+        if (cel->Dimension() != meshdim) continue;
         TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
         TPZInterpolatedElement *ip = dynamic_cast<TPZInterpolatedElement *>(cel);
         if (!sp) continue;
-        int nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();//-cel->Reference()->NCornerNodes();
+        int nconnects;
+        if (meshdim == 2){
+            nconnects = cel->Reference()->NSides()-cel->Reference()->NCornerNodes();
+        } else if (meshdim == 3){
+            nconnects = cel->Reference()->NSides(3)+cel->Reference()->NSides(2);
+        }
         auto myIndex = cel->Reference()->Index();
         int conorder = config.elsRefinementP[myIndex][nconnects-1];
         sp->SetPreferredOrder(conorder);   
@@ -700,7 +729,7 @@ void Tools::PRefinementNew(TPZMultiphysicsCompMesh *&cmesh, ProblemConfig &confi
             const int nshape =sp->NConnectShapeF(iconnect,c.Order());
             c.SetNShape(nshape);
             const auto seqnum = c.SequenceNumber();
-            int nstate = 1;
+            int nstate = cel->Dimension() == 2 ? 1 : 3;
             sp->Mesh()->Block().Set(seqnum,nshape*nstate);
         }
     }

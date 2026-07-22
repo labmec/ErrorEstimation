@@ -791,6 +791,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     const auto &axes = datavec[2].axes;
     TPZVec<TPZManVector<STATE,9>> eps_phiukV(nphiuk, TPZManVector<STATE, 9>(matdim, 0.));
     
+    // Jeferson: Aqui precisa ser adaptado para 3D
     for(int in = 0; in < nphiuk; in++ ) {
     //TPZFNMatrix<4,STATE> du(2,2);
         STATE dvdx = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
@@ -866,9 +867,9 @@ void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMateri
         u_D[1] = bc.Val2()[1];
     }
 
-    int nstate = 2;
+    int nstate = this->fDimension;
 
-    
+    // Jeferson: Aqui precisa adaptar para o caso 3D.
     switch (bc.Type()) {
 
 

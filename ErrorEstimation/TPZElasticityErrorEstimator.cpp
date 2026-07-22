@@ -16,6 +16,7 @@
 #include "Projection/TPZL2Projection.h"
 //#include "Projection/TPZL2ProjectionCS.h"
 #include "Elasticity/TPZElasticity2D.h"
+#include "Elasticity/TPZElasticity3D.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("ElasticityErrorEstimator"));
@@ -182,40 +183,63 @@ TPZCompMesh *TPZElasticityErrorEstimator::CreateH1Mesh() {
     cmesh->SetDefaultOrder(fConfig.porder);
     cmesh->SetAllCreateFunctionsContinuous();
 
-    
-    TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
-    elas->fProblemType = fConfig.exactElast->fProblemType;
+    if (cmesh->Dimension() == 2){
+        TElasticity2DAnalytic *elas = new TElasticity2DAnalytic;
+        elas->fProblemType = fConfig.exactElast->fProblemType;
 
+        elas->gE = fConfig.mu*(3*fConfig.lambda+2*fConfig.mu)/(fConfig.lambda+fConfig.mu);
+        elas->gPoisson = 0.5*fConfig.lambda/(fConfig.lambda+fConfig.mu);
+        elas->fProblemType = fConfig.exactElast->fProblemType;
+        elas->fPlaneStress = 0.;
+        
+        const STATE E = elas->gE, nu = elas->gPoisson;
+        
+        int EDomain = 1;
+        int planestress = elas->fPlaneStress;
+    // std::cout<<"-----planestress no CreateH1Mesh = "<<planestress<<std::endl;
+        
+        TPZElasticity2D *mat= new TPZElasticity2D(EDomain, E, nu, 0, 0, planestress);
+        
+        mat->SetExactSol(elas->ExactSolution(), 4);
+        mat->SetForcingFunction(elas->ForceFunc(), 4);
+        cmesh->InsertMaterialObject(mat);
 
-    elas->gE = fConfig.mu*(3*fConfig.lambda+2*fConfig.mu)/(fConfig.lambda+fConfig.mu);
-    elas->gPoisson = 0.5*fConfig.lambda/(fConfig.lambda+fConfig.mu);
-    elas->fProblemType = fConfig.exactElast->fProblemType;
-    elas->fPlaneStress = 0.;
+        // BC
     
-    const STATE E = elas->gE, nu = elas->gPoisson;
-    
-    int EDomain = 1;
-    int planestress = elas->fPlaneStress;
-   // std::cout<<"-----planestress no CreateH1Mesh = "<<planestress<<std::endl;
-    
-    TPZElasticity2D *mat= new TPZElasticity2D(EDomain, E, nu, 0, 0, planestress);
-    
-    
-    mat->SetExactSol(elas->ExactSolution(), 4);
-    
-    mat->SetForcingFunction(elas->ForceFunc(), 4);
-    
-    cmesh->InsertMaterialObject(mat);
+        TPZFMatrix<STATE> val1(dim,dim,0.);
+        TPZManVector<STATE> val2(dim,0.);
+        int EBoundary=2;
+        TPZBndCondT<STATE> *BCond1 = mat->CreateBC(mat, EBoundary, 0, val1, val2);
+        BCond1->SetForcingFunctionBC(elas->ExactSolution(),4);
+        cmesh->InsertMaterialObject(BCond1);
+        
+        
+    } else if (cmesh->Dimension() == 3){
+        TElasticity3DAnalytic *elas3D = new TElasticity3DAnalytic;
+        elas3D->fProblemType = fConfig.exactElast3D->fProblemType;
+        elas3D->fE = fConfig.mu*(3*fConfig.lambda+2*fConfig.mu)/(fConfig.lambda+fConfig.mu);
+        elas3D->fPoisson = 0.5*fConfig.lambda/(fConfig.lambda+fConfig.mu);
+        const STATE E = elas3D->fE, nu = elas3D->fPoisson;
+        int EDomain = 1;
+        
+        TPZVec<STATE> force(3,0.);
+        TPZElasticity3D *matelas= new TPZElasticity3D(EDomain, E, nu, force, 0, 0, 0);
+        matelas->SetExactSol(elas3D->ExactSolution(),4);
+        matelas->SetForcingFunction(elas3D->ForceFunc(),4);
+        cmesh->InsertMaterialObject(matelas);
+
+        TPZFMatrix<STATE> val1(dim,dim,0.);
+        TPZManVector<STATE> val2(dim,0.);
+        int EBoundary=2;
+        TPZBndCondT<STATE> *BCond1 = matelas->CreateBC(matelas, EBoundary, 0, val1, val2);
+        BCond1->SetForcingFunctionBC(elas3D->ExactSolution(),4);
+        cmesh->InsertMaterialObject(BCond1);
+    } else {
+        DebugStop();
+    }
 
     
-    // BC
-    
-    TPZFMatrix<STATE> val1(dim,dim,0.);
-    TPZManVector<STATE> val2(dim,0.);
-    int EBoundary=2;
-    TPZBndCondT<STATE> *BCond1 = mat->CreateBC(mat, EBoundary, 0, val1, val2);
-    BCond1->SetForcingFunctionBC(elas->ExactSolution(),4);
-    cmesh->InsertMaterialObject(BCond1);
+
     
     
 
@@ -1081,7 +1105,7 @@ void TPZElasticityErrorEstimator::ComputeNodalAverages()
             TPZInterpolatedElement *neigh_intel = dynamic_cast<TPZInterpolatedElement *> (neigh_celside.Element());
             if (!neigh_intel) DebugStop();
             
-            int nstate = 2;
+            int nstate = dim;
             TPZManVector<STATE, 3> neigh_sol(nstate, 0.);
             TPZManVector<REAL, 3> pt0_vol(1, 0.);
             neigh_intel->Solution(pt0_vol, 1, neigh_sol);
@@ -1414,7 +1438,7 @@ void TPZElasticityErrorEstimator::CreateSkeletonApproximationSpace(TPZCompMesh *
     int dim = gmesh->Dimension();
 
     // Create skeleton elements in pressure mesh
-    TPZL2Projection<> *skeletonMat = new TPZL2Projection<>(fPrimalSkeletonMatId, dim-1, /*nstate=*/2);
+    TPZL2Projection<> *skeletonMat = new TPZL2Projection<>(fPrimalSkeletonMatId, dim-1, /*nstate=*/dim);
     displacement_mesh->InsertMaterialObject(skeletonMat);
 
     std::set<int> matIdSkeleton = { fPrimalSkeletonMatId };

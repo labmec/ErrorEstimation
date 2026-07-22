@@ -11,3 +11,5 @@
 add_executable(JustFemElasticity MainJustFemElasticity.cpp)
 target_link_libraries(JustFemElasticity Tools ErrorEstimationLib)
 
+add_executable(Elasticity3D MainElasticity3D.cpp)
+target_link_libraries(Elasticity3D Tools ErrorEstimationLib)

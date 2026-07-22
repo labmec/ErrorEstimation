@@ -201,7 +201,7 @@ TPZCompMesh *TPZHDivErrorEstimator<MixedMaterial>::CreatePrimalMesh() {
         gmesh->ResetReference();
         int dim = gmesh->Dimension();
         pressureMesh->DeleteMaterial(1);
-        TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(1,2,2);
+        TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(1,dim,dim);
         pressureMesh->InsertMaterialObject(l2p);
 
         // Delete compels of dimension dim - 1
@@ -663,7 +663,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::RestrainSmallEdges(TPZCompMesh *press
         }
 
         int nsides = gel->NSides();
-        for (int side = gel->NCornerNodes(); side < nsides - 1; ++side) {
+        int ncorner;
+        if (dim == 2){
+            ncorner = cel->Reference()->NCornerNodes();
+        } else if (dim == 3){
+            ncorner = cel->Reference()->NCornerNodes()+cel->Reference()->NSides(1);
+        }
+        for (int side = ncorner; side < nsides - 1; ++side) {
             TPZGeoElSide gelside(gel, side);
             if (gelside.Dimension() != dim - 1) DebugStop();
             TPZGeoElSide neighbour(gelside.Neighbour());
@@ -930,10 +936,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
             pressuremesh->Print(out);
         }
         #endif
-        if (target_dim == 2) {
-            std::cout << "Not implemented for 2D interface" << std::endl;
-            DebugStop();
-        }
+        // if (target_dim == 2) {
+        //     std::cout << "Not implemented for 2D interface" << std::endl;
+        //     DebugStop();
+        // }
         
         TPZGeoMesh *gmesh = pressuremesh->Reference();
         gmesh->ResetReference();
@@ -942,13 +948,20 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeBoundaryL2Projection(int targe
         pressuremesh->DeleteMaterial(2);
     
     
-        TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(2,1,2);
+        TPZL2Projection<STATE>* l2p = new TPZL2Projection<STATE>(2,target_dim,target_dim+1);
    
     
         pressuremesh->InsertMaterialObject(l2p);
         auto exact = std::function<void (const TPZVec<REAL> &,TPZVec<STATE> &)>([this](const TPZVec<REAL> &loc,TPZVec<STATE> &result){
             TPZFMatrix<STATE> du;
-            return fConfig.exactElast->ExactSolution()(loc, result, du);
+            if (fConfig.exactElast) {
+                return fConfig.exactElast->ExactSolution()(loc, result, du);
+            } else if (fConfig.exactElast3D) {
+                return fConfig.exactElast3D->ExactSolution()(loc, result, du);
+            } else {
+                DebugStop();
+            }
+            
         }); 
         l2p->SetForcingFunction(exact, 4);
         
@@ -1188,8 +1201,10 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
 
             //STATE average_sol = left_weight * left_sol[0] + right_weight * right_sol[0];
 
-            STATE average_solX = left_weight * left_sol[0] + right_weight * right_sol[0];
-            STATE average_solY = left_weight * left_sol[1] + right_weight * right_sol[1];
+            TPZVec<STATE> average_sol(dim, 0.);
+            for (int i = 0; i < dim; i++) {
+                average_sol[i] = left_weight * left_sol[i] + right_weight * right_sol[i];
+            }
 
             // std::cout << "Left Sol = " << left_sol[0] << " " << left_sol[1] << std::endl;
             // std::cout << "Righ Sol = " << right_sol[0] << " " << right_sol[1] << std::endl;
@@ -1205,8 +1220,12 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
                     //                    L2Rhs(nshape*istate+ishape, 0) += weight * phi(ishape, 0) * detjac * average_sol;
                     // L2Rhs(nshape*istate+ishape, 0) += weight *detjac*(phi(ishape, 0)  * average_solX+phi(ishape, 1)  * average_solY);      }
 
-                    L2Rhs(2 * ishape, 0) += weight * detjac * phi(ishape, 0) * average_solX;
-                    L2Rhs(2 * ishape + 1, 0) += weight * detjac * phi(ishape, 0) * average_solY;
+                    for (int idim = 0; idim < dim; idim++) {
+                        L2Rhs(dim * ishape + idim, 0) += weight * detjac * phi(ishape, 0) * average_sol[idim];
+                    }
+                   
+                    // L2Rhs(2 * ishape, 0) += weight * detjac * phi(ishape, 0) * average_sol[0];
+                    // L2Rhs(2 * ishape + 1, 0) += weight * detjac * phi(ishape, 0) * average_sol[1];
                 }
 
             }
@@ -1215,10 +1234,13 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeAverage(TPZCompMesh *pressurem
                     for (int istate = 0; istate < nstate; istate++) {
                         //                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
                         //                        L2Mat(nshape*istate+ishape, nshape*istate+jshape) += weight * detjac *( phi(ishape, 0) * phi(jshape, 0)+phi(ishape, 1) * phi(jshape, 1));
-
-                        L2Mat(2 * ishape, 2 * jshape) += weight * detjac * (phi(ishape, 0) * phi(jshape, 0));
-                        L2Mat(2 * ishape + 1, 2 * jshape + 1) += weight * detjac * (phi(ishape, 0) * phi(jshape, 0));
-
+                        for (int idim = 0; idim < dim; idim++) {
+                            L2Mat(dim * ishape + idim, dim * jshape + idim) += weight * detjac * phi(ishape, 0) * phi(jshape, 0);
+                        }
+                        
+                        // L2Mat(2 * ishape, 2 * jshape) += weight * detjac * (phi(ishape, 0) * phi(jshape, 0));
+                        // L2Mat(2 * ishape + 1, 2 * jshape + 1) += weight * detjac * (phi(ishape, 0) * phi(jshape, 0));
+                        // aqui precisa alterar para o caso de dimensao 3.
                     }
                 }
             }
@@ -1877,7 +1899,8 @@ void TPZHDivErrorEstimator<MixedMaterial>::PrimalReconstruction() {
 
     // L2 projection for Dirichlet and Robin boundary condition for H1 reconstruction
     if (!fPostProcesswithHDiv) {
-        int target_dim = 1;
+
+        int target_dim = fPostProcMesh.Dimension() - 1;
         // TODO ver se fica igual para dimensao maior
         ComputeBoundaryL2Projection(target_dim);
         //BoundaryPressurePrRojection(pressuremesh, target_dim);
