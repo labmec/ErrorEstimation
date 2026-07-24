@@ -111,6 +111,16 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     TPZFNMatrix<9, STATE> rotfem(dim, dim, 0.);
     rotfem(0,1) = data[4].sol[0][0];
     rotfem(1,0) = (-1.)*data[4].sol[0][0];
+
+    if (dim == 3){
+        rotfem(0,2) = data[4].sol[0][1];
+        rotfem(2,0) = (-1.)*data[4].sol[0][1];
+        
+        rotfem(1,2) = data[4].sol[0][2];
+        rotfem(2,1) = (-1.)*data[4].sol[0][2];
+    }
+
+    
     
     // ---------------------------------------------------------------------
     // 2. Exact solution and forcing term
@@ -147,6 +157,13 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     eps_exact(1, 0) = eps_exact(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
     eps_exact(1, 1) = du_exact(1, 1);
     
+    if (dim == 3) {
+        eps_exact(0, 2) = eps_exact(2, 0) = 0.5 * (du_exact(0, 2) + du_exact(2, 0));
+        eps_exact(1, 2) = eps_exact(2, 1) = 0.5 * (du_exact(1, 2) + du_exact(2, 1));
+        eps_exact(2, 2) = du_exact(2, 2);
+    }
+
+
     //eps(reconstructed displacement)
     TPZFNMatrix<9,STATE> eps_reconstructed(dim,dim,0.);
     const auto &dudxreconstructed = data[H1functionposition].dsol[0];
@@ -158,6 +175,12 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     eps_reconstructed(1, 0) = eps_reconstructed(0, 1) = 0.5 * (du(0, 1) + du(1, 0));
     eps_reconstructed(1, 1) = du(1, 1);
 
+    if (dim == 3) {
+        eps_reconstructed(0, 2) = eps_reconstructed(2, 0) = 0.5 * (du(0, 2) + du(2, 0));
+        eps_reconstructed(1, 2) = eps_reconstructed(2, 1) = 0.5 * (du(1, 2) + du(2, 1));
+        eps_reconstructed(2, 2) = du(2, 2);
+    }
+
     TPZFNMatrix<9,STATE> eps_h1(dim,dim,0.);
     //eps_h1
     
@@ -168,6 +191,12 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     eps_h1(0, 0) = duh1(0, 0);
     eps_h1(1, 0) = eps_h1(0, 1) = 0.5 * (duh1(0, 1) + duh1(1, 0));
     eps_h1(1, 1) = duh1(1, 1);
+
+    if (dim == 3) {
+        eps_h1(0, 2) = eps_h1(2, 0) = 0.5 * (duh1(0, 2) + duh1(2, 0));
+        eps_h1(1, 2) = eps_h1(2, 1) = 0.5 * (duh1(1, 2) + duh1(2, 1));
+        eps_h1(2, 2) = duh1(2, 2);
+    }
     
     
     //--- Antisymmetric part of reconstructed AR(s)
@@ -180,6 +209,16 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     gradS(0,1)=du(0,1);
     gradS(1,0)=du(1,0);
     gradS(1,1)=du(1,1);
+
+    if (dim == 3) {
+        gradS(0,2)=du(0,2);
+        gradS(1,2)=du(1,2);
+        gradS(2,0)=du(2,0);
+        gradS(2,1)=du(2,1);
+        gradS(2,2)=du(2,2);
+    }
+
+
     TPZManVector<STATE, 9> gradS_V(matdim, 0.);
     ToVoigt(gradS, gradS_V);
     
@@ -193,6 +232,14 @@ void TPZHDivErrorEstimateElasticityMaterial::Errors(const TPZVec<TPZMaterialData
     assym_reconstructed(1, 0) =  0.5 * (du(1, 0) - du(0, 1));
     assym_reconstructed(0, 1) =(-1.)*assym_reconstructed(1, 0);
     assym_reconstructed(1, 1) = 0.;
+
+    if (dim == 3){
+        assym_reconstructed(0, 2) = 0.5 * (du(0, 2) - du(2, 0));
+        assym_reconstructed(2, 0) = (-1.)*assym_reconstructed(0, 2);
+        assym_reconstructed(1, 2) = 0.5 * (du(1, 2) - du(2, 1));
+        assym_reconstructed(2, 1) = (-1.)*assym_reconstructed(1, 2);
+        assym_reconstructed(2, 2) = 0.;
+    }
     
     ToVoigt(assym_reconstructed, assym_reconstructed_V);
     
@@ -511,6 +558,11 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
             eps_exact(0, 0) = du_exact(0, 0);
             eps_exact(1, 0) = eps_exact(0, 1) = 0.5 * (du_exact(0, 1) + du_exact(1, 0));
             eps_exact(1, 1) = du_exact(1, 1);
+            if (dim == 3) {
+                eps_exact(0, 2) = eps_exact(2, 0) = 0.5 * (du_exact(0, 2) + du_exact(2, 0));
+                eps_exact(1, 2) = eps_exact(2, 1) = 0.5 * (du_exact(1, 2) + du_exact(2, 1));
+                eps_exact(2, 2) = du_exact(2, 2);
+            }
             
             TPZVec<STATE> eps_exactV(nstate, 0.);
             ToVoigt(eps_exact, eps_exactV);
@@ -563,6 +615,9 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
         case 44://displacement Reconstructed
             Solout[0] = datavec[H1functionIdx].sol[0][0];
             Solout[1] = datavec[H1functionIdx].sol[0][1];
+            if (dim == 3) {
+                Solout[2] = datavec[H1functionIdx].sol[0][2];
+            }
             break;
         case 45://order p
             Solout[0] = datavec[H1functionIdx].p;
@@ -613,6 +668,11 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
                 eps_exact(0, 0) = du(0, 0);
                 eps_exact(1, 0) = eps_exact(0, 1) = 0.5 * (du(0, 1) + du(1, 0));
                 eps_exact(1, 1) = du(1, 1);
+                if (dim == 3) {
+                    eps_exact(0, 2) = eps_exact(2, 0) = 0.5 * (du(0, 2) + du(2, 0));
+                    eps_exact(1, 2) = eps_exact(2, 1) = 0.5 * (du(1, 2) + du(2, 1));
+                    eps_exact(2, 2) = du(2, 2);
+                }
                 
                 TPZVec<STATE> eps_exactV(nstate, 0.);
                 Solout.Resize(3, 0.);
@@ -620,8 +680,10 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
                 Solout[Exx] = eps_exact(0, 0);
                 Solout[Exy] = eps_exact(1, 0);
                 Solout[Eyy] = eps_exact(1, 1);
-                
-                
+                if (dim == 3) {
+                    std::cout << "Please implement me!" << std::endl;
+                    DebugStop();
+                }
             }
                 break;
                 
@@ -651,7 +713,10 @@ void TPZHDivErrorEstimateElasticityMaterial::Solution(const TPZVec<TPZMaterialDa
                 Solout[Exx] = eps_reconstructed(0, 0);
                 Solout[Exy] = eps_reconstructed(1, 0);
                 Solout[Eyy] = eps_reconstructed(1, 1);
-                
+                if (dim == 3) {
+                    // std::cout << "Please implement me!" << std::endl;
+                    // DebugStop();
+                }
                 
             }
             break;
@@ -702,7 +767,7 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
 
     TElasticityAtPoint elast(fE_const, fnu_const);
     if (TPZMixedElasticityND::fElasticity) {
-        TPZManVector<STATE, 3> result(2);
+        TPZManVector<STATE, 3> result(dim);
         TPZFNMatrix<4, STATE> Dres(0, 0);
         fElasticity(x, result, Dres);
         REAL E = result[0];
@@ -757,11 +822,19 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     
     
     
-    //
+    //Jeferson: Não entendi esse termo. Como expandir para 3D?
     TPZFNMatrix<9, STATE> rotfem(dim, dim, 0.);
     rotfem(0,1) = datavec[4].sol[0][0];
     rotfem(1,0) = (-1.)*datavec[4].sol[0][0];
-    
+
+    if (dim == 3){
+        rotfem(0,2) = datavec[4].sol[0][1];
+        rotfem(2,0) = (-1.)*datavec[4].sol[0][1];
+
+        rotfem(1,2) = datavec[4].sol[0][2];
+        rotfem(2,1) = (-1.)*datavec[4].sol[0][2];
+    }
+
   //  std::cout<<"rot= "<<rotfem<<std::endl;
     
     
@@ -791,45 +864,75 @@ void TPZHDivErrorEstimateElasticityMaterial::Contribute(const TPZVec<TPZMaterial
     const auto &axes = datavec[2].axes;
     TPZVec<TPZManVector<STATE,9>> eps_phiukV(nphiuk, TPZManVector<STATE, 9>(matdim, 0.));
     
-    // Jeferson: Aqui precisa ser adaptado para 3D
     for(int in = 0; in < nphiuk; in++ ) {
-    //TPZFNMatrix<4,STATE> du(2,2);
-        STATE dvdx = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
-        STATE dvdy = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
+        STATE dvdx = 0., dvdy = 0., dvdz = 0.;
+        if (dim == 2){ //2D
+            dvdx = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0);//dvx
+            dvdy = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1);//dvy
         
+            const STATE Csigma_xy_sym = 0.5 * (CtressfemS_femV[Exy] + CtressfemS_femV[Eyx]);
         
-        const STATE Csigma_xy_sym = 0.5 * (CtressfemS_femV[Exy] + CtressfemS_femV[Eyx]);
+            ef(2*in, 0) += weight *(CtressfemS_femV[Exx] * dvdx + Csigma_xy_sym * dvdy);
+            
+            ef(2*in+1, 0) += weight * (CtressfemS_femV[Eyy] * dvdy + Csigma_xy_sym * dvdx);
+
+            // ef(2*in, 0) += weight * (Csigma_femV [Exx]*dvdx + (Csigma_femV[Exy] )*dvdy);
+            // ef(2*in+1, 0) += weight * (Csigma_femV[Eyy]*dvdy + (Csigma_femV[Eyx] )*dvdx);
+                
+            // ef(2*in, 0) += weight * (rhs_termV [Exx]*dvdx + (rhs_termV[Exy] )*dvdy);
+            // ef(2*in+1, 0) += weight * (rhs_termV[Eyy]*dvdy + (rhs_termV[Eyx] )*dvdx);
+        } else if (dim == 3) { //3D
+            dvdx = dphiuk(0,in)*axes(0,0)+dphiuk(1,in)*axes(1,0)+dphiuk(2,in)*axes(2,0);//dvx
+            dvdy = dphiuk(0,in)*axes(0,1)+dphiuk(1,in)*axes(1,1)+dphiuk(2,in)*axes(2,1);//dvy
+            dvdz = dphiuk(0,in)*axes(0,2)+dphiuk(1,in)*axes(1,2)+dphiuk(2,in)*axes(2,2);//dvz
+
+            const STATE Csigma_xy_sym = 0.5 * (CtressfemS_femV[Exy] + CtressfemS_femV[Eyx]);
+            const STATE Csigma_xz_sym = 0.5 * (CtressfemS_femV[Exz] + CtressfemS_femV[Ezx]);
+            const STATE Csigma_yz_sym = 0.5 * (CtressfemS_femV[Eyz] + CtressfemS_femV[Ezy]);
         
-        ef(2*in, 0) += weight *(CtressfemS_femV[Exx] * dvdx + Csigma_xy_sym * dvdy);
+            ef(3*in, 0) += weight *(CtressfemS_femV[Exx] * dvdx + Csigma_xy_sym * dvdy + Csigma_xz_sym * dvdz);
+            ef(3*in+1, 0) += weight * (CtressfemS_femV[Eyy] * dvdy + Csigma_xy_sym * dvdx + Csigma_yz_sym * dvdz);
+            ef(3*in+2, 0) += weight * (CtressfemS_femV[Ezz] * dvdz + Csigma_xz_sym * dvdx + Csigma_yz_sym * dvdy);
+        } else {
+            DebugStop();
+        }
         
-        ef(2*in+1, 0) += weight * (CtressfemS_femV[Eyy] * dvdy + Csigma_xy_sym * dvdx);
-    
-    
-//        ef(2*in, 0) += weight * (Csigma_femV [Exx]*dvdx + (Csigma_femV[Exy] )*dvdy);
-//        ef(2*in+1, 0) += weight * (Csigma_femV[Eyy]*dvdy + (Csigma_femV[Eyx] )*dvdx);
-        
-        
-//        ef(2*in, 0) += weight * (rhs_termV [Exx]*dvdx + (rhs_termV[Exy] )*dvdy);
-//        ef(2*in+1, 0) += weight * (rhs_termV[Eyy]*dvdy + (rhs_termV[Eyx] )*dvdx);
 
         for(int jn = 0; jn < nphiuk; jn++ ) {
-            STATE dudx = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
-            STATE dudy = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
-            
-            
-            ek(2*in,2*jn) += weight * (dudx*dvdx + 0.5*dudy*dvdy);
-            ek(2*in,2*jn+1) += weight * 0.5*dudx*dvdy;
-            ek(2*in+1,2*jn) += weight * 0.5*dudy*dvdx;
-            ek(2*in+1,2*jn+1) += weight * (dudy*dvdy + 0.5*dudx*dvdx);
-
+            if (dim == 2) { //2D
+                STATE dudx = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0);//dux
+                STATE dudy = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1);//duy
+                                
+                ek(2*in,2*jn) += weight * (dudx*dvdx + 0.5*dudy*dvdy);
+                ek(2*in,2*jn+1) += weight * 0.5*dudx*dvdy;
+                ek(2*in+1,2*jn) += weight * 0.5*dudy*dvdx;
+                ek(2*in+1,2*jn+1) += weight * (dudy*dvdy + 0.5*dudx*dvdx);
 
 //           ek(2*in,2*jn) += weight * (dvdx*dudx + dudy*dvdy);
 //           ek(2*in+1,2*jn+1) += weight * (dudx*dvdx + dvdy*dudy);
+            } else if (dim == 3) { //3D
+                STATE dudx = dphiuk(0,jn)*axes(0,0)+dphiuk(1,jn)*axes(1,0)+dphiuk(2,jn)*axes(2,0);//dux
+                STATE dudy = dphiuk(0,jn)*axes(0,1)+dphiuk(1,jn)*axes(1,1)+dphiuk(2,jn)*axes(2,1);//duy
+                STATE dudz = dphiuk(0,jn)*axes(0,2)+dphiuk(1,jn)*axes(1,2)+dphiuk(2,jn)*axes(2,2);//duz
+                
+                ek(3*in  ,3*jn  ) += weight * (dudx*dvdx + 0.5*dudy*dvdy + 0.5*dudz*dvdz);
+                ek(3*in  ,3*jn+1) += weight * 0.5*dudx*dvdy;
+                ek(3*in  ,3*jn+2) += weight * 0.5*dudx*dvdz;
 
+                ek(3*in+1,3*jn  ) += weight * 0.5*dudy*dvdx;
+                ek(3*in+1,3*jn+1) += weight * (dudy*dvdy + 0.5*dudx*dvdx + 0.5*dudz*dvdz);
+                ek(3*in+1,3*jn+2) += weight * 0.5*dudy*dvdz;
 
+                ek(3*in+2,3*jn  ) += weight * 0.5*dudz*dvdx;
+                ek(3*in+2,3*jn+1) += weight * 0.5*dudz*dvdy;
+                ek(3*in+2,3*jn+2) += weight * (dudz*dvdz + 0.5*dudx*dvdx + 0.5*dudy*dvdy);
+            } else {
+                DebugStop();
+            }
         }
 
     }
+ 
  
 }
 
@@ -859,30 +962,41 @@ void TPZHDivErrorEstimateElasticityMaterial::ContributeBC(const TPZVec<TPZMateri
 
         u_D[0]=res[0];
         u_D[1]=res[1];
+        if (dim == 3) {
+            u_D[2] = res[2];
+        }
 
 
     } else {
         // u_D is usually stored in val2(0, 0)
         u_D[0] = bc.Val2()[0];
         u_D[1] = bc.Val2()[1];
+        if (dim == 3) {
+            u_D[2] = bc.Val2()[2];
+        }
     }
 
     int nstate = this->fDimension;
+    int pDimension = nstate;
 
-    // Jeferson: Aqui precisa adaptar para o caso 3D.
     switch (bc.Type()) {
-
-
         case (0):
         {
             for(int in = 0 ; in < nphi_i; in++) {
-   
-                ef(2*in,0)   += fBigNumber * u_D[0] * phi_i(in,0) * weight;        // forced v2 displacement
-                ef(2*in+1,0) += fBigNumber * u_D[1] * phi_i(in,0) * weight;        // forced v2 displacement
+                
+                ef(pDimension*in  ,0) += fBigNumber * u_D[0] * phi_i(in,0) * weight; // forced v2 displacement
+                ef(pDimension*in+1,0) += fBigNumber * u_D[1] * phi_i(in,0) * weight; // forced v2 displacement
+                if (pDimension == 3) {
+                    ef(pDimension*in+2,0) += fBigNumber * u_D[2] * phi_i(in,0) * weight; // forced v2 displacement
+                }
+
                 for (int jn = 0 ; jn < nphi_i; jn++)
                 {
-                    ek(2*in,2*jn)     += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
-                    ek(2*in+1,2*jn+1) += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
+                    ek(pDimension*in  ,pDimension*jn  ) += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
+                    ek(pDimension*in+1,pDimension*jn+1) += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
+                    if (pDimension == 3) {
+                        ek(pDimension*in+2,pDimension*jn+2) += fBigNumber * phi_i(in,0) *phi_i(jn,0) * weight;
+                    }
                 }
             }
         }

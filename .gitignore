@@ -6,6 +6,7 @@ cmake-build-*/
 # Sourcetrail files
 *.srctrl*
 build/*
+build*
 
 CMakePresets.json
 

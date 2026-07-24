@@ -369,8 +369,16 @@ void EstimateError(ProblemConfig &config, TPZMultiphysicsCompMesh *multimesh) {
         double E= 1000.;
         double nu = 0.3;
         auto matelast = new TPZMixedElasticityND(1,E,nu,0,0,1,dim);
-        matelast->SetExactSol(config.exactElast->ExactSolution(),5);
-        matelast->SetForcingFunction(config.exactElast->ForceFunc(),5);
+        if (dim == 2){
+            matelast->SetExactSol(config.exactElast->ExactSolution(),5);
+            matelast->SetForcingFunction(config.exactElast->ForceFunc(),5);
+        } else if (dim == 3){
+            matelast->SetExactSol(config.exactElast3D->ExactSolution(),5);
+            matelast->SetForcingFunction(config.exactElast3D->ForceFunc(),5);
+        } else {
+            DebugStop();
+        }
+        
         cmesh.InsertMaterialObject(matelast);
         for (auto matid : config.bcmaterialids) {
             TPZFNMatrix<1, REAL> val1(dim, dim, 0.);

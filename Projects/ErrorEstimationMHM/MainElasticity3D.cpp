@@ -119,23 +119,20 @@ void RunSmoothProblemCubicMesh(ProblemConfig &pConfig){
     pConfig.dir_name = "SmoothProb-Quad";
    // pConfig.dir_name = "SymmetricTest";
     
-    const int xdiv = 2; //Number of elements in each direction
-
     const int pOrder = 1;
 
-    pConfig.ndivisions = xdiv;
-    pConfig.hdivmais = 1;// internal order
+    pConfig.hdivmais = 2;// internal order
     pConfig.isAdaptivity = false;
     pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
     int DIM = tshape::Dimension;
-    TPZVec<int> nDivs = {2,1};
+    TPZVec<int> nDivs;
    
     
     // TPZVec<int> divs = {4,8,16,32,64};
-    TPZVec<int> divs = {2};
+    TPZVec<int> divs = {2,4,8};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -149,7 +146,7 @@ void RunSmoothProblemCubicMesh(ProblemConfig &pConfig){
             
             pConfig.gmesh=gmesh;
             
-            SolveFEMProblemNew<pzshape::TPZShapeCube>(xdiv,pConfig.porder,hdivfam, pConfig);
+            SolveFEMProblemNew<pzshape::TPZShapeCube>(pConfig.ndivisions,pConfig.porder,hdivfam, pConfig);
           //  H1Family h1family=H1Family::EH1Standard;
           // SolveH1Problem<pzshape::TPZShapeQuad>(xdiv, pConfig.porder, h1family,pConfig);
         }
@@ -306,7 +303,7 @@ void SolveFEMProblem(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,
                 
 #ifdef PZ_USING_MKL
                 TPZSSpStructMatrix<> strmat(cmesh);
-                strmat.SetNumThreads(1);
+                strmat.SetNumThreads(10);
 #else
                 TPZSkylineStructMatrix<STATE> strmat(cmesh);
                 strmat.SetNumThreads(4);
@@ -496,7 +493,14 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
 
     bool postProcWithHDiv = false;
     TPZElasticityErrorEstimator ErrorEstimator(config, *originalMesh, postProcWithHDiv);
-    ErrorEstimator.SetAnalyticSolution(*config.exactElast);
+    int dim = originalMesh->Dimension();
+    if (dim == 2) {
+        ErrorEstimator.SetAnalyticSolution(*config.exactElast);
+    } else if (dim == 3) {
+        ErrorEstimator.SetAnalyticSolution(*config.exactElast3D);
+    } else {
+        DebugStop();
+    }
     
     ErrorEstimator.PrimalReconstruction();
     
@@ -509,7 +513,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
         H1Mesh->Print(outTXT);
     }
     #endif
-    SolvingH1Displacement<pzshape::TPZShapeQuad>(H1Mesh,config);
+    SolvingH1Displacement<pzshape::TPZShapeCube>(H1Mesh,config);
     
     //PostProcMesh->MeshVector()[5]->ExpandSolution();
     #ifdef ERRORESTIMATION_DEBUG
@@ -573,6 +577,8 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
    {
        std::string fileName = config.dir_name + "/" + config.problemname + "-GlobalErrors.txt";
        std::ofstream file(fileName, std::ios::app);
+       std::cout << "Estimate errors for step " << step << std::endl;
+       std::cout << "Errors: " << errors << std::endl;
        Tools::PrintElasticityErrors(file, config, errors);
    }
     
@@ -690,7 +696,7 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 
 #ifdef PZ_USING_MKL
                 TPZSSpStructMatrix<> strmat(cmesh);
-                strmat.SetNumThreads(1);
+                strmat.SetNumThreads(10);
 #else
                 TPZSkylineStructMatrix<STATE> strmat(cmesh);
                 strmat.SetNumThreads(4);
@@ -893,7 +899,15 @@ void SolvingH1Displacement(TPZCompMesh *cH1Mesh,ProblemConfig &config){
     
             //Create the analysis environment
             TPZLinearAnalysis an(cH1Mesh,RenumType::ESloan);
-            an.SetExact(config.exactElast->ExactSolution(),4);
+            int dim = cH1Mesh->Dimension();
+            if (dim == 2){
+                an.SetExact(config.exactElast->ExactSolution(),4);
+            } else if (dim == 3){
+                an.SetExact(config.exactElast3D->ExactSolution(),4);
+            } else {
+                DebugStop();
+            }
+            
     
     #ifdef PZ_USING_MKL
             TPZSSpStructMatrix<> strmat(cH1Mesh);
@@ -925,7 +939,6 @@ void SolvingH1Displacement(TPZCompMesh *cH1Mesh,ProblemConfig &config){
         vecnames.Push("Displacement");
     vecnames.Push("DisplacementExact");
     
-        int dim = 2;
 
         an.DefineGraphMesh(dim, scalnames, vecnames, "SolutionH1.vtk");
         an.PostProcess(0, dim);
