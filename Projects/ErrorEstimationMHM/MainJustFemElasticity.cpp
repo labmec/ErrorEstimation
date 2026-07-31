@@ -98,6 +98,9 @@ template<class tshape>
 void RunLShapeProblem(ProblemConfig &pConfig);
 
 template<class tshape>
+void RunCrackProblem(ProblemConfig &pConfig);
+
+template<class tshape>
 void RunLambdaTest(ProblemConfig &pConfig);
 
 template<class tshape>
@@ -115,6 +118,7 @@ int main() {
     RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
     // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
    //  RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+    // RunCrackProblem<pzshape::TPZShapeQuad>(pConfig);
    // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
    
     return 0;
@@ -389,6 +393,64 @@ void RunLShapeProblem(ProblemConfig &pConfig){
         }
     }
 }
+template<class tshape>
+void RunCrackProblem(ProblemConfig &pConfig){
+    pConfig.geometry = ProblemConfig::EGeometry::ECrack;
+    pConfig.problemname = "ECrack";
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ECrack;
+    //Needs to set these variables
+    double E = 100.;
+    double nu = 0.3;
+    pConfig.mu = E/(2.*(1+nu));
+    pConfig.lambda = (E*nu)/((1+nu)*(1-2*nu));   
+    
+    
+    const int pOrder = 1;
+
+    pConfig.hdivmais = 1;// internal order
+    pConfig.isAdaptivity = true;
+    pConfig.adaptivityStep = 15;//numero de steps no refinamento
+    HDivFamily hdivfam = HDivFamily::EHDivStandard;
+    TPZGeoMesh *gmesh;
+
+    int DIM = tshape::Dimension;
+    TPZVec<int> divs;
+    TPZVec<int> nDivs = {4,4};
+    if (pConfig.isAdaptivity) {
+         divs = {2};
+        pConfig.dir_name = "CrackProblem-Adapt";
+    }
+    else{
+        divs = {1,2,3,4,5};
+        pConfig.dir_name = "CrackProblem-Uni";
+    }
+
+    for (int64_t iorder = 1; iorder <= pOrder; iorder++) {
+        pConfig.porder = iorder;
+
+        // for (int idiv = 0; idiv < divs.size(); idiv++) {
+        //     pConfig.ndivisions = divs[idiv];
+        //     int divx = divs[idiv];
+
+        //     nDivs = {divx, divx};
+
+            TPZVec<int> bcids(8, EBoundary);
+            gmesh = ReadMeshFromGmsh("../../../Crack.msh");
+
+            std::string vtk_name = "geoMeshToSolveProbem.vtk";
+            std::ofstream vtkfile(vtk_name.c_str());
+            TPZVTKGeoMesh::PrintGMeshVTK(gmesh, vtkfile, true);
+
+            // int uniref = 2;
+            // Tools::UniformRefinement(uniref, gmesh);
+
+            pConfig.gmesh = gmesh;
+
+            SolveFEMProblemNew<pzshape::TPZShapeQuad>(0, pConfig.porder, hdivfam, pConfig);
+        // }
+    }
+}
+
 
 
 template<class tshape>
@@ -776,7 +838,7 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     TPZManVector<REAL, 6> elementerrors;
     std::stringstream outVTK;
     outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-k-" << config.porder<<"-lambda-"<<config.lambda
-           << "-step "<<step << "-Errors.vtk";
+           << "-Errors-step"<<step << ".vtk";
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK.str());
 
     #ifdef ERRORESTIMATION_DEBUG
@@ -912,7 +974,13 @@ void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfami
                 //Gets the Multiphysics mesh from the HdivApproxCreator
             
                 TPZMultiphysicsCompMesh *cmesh = nullptr;// = hdivCreator.CreateApproximationSpace();
+                // TPZMultiphysicsCompMesh *cmesh =hdivCreator.CreateApproximationSpace();
+
                 Tools::PRefinementNew(cmesh, config, hdivCreator);
+
+
+                std::ofstream outVTK("cmeshFEM.vtk");
+                TPZVTKGeoMesh::PrintCMeshVTK(cmesh, outVTK);
             
             // TPZMultiphysicsCompMesh *cmesh =hdivCreator.CreateApproximationSpace();
                 
