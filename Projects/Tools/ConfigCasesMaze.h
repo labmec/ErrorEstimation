@@ -24,8 +24,8 @@ private:
     double PermeablePermeability = 100000;
     int fluxOrder=1;
     int PressureOrder=1;
-    double CCpressureIn= 1000;
-    double CCpressureOut = 10;
+    double CCpressureIn= 100;
+    double CCpressureOut = 0;
     bool MhmOpenChannel = false;
     std::string VTKName = "Salida.vtk";
     TLaplaceExample1 * exact = nullptr;

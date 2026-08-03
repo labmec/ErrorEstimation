@@ -31,6 +31,12 @@ private:
     int SkeletonDivision = 1;
 
 public:
+    TPZVec<double> solutionMHM;
+    TPZVec<double> solutionReference;
+    TPZVec<double> solutionMHMEnriched;
+    std::string solutionFileName = "solution.txt";
+
+public:
     void SetImageName(std::string name){
         ImageName=std::move(name);
     }

@@ -15,6 +15,13 @@
 #include "tpzgeoelrefpattern.h"
 #include "tpzautopointer.h"
 #include "TPZLinearAnalysis.h"
+#include <libInterpolate/Interpolate.hpp>
+
+typedef _2D::BicubicInterpolator<REAL> Interpolator;
+
+// Global variables
+Interpolator interpolator;
+
 
 #include "TPZSSpStructMatrix.h"
 #include "pzstepsolver.h"
@@ -57,13 +64,13 @@ TPZCompMesh *CMeshMultphysics(TPZGeoMesh * gmesh, TPZVec<TPZCompMesh *> meshvec,
 TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h);
 
 // Create a geometric mesh with the given parameters, nx and ny are the coarse elements number. The total number of elements are defined by the image read.
-TPZGeoMesh *GenerateGeoMesh(string name, int nx, int ny);
+TPZGeoMesh *CreateSPE10GeoMesh();
 
 // Compute the geometric mesh coarse indices
 void ComputeCoarseIndices(TPZGeoMesh *gmesh, TPZVec<int64_t> &coarseindices);
 
 // Insert the necessary objects material in the computational mesh
-void InsertMaterialObjects(TPZMHMixedMeshControl &control);
+void InsertMaterials(TPZCompMesh *cmesh);
 
 // Solve the mixed problem with "Conf" configuration
 // Conf contains the maze information and the problem boundary conditions
@@ -80,10 +87,18 @@ std::map<int,int> matextend;
 int matid1BC = 8;
 int matid2BC = 9;
 
+constexpr int layer = 36;
+constexpr int nx = 220;
+constexpr int ny = 60;
+constexpr int n_cells = nx * ny;
 
-void EstimateError(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+constexpr int n_subdomainsx = 11;
+constexpr int n_subdomainsy = 3;
 
-void LocateElementsToAdapt(TPZMHMHDivErrorEstimator &errorEstimator, ProblemConfig &config);
+STATE PermeabilityFunction(const TPZVec<REAL> &x);
+
+void ReadSPE10CellPermeabilities(TPZVec<REAL>*perm_vec, int layer);
+
 
 void AssociateGeoElSides(TPZVec<std::set<TPZGeoElSide>> &eigGeoElSides, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide);
 
@@ -128,113 +143,112 @@ int main(){
 int MHMTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> &intersectGeoElIndex, std::map<int64_t,int> &indexToSide){
 
     TRunConfig Configuration;
+
+    auto perm_vec = TPZManVector<REAL, n_cells>(n_cells, 1);
+    ReadSPE10CellPermeabilities(&perm_vec, layer);
     
-    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), Conf.GetNumberOfSubdomains(), Conf.GetNumberOfSubdomains());
+    TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
     {
         std::ofstream file(Conf.GetVTKName());
-        TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
     }
 
-    int interface_mat_id = 600;
+    std::vector<REAL> x, y, perm;
+    for (int i = 0; i < nx; i++) {
+        for (int j = 0; j < ny; j++) {
+            const int cell_id = ny * i + j;
+            const double cell_perm = perm_vec[cell_id];
+            x.push_back(0.5 + i);
+            y.push_back(0.5 + j);
+            perm.push_back(cell_perm);
+        }
+    }
+
+    interpolator.setData(x.size(), x.data(), y.data(), perm.data());
+
+
+    int interface_mat_id = 600; // it will not be used here...
     Conf.SetMHMOpenChannel(true);
-    bool OpenChannel = Conf.GetMHMOpenChannel();
+    bool OpenChannel = false;// Conf.GetMHMOpenChannel();
 
-    TPZAutoPointer<TPZMHMixedMeshChannelControl> MHMixed;
-
+    TPZAutoPointer<TPZMHMixedMeshChannelControl> mhm = new TPZMHMixedMeshChannelControl(gmesh);
     {
-        TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
-        {
-            std::ofstream out("gmeshauto.txt");
-            gmeshauto->Print(out);
-        }
-        TPZMHMixedMeshChannelControl *mhm = new TPZMHMixedMeshChannelControl(gmeshauto);
-        TPZVec<int64_t> coarseindices;
-        ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
-        gmeshauto->AddInterfaceMaterial(1, 2, interface_mat_id);
-        gmeshauto->AddInterfaceMaterial(2, 1, interface_mat_id);
+        std::ofstream out("gmeshauto.txt");
+        gmesh->Print(out);
+    }
 
+    TPZVec<int64_t> coarseindices;
+    ComputeCoarseIndices(gmesh, coarseindices);
+    // gmesh->AddInterfaceMaterial(1, 2, interface_mat_id);
+    // gmesh->AddInterfaceMaterial(2, 1, interface_mat_id);
 
-        // criam-se apenas elementos geometricos
-        mhm->DefinePartitionbyCoarseIndices(coarseindices);
-        MHMixed = mhm;
+    int nInternalRef = 3;
+    Tools::UniformRefinement(nInternalRef, 2, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
 
-        TPZMHMixedMeshChannelControl &meshcontrol = *mhm;
-        {
-            std::set<int> matids;
-            matids.insert(1);
-            matids.insert(2);
-            mhm->fMaterialIds = matids;
-            matids.clear();
-            matids.insert(-1);
-            matids.insert(-2);
-            matids.insert(-3);
-            matids.insert(-4);
-            matids.insert(-5);
-            matids.insert(-6);
-            mhm->fMaterialBCIds = matids;
-        }
+    // criam-se apenas elementos geometricos
+    mhm->DefinePartitionbyCoarseIndices(coarseindices);
+    mhm->SetHDivFamily(HDivFamily::EHDivConstant);
 
-        InsertMaterialObjects(*mhm);
+    mhm->fMaterialIds = {1};
+    mhm->fMaterialBCIds = {-1,-2,-3,-4};
+    
+    InsertMaterials(mhm->CMesh().operator->());
 
-        meshcontrol.SetInternalPOrder(1);
-        meshcontrol.SetSkeletonPOrder(1);
+    mhm->SetInternalPOrder(1);
+    mhm->SetSkeletonPOrder(1);
 
-//        meshcontrol.DivideSkeletonElements(2);
-        meshcontrol.DivideBoundarySkeletonElements();
+    mhm->DivideSkeletonElements(0);
+    mhm->DivideBoundarySkeletonElements();
 
-        bool substructure = true;
-        // std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
-//         if (OpenChannel) {
-//             TPZCompMesh *flux_temp = MixedTest(Conf,2,2);
-//             std::cout << "flux_temp norm of solution " << Norm(flux_temp->Solution()) << std::endl;
-//             test = IdentifyChanel(flux_temp);
-//             flux_temp->Reference()->ResetReference();
-// //            delete flux_temp;
-//         }
-        std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> intersectGeoElSide;
-        intersectGeoElSide = IdentifyIntersections(meshcontrol.FluxMesh().operator->(),intersectGeoElIndex,indexToSide);
+    bool substructure = true;
 
-        std::cout << "intersectGeoElIndex = ";
-        for (const auto &it:intersectGeoElIndex)
-        {
-            std::cout << it.second.first << " ";
-        }
-        std::cout << std::endl;
-        std::cout << "intersectGeoElSide = ";
-        for (const auto &it:intersectGeoElSide)
-        {
-            std::cout << it.second.first.Element()->Index() << " ";
-        }
-        std::cout << std::endl;
-        
+    std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> intersectGeoElSide;
+    mhm->BuildComputationalMesh(substructure,OpenChannel, intersectGeoElSide);
 
-        // meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
-        meshcontrol.BuildComputationalMesh(substructure, OpenChannel, intersectGeoElSide);
+    //Jeferson: The following code is needed to enrich the MHM mesh with the Steklov eigenvectors. The code is commented because it may need refactor for the SPE10 problem
+    // std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> intersectGeoElSide;
+    // intersectGeoElSide = IdentifyIntersections(mhm->FluxMesh().operator->(),intersectGeoElIndex,indexToSide);
+
+    // std::cout << "intersectGeoElIndex = ";
+    // for (const auto &it:intersectGeoElIndex)
+    // {
+    //     std::cout << it.second.first << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "intersectGeoElSide = ";
+    // for (const auto &it:intersectGeoElSide)
+    // {
+    //     std::cout << it.second.first.Element()->Index() << " ";
+    // }
+    // std::cout << std::endl;
+    
+
+    // // meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
+    // meshcontrol.BuildComputationalMesh(substructure, OpenChannel, intersectGeoElSide);
 
 #ifdef ERRORESTIMATION_DEBUG
-        if (1) {
-            std::ofstream file("GMeshControlHDiv.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
-        }
+    if (1) {
+        std::ofstream file("GMeshControlHDiv.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(mhm->GMesh().operator->(), file);
+    }
 #endif
 
-        std::cout << "MHM Hdiv Computational meshes created\n";
+    std::cout << "MHM Hdiv Computational meshes created\n";
 
-        std::cout << "Number of equations MHMixed " << MHMixed->CMesh()->NEquations() << std::endl;
-
-    }
+    std::cout << "Number of equations MHMixed " << mhm->CMesh()->NEquations() << std::endl;
     
-    TPZCompMesh *MixedMesh = MHMixed->CMesh().operator->();
-    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
+    TPZCompMesh *MixedMesh = mhm->CMesh().operator->();
+    SolveProblem(mhm->CMesh(), mhm->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
     ProblemConfig config;
     config.dimension = 2;
     config.exact = nullptr;
     config.problemname = "MazeHdiv128x128";
     config.dir_name = "Results128x128";
-    config.porder = 3;
-    config.hdivmais = 3;
-    config.materialids = {1, 2};
-    config.bcmaterialids = {-1, -2, -3, -4, -5, -6};
+    config.porder = 1;
+    config.hdivmais = 1;
+    config.materialids = {1};
+    config.bcmaterialids = {-1, -2, -3, -4};
     config.makepressurecontinuous = true;
     config.ndivisions = 0;
     config.gmesh = MixedMesh->Reference();
@@ -242,15 +256,13 @@ int MHMTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> &int
 
     //open solution file
     std::ofstream solutionFile(Conf.solutionFileName, std::ios::app);
-    auto solutionMHM = MHMixed->CMesh()->Solution();
+    auto solutionMHM = mhm->CMesh()->Solution();
     solutionMHM.Print("solution MHM", solutionFile,EMathematicaInput);
  
 
-    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(MHMixed->CMesh().operator->());
+    TPZMultiphysicsCompMesh *originalMesh = dynamic_cast<TPZMultiphysicsCompMesh *>(mhm->CMesh().operator->());
     bool postProcWithHdiv = false;
-//    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, MHMixed.operator->(), postProcWithHdiv);
-//    EstimateError(ErrorEstimator, config);
-    //LocateElementsToAdapt(ErrorEstimator, config);
+//    TPZMHMHDivErrorEstimator ErrorEstimator(*originalMesh, mhm.operator->(), postProcWithHdiv);
 
     return 0;
 }
@@ -264,116 +276,114 @@ int SteklovTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> 
 
     TRunConfig Configuration;
 
-    TPZGeoMesh *gmeshcoarse = GenerateGeoMesh(Conf.GetImageName(), Conf.GetNumberOfSubdomains(), Conf.GetNumberOfSubdomains());
+    //Creates geomesh and reads the permeability values from the SPE10 data
+    auto perm_vec = TPZManVector<REAL, n_cells>(n_cells, 1);
+    ReadSPE10CellPermeabilities(&perm_vec, layer);
+    
+    TPZGeoMesh *gmesh = CreateSPE10GeoMesh();
     {
         std::ofstream file(Conf.GetVTKName());
-        TPZVTKGeoMesh::PrintGMeshVTK(gmeshcoarse, file);
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, file);
     }
 
-    int interface_mat_id = 600;
+    std::vector<REAL> x, y, perm;
+    for (int i = 0; i < nx; i++) {
+        for (int j = 0; j < ny; j++) {
+            const int cell_id = ny * i + j;
+            const double cell_perm = perm_vec[cell_id];
+            x.push_back(0.5 + i);
+            y.push_back(0.5 + j);
+            perm.push_back(cell_perm);
+        }
+    }
+
+    interpolator.setData(x.size(), x.data(), y.data(), perm.data());
+    int interface_mat_id = 600; // it will not be used here...
     matextend[1] = matid1BC;
     matextend[2] = matid2BC;
     Conf.SetMHMOpenChannel(true);
     bool OpenChannel = Conf.GetMHMOpenChannel();
 
-    TPZAutoPointer<TPZMHMixedMeshChannelControl> MHMixed;
-
-    // configure the MHM computational mesh
+    TPZAutoPointer<TPZMHMixedMeshChannelControl> mhm = new TPZMHMixedMeshChannelControl(gmesh);
     {
-        TPZAutoPointer<TPZGeoMesh> gmeshauto = new TPZGeoMesh(*gmeshcoarse);
-        {
-            std::ofstream out("gmeshauto.txt");
-            gmeshauto->Print(out);
-        }
-        TPZMHMixedMeshChannelControl *mhm = new TPZMHMixedMeshChannelControl(gmeshauto);
-        TPZVec<int64_t> coarseindices;
-        ComputeCoarseIndices(gmeshauto.operator->(), coarseindices);
-        gmeshauto->AddInterfaceMaterial(1, 2, interface_mat_id);
-        gmeshauto->AddInterfaceMaterial(2, 1, interface_mat_id);
-
-
-        // criam-se apenas elementos geometricos
-        mhm->DefinePartitionbyCoarseIndices(coarseindices);
-        mhm->SetHDivFamily(HDivFamily::EHDivStandard);
-        // mhm->SetHDivFamily(HDivFamily::EHDivConstant);
-        MHMixed = mhm;
-
-        AddDomainWrapElements(*mhm, matextend);
-        
-        TPZMHMixedMeshChannelControl &meshcontrol = *mhm;
-        {
-            std::set<int> matids;
-            matids.insert(1);
-            matids.insert(2);
-            mhm->fMaterialIds = matids;
-            matids.clear();
-            matids.insert(-1);
-            matids.insert(-2);
-            matids.insert(-3);
-            matids.insert(-4);
-            matids.insert(-5);
-            matids.insert(-6);
-            matids.insert(matid1BC);
-            matids.insert(matid2BC);
-            mhm->fMaterialBCIds = matids;
-        }
-
-        InsertMaterialObjects(*mhm);
-        {
-            TPZCompMesh &cmesh = mhm->CMesh();
-            auto *mat = dynamic_cast<TPZMixedDarcyFlow *>(cmesh.FindMaterial(1));
-            TPZFNMatrix<2,REAL> val1(1,1,0.);
-            TPZManVector<REAL> val2(1,0.);
-            auto *bnd1 = mat->CreateBC(mat, matid1BC, 0, val1, val2);
-            cmesh.InsertMaterialObject(bnd1);
-            auto *bnd2 = mat->CreateBC(mat, matid2BC, 0, val1, val2);
-            cmesh.InsertMaterialObject(bnd2);
-        }
-
-        meshcontrol.SetInternalPOrder(Conf.GetFluxOrder());
-        meshcontrol.SetSkeletonPOrder(Conf.GetFluxOrder());
-
-        meshcontrol.DivideSkeletonElements(Conf.GetSkeletonDivision());
-        OpenChannel = false;
-        meshcontrol.DivideBoundarySkeletonElements();
-
-        bool substructure = true;
-        std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
-        if (OpenChannel) {
-            TPZCompMesh *flux_temp = MixedTest(Conf,2,2);
-            std::cout << "flux_temp norm of solution " << Norm(flux_temp->Solution()) << std::endl;
-            test = IdentifyChanel(flux_temp);
-            flux_temp->Reference()->ResetReference();
-//            delete flux_temp;
-        }
-
-        meshcontrol.BuildComputationalMesh(substructure, OpenChannel, test);
-
-        if (1) {
-            std::ofstream file("GMeshControlHDiv.vtk");
-            TPZVTKGeoMesh::PrintGMeshVTK(meshcontrol.GMesh().operator->(), file);
-        }
-
-        std::cout << "MHM Hdiv Computational meshes created\n";
-
-        std::cout << "Number of equations MHMixed " << MHMixed->CMesh()->NEquations() << std::endl;
-
+        std::ofstream out("gmeshauto.txt");
+        gmesh->Print(out);
     }
+
+    TPZVec<int64_t> coarseindices;
+    ComputeCoarseIndices(gmesh, coarseindices);
+    // gmesh->AddInterfaceMaterial(1, 2, interface_mat_id);
+    // gmesh->AddInterfaceMaterial(2, 1, interface_mat_id);
+
+    int nInternalRef = 3;
+    Tools::UniformRefinement(nInternalRef, 2, gmesh);
+    Tools::DivideLowerDimensionalElements(gmesh);
+
+    // criam-se apenas elementos geometricos
+    mhm->DefinePartitionbyCoarseIndices(coarseindices);
+    mhm->SetHDivFamily(HDivFamily::EHDivConstant);
+    // mhm->SetHDivFamily(HDivFamily::EHDivStandard);
+
+    AddDomainWrapElements(*mhm, matextend);
     
-    TPZCompMesh *MixedMesh = MHMixed->CMesh().operator->();
+    mhm->fMaterialIds = {1};
+    mhm->fMaterialBCIds = {-1,-2,-3,-4, matid1BC, matid2BC};
+
+    InsertMaterials(mhm->CMesh().operator->());
+    {
+        TPZCompMesh &cmesh = mhm->CMesh();
+        auto *mat = dynamic_cast<TPZMixedDarcyFlow *>(cmesh.FindMaterial(1));
+        TPZFNMatrix<2,REAL> val1(1,1,0.);
+        TPZManVector<REAL> val2(1,0.);
+        auto *bnd1 = mat->CreateBC(mat, matid1BC, 0, val1, val2);
+        cmesh.InsertMaterialObject(bnd1);
+        auto *bnd2 = mat->CreateBC(mat, matid2BC, 0, val1, val2);
+        cmesh.InsertMaterialObject(bnd2);
+    }
+
+    mhm->SetInternalPOrder(Conf.GetFluxOrder());
+    mhm->SetSkeletonPOrder(Conf.GetFluxOrder());
+
+    mhm->DivideSkeletonElements(Conf.GetSkeletonDivision());
+    OpenChannel = false;
+    mhm->DivideBoundarySkeletonElements();
+
+    bool substructure = true;
+    std::map<int, std::pair<TPZGeoElSide, TPZGeoElSide>> test;
+    if (OpenChannel) {
+        TPZCompMesh *flux_temp = MixedTest(Conf,2,2);
+        std::cout << "flux_temp norm of solution " << Norm(flux_temp->Solution()) << std::endl;
+        test = IdentifyChanel(flux_temp);
+        flux_temp->Reference()->ResetReference();
+//            delete flux_temp;
+    }
+
+    mhm->BuildComputationalMesh(substructure, OpenChannel, test);
+
+    if (1) {
+        std::ofstream file("GMeshControlHDiv.vtk");
+        TPZVTKGeoMesh::PrintGMeshVTK(mhm->GMesh().operator->(), file);
+    }
+
+    std::cout << "MHM Hdiv Computational meshes created\n";
+
+    std::cout << "Number of equations MHMixed " << mhm->CMesh()->NEquations() << std::endl;
+
+    
+    TPZCompMesh *MixedMesh = mhm->CMesh().operator->();
     {
         MixedMesh->ComputeNodElCon();
         std::ofstream out("EntryMesh.txt");
         MixedMesh->Print(out);
     }
     
-    TPZCompMesh &cmesh = MHMixed->CMesh();
+    TPZCompMesh &cmesh = mhm->CMesh();
     // we have to zero the Neumann condition in order to identify the eigenvectors
-    TPZBndCondT<STATE> *bc5 = dynamic_cast<TPZBndCondT<STATE> *>(cmesh.FindMaterial(-5));
+    TPZBndCondT<STATE> *bc5 = dynamic_cast<TPZBndCondT<STATE> *>(cmesh.FindMaterial(-2));
     TPZVec<REAL> val2(1,0.),val25;
     val25 = bc5->Val2();
     bc5->SetVal2(val2);
-    TPZBndCondT<STATE> *bc6 = dynamic_cast<TPZBndCondT<STATE> *>(cmesh.FindMaterial(-6));
+    TPZBndCondT<STATE> *bc6 = dynamic_cast<TPZBndCondT<STATE> *>(cmesh.FindMaterial(-4));
     TPZVec<REAL> val26;
     val26 = bc5->Val2();
     bc6->SetVal2(val2);
@@ -393,7 +403,7 @@ int SteklovTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> 
         TPZCompEl *cel = MixedMesh->Element(el);
         auto *sub = dynamic_cast<TPZSubCompMesh *>(cel);
         if(sub) {
-            AnalyseSteklov(sub,count,MHMixed->fSkeletonMatId,eigGeoElSides);
+            AnalyseSteklov(sub,count,mhm->fSkeletonMatId,eigGeoElSides);
             count++;
         }
     }
@@ -486,13 +496,13 @@ int SteklovTest(ConfigCasesMaze &Conf, std::map<int,std::pair<int64_t,int64_t>> 
     bc5->SetVal2(val25);
     bc6->SetVal2(val26);
 
-    std::cout << "Number of equations MHMixed enriched " << MHMixed->CMesh()->NEquations() << std::endl;
+    std::cout << "Number of equations MHMixed enriched " << mhm->CMesh()->NEquations() << std::endl;
 
-    SolveProblem(MHMixed->CMesh(), MHMixed->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
+    SolveProblem(mhm->CMesh(), mhm->GetMeshes(), Conf.GetExactSolution(),  Conf.GetVTKName(), Configuration);
 
     //open solution file
     std::ofstream solutionFile(Conf.solutionFileName, std::ios::app);
-    auto solutionenriched = MHMixed->CMesh()->Solution();
+    auto solutionenriched = mhm->CMesh()->Solution();
     solutionenriched.Print("solution enriched", solutionFile,EMathematicaInput);
 
     return 0;
@@ -510,10 +520,13 @@ void AnalyseSteklov(TPZSubCompMesh *sub, int count, int skelmat, TPZVec<std::set
         // pointers to the original materials
     auto matvecorig = matvec;
     auto *mat8 = matvecsub[8];
-    auto *mat9 = matvecsub[9];
+    // In the case of SPE 10, we do not sepparate into permeable or impermeable materials
+    auto *mat9 = matvecsub[9];// should be a null pointer
     std::set<int> bndmat = {skelmat};
     std::map<int64_t,TPZGeoElSide> permeableconnects;
     TPZMixedDarcyFlow *darcy = dynamic_cast<TPZMixedDarcyFlow *> (matvec[1]);
+    PermeabilityFunctionType a = PermeabilityFunction;
+    darcy->SetPermeabilityFunction(a);
     TPZFNMatrix<2,REAL> val1(1,1,1.);
     TPZManVector<REAL> val2(1,0.);
     TPZGeoMesh *gmesh = father->Reference();
@@ -895,4 +908,114 @@ std::map<int,std::pair<TPZGeoElSide,TPZGeoElSide>> IdentifyIntersections(TPZComp
     
 
     return intersectGeoElSide;
+}
+
+
+TPZGeoMesh *CreateSPE10GeoMesh() {
+    std::cout << "Creating SPE10 initial grid...\n";
+
+    const TPZManVector<REAL, 3> x0 = {0, 0, 0};
+    const TPZManVector<REAL, 3> x1 = {nx, ny, 0.};
+    const TPZManVector<int, 3> ndiv = {n_subdomainsx, n_subdomainsy, 0};
+
+    TPZGenGrid2D gen(ndiv, x0, x1);
+
+    gen.SetRefpatternElements(true);
+    auto gmesh = new TPZGeoMesh;
+    gen.Read(gmesh);
+
+    gen.SetBC(gmesh, 4, -1);
+    gen.SetBC(gmesh, 5, -2);
+    gen.SetBC(gmesh, 6, -3);
+    gen.SetBC(gmesh, 7, -4);
+
+    std::cout << "SPE10 initial grid created. NElem: " << gmesh->NElements() << "\n";
+
+    return gmesh;
+}
+
+void ReadSPE10CellPermeabilities(TPZVec<REAL> *perm_vec, const int layer) {
+
+    std::cout << "Reading permeability data...\n";
+
+    std::ifstream perm_file("../../../Projects/SPE10/InputData/spe_perm.dat", std::ios::in);
+    if (!perm_file) {
+        std::cerr << "Unable to open input file\n";
+        DebugStop();
+    }
+
+    int cell_id = 0;
+    const int n_cells = perm_vec->size();
+    const int start_line = 1 + n_cells * (layer - 1) / 6;
+
+    int line_num = 0;
+    int line_num2 = 0;
+    while (perm_file) {
+        line_num++;
+        line_num2++;
+        std::string line;
+        std::getline(perm_file, line, '\n');
+
+        if (line_num < start_line) continue;
+
+        std::stringstream stream(line);
+        for (int i = 0; i < 6; i++) {
+            stream >> perm_vec->operator[](cell_id);
+            cell_id++;
+        }
+        if (cell_id == n_cells) break;
+    }
+    std::cout << "Finished reading permeability data from input file!\n";
+}
+
+void InsertMaterials(TPZCompMesh *cmesh) {
+
+    typedef TPZMixedDarcyFlow TPZMixedPoisson;
+    auto *mix = new TPZMixedPoisson(1, cmesh->Dimension());
+    PermeabilityFunctionType a = PermeabilityFunction;
+    mix->SetPermeabilityFunction(a);
+
+    TPZFNMatrix<1, REAL> val1(1, 1, 0.);
+    TPZManVector<REAL> val2(1, 0.);
+    constexpr int dirichlet_bc = 0;
+
+    // Pressure at reservoir boundary
+    val2[0] = 1;
+    TPZBndCond *pressure_left = mix->CreateBC(mix, -4, dirichlet_bc, val1, val2);
+
+    val2[0] = 0;
+    TPZBndCond *pressure_right = mix->CreateBC(mix, -2, dirichlet_bc, val1, val2);
+
+    //Zero flux
+    val2.Fill(0);
+    TPZBndCond *pressure_bottom = mix->CreateBC(mix, -1, 1, val1, val2);
+
+    TPZBndCond *pressure_top = mix->CreateBC(mix, -3, 1, val1, val2);
+
+    cmesh->InsertMaterialObject(mix);
+    cmesh->InsertMaterialObject(pressure_left);
+    cmesh->InsertMaterialObject(pressure_right);
+    cmesh->InsertMaterialObject(pressure_bottom);
+    cmesh->InsertMaterialObject(pressure_top);
+}
+
+STATE PermeabilityFunction(const TPZVec<REAL> &x) {
+
+    STATE perm;
+    for (int i = 0; i < 2; i++) {
+        perm = interpolator(x[0], x[1]);
+        if (perm <= 1) {
+            perm = 1;
+        } else {
+            perm += 1;
+        }
+    }
+    // std::cout << "[" << x[0] << ", " << x[1] << "]\n";
+    // std::cout << " perm = " << perm << std::endl;
+    return perm;
+    //std::cout << "[" << x[0] << ", " << x[1] << "]\n";
+    //std::cout << "[" << res_mat(0, 0) << " " << res_mat(0, 1) << "\n";
+    //std::cout        << res_mat(1, 0) << " " << res_mat(1, 1) << "\n";
+    //std::cout        << res_mat(2, 0) << " " << res_mat(2, 1) << "\n";
+    //std::cout        << res_mat(3, 0) << " " << res_mat(3, 1) << "]\n\n";
 }

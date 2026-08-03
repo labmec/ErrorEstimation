@@ -506,7 +506,7 @@ void SolveProblem(TPZAutoPointer<TPZCompMesh> cmesh, const TPZVec<TPZAutoPointer
     }
     {
         scalnames.Push("Pressure");
-        //  scalnames.Push("Permeability");
+        scalnames.Push("Permeability");
         vecnames.Push("Flux");
         //   vecnames.Push("Derivative");
     }

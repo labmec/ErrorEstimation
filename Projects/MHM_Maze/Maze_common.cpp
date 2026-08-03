@@ -151,7 +151,7 @@ TPZGeoMesh *GeoMeshFromPng(string name, double &l, double &h){
     Mat image = imread(name,IMREAD_GRAYSCALE);
 #endif
 
-    int k=0;
+    int k=1;
     int px=image.size[0];
     int py=image.size[1];
     l=px;
@@ -391,7 +391,7 @@ void InsertMaterialObjects(TPZMHMixedMeshControl &control)
     TPZBndCond * bcIn = mat->CreateBC(mat, -5, typePressure, val1, val2Pressure);
 
     MixedFluxPressureCmesh->InsertMaterialObject(bcIn);
-    val2Pressure[0] = -100.;
+    val2Pressure[0] = 0.;
     TPZBndCond * bcOut = mat->CreateBC(mat, -6, typePressure, val1, val2Pressure);
 
     MixedFluxPressureCmesh->InsertMaterialObject(bcOut);
