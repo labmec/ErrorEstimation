@@ -76,6 +76,7 @@ struct ProblemConfig
     /// exact solution
     TPZAutoPointer<TLaplaceExample1> exact;
     TPZAutoPointer<TElasticity2DAnalytic> exactElast;
+    TPZAutoPointer<TElasticity3DAnalytic> exactElast3D;
     
     /// set of elements to be divided after each adaptivity step
     std::list<std::set<int64_t> > fElIndexDivide;
