@@ -43,6 +43,8 @@ public:
     
      void DisplacementReconstruction();
     
+    REAL CheckOrthogonality();
+    
     
     REAL fEffIndex = -1.;
 
@@ -75,10 +77,13 @@ public:
         EEnergyIeff = 11,
 
         ELocalIndicator = 12,
+       
+
+        EPatchMarker = 14,
 
         NElementSolutionCols
     };
-    
+    void StorePatchMarker(int64_t el);
 
 private:
 
@@ -145,10 +150,14 @@ private:
     TPZCompMesh *CreateDisplacementMesh();
     TPZCompMesh *CreateStressMesh();
     
-//    TPZMultiphysicsCompMesh *PostProcMesh(){
-//        
-//        return &fPostProcMesh;
-//    }
+    void ComputePatchElements(
+        int64_t el,
+        std::set<int64_t> &patchElements);
+    
+    void MarkPatch(
+        int64_t el,
+        TPZFMatrix<REAL> &patchMarker);
+   
 
    
 };

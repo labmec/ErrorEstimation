@@ -1094,27 +1094,74 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     //postProcessMesh->ElementSolution().Print("ElSolutionForAdaptivity",std::cout);
 
     // Iterates through element errors to get the maximum value
+    
+    // Maximum of the estimator
     STATE maxError = 0.;
+
+    // Maximum of the exact element error
+    STATE maxExactError = 0.;
+    REAL threshold = 0.;
+    REAL exactThreshold = 0.;
+    
+
+    // First loop: compute the global maxima
     for (int64_t iel = 0; iel < nelem; iel++) {
+
         TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
         if (!cel) continue;
         if (cel->Dimension() != postProcessMesh->Dimension()) continue;
-        STATE elementError = elsol(iel, fluxErrorEstimateCol);
 
+        STATE elementError = elsol(iel, fluxErrorEstimateCol);
+    
+        
+        
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) continue;
+
+        int64_t geoIndex = gel->Index();
+
+        
 
         if (elementError > maxError) {
             maxError = elementError;
         }
+
+    
     }
 
-    //std::cout << "max error " << maxError << "\n";
+    // Thresholds must be computed only after the global maxima are known
+     threshold =
+        std::max(0.8 * maxError, REAL(1.e-10));
 
-  //   The elements which error are larger than 20% of the maximum error are
-   //  marked to be refined
-    REAL threshold = std::max(0.8 * maxError,REAL(1.e-10));
+//     exactThreshold =
+//        std::max(0.8 * maxExactError, REAL(1.e-10));
+
+//    std::cout << "\n================================\n";
+//    std::cout << "threshold eta   = " << threshold << "\n";
+//    std::cout << "threshold exact = " << exactThreshold << "\n";
+//    std::cout << "================================\n";
     
 
-    std::cout << "Threshold: " << threshold << "\n";
+    for (int64_t iel = 0; iel < nelem; iel++) {
+
+        TPZCompEl* cel = postProcessMesh->ElementVec()[iel];
+        if (!cel) continue;
+        if (cel->Dimension() != postProcessMesh->Dimension()) continue;
+
+        STATE elementError = elsol(iel, fluxErrorEstimateCol);
+        STATE exactError   = elsol(iel, exact_error);
+        
+
+        bool markedEstimator = elementError > threshold;
+ 
+    }
+
+
+    
+    
+    
+
+
     std::map<int64_t,unsigned int> current_level;
     std::map<int64_t,unsigned int> new_level;
     //std::map<int64_t,unsigned int> current_level;
@@ -1130,6 +1177,9 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
         TPZGeoEl* gel = cel->Reference();
         if (!gel) continue;
         int64_t el_id = gel->Id();
+        
+        
+        
         TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
         if (!gelToRefine){
             //std::cout << "Element ID " << el_id << " not found in gmeshToRefine.\n";
@@ -1181,7 +1231,15 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                     auto el_id = gel->Id();
                     //std::cout << "  Neighbor: " << neighbour_id << std::endl;
                     //std::cout << "   Levels: "<< new_level[neighbour_id] << "  " << new_level[el_id] << std::endl;
+                    std::set<int64_t> regularizationElements;
                     if (new_level[neighbour_id] > new_level[el_id]+1) {
+                        regularizationElements.insert(el_id);
+//                        std::cout << "COMPATIBILITY REFINEMENT: "
+//                                  << "GeoEl " << el_id
+//                                  << " level = " << new_level[el_id]
+//                                  << "  because neighbor GeoEl " << neighbour_id
+//                                  << " level = " << new_level[neighbour_id]
+//                                  << std::endl;
                         //std::cout << "   !!! Will refine this element !!!" << std::endl;
                         if (new_level[el_id] != current_level[el_id]) {
                             // This element has a neighbor that is more than one refinement level apart from it,
@@ -1189,15 +1247,28 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
                             // This should not happen, because we should not have two neighboring elements that are more than one refinement level apart, but we check it just in case.
                             DebugStop();
                         }
+               //         std::cout << "\n===== REGULARIZATION ELEMENTS =====\n";
+
+//                        for (auto el_id : regularizationElements) {
+//                            std::cout << "GeoEl " << el_id << std::endl;
+//                        }
+
+              //          std::cout << "===================================\n";
+             
+                        
                         //gelsToRefine[el_id] = true;
                         elementsToRefine.push_back(el_id);
                         ++(new_level[el_id]);
                         checkEnabled = true;
+                        
                     }
                 }
             }
         }
     } while (checkEnabled);
+    
+    
+    
     
 
     std::sort(elErrors.begin(), elErrors.end(), std::greater<double>());
@@ -1234,47 +1305,6 @@ void Tools::hAdaptivity(TPZCompMesh* postProcessMesh, TPZGeoMesh* gmeshToRefine,
     }
     
 
-
-
-//    int64_t nel= gelsToRefine.size();
-//    for (int64_t el_id = 0; el_id < nelem_gmeshToRefine; el_id++) {
-//
-//        if (gelsToRefine[el_id]){
-//            TPZVec<TPZGeoEl*> sons;
-//            TPZGeoEl* gelToRefine = gmeshToRefine->FindElement(el_id);
-//            if (gelToRefine && !gelToRefine->HasSubElement()) {
-//                std::cout<<" Element finally refined "<<el_id <<"\n";
-//                gelToRefine->Divide(sons);
-//
-//#ifdef LOG4CXX2
-//                int nsides = gelToRefine->NSides();
-//                TPZVec<REAL> loccenter(gelToRefine->Dimension());
-//                TPZVec<REAL> center(3);
-//                gelToRefine->CenterPoint(nsides - 1, loccenter);
-//
-//                gelToRefine->X(loccenter, center);
-//                static LoggerPtr logger(Logger::getLogger("HDivErrorEstimator"));
-//                if (logger->isDebugEnabled()) {
-//                    std::stringstream sout;
-//                    sout << "\nCenter coord: = " << center[0] << " " << center[1] << "\n";
-//                    sout << "Error = " << elementError << "\n\n";
-//                    LOGPZ_DEBUG(logger, sout.str())
-//                }
-//#endif
-//            }
-//        } else {
-//
-//            continue;
-//           // std::cout << "como refinar em p? " << "\n";
-//            //            TPZInterpolationSpace *sp = dynamic_cast<TPZInterpolationSpace *>(cel);
-//            //            if(!sp) continue;
-//            //            int level = sp->Reference()->Level();
-//            //            int ordem = config.porder + (config.adaptivityStep -1 ) + (level);
-//            //            std::cout<<"level "<< level<<" ordem "<<ordem<<std::endl;
-//            //            sp->PRefine(ordem);
-//
-//        }
-//    }
 
     DivideLowerDimensionalElements(gmeshToRefine);
 
@@ -1646,7 +1676,7 @@ void Tools::PrintElasticityErrors(std::ofstream& out, ProblemConfig& config, con
         ss << "|u_ex-u_rec| = " << error_vec[1]<< "\n";
         ss << "|u_ex-u_femH1| = " << error_vec[7] << "\n";
         ss << "|sigma_ex-sigma_fem| = " << error_vec[2] << "\n";
-        ss<< "|sigma_ex - Aeps(u_h1)|_{C}= "<< error_vec[9] << "\n";
+        ss<< "(grad u-gradu u_ex, sigma_ex - sigma_rec)_{C}= "<< error_vec[9] << "\n";
         
        
         

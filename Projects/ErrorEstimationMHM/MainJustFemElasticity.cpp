@@ -101,6 +101,9 @@ template<class tshape>
 void RunLambdaTest(ProblemConfig &pConfig);
 
 template<class tshape>
+void RunHPCubeProblemHDiv(ProblemConfig &pConfig);
+
+template<class tshape>
 void SolveFEMProblemNew(const int &xdiv, const int &pOrder, HDivFamily &hdivfamily,ProblemConfig &config);
 
 
@@ -114,80 +117,18 @@ int main() {
     pConfig.exactElast = new TElasticity2DAnalytic;
     RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
     // RunSmoothProblemTrapMesh<pzshape::TPZShapeQuad>(pConfig);
-   //  RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
-   // RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
+    // RunLShapeProblem<pzshape::TPZShapeQuad>(pConfig);
+ //   RunLambdaTest<pzshape::TPZShapeQuad>(pConfig);
+  //  RunHPCubeProblemHDiv<pztopology::TPZCube>(pConfig);
    
     return 0;
 }
 
-
-int main2() {
-    
-
-    ProblemConfig pConfig;
-    pConfig.geometry = ProblemConfig::EGeometry::EQuad;
-    pConfig.exactElast = new TElasticity2DAnalytic;
-    //pConfig.exactElast.operator*().fProblemType = TElasticity2DAnalytic::EDispy;
-    switch (pConfig.geometry){
-        case ProblemConfig::EGeometry::ECrack:
-            pConfig.problemname = "ECrack";
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ECrack;
-            pConfig.coefgE = 100.;
-            pConfig.coefgPoisson = 0.3;
-            break;
-        case ProblemConfig::EGeometry::ELShape:
-            pConfig.problemname = "ELShape";
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::ELShape;
-            pConfig.mu = 1.;
-            pConfig.lambda = 5.0;
-            pConfig.dir_name = "LShapeAdapt";
-            //pConfig.dir_name = "LShape-Uniform";
-            break;
-        case ProblemConfig::EGeometry::EQuad:
-        case ProblemConfig::EGeometry::ETrap:
-        default:
-            pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
-            pConfig.lambda= 123.;//1000.;//123.;//100;//10000.;//10000.;
-            pConfig.mu= 79.3;//1.;//
-            //pConfig.problemname="EHarmonic-ETrap";
-            pConfig.dir_name = "ArticleEx01";
-            //pConfig.dir_name = "CompareErrors";
-            //pConfig.dir_name = "QuadMeshRef-Trap";
-            break;
-    }
-    
-    const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 4; // Polynomial degree
-    //pConfig.porder = pOrder;
-    pConfig.ndivisions = xdiv;
-    pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
-   
-   
-    // Family of HDiv approximation spaces.
-    // The possible choices are HDivFamily::EHDivStandard, HDivFamily::EHDivConstant and HDivFamily::EHDivKernel
-    HDivFamily hdivfam = HDivFamily::EHDivStandard;
-    
-    //Creates the geometric mesh for the given topology and solve the FEM problem.
-   // TPZVec<int64_t> values = {1,10,100,1000,10000};
-    
-   // for (int64_t ilambda=0; ilambda< values.size(); ilambda++) {
-        
-     //   pConfig.lambda = values[ilambda];
-//    for (int64_t iorder=1; iorder< pOrder;iorder++) {
-//        pConfig.porder = iorder;
-//    
-//        
-//        SolveFEMProblem<pzshape::TPZShapeQuad>(xdiv,pConfig.porder,hdivfam, pConfig);
-//    }
-
-  //  }
-    
- //RunSmoothProblemSquareMesh<pzshape::TPZShapeQuad>(pConfig);
-   
-    return 0;
+template<class tshape>void RunHPCubeProblemHDiv(ProblemConfig &pConfig) {
+    return;
 }
+
+
 template<class tshape>
 void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     
@@ -196,16 +137,16 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="EHomoDir";
-    pConfig.dir_name = "SmoothLocalProb";
-   // pConfig.dir_name = "SymmetricTest";
+    pConfig.dir_name = "SmoothLocalProb-n-2";
+    //pConfig.dir_name = "AdapRefTest";
     
     const int xdiv = 2; //Number of elements in each direction
 
-    const int pOrder = 1;
+    const int pOrder = 2;
 
     pConfig.ndivisions = xdiv;
-    pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = true;
+    pConfig.hdivmais = 2;// internal order
+    pConfig.isAdaptivity = false;
     pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
@@ -214,7 +155,7 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {1,1};
    
     
-    TPZVec<int> divs = {8,16,32,64};//{16};
+    TPZVec<int> divs = {4,8,16,32};//,64};//{16};
     
     for (int64_t iorder=pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
@@ -241,18 +182,18 @@ template<class tshape>
 void RunLambdaTest(ProblemConfig &pConfig){
     
     pConfig.geometry = ProblemConfig::EGeometry::EQuad;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;//EHarmonic;
     pConfig.mu= 1;
-    pConfig.problemname="EHarmonic-EQuad";
-    pConfig.dir_name = "SmoothLambdaTest";
+    pConfig.problemname="EHomoDir-EQuad";
+    pConfig.dir_name = "SmoothLambdaAdapt-k-1-n-2";
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 4;
+    const int pOrder = 1;
 
     pConfig.ndivisions = xdiv;
-    pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    pConfig.hdivmais = 2;// internal order
+    pConfig.isAdaptivity = true;
+    pConfig.adaptivityStep = 10;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 0;
@@ -260,15 +201,15 @@ void RunLambdaTest(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {4,4};
    
     
-    TPZVec<int> divs = {4,8,16,32,64,128,256,512};
+    TPZVec<int> divs = {4};//,8,16,32};//,128,256,512};
     
-     TPZVec<int64_t> values = {1,10,100,1000,10000};
+    TPZVec<int64_t> values = {10000};//{1,10,100,1000,10000};
      
 for (int64_t ilambda=0; ilambda< values.size(); ilambda++) {
          
          pConfig.lambda = values[ilambda];
     
-    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+    for (int64_t iorder= pOrder; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
         
         for (int idiv = 0; idiv < divs.size(); idiv++){
@@ -294,19 +235,19 @@ template<class tshape>
 void RunSmoothProblemTrapMesh(ProblemConfig &pConfig){
     
     pConfig.geometry = ProblemConfig::EGeometry::ETrap;
-    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHarmonic;
+    pConfig.exactElast->fProblemType = TElasticity2DAnalytic::EHomoDir;//EHarmonic;
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="EHarmonic-ETrap";
-    pConfig.dir_name = "SmoothProb-Trap";
+    pConfig.dir_name = "SmoothProb-Trap-n-1";
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 2;
+    const int pOrder = 1;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
     pConfig.isAdaptivity = false;
-    pConfig.adaptivityStep = 2;//numero de steps no refinamento
+    pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
     REAL distortion = 1./3;
@@ -314,9 +255,9 @@ void RunSmoothProblemTrapMesh(ProblemConfig &pConfig){
     TPZVec<int> nDivs = {4,4};
    
     
-    TPZVec<int> divs = {16};//4,8,16,32};//4,8,16,32,64,128,256,512};
+    TPZVec<int> divs = {4,8,16,32};//,64};//4,8,16,32,64,128,256,512};
     
-    for (int64_t iorder=1; iorder< pOrder;iorder++) {
+    for (int64_t iorder=1; iorder< pOrder+1;iorder++) {
         pConfig.porder = iorder;
         
         for (int idiv = 0; idiv < divs.size(); idiv++){
@@ -347,12 +288,12 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     
     
     const int xdiv = 10; //Number of elements in each direction
-    const int pOrder = 2;
+    const int pOrder = 1;
 
     pConfig.ndivisions = xdiv;
     pConfig.hdivmais = 1;// internal order
-    pConfig.isAdaptivity = true;
-    pConfig.adaptivityStep = 10;//numero de steps no refinamento
+    pConfig.isAdaptivity = false;
+    pConfig.adaptivityStep = 1;//numero de steps no refinamento
     HDivFamily hdivfam = HDivFamily::EHDivStandard;
     TPZGeoMesh *gmesh;
 
@@ -360,15 +301,15 @@ void RunLShapeProblem(ProblemConfig &pConfig){
     TPZVec<int> divs;
     TPZVec<int> nDivs = {4,4};
     if (pConfig.isAdaptivity) {
-         divs = {1};
-        pConfig.dir_name = "LShapeProblem-Adapt";
+         divs = {2};
+        pConfig.dir_name = "LShapeProblem-Adapt-n-1";
     }
     else{
         divs = {1,2,3,4,5,6};
-        pConfig.dir_name = "LShapeProblem-Uni";
+        pConfig.dir_name = "LShapeProblem-Uni-n-1";
     }
 
-    for (int64_t iorder = 2; iorder <= pOrder; iorder++) {
+    for (int64_t iorder = pOrder; iorder < pOrder+1; iorder++) {
         pConfig.porder = iorder;
 
         for (int idiv = 0; idiv < divs.size(); idiv++) {
@@ -731,6 +672,8 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     
     ErrorEstimator.PrimalReconstruction();
     
+   
+    
     TPZMultiphysicsCompMesh *PostProcMesh =ErrorEstimator.TPZHDivErrorEstimator<TPZMixedElasticityND>::PostProcMesh();
     
     TPZCompMesh *H1Mesh= PostProcMesh->MeshVector()[5];
@@ -777,7 +720,14 @@ void EstimateErrorElasticity(ProblemConfig &config, TPZMultiphysicsCompMesh *ori
     std::stringstream outVTK;
     outVTK << config.dir_name << "/" << config.problemname << "-" << config.ndivisions << "-k-" << config.porder<<"-lambda-"<<config.lambda
            << "-step "<<step << "-Errors.vtk";
+    
+    
+
+    
+    
+    
     ErrorEstimator.ComputeErrors(errors, elementerrors, outVTK.str());
+    
 
     #ifdef ERRORESTIMATION_DEBUG
     {

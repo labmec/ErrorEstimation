@@ -16,6 +16,7 @@
 #include "Projection/TPZL2Projection.h"
 //#include "Projection/TPZL2ProjectionCS.h"
 #include "Elasticity/TPZElasticity2D.h"
+#include "TPZHDivErrorEstimateElasticityMaterial.h"
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("ElasticityErrorEstimator"));
@@ -170,6 +171,11 @@ void TPZElasticityErrorEstimator::DisplacementReconstruction(){
     if (fPostProcesswithHDiv) {
         PlotInterfaceFluxes("ReconstructedInterfaceFluxes", true);
     }
+    
+    
+    
+    
+    
 }
 //Mesh to compare H1 with the recontructed displacement
 TPZCompMesh *TPZElasticityErrorEstimator::CreateH1Mesh() {
@@ -1940,7 +1946,7 @@ void TPZElasticityErrorEstimator::PostProcessing(TPZAnalysis &an, const std::str
             scalnames.Push("AssymError");
             vecnames.Push("StressExact");
            // vecnames.Push("EpsExact");
-           // scalnames.Push( "EnergyH1Error");
+           // scalnames.Push( "PatchMarker");
         }
         vecnames.Push("DisplacementFem");
         vecnames.Push("DisplacementReconstructed");
@@ -2039,9 +2045,9 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     int order = cmesh->GetDefaultOrder();
     
     
-     int kExtraCols = 3;
+     int kExtraCols = 4;
     
-    elsol.Resize(nrows, ncols + kExtraCols);// elsol(.,ncols+1)=Disp_Ieff, elsol(.,ncols+2)= energy_Ieff, elsol(.,ncols+3)=eta_indicator
+    elsol.Resize(nrows, ncols + kExtraCols);// elsol(.,ncols+1)=Disp_Ieff, elsol(.,ncols+2)= energy_Ieff, elsol(.,ncols+3)=eta_indicator,elsol(.,ncols+4)=pacth
     
     
     REAL tol = 1.e-10;
@@ -2109,6 +2115,10 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         
         oscillatory *= oscConst2;
         
+        if (std::abs(oscillatory)<tol) {
+            oscillatory=0.;
+        }
+        
         if (std::abs(dispExact) < tol ||
             std::abs(dispEstimated) < tol)
         {
@@ -2139,10 +2149,10 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         }
         else
         {
-            elsol(el, EEnergyIeff) = localIndicator/(energyExact);
+            elsol(el, EEnergyIeff) = sqrt(localIndicator)/(energyExact);
         }
         
-        elsol(el, ELocalIndicator) = localIndicator;
+        elsol(el, ELocalIndicator) = sqrt(localIndicator);
         
         globalResidual += oscillatory*oscillatory;
         
@@ -2159,26 +2169,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
        
         fEstimatedError = globalIndex;
         REAL NormExact= sqrt(globalExact);
-    
-//    std::cout << "sqrt(globalEstim) = "
-//
-//              << sqrt(globalEstim) << std::endl;
-//
-//    std::cout << "sqrt(ASymmIndicator) = "
-//
-//              << sqrt(ASymmIndicator) << std::endl;
-//
-//    std::cout << "sqrt(globalResidual) = "
-//
-//              << sqrt(globalResidual) << std::endl;
-//
-//    std::cout << "globalIndex = "
-//
-//              << globalIndex << std::endl;
-//
-//    std::cout << "NormExact = "
-//
-//              << NormExact << std::endl;
+
     
     
         
@@ -2193,16 +2184,16 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
     {
         std::string fileName2 = "AllIndicators.txt";
         std::string filePath2 = fConfig.dir_name + "/" + fileName2;
-            
+        
         std::ofstream outFile2(filePath2, std::ios::app);
         outFile2 <<fConfig.problemname<<" --"<<
         "kOrder --"<<fConfig.porder <<"--"<<
-        " step --"<<fConfig.adaptivityStep <<"--"<<
+        //" step --"<<fConfig.adaptivityStep <<"--"<<
         "lambda= "<<fConfig.lambda <<"--"<<
         "Neq --"<<cmesh->NEquations()<<"--"<<
         "Assym Term "<<sqrt(ASymmIndicator)<< "--"<<
         "NonConformTerm|sigmafem-Ae(u_rec)| "<<sqrt(globalEstim)<<"--"<<
-        "sqrt(Assym + NonConformTerm) "<<sqrt(ASymmIndicator+globalEstim)<<"--"<<
+      //  "sqrt(Assym + NonConformTerm) "<<sqrt(ASymmIndicator+globalEstim)<<"--"<<
         "GlobalIndex --" <<fEstimatedError<<"--"<<
         "oscTerm --"<<sqrt(globalResidual)<<"--"<<
         "GlobalExact -- "<<NormExact<<"\n";
@@ -2211,7 +2202,7 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         
     }
         
-        
+    REAL orthoCheck = CheckOrthogonality();
         
         std::string fileName = "GlobalIeff.txt";
         std::string filePath = fConfig.dir_name + "/" + fileName;
@@ -2219,10 +2210,284 @@ void TPZElasticityErrorEstimator::ComputeEffectivityIndices(){
         
         std::ofstream outFile(filePath, std::ios::app);
         
-        outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" step "<< fConfig.refStepCounter<< "/"<< fConfig.adaptivityStep <<" lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalIndex= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"\n";
+        outFile  << fConfig.problemname<<" k= "<<fConfig.porder <<" step "<< fConfig.refStepCounter<< "/"<< fConfig.adaptivityStep <<" lambda= "<<fConfig.lambda <<" Neq= "<<cmesh->NEquations()<< " GlobalIeff = "<<globalIeff <<" GlobalIndex= "<<fEstimatedError<<" AntiSymmetric= "<<sqrt(ASymmIndicator)<< " GlobalResidual= "<<sqrt(globalResidual)<<" Global Exact= "<<NormExact<<"Orthogonality check = "
+    << orthoCheck <<"\n";
         outFile.close();
         
+  
+
+    std::cout << "Orthogonality check = "
+              << orthoCheck << std::endl;
+    
+    TPZGeoMesh *gmesh = fPostProcMesh.Reference();
+
+
+//    std::cout << "\n=== ACTIVE GEO ELEMENTS ===\n";
+//
+//    for (int64_t iel = 0; iel < gmesh->NElements(); iel++) {
+//
+//        TPZGeoEl *gel = gmesh->Element(iel);
+//
+//        if (!gel) continue;
+//
+//        if (gel->Dimension() != dim) continue;
+//
+//        if (gel->HasSubElement()) continue;
+//
+//        std::cout << "GeoEl = " << iel << std::endl;
+//
+//    }
+//    
+//    StorePatchMarker(50);
+    
     
     
 }
 
+void TPZElasticityErrorEstimator::ComputePatchElements(
+    int64_t gelIndex,
+    std::set<int64_t> &patchElements)
+{
+    std::cout << "ComputePatchElements: el = "
+              << gelIndex << std::endl;
+  
+    
+    patchElements.clear();
+
+    TPZCompMesh *cmesh = &fPostProcMesh;
+    TPZGeoMesh *gmesh = cmesh->Reference();
+
+    const int dim = cmesh->Dimension();
+
+    TPZGeoEl *gel = gmesh->Element(gelIndex);
+
+    if (!gel) {
+        std::cout << "GeoEl " << gelIndex
+                  << " is NULL\n";
+        return;
+    }
+
+    std::cout << "\nPatch centered at GeoEl = "
+              << gelIndex << std::endl;
+
+    std::cout << "Dimension = "
+              << gel->Dimension() << std::endl;
+
+    std::cout << "HasSubElement = "
+              << gel->HasSubElement() << std::endl;
+
+    if (gel->Dimension() != dim) {
+        std::cout << "Not a volumetric element\n";
+        return;
+    }
+
+    if (gel->HasSubElement()) {
+        std::cout << "Not an active geometric element\n";
+        return;
+    }
+
+    // daqui para baixo continua a construção
+    // de cornerNodesK...
+
+    // K deve ser um elemento volumétrico ativo
+    if (gel->Dimension() != dim) return;
+    if (gel->HasSubElement()) return;
+
+    // ---------------------------------------------------------
+    // Vértices de K
+    // ---------------------------------------------------------
+    std::set<int64_t> cornerNodesK;
+
+    const int ncornerK = gel->NCornerNodes();
+
+    for (int in = 0; in < ncornerK; in++) {
+        cornerNodesK.insert(gel->NodeIndex(in));
+    }
+
+    // ---------------------------------------------------------
+    // Procura todos os elementos que compartilham
+    // pelo menos um vértice com K
+    // ---------------------------------------------------------
+    const int64_t nel = cmesh->NElements();
+
+    for (int64_t jel = 0; jel < nel; jel++) {
+
+        TPZCompEl *celNeigh = cmesh->Element(jel);
+        if (!celNeigh) continue;
+
+        TPZGeoEl *gelNeigh = celNeigh->Reference();
+        if (!gelNeigh) continue;
+
+        // somente elementos volumétricos ativos
+        if (gelNeigh->Dimension() != dim) continue;
+        if (gelNeigh->HasSubElement()) continue;
+
+        const int ncornerNeigh =
+            gelNeigh->NCornerNodes();
+
+        bool sharesVertex = false;
+
+        for (int jn = 0; jn < ncornerNeigh; jn++) {
+
+            const int64_t nodeindex =
+                gelNeigh->NodeIndex(jn);
+
+            if (cornerNodesK.find(nodeindex)
+                != cornerNodesK.end()) {
+
+                sharesVertex = true;
+                break;
+            }
+        }
+
+        if (sharesVertex) {
+            patchElements.insert(jel);
+        }
+    }
+    
+  
+    
+}
+void TPZElasticityErrorEstimator::StorePatchMarker(int64_t el)
+{
+    std::cout << "StorePatchMarker: el = "
+              << el << std::endl;
+    
+    TPZCompMesh *cmesh = &fPostProcMesh;
+
+    TPZFMatrix<STATE> &elsol =
+        cmesh->ElementSolution();
+
+    const int64_t nrows = elsol.Rows();
+    const int64_t ncols = elsol.Cols();
+
+    // cria uma nova coluna para o PatchMarker
+    elsol.Resize(nrows, ncols + 1);
+
+    const int patchMarkerCol = ncols;
+
+    // zera a coluna
+    for (int64_t iel = 0; iel < nrows; iel++) {
+        elsol(iel, patchMarkerCol) = 0.;
+    }
+
+    // calcula o marcador 0/1
+    TPZFMatrix<REAL> patchMarker;
+
+    MarkPatch(el, patchMarker);
+
+    // copia para ElementSolution
+    for (int64_t iel = 0; iel < nrows; iel++) {
+        elsol(iel, patchMarkerCol) =
+            patchMarker(iel, 0);
+    }
+    
+    
+
+    std::cout
+        << "PatchMarker stored in ElementSolution column "
+        << patchMarkerCol
+        << std::endl;
+}
+
+void TPZElasticityErrorEstimator::MarkPatch(
+    int64_t el,
+    TPZFMatrix<REAL> &patchMarker)
+{
+    std::cout << "MarkPatch: el = "
+              << el << std::endl;
+    
+    
+    const int64_t nel = fPostProcMesh.NElements();
+
+    patchMarker.Resize(nel, 1);
+    patchMarker.Zero();
+
+    std::set<int64_t> patchElements;
+
+    ComputePatchElements(el, patchElements);
+
+    for (auto jel : patchElements) {
+        patchMarker(jel, 0) = 1.;
+    }
+    
+    std::cout << "\nPatch elements found = "
+              << patchElements.size() << std::endl;
+
+    for (auto jel : patchElements) {
+        std::cout << "  CompEl = " << jel
+                  << " marker = " << patchMarker(jel,0)
+                  << std::endl;
+    }
+    
+    
+    
+}
+
+
+
+REAL TPZElasticityErrorEstimator::CheckOrthogonality()
+{
+    REAL orthogonality = 0.0;
+    TPZCompMesh *cmesh = &fPostProcMesh;
+
+    const int64_t nel = cmesh->NElements();
+
+    for (int64_t el = 0; el < nel; el++) {
+
+        TPZCompEl *cel = cmesh->Element(el);
+        if (!cel) continue;
+
+        TPZGeoEl *gel = cel->Reference();
+        if (!gel) continue;
+
+        // somente elementos volumetricos
+        if (gel->Dimension() != cmesh->Dimension()) continue;
+
+        TPZMultiphysicsElement *mphys =
+            dynamic_cast<TPZMultiphysicsElement *>(cel);
+        if (!mphys) continue;
+
+        TPZMaterial *mat = mphys->Material();
+        if (!mat) continue;
+
+        TPZHDivErrorEstimateElasticityMaterial *elast =
+            dynamic_cast<TPZHDivErrorEstimateElasticityMaterial *>(mat);
+        if (!elast) continue;
+
+        TPZIntPoints &intrule = mphys->GetIntegrationRule();
+        const int npoints = intrule.NPoints();
+
+        const int64_t nref = mphys->NMeshes();
+
+        TPZManVector<TPZMaterialDataT<STATE>> datavec;
+        datavec.resize(nref);
+        mphys->InitMaterialData(datavec);
+
+        TPZManVector<TPZTransform<>> trvec;
+        mphys->AffineTransform(trvec);
+
+        for (int ip = 0; ip < npoints; ip++) {
+
+            TPZManVector<REAL,3> qsi(cmesh->Dimension(), 0.);
+            REAL weight = 0.;
+
+            intrule.Point(ip, qsi, weight);
+
+            TPZFNMatrix<9, REAL> jac, axes, jacinv;
+            REAL detjac = 0.;
+
+            gel->Jacobian(qsi, jac, axes, detjac, jacinv);
+
+            mphys->ComputeRequiredData(qsi, trvec, datavec);
+
+            const REAL orthoPoint =
+                elast->CheckOrthogonality(datavec);
+
+            orthogonality +=
+                orthoPoint * weight * std::abs(detjac);
+        }
+    }
+
+    return orthogonality;
+}

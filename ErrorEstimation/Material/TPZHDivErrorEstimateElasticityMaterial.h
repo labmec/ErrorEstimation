@@ -33,6 +33,8 @@ public:
         return *this;
     }
 
+    REAL CheckOrthogonality(
+        const TPZVec<TPZMaterialDataT<STATE>> &data);
 
     virtual int NEvalErrors() const override;
 

@@ -130,6 +130,22 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
     TPZCompMeshTools::UnGroupElements(&fPostProcMesh);
 
     if (fExact) ComputeEffectivityIndices();
+    
+    TPZFMatrix<STATE> &elsol = fPostProcMesh.ElementSolution();
+
+    std::cout << "\n===== PATCH MARKER BEFORE VTK =====\n";
+    std::cout << "Rows = " << elsol.Rows()
+              << " Cols = " << elsol.Cols() << "\n";
+
+    for (int64_t i = 0; i < elsol.Rows(); i++) {
+        std::cout << "ElementSolution("
+                  << i << ",14) = "
+                  << elsol(i,14) << "\n";
+    }
+    std::cout << "===================================\n";
+    
+    
+    
 
     if (!vtkPath.empty()) {
         PostProcessing(an, vtkPath);
@@ -151,6 +167,7 @@ void TPZHDivErrorEstimator<MixedMaterial>::ComputeErrors(TPZVec<REAL>&errorVec, 
 
 template <typename MixedMaterial>
 void TPZHDivErrorEstimator<MixedMaterial>::PostProcessing(TPZAnalysis &an, const std::string &out) {
+    
 
     TPZMaterial *mat = fPostProcMesh.FindMaterial(1);
     int varindex = -1;
