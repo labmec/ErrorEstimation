@@ -146,15 +146,16 @@ void RunSmoothProblemSquareMesh(ProblemConfig &pConfig){
     pConfig.lambda= 123.;
     pConfig.mu= 79.3;
     pConfig.problemname="EHomoDir";
-    pConfig.dir_name = "SmoothLocalProb-n-2";
+    pConfig.dir_name = "SmoothLocalProb-n-1-New";
+   // pConfig.dir_name = "SmoothProblem-Orthogonality";
     //pConfig.dir_name = "AdapRefTest";
     
     const int xdiv = 2; //Number of elements in each direction
 
-    const int pOrder = 2;
+    const int pOrder = 3;
 
     pConfig.ndivisions = xdiv;
-    pConfig.hdivmais = 2;// internal order
+    pConfig.hdivmais = 1;// internal order
 
     pConfig.isAdaptivity = false;
 
